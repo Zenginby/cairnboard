@@ -1,0 +1,2 @@
+#!/bin/sh
+sh "$(dirname "$0")/_interim.sh" "commit message" < "$1"

@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+command -v gitleaks >/dev/null 2>&1 || { echo "commit blocked: install gitleaks" >&2; exit 2; }
+gitleaks git --staged --redact --no-banner -v >/dev/null 2>&1 || { echo "commit blocked: gitleaks finding (run: gitleaks git --staged --redact)" >&2; exit 1; }
+for f in $(git diff --cached --name-only --diff-filter=ACMR); do
+  git show ":$f" | sh "$(dirname "$0")/_interim.sh" "$f"
+  echo "$f" | sh "$(dirname "$0")/_interim.sh" "path:$f"
+done

@@ -1,0 +1,23 @@
+{
+  "name": "cairnboard",
+  "version": "0.0.0",
+  "description": "Local project board, notes and journal for developers working with coding agents.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "files": [
+    "src/",
+    "core/",
+    "cli/",
+    "agents/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "hooks:install": "git config core.hooksPath security/hooks"
+  }
+}
