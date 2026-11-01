@@ -1,0 +1,7 @@
+#!/bin/sh
+command -v gitleaks >/dev/null 2>&1 || { echo "blocked: install gitleaks" >&2; exit 2; }
+refs=$(cat)
+for range in $(printf '%s\n' "$refs" | awk '$2 !~ /^0+$/ { if ($4 ~ /^0+$/) print $2; else print $4".."$2 }'); do
+  gitleaks git --redact --no-banner --log-opts="$range" >/dev/null 2>&1 || { echo "blocked: gitleaks finding in outgoing commits" >&2; exit 1; }
+done
+printf '%s\n' "$refs" | exec node --no-warnings "$(git rev-parse --show-toplevel)/security/hook.mjs" push "$1"

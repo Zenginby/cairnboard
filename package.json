@@ -18,6 +18,8 @@
   ],
   "scripts": {
     "test": "node --test \"test/**/*.test.mjs\"",
-    "hooks:install": "git config core.hooksPath security/hooks"
+    "hooks:install": "git config core.hooksPath security/hooks",
+    "dev:doctor": "node security/doctor.mjs",
+    "release:check": "node security/release-check.mjs"
   }
 }

@@ -1,2 +1,2 @@
 #!/bin/sh
-sh "$(dirname "$0")/_interim.sh" "commit message" < "$1"
+exec node --no-warnings "$(git rev-parse --show-toplevel)/security/hook.mjs" commit-msg "$1"
