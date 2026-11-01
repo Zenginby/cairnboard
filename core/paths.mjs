@@ -1,8 +1,8 @@
 import { dirname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
+import { pathKey } from './text.mjs';
 
-const pathKey = (path) => path.normalize('NFC').toLowerCase();
 const unsafe = () => new CairnError('unsafe_path', 'Path is outside the root or contains unsafe components.');
 
 export function samePath(a, b, platform = process.platform) {

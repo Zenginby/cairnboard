@@ -44,3 +44,6 @@ export function normalizeId(input) {
   const s = input.toLowerCase().replace(/o/g, '0').replace(/[il]/g, '1');
   return ID_PATTERN.test(s) ? s : null;
 }
+
+// Slug and path-key helpers live with the other text helpers; re-exported here as the plan's interface names them.
+export { pathKey, slugify, uniqueName } from './text.mjs';
