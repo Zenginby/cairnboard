@@ -113,6 +113,13 @@ test('identifier filter does not hide alternating letter-digit tokens', () => {
   assert.deepEqual(scanText('x7k2m9qz4f-p3w8r1t6y0-a9s2d5f8g1h4', { file: 'x' }).map((f) => f.rule), ['token']); // gitleaks:allow (fake test token) cairn-scan:allow-fixture
 });
 
+test('package registry paths with platform names are not tokens', () => {
+  for (const arch of ['linux-mips64el', 'linux-s390x', 'linux-loong64', 'win32-arm64']) {
+    const line = `"resolved": "https://registry.npmjs.org/@esbuild/${arch}/-/${arch}-0.28.2.tgz",`;
+    assert.deepEqual(scanText(line, { file: 'x' }), [], line);
+  }
+});
+
 test('quoted allowed addresses stay allowed', () => {
   for (const line of ["'noreply@anthropic.com'", '"x@example.com"', '`1+zorblax@users.noreply.github.com`']) {
     assert.deepEqual(scanText(line, { file: 'x' }), [], line);

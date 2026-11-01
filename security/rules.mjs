@@ -22,7 +22,8 @@ export const RULES = {
     return [...paths].some(([, user]) => !placeholderUsers.has(user.toLowerCase()));
   },
   // Long base64/base64url/hex runs. Integrity hashes (sha1-/sha256-/sha384-/sha512-) are skipped per match,
-  // and kebab/snake identifiers made only of plain words and numbers are not tokens.
+  // and kebab/snake identifiers made only of plain words and numbers are not tokens (a word may carry one
+  // short suffix after its digits, as in platform names like mips64el or s390x).
   token(line) {
     // Pinned GitHub Actions (owner/repo@<40-hex commit>) and sha256 checksum lines are public hashes.
     // A leading '+', '-' or ' ' is a diff marker: history scans see these lines inside patches.
@@ -31,7 +32,7 @@ export const RULES = {
       && ![...line.matchAll(/[A-Za-z0-9+/_-]{32,}={0,2}/g)].some(([v]) => !/^[0-9a-f]{64}$/.test(v) && !/^sha(?:1|256|384|512)-/.test(v))) return false;
     const tokens = line.matchAll(/(?:sha(?:1|256|384|512)-)?[A-Za-z0-9+/_-]{32,}={0,2}/g);
     return [...tokens].some(([value]) => !/^sha(?:1|256|384|512)-/.test(value)
-      && !value.split(/[-_/]+/).every((part) => /^(?:[A-Z]?[a-z]+\d*|\d+[a-z]*)$/.test(part)));
+      && !value.split(/[-_/]+/).every((part) => /^(?:[A-Z]?[a-z]+\d*|\d+[a-z]*|[a-z]+\d+[a-z]{1,3})$/.test(part)));
   },
 
 };
