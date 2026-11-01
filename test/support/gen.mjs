@@ -44,6 +44,10 @@ export function genDocument(r) {
     '## Comments',
     'Keep the body.',
   ];
+  if (r() < 0.2) {
+    lines.splice(1, lines.indexOf('---', 1) - 1);
+    if (r() < 0.5) lines.splice(1, 0, '# Keep this header');
+  }
   return (r() < 0.5 ? '\uFEFF' : '') + lines.map((line, i) => {
     if (i === lines.length - 1) return line + (r() < 0.5 ? '' : eol);
     return line + (mixed && i > 0 && r() < 0.3 ? (eol === '\n' ? '\r\n' : '\n') : eol);

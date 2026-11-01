@@ -8,7 +8,7 @@ import { rng, genDocument, genOps } from './support/gen.mjs';
 
 function editRange(text, parsed, key) {
   const yaml = text.slice(parsed.yamlStart, parsed.yamlEnd);
-  const pairs = parseDocument(yaml).contents.items;
+  const pairs = parseDocument(yaml).contents?.items ?? [];
   const index = pairs.findIndex((pair) => pair.key.value === key);
   if (index < 0) return [parsed.yamlEnd, parsed.yamlEnd];
   const pair = pairs[index];

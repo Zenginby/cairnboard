@@ -50,8 +50,8 @@ function inspectFile(text) {
     const errors = doc.errors.filter((error) => !multiple || error.code !== 'MULTIPLE_DOCS');
     if (errors.length) throw new Error(errors.map((error) => error.message).join('\n'));
     const data = doc.toJS();
-    file.data = data !== null && typeof data === 'object' ? data : null;
-    file.editable = isMap(doc.contents) && !doc.contents.flow && !multiple;
+    file.data = doc.contents === null ? {} : data !== null && typeof data === 'object' ? data : null;
+    file.editable = (doc.contents === null || (isMap(doc.contents) && !doc.contents.flow)) && !multiple;
     visit(doc, (_key, node) => {
       if (isAlias(node) || node?.anchor || node?.tag) file.editable = false;
     });
@@ -112,8 +112,8 @@ export function setFields(text, patch) {
     return text.slice(0, file.bodyStart) + `---${file.eol}${added}---${file.eol}` + file.body;
   }
   const yaml = text.slice(file.yamlStart, file.yamlEnd);
-  const pairs = doc.contents.items;
-  const indent = ' '.repeat(doc.contents.srcToken.indent);
+  const pairs = doc.contents?.items ?? [];
+  const indent = ' '.repeat(doc.contents?.srcToken.indent ?? 0);
   const edits = [];
   let added = '';
   for (const [key, value] of entries) {

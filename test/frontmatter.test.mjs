@@ -48,10 +48,35 @@ test('parse reports UTF-16 offsets, body and absent frontmatter', () => {
   assert.equal(parseFile('---\nk: v\n---').body, '');
 });
 
+test('empty frontmatter parses as an editable empty object', () => {
+  const parsed = parseFile('---\n---\nx');
+  assert.deepEqual(parsed.data, {});
+  assert.equal(parsed.editable, true);
+  assert.equal(parsed.error, null);
+  assert.equal(parsed.body, 'x');
+});
+
+test('adds a field to empty LF frontmatter without changing the body', () => {
+  assert.equal(setFields('---\n---\nbody\n', { id: 'c-123456' }),
+    '---\nid: c-123456\n---\nbody\n');
+});
+
+test('adds a field to empty CRLF frontmatter without changing the body', () => {
+  assert.equal(setFields('---\r\n---\r\nbody\r\n', { id: 'c-1' }),
+    '---\r\nid: c-1\r\n---\r\nbody\r\n');
+});
+
+test('adds a field to comment-only frontmatter and preserves the comment', () => {
+  const text = '---\n# not\n---\n';
+  assert.deepEqual(parseFile(text).data, {});
+  assert.equal(parseFile(text).editable, true);
+  assert.equal(setFields(text, { id: 'c-1' }), '---\n# not\nid: c-1\n---\n');
+});
+
 test('valid unsupported YAML is readable but cannot be edited', () => {
   for (const yaml of [
     '{title: A, x: 1}\n', 'title: &t A\nx-ref: *t\n', 'x: !!str 1\n',
-    'x: {nested: &a value}\n', '- a\n', 'scalar\n', '', 'a: 1\n...\nb: 2\n',
+    'x: {nested: &a value}\n', '- a\n', 'scalar\n', 'null\n', 'a: 1\n...\nb: 2\n',
   ]) {
     const text = `---\n${yaml}---\nbody`;
     const parsed = parseFile(text);
