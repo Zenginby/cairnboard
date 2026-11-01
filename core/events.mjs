@@ -76,11 +76,17 @@ export function appendEvent(ctx, input) {
   const rel = `.cairn/events/${parts.year}-${parts.month}.jsonl`;
   return withLock(ctx, '_events', () => {
     fs.mkdirSync(checkedPath(ctx.root, '.cairn/events'), { recursive: true, mode: 0o700 });
-    const previous = records(read(ctx, rel, true)).find((event) => event.tx === tx);
-    // The log is authoritative if a crash leaves the sequence mirror behind.
-    const last = readEvents(ctx).at(-1)?.seq ?? 0;
+    const newest = fs.readdirSync(checkedPath(ctx.root, '.cairn/events'))
+      .filter((name) => /^\d{4}-\d{2}\.jsonl$/u.test(name)).sort().at(-1);
+    const tail = newest ? records(read(ctx, `.cairn/events/${newest}`, true)) : [];
+    const counter = read(ctx, '.cairn/events/seq');
+    const saved = Number(counter);
+    if (!Number.isSafeInteger(saved) || saved < 0) throw invalid();
+    const previous = tail.find((event) => event.tx === tx);
+    // Recover an event persisted before its sequence mirror without reading older months.
+    const last = tail.reduce((seq, event) => Math.max(seq, event.seq), saved);
     if (previous) {
-      if (read(ctx, '.cairn/events/seq') !== `${last}\n`) {
+      if (counter !== `${last}\n`) {
         fs.writeFileAtomic(checkedPath(ctx.root, '.cairn/events/seq'), `${last}\n`);
       }
       return previous.seq;

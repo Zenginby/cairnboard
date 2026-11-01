@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { appendEvent, readEvents } from '../core/events.mjs';
 import { withLock } from '../core/lock.mjs';
@@ -60,6 +60,39 @@ test('sequence numbers are gapless and sinceSeq is an exclusive cursor', (t) => 
   assert.deepEqual(readEvents(ctx, { sinceSeq: 5 }).map(({ seq }) => seq), [6, 7]);
   assert.deepEqual(readEvents(ctx, { sinceSeq: 7 }), []);
   assert.equal(Number(readFileSync(file(ctx, 'seq'), 'utf8')), 7);
+});
+
+test('appending and deduplicating do not read older month files', { skip: process.platform === 'win32' }, (t) => {
+  const ctx = fixture(t);
+  for (const month of ['09', '10', '11']) {
+    appendEvent(ctx, event(ctx, `tx-${month}`, { ts: `2026-${month}-01T12:00:00Z` }));
+  }
+  const older = ['2026-09.jsonl', '2026-10.jsonl'].map((name) => file(ctx, name));
+  try {
+    for (const path of older) chmodSync(path, 0o000);
+    for (const path of older) assert.throws(() => readFileSync(path), { code: 'EACCES' });
+    assert.equal(appendEvent(ctx, event(ctx, 'tx-11')), 3);
+    assert.equal(appendEvent(ctx, event(ctx, 'tx-next')), 4);
+  } finally {
+    for (const path of older) chmodSync(path, 0o600);
+  }
+  assert.deepEqual(readEvents(ctx).map(({ seq }) => seq), [1, 2, 3, 4]);
+});
+
+test('the next sequence uses the greater of the mirror and the newest month tail', (t) => {
+  for (const saved of [0, 6]) {
+    const ctx = fixture(t);
+    appendEvent(ctx, event(ctx));
+    writeFileSync(file(ctx, 'seq'), `${saved}\n`);
+    assert.equal(appendEvent(ctx, event(ctx, 'tx-b')), Math.max(saved, 1) + 1);
+  }
+});
+
+test('deduplication checks the newest month even when the input timestamp is older', (t) => {
+  const ctx = fixture(t);
+  appendEvent(ctx, event(ctx));
+  assert.equal(appendEvent(ctx, event(ctx, 'tx-a', { ts: '2026-10-01T12:00:00Z' })), 1);
+  assert.equal(existsSync(file(ctx, '2026-10.jsonl')), false);
 });
 
 test('content keys are rejected before writing, including nested metadata', (t) => {

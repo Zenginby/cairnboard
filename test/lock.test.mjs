@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { lockName, withLock } from '../core/lock.mjs';
 import { pathKey } from '../core/text.mjs';
@@ -63,6 +63,32 @@ test('a dead local pid is reclaimed by renaming the stale lock', (t) => {
   assert.equal(JSON.parse(readFileSync(join(ctx.root, '.cairn', 'locks', names[0]), 'utf8')).pid, child.pid);
 });
 
+test('a dead reclaim guard and its dead lock are both recovered', (t) => {
+  const ctx = fixture(t);
+  const child = spawnSync(process.execPath, ['-e', ''], { encoding: 'utf8' });
+  assert.equal(child.status, 0);
+  seed(ctx, { pid: child.pid });
+  const guard = join(ctx.root, '.cairn', 'locks', 'd-cards.reclaim');
+  writeFileSync(guard, JSON.stringify(owner(ctx, { pid: child.pid })));
+  assert.equal(withLock(ctx, 'd-cards', () => 42), 42);
+  assert.equal(existsSync(file(ctx)), false);
+  assert.equal(existsSync(guard), false);
+  assert.equal(readdirSync(join(ctx.root, '.cairn', 'locks')).length, 2);
+});
+
+test('remote reclaim guards follow the seven minute tolerance', (t) => {
+  const ctx = fixture(t);
+  seed(ctx, { host: 'zorblax', ts: '2026-11-01T11:52:00Z' });
+  const guard = join(ctx.root, '.cairn', 'locks', 'd-cards.reclaim');
+  for (const ts of ['2026-11-01T11:57:00Z', '2026-11-01T11:53:00Z']) {
+    writeFileSync(guard, JSON.stringify(owner(ctx, { host: 'zorblax', ts })));
+    assert.throws(() => withLock(ctx, 'd-cards', () => assert.fail()), { code: 'locked' });
+  }
+  writeFileSync(guard, JSON.stringify(owner(ctx, { host: 'zorblax', ts: '2026-11-01T11:52:00Z' })));
+  assert.equal(withLock(ctx, 'd-cards', () => 42), 42);
+  assert.equal(existsSync(guard), false);
+});
+
 test('a live local pid stays locked even after an hour', (t) => {
   const ctx = fixture(t);
   seed(ctx, { ts: '2026-11-01T11:00:00Z' });
@@ -100,12 +126,26 @@ test('release preserves a lock replaced with a different instance', (t) => {
   assert.equal(JSON.parse(readFileSync(file(ctx), 'utf8')).instance, 'instance-b');
 });
 
-test('malformed or incomplete locks fail closed', (t) => {
+test('recent malformed or incomplete locks fail closed', (t) => {
   const ctx = fixture(t);
   for (const text of ['', '{', 'null', '{}', JSON.stringify(owner(ctx, { pid: 0, ts: 'invalid' }))]) {
     writeFileSync(file(ctx), text);
+    utimesSync(file(ctx), ctx.clock.now(), ctx.clock.now());
     assert.throws(() => withLock(ctx, 'd-cards', () => assert.fail()), { code: 'locked' });
     assert.equal(readFileSync(file(ctx), 'utf8'), text);
+  }
+});
+
+test('empty and malformed locks become stale only after two minutes', (t) => {
+  const ctx = fixture(t);
+  const now = ctx.clock.now().getTime() / 1000;
+  for (const text of ['', '{']) {
+    writeFileSync(file(ctx), text);
+    utimesSync(file(ctx), now - 120, now - 120);
+    assert.throws(() => withLock(ctx, 'd-cards', () => assert.fail()), { code: 'locked' });
+    utimesSync(file(ctx), now - 180, now - 180);
+    assert.equal(withLock(ctx, 'd-cards', () => 42), 42);
+    assert.equal(existsSync(file(ctx)), false);
   }
 });
 
