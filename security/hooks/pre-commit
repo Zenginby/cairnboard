@@ -2,7 +2,12 @@
 set -e
 command -v gitleaks >/dev/null 2>&1 || { echo "commit blocked: install gitleaks" >&2; exit 2; }
 gitleaks git --staged --redact --no-banner -v >/dev/null 2>&1 || { echo "commit blocked: gitleaks finding (run: gitleaks git --staged --redact)" >&2; exit 1; }
-for f in $(git diff --cached --name-only --diff-filter=ACMR); do
-  git show ":$f" | sh "$(dirname "$0")/_interim.sh" "$f"
-  echo "$f" | sh "$(dirname "$0")/_interim.sh" "path:$f"
-done
+HOOKS="$(dirname "$0")"
+# NUL-separated paths survive spaces, newlines and non-ASCII names; any failed read blocks the commit.
+git -c core.quotePath=false diff --cached --name-only -z --diff-filter=ACMR |
+  xargs -0 -n1 sh -c '
+    tmp=$(mktemp) || exit 2
+    git show ":$1" > "$tmp" || { rm -f "$tmp"; echo "commit blocked: cannot read staged file" >&2; exit 2; }
+    sh "$0/_interim.sh" "$1" < "$tmp"; r=$?; rm -f "$tmp"; [ $r -eq 0 ] || exit 255
+    printf "%s\n" "$1" | sh "$0/_interim.sh" "path" || exit 255
+  ' "$HOOKS" || { echo "commit blocked" >&2; exit 1; }
