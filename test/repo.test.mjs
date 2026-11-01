@@ -4,11 +4,11 @@ import { readFileSync } from 'node:fs';
 
 const oku = (yol) => readFileSync(new URL(`../${yol}`, import.meta.url), 'utf8');
 
-test('package.json is private, ESM, MIT, Node >= 22.13 and has no dependencies', () => {
+test('package.json is private, ESM, MIT, Node >= 22.16 and has no dependencies', () => {
   const p = JSON.parse(oku('package.json'));
   assert.equal(p.private, true);
   assert.equal(p.type, 'module');
-  assert.equal(p.engines.node, '>=22.13');
+  assert.equal(p.engines.node, '>=22.16');
   assert.equal(p.license, 'MIT');
   assert.ok(Array.isArray(p.files));
   assert.equal(Object.keys(p.dependencies ?? {}).length, 0);

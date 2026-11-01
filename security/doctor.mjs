@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { loadDenylist } from './denylist.mjs';
 
-const MIN_NODE = [22, 13];
+const MIN_NODE = [22, 16];
 
 function atLeast(version, [major, minor]) {
   const [a, b] = version.replace(/^v/, '').split('.').map(Number);
@@ -53,7 +53,7 @@ export function doctor({ env = process.env, exec = (cmd, args) => execFileSync(c
   add('gitleaks', run(exec, 'gitleaks', ['version']) !== null, 'Install gitleaks and put it on PATH.');
   const email = run(exec, 'git', ['config', 'user.email']) ?? '';
   add('git-identity', email.endsWith('@users.noreply.github.com'), 'Set a GitHub noreply address: git config --local user.email <id>+<login>@users.noreply.github.com');
-  add('sqlite', sqliteFts5(), 'node:sqlite with FTS5 is required (Node 22.13+).');
+  add('sqlite', sqliteFts5(), 'node:sqlite with FTS5 is required (Node 22.16+).');
   return checks;
 }
 
