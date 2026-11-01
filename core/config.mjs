@@ -1,4 +1,4 @@
-import { relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import * as fs from './fsx.mjs';
 import { checkedPath, openForRead, realRoot } from './paths.mjs';
 import { CairnError } from './errors.mjs';
@@ -61,6 +61,28 @@ export function needsMigration(config) {
   return validate(config).formatVersion < version;
 }
 
+function backupMarkdown(root, backup, rel = '') {
+  const dir = rel ? checkedPath(root, rel) : root;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink() || (!rel && entry.name === '.cairn')) continue;
+    const child = join(rel, entry.name);
+    if (entry.isDirectory()) {
+      backupMarkdown(root, backup, child);
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      const fd = openForRead(root, child);
+      let bytes;
+      try {
+        bytes = fs.readFileSync(fd);
+      } finally {
+        fs.closeSync(fd);
+      }
+      const target = join(backup, child);
+      fs.mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
+      fs.writeFileAtomic(checkedPath(root, relative(root, target)), bytes);
+    }
+  }
+}
+
 export function migrate(root, { migrations, clock }) {
   root = realRoot(root);
   const bytes = readConfig(root);
@@ -82,6 +104,7 @@ export function migrate(root, { migrations, clock }) {
     }
   }
   fs.writeFileAtomic(checkedPath(root, `${relative(root, backup)}/config.json`), bytes);
+  backupMarkdown(root, backup);
   while (config.formatVersion < version) {
     const current = config.formatVersion;
     if (typeof migrations?.[current] !== 'function') throw invalid();

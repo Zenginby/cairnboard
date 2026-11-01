@@ -23,12 +23,21 @@ test('data discovery prefers flag, environment, state, then default', (t) => {
   const state = stateDir({ ...options, env: {} });
   mkdirSync(state, { recursive: true });
   writeFileSync(join(state, 'state.json'), JSON.stringify({ data: join(options.home, 'saved') }));
-  const env = { CAIRN_DATA_DIR: join(options.home, 'env') };
+  const env = { CAIRN_DATA: join(options.home, 'env') };
   assert.deepEqual(findDataDir({ ...options, env, flag: join(options.home, 'flag') }), { path: join(options.home, 'flag'), source: 'flag' });
-  assert.deepEqual(findDataDir({ ...options, env }), { path: env.CAIRN_DATA_DIR, source: 'env' });
+  assert.deepEqual(findDataDir({ ...options, env }), { path: env.CAIRN_DATA, source: 'env' });
   assert.deepEqual(findDataDir({ ...options, env: {} }), { path: join(options.home, 'saved'), source: 'state' });
   rmSync(join(state, 'state.json'));
   assert.deepEqual(findDataDir({ ...options, env: {} }), { path: join(options.home, 'Cairn'), source: 'default' });
+});
+
+test('init and discovery use the same custom XDG state directory', (t) => {
+  const options = fixture(t);
+  const root = join(options.home, 'data');
+  const env = { XDG_STATE_HOME: join(options.home, 'state') };
+  initDataDir(root, { ...options, platform: 'linux', env });
+  assert.deepEqual(findDataDir({ home: options.home, platform: 'linux', env }), { path: root, source: 'state' });
+  assert.deepEqual(JSON.parse(readFileSync(join(env.XDG_STATE_HOME, 'cairnboard', 'state.json'), 'utf8')), { data: root });
 });
 
 test('init creates private metadata, directories and discovery state, and preserves config', (t) => {

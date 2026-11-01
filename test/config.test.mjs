@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultConfig, loadConfig, migrate, needsMigration } from '../core/config.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
@@ -79,6 +79,37 @@ test('failed or missing migrations preserve the original configuration', (t) => 
   for (const migrations of [{}, { 0() { throw new Error('failed'); } }, { 0: () => ({ formatVersion: 1 }) }]) {
     assert.throws(() => migrate(root, { migrations, clock }));
     assert.equal(readFileSync(file, 'utf8'), before);
+  }
+});
+
+test('migration backs up Markdown bytes and paths, excluding metadata and symlinks', (t) => {
+  const root = fixture(t, { ...defaultConfig('en'), formatVersion: 0 });
+  mkdirSync(join(root, 'cards'));
+  mkdirSync(join(root, 'notes', 'nested'), { recursive: true });
+  const card = Buffer.from('# İş\r\n\r\nCard\r\n');
+  const note = Buffer.from('# Note\n\nText\n');
+  writeFileSync(join(root, 'cards', 'a.md'), card);
+  writeFileSync(join(root, 'notes', 'b.md'), note);
+  writeFileSync(join(root, 'notes', 'nested', 'c.md'), note);
+  writeFileSync(join(root, 'root.md'), card);
+  writeFileSync(join(root, 'notes', 'image.png'), 'image');
+  writeFileSync(join(root, '.cairn', 'private.md'), 'metadata');
+  const outside = realpathSync(tempData());
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  writeFileSync(join(outside, 'outside.md'), 'outside');
+  symlinkSync(join(outside, 'outside.md'), join(root, 'notes', 'link.md'));
+  symlinkSync(outside, join(root, 'linked'), 'dir');
+  symlinkSync(root, join(root, 'cycle'), 'dir');
+  const { backup } = migrate(root, {
+    migrations: { 0: (config) => ({ ...config, formatVersion: 1 }) },
+    clock: fixedClock('2026-11-01T10:20:30Z'),
+  });
+  assert.deepEqual(readFileSync(join(backup, 'cards', 'a.md')), card);
+  assert.deepEqual(readFileSync(join(backup, 'notes', 'b.md')), note);
+  assert.deepEqual(readFileSync(join(backup, 'notes', 'nested', 'c.md')), note);
+  assert.deepEqual(readFileSync(join(backup, 'root.md')), card);
+  for (const rel of ['.cairn', 'notes/link.md', 'notes/image.png', 'linked', 'cycle']) {
+    assert.equal(existsSync(join(backup, rel)), false, rel);
   }
 });
 

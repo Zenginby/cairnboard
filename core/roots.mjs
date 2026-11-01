@@ -17,7 +17,7 @@ export function stateDir({ platform = process.platform, env = process.env, home 
 export function findDataDir({ flag, env = process.env, home = homedir(), platform = process.platform } = {}) {
   const paths = platform === 'win32' ? win32 : { resolve, join };
   if (flag) return { path: paths.resolve(flag), source: 'flag' };
-  if (env.CAIRN_DATA_DIR) return { path: paths.resolve(env.CAIRN_DATA_DIR), source: 'env' };
+  if (env.CAIRN_DATA) return { path: paths.resolve(env.CAIRN_DATA), source: 'env' };
   try {
     const saved = JSON.parse(fs.readFileSync(paths.join(stateDir({ platform, env, home }), 'state.json'), 'utf8'));
     if (!saved || typeof saved.data !== 'string' || !saved.data) throw invalid();
@@ -48,7 +48,7 @@ function makeDirectory(path) {
   fs.mkdirSync(path, { recursive: true, mode: 0o700 });
 }
 
-export function initDataDir(path, { language = 'en', home = homedir(), platform = process.platform, clock } = {}) {
+export function initDataDir(path, { language = 'en', home = homedir(), platform = process.platform, env = process.env, clock } = {}) {
   const config = defaultConfig(language);
   if (typeof path !== 'string' || !path || path.includes('\0') || protectedPath(path, home, platform)) throw invalid();
   try {
@@ -71,7 +71,7 @@ export function initDataDir(path, { language = 'en', home = homedir(), platform 
     if (!fs.existsSync(file)) fs.writeFileAtomic(file, JSON.stringify(config, null, 2) + '\n');
     const loaded = loadConfig(root);
     fs.writeFileAtomic(checkedPath(root, '.cairn/.gitignore'), 'index.db*\nhistory/\npending/\ntrash/\nlocks/\nbackup/\n');
-    const state = stateDir({ platform, home });
+    const state = stateDir({ platform, env, home });
     makeDirectory(state);
     fs.writeFileAtomic(checkedPath(realRoot(state), 'state.json'), JSON.stringify({ data: root }));
     return loaded;
