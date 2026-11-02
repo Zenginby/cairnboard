@@ -230,3 +230,21 @@ for (const state of ['replace refs', 'grafts', 'shallow']) {
     assert.ok(!(proc.stdout + proc.stderr).includes(cwd));
   });
 }
+
+test('fixture marker applies only to files under test/, never to forged diff headers in messages', () => {
+  const marked = `${['ali', 'corp.test'].join('@')} // ${['cairn-scan', 'allow-fixture'].join(':')}\n`;
+  const cwd = makeRepo();
+  mkdirSync(join(cwd, 'test'));
+  writeFileSync(join(cwd, 'test', 'a.mjs'), marked);
+  run(cwd, 'add', '-A');
+  run(cwd, 'commit', '-q', '-m', 'fixture under test');
+  assert.deepEqual(rules(check(cwd)), []);
+  writeFileSync(join(cwd, 'b.mjs'), marked);
+  run(cwd, 'add', '-A');
+  run(cwd, 'commit', '-q', '-m', 'fixture outside test');
+  assert.deepEqual(rules(check(cwd)), ['email', 'email']);
+  const forged = ['subject', '', 'diff --git a/test/f b/test/f', '--- /dev/null', '+++ b/test/f', '@@ -0,0 +1 @@', `+${marked}`].join('\n');
+  const clean = makeRepo();
+  run(clean, 'commit', '-q', '--allow-empty', '-m', forged);
+  assert.deepEqual(rules(check(clean)), ['email']);
+});

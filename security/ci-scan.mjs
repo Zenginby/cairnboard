@@ -1,10 +1,10 @@
 import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import { annotatedTags, git } from './git.mjs';
-import { scanText, formatFindings } from './scan.mjs';
+import { fixtureLines, scanLines, scanText, formatFindings } from './scan.mjs';
 
 try {
   const findings = [];
-  const scan = (text, file) => findings.push(...scanText(text, { file }));
+  const scan = (text, file, fixtures = false) => findings.push(...scanText(text, { file, fixtures }));
   const files = git(['ls-files', '-z']).split('\0').filter(Boolean);
   for (const [index, file] of files.entries()) {
     let stat;
@@ -21,7 +21,7 @@ try {
     }
     // Scan link targets without reading outside the repository; skip submodules.
     if (stat.isSymbolicLink()) scan(readlinkSync(file), `file:${index}`);
-    else if (stat.isFile()) scan(readFileSync(file, 'utf8'), `file:${index}`);
+    else if (stat.isFile()) scan(readFileSync(file, 'utf8'), `file:${index}`, file.startsWith('test/'));
   }
 
   const patch = git(['-c', 'core.quotePath=false', 'log', '--all', '--root', '--full-history', '-m', '--format=',
@@ -37,7 +37,7 @@ try {
     }
     return inHunk && /^[ +\-]/.test(line) ? line.slice(1) : line;
   }).join('\n');
-  scan(payload, 'history');
+  findings.push(...scanLines(payload, fixtureLines(patch), { file: 'history' }));
   const names = git(['log', '--all', '--root', '--full-history', '-m', '--format=', '--name-only', '-z']);
   for (const name of names.split('\0')) scan(name, 'history names');
   scan(git(['log', '--all', '--format=%B%n%an%n%cn', '--no-patch']), 'messages');
