@@ -53,11 +53,18 @@ function syncDir(ctx, rel) {
 }
 
 function mkdir(ctx, rel) {
-  let parent = '';
+  let parent = '.';
   for (const part of rel.split(sep)) {
     if (part === '.') continue;
-    parent = join(parent, part);
-    fs.mkdirSync(checkedPath(ctx.root, parent), { recursive: true, mode: 0o700 });
+    const child = parent === '.' ? part : join(parent, part);
+    try {
+      fs.mkdirSync(checkedPath(ctx.root, child), { mode: 0o700 });
+      // A new directory entry is durable only once its parent is synced.
+      syncDir(ctx, parent);
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+    }
+    parent = child;
   }
 }
 
@@ -104,6 +111,39 @@ function retry(action, check) {
   }
 }
 
+const TX = /^t-[0-9a-z]+(?:-\d+)?$/u;
+const isTrashPair = (trash) => trash && typeof trash.payload === 'string' && /^\.cairn\/trash\/[^/\\]+$/u.test(trash.payload)
+  && trash.sidecar === `${trash.payload}.json`;
+
+function targetPath(path) {
+  const rel = typeof path === 'string' ? safeRelative(path) : null;
+  if (!rel || pathKey(rel).split('/')[0] === '.cairn') throw invalid('Invalid transaction target.');
+  return rel;
+}
+
+// Intents and history live in the data folder and are untrusted: every path they name must be the one this module
+// would have derived, so recovery and undo never delete or overwrite anything else.
+function checkIntent(intent) {
+  if (!intent || typeof intent !== 'object' || typeof intent.tx !== 'string' || !TX.test(intent.tx)
+    || !Array.isArray(intent.items) || !intent.items.length) throw invalid('Invalid pending transaction.');
+  for (const [index, item] of intent.items.entries()) {
+    const path = targetPath(item.path);
+    if (item.temp !== undefined && item.temp !== tempPath(path, intent.tx)) throw invalid('Invalid pending transaction.');
+    if (item.trash !== undefined) {
+      const trashTx = intent.items.length === 1 ? intent.tx : `${intent.tx}-${index}`;
+      if (item.trashTx !== undefined && item.trashTx !== trashTx) throw invalid('Invalid pending transaction.');
+      if (!isTrashPair(item.trash) || item.trash.payload !== `.cairn/trash/${trashTx}-${basename(path)}`) {
+        throw invalid('Invalid pending transaction.');
+      }
+    }
+  }
+  if (intent.undo !== undefined && !TX.test(intent.undo?.historyTx ?? '')) throw invalid('Invalid pending transaction.');
+  if (intent.cleanup !== undefined && (!Array.isArray(intent.cleanup) || !intent.cleanup.every(isTrashPair))) {
+    throw invalid('Invalid pending transaction.');
+  }
+  return intent;
+}
+
 function eventFor(intent, external = false) {
   return { ...intent.extra, tx: external ? `${intent.tx}-external` : intent.tx, op: external ? 'external.change' : intent.op,
     target: intent.target, rev: intent.after, targets: intent.items.map(({ path, target, after }) => ({ path, target, rev: after })),
@@ -145,11 +185,12 @@ function historyItem(ctx, intent, index) {
 
 function finishHistory(ctx, intent) {
   if (intent.undo || readChecked(ctx.root, historyPath(intent.tx)) !== null) return;
+  // Without every pre-image the transaction still completes; it just cannot be undone.
+  const items = intent.items.map((_, index) => historyItem(ctx, intent, index));
+  if (items.some((item) => !item)) return;
   if (intent.items.length === 1) {
     fs.rename(checkedPath(ctx.root, pendingHistory(intent, 0)), checkedPath(ctx.root, historyPath(intent.tx)));
   } else {
-    const items = intent.items.map((_, index) => historyItem(ctx, intent, index));
-    if (items.some((item) => !item)) throw invalid('Recovery preimage is missing.');
     save(ctx, historyPath(intent.tx), { tx: intent.tx, op: intent.op, ...items[0], items });
   }
   syncDir(ctx, '.cairn/history');
@@ -157,6 +198,8 @@ function finishHistory(ctx, intent) {
 
 function pruneHistory(ctx) {
   const names = new Set(fs.readdirSync(checkedPath(ctx.root, '.cairn/history')));
+  // An intent still pending (another process crashed after its event) needs its history to complete.
+  for (const name of fs.readdirSync(checkedPath(ctx.root, '.cairn/pending'))) names.delete(name);
   const committed = readEvents(ctx).map(({ tx }) => tx).filter((tx) => names.has(`${tx}.json`));
   for (const tx of committed.slice(0, -50)) remove(ctx, historyPath(tx));
 }
@@ -199,9 +242,13 @@ function undoRecord(ctx, options) {
   if (typeof tx !== 'string' || /[/\\]/u.test(tx)) throw invalid('Invalid undo transaction.');
   const record = json(ctx, historyPath(tx));
   if (!record || readEvents(ctx).at(-1)?.tx !== tx) throw new CairnError('nothing_to_undo', 'There is no operation to undo.');
+  if (record.tx !== tx || !TX.test(tx)) throw invalid('Invalid history record.');
   const items = (record.items ?? [record]).map((item, index, all) => {
+    const payload = `.cairn/trash/${record.tx}${all.length === 1 ? '' : `-${index}`}-${basename(targetPath(item.path))}`;
+    if (item.trash !== undefined && (!isTrashPair(item.trash) || item.trash.payload !== payload)) {
+      throw invalid('Invalid history record.');
+    }
     if (item.trash || item.before === null || item.after !== null) return item;
-    const payload = `.cairn/trash/${record.tx}${all.length === 1 ? '' : `-${index}`}-${basename(item.path)}`;
     return { ...item, trash: { payload, sidecar: `${payload}.json` } };
   });
   return { ...record, items };
@@ -365,11 +412,22 @@ export function recover(ctx) {
     throw error;
   }
   for (const name of names) {
-    const intent = json(ctx, `.cairn/pending/${name}`);
-    if (!intent) continue;
-    intent.items ??= [{ path: intent.path, target: intent.target, before: intent.before, after: intent.after,
-      ...(intent.after !== null ? { temp: tempPath(intent.path, intent.tx) } : {}),
-      ...(intent.trash ? { trash: intent.trash, trashTx: intent.tx } : {}) }];
+    let intent;
+    try {
+      intent = json(ctx, `.cairn/pending/${name}`);
+      if (!intent) continue;
+      intent.items ??= [{ path: intent.path, target: intent.target, before: intent.before, after: intent.after,
+        ...(intent.after !== null ? { temp: tempPath(targetPath(intent.path), intent.tx) } : {}),
+        ...(intent.trash ? { trash: intent.trash, trashTx: intent.tx } : {}) }];
+      checkIntent(intent);
+      if (name !== `${intent.tx}.json`) throw invalid('Invalid pending transaction.');
+    } catch (error) {
+      if (!(error instanceof CairnError) && !(error instanceof SyntaxError)) throw error;
+      // Left in place for a person to inspect; it never blocks other recoveries or writes.
+      ctx.warnings?.push('invalid_pending');
+      result.skipped++;
+      continue;
+    }
     try {
       locks(ctx, intent.items, () => {
         if (readChecked(ctx.root, pendingPath(intent.tx)) === null) return;
@@ -378,10 +436,14 @@ export function recover(ctx) {
           && (!item.trash || rev(readChecked(ctx.root, item.trash.payload)) === item.before));
         const hasPreimages = intent.items.every((_, index) => historyItem(ctx, intent, index) !== null);
         const hasEvent = readEvents(ctx).some(({ tx }) => tx === intent.tx);
-        if (after && intent.phase !== 'rollback' && (hasPreimages || hasEvent)) {
+        // A durable event means the transaction committed: later changes by others are not ours to roll back.
+        if (hasEvent || (after && intent.phase !== 'rollback' && hasPreimages)) {
           const seq = complete(ctx, intent);
           ctx.afterCommit?.(resultFor(intent, false, seq));
-          result.completed++;
+          // Committed, but a target has changed since: keep that change and say so in the log.
+          const changed = intent.items.some((item, index) => current[index] !== item.after);
+          if (changed) recordEvent(ctx, intent, true);
+          result[changed ? 'external' : 'completed']++;
         } else {
           const external = intent.external || intent.items.some((item, index) => current[index] !== item.before && current[index] !== item.after);
           rollback(ctx, intent, external);
