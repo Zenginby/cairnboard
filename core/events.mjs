@@ -10,6 +10,12 @@ const maxRecord = 16 * 1024;
 const tailSize = 64 * 1024;
 const invalid = () => new CairnError('validation', 'Invalid event log.');
 
+function monthOf(ts) {
+  if (!Number.isFinite(Date.parse(ts))) return null;
+  const parts = Object.fromEntries(monthFormat.formatToParts(Date.parse(ts)).map(({ type, value }) => [type, value]));
+  return `${parts.year}-${parts.month}`;
+}
+
 function validMonth(month) {
   if (typeof month !== 'string' || !/^\d{4}-\d{2}$/u.test(month)) return false;
   const [year, m] = month.split('-').map(Number);
@@ -100,7 +106,7 @@ function tail(ctx, month) {
 // `<seq> <YYYY-MM>`: every event up to seq is durable and only that month may hold a newer one.
 // The older bare `<seq>` form leaves the month to the newest file.
 function parseMirror(text) {
-  if (!text) return { seq: 0, month: null };
+  if (text === null) return { seq: 0, month: null };
   const match = /^(\d+)(?: (\d{4}-\d{2}))?\n?$/u.exec(text);
   if (!match || !Number.isSafeInteger(Number(match[1]))) throw invalid();
   if (match[2] !== undefined && !validMonth(match[2])) throw invalid();
@@ -134,8 +140,7 @@ export function appendEvent(ctx, input) {
   }));
   const line = (seq) => JSON.stringify({ v: 1, seq, ...data }) + '\n';
   if (Buffer.byteLength(line(Number.MAX_SAFE_INTEGER)) > maxRecord) throw new TypeError('Event exceeds 16 KB.');
-  const parts = Object.fromEntries(monthFormat.formatToParts(Date.parse(ts)).map(({ type, value }) => [type, value]));
-  const month = `${parts.year}-${parts.month}`;
+  const month = monthOf(ts);
   if (!validMonth(month)) throw new TypeError('Invalid event.');
   return withLock(ctx, '_events', () => {
     const dir = checkedPath(ctx.root, '.cairn/events');
@@ -143,11 +148,16 @@ export function appendEvent(ctx, input) {
     const counter = readChecked(ctx.root, '.cairn/events/seq', 'utf8');
     const names = fs.readdirSync(dir).filter(isMonthFile).sort();
     const newest = names.at(-1)?.slice(0, 7) ?? null;
-    // An unflushed mirror can come back zero-filled after a power loss; every month is read once to rebuild it.
-    // Any other malformed mirror is still refused.
-    const saved = counter?.includes('\0')
-      ? { seq: readEvents(ctx).reduce((seq, event) => Math.max(seq, event.seq), 0), month: null }
-      : parseMirror(counter);
+    let saved;
+    try {
+      saved = parseMirror(counter);
+    } catch {
+      // An unflushed mirror can come back empty, zero-filled or cut short after a power loss; it is only a hint, so
+      // every month is read once to rebuild it, keeping the month of the newest event for deduplication.
+      const top = readEvents(ctx).at(-1);
+      const month = top ? monthOf(top.ts) : null;
+      saved = { seq: top?.seq ?? 0, month: validMonth(month) ? month : null };
+    }
     const recentMonths = new Set([saved.month ?? newest, newest].filter(Boolean));
     const recent = [...recentMonths].flatMap((name) => tail(ctx, name));
     // Recover an event persisted before its sequence mirror without reading older months.
