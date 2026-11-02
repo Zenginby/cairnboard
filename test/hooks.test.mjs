@@ -159,6 +159,20 @@ test('push accepts an allowed tagger and scans the tag message', (t) => {
   }
 });
 
+test('push peels nested annotated tags', (t) => {
+  const s = sandbox(t);
+  s.git('config', 'user.email', 'dev@corp.test'); // cairn-scan:allow-fixture
+  assert.equal(s.git('tag', '-a', 'inner', '-m', 'inner').status, 0);
+  s.git('config', 'user.email', 't@example.com');
+  assert.equal(s.git('tag', '-a', 'outer', '-m', 'outer', 'inner').status, 0);
+  const sha = s.git('rev-parse', 'outer').stdout.trim();
+  const input = `refs/tags/outer ${sha} refs/tags/outer ${'0'.repeat(40)}\n`;
+  const result = hook(s, 'push', { input });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /identity/);
+  assert.doesNotMatch(result.stdout + result.stderr, /corp\.test/);
+});
+
 test('push finds deleted Unicode file names in history', (t) => {
   const s = sandbox(t);
   writeFileSync(join(s.repo, 'zörblax.md'), 'clean\n');

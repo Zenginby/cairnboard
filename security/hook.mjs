@@ -2,7 +2,7 @@
 // Usage: node security/hook.mjs staged | commit-msg <file> | push   (push reads git's stdin ref lines)
 import { readFileSync } from 'node:fs';
 import { loadDenylist } from './denylist.mjs';
-import { git, gitBuffer } from './git.mjs';
+import { annotatedTags, git, gitBuffer } from './git.mjs';
 import { scanText, formatFindings } from './scan.mjs';
 
 const ZERO = /^0+$/;
@@ -44,7 +44,7 @@ function staged(ctx) {
 function outgoing(ctx, refLines, remote) {
   const findings = [];
   for (const [index, line] of refLines.split('\n').filter(Boolean).entries()) {
-    const [localRef, localSha, remoteRef, remoteSha] = line.split(' ');
+    const [, localSha, remoteRef, remoteSha] = line.split(' ');
     if (ZERO.test(localSha)) continue; // branch deletion
     const file = `push ref #${index + 1}`;
     const range = ZERO.test(remoteSha) ? [localSha, '--not', `--remotes=${remote}`] : [`${remoteSha}..${localSha}`];
@@ -53,11 +53,9 @@ function outgoing(ctx, refLines, remote) {
     findings.push(...scanText(remoteRef, { ...ctx, file }));
     const names = git(['log', '--format=', '--name-only', '-z', '--diff-merges=first-parent', ...range]);
     for (const name of names.split('\0')) findings.push(...scanText(name, { ...ctx, file }));
-    if (git(['cat-file', '-t', localSha]).trim() === 'tag') {
-      const tag = git(['for-each-ref', '--format=%(taggername)%00%(taggeremail:trim)%00%(contents)', localRef]);
-      const [, email] = tag.split('\0');
-      findings.push(...scanText(tag.replaceAll('\0', '\n'), { ...ctx, file }));
-      if (!ctx.allowIdentities.includes(email)) findings.push({ file, line: 2, rule: 'identity' });
+    for (const tag of annotatedTags(localSha)) {
+      findings.push(...scanText(tag.text, { ...ctx, file }));
+      if (!ctx.allowIdentities.includes(tag.email)) findings.push({ file, line: 2, rule: 'identity' });
     }
   }
   return findings;

@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { loadDenylist } from './denylist.mjs';
-import { git, gitBuffer } from './git.mjs';
+import { annotatedTags, git, gitBuffer } from './git.mjs';
 import { formatFindings, scanText } from './scan.mjs';
 
 const allowlistPath = 'security/binary-allowlist.txt';
@@ -78,12 +78,11 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
     for (const [index, ref] of refs.entries()) scan(ref, `ref#${index + 1}`);
     // Annotated tag messages are published with the tag.
     for (const [index, ref] of refs.filter((r) => r.startsWith('refs/tags/')).entries()) {
-      if (git(['cat-file', '-t', ref], { cwd }).trim() !== 'tag') continue;
-      const tag = git(['for-each-ref', '--format=%(taggername)%00%(taggeremail:trim)%00%(contents)', ref], { cwd });
-      const [, email] = tag.split('\0');
       const file = `tag#${index + 1}`;
-      scan(tag.replaceAll('\0', '\n'), file);
-      if (!allowIdentities.includes(email)) findings.push({ file, line: 2, rule: 'identity' });
+      for (const tag of annotatedTags(ref, { cwd })) {
+        scan(tag.text, file);
+        if (!allowIdentities.includes(tag.email)) findings.push({ file, line: 2, rule: 'identity' });
+      }
     }
     for (const ref of refs.filter((r) => r.startsWith('refs/notes/'))) {
       for (const entry of lines(git(['notes', `--ref=${ref}`, 'list'], { cwd }))) {

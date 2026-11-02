@@ -1,5 +1,5 @@
 import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
-import { git } from './git.mjs';
+import { annotatedTags, git } from './git.mjs';
 import { scanText, formatFindings } from './scan.mjs';
 
 try {
@@ -42,10 +42,17 @@ try {
   for (const name of names.split('\0')) scan(name, 'history names');
   scan(git(['log', '--all', '--format=%B%n%an%n%cn', '--no-patch']), 'messages');
   scan(git(['for-each-ref', '--format=%(refname)']), 'refs');
+  const tagEmails = [];
+  for (const ref of git(['for-each-ref', '--format=%(refname)', 'refs/tags/']).split('\n').filter(Boolean)) {
+    for (const tag of annotatedTags(ref)) {
+      scan(tag.text, 'tags');
+      tagEmails.push(tag.email ?? '');
+    }
+  }
 
   const identities = git(['log', '--all', '--format=%ae%x00%ce%x00', '--no-patch']);
-  for (const [index, identity] of identities.split('\0').slice(0, -1).entries()) {
-    const email = identity.replace(/^\n/, '');
+  const emails = identities.split('\0').slice(0, -1).map((identity) => identity.replace(/^\n/, ''));
+  for (const [index, email] of [...emails, ...tagEmails].entries()) {
     const value = email.toLowerCase();
     if (!value.endsWith('@users.noreply.github.com') && value !== 'noreply@anthropic.com') {
       findings.push({ file: 'identities', line: index + 1, rule: 'identity' });

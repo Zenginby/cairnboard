@@ -117,6 +117,14 @@ for (const role of ['author', 'committer']) {
   });
 }
 
+test('ci-scan checks annotated tagger identities', (t) => {
+  const repo = repository(t);
+  repo.commit();
+  repo.env.GIT_COMMITTER_EMAIL = corporateEmail;
+  repo.git('tag', '-a', 'v0', '-m', 'release');
+  check(repo.scan(), 1, 'identity', [corporateEmail]);
+});
+
 test('ci-scan rejects empty identities', (t) => {
   const repo = repository(t);
   repo.env.GIT_AUTHOR_EMAIL = '';
