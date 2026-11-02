@@ -184,6 +184,23 @@ test('push scans the tag name embedded in the tag object', (t) => {
   assert.match(result.stderr, /denylist:0/);
 });
 
+test('push keeps object-like message lines and exempts only signature blocks from token rules', (t) => {
+  const s = sandbox(t);
+  const head = s.git('rev-parse', 'HEAD').stdout.trim();
+  const tag = (message) => {
+    const email = s.git('config', 'user.email').stdout.trim();
+    const object = `object ${head}\ntype commit\ntag v9\ntagger t <${email}> 0 +0000\n\n${message}`;
+    const sha = spawnSync('git', ['hash-object', '-t', 'tag', '-w', '--stdin'], { cwd: s.repo, env: s.env, input: object, encoding: 'utf8' }).stdout.trim();
+    return hook(s, 'push', { input: `refs/tags/v9 ${sha} refs/tags/v9 ${'0'.repeat(40)}\n` });
+  };
+  const hex = '1a2b'.repeat(16); // cairn-scan:allow-fixture
+  assert.match(tag(`release\nobject ${hex}\n`).stderr, /token/);
+  const base64 = 'Zx9Q'.repeat(16); // cairn-scan:allow-fixture
+  const signature = `-----BEGIN PGP SIGNATURE-----\n\n${base64}\n=ab12\n-----END PGP SIGNATURE-----\n`;
+  assert.equal(tag(`release\n${signature}`).status, 0);
+  assert.match(tag(`release\n${signature.replace('=ab12', 'zorblax')}`).stderr, /denylist:0/);
+});
+
 test('push finds deleted Unicode file names in history', (t) => {
   const s = sandbox(t);
   writeFileSync(join(s.repo, 'zörblax.md'), 'clean\n');

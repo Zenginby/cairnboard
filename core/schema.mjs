@@ -13,12 +13,21 @@ const noteKinds = ['note', 'concept', 'tool', 'query', 'overview'];
 const researchKinds = ['source', 'review', 'analysis'];
 const entities = ['note', 'research', 'project', 'journal', 'card'];
 
+const forbidden = new Set(['__proto__', 'constructor', 'prototype']);
+
 function relativePath(value) {
   try {
     return safeRelative(value).replace(/\\/gu, '/');
   } catch {
     throw invalid();
   }
+}
+
+// Content may live neither in raw sources nor in dot folders (.cairn, .git, .obsidian).
+function contentPath(schema, value) {
+  const rel = relativePath(value);
+  if (isRawPath(schema, rel) || rel.split('/').some((part) => part.startsWith('.'))) throw invalid();
+  return rel;
 }
 
 export function resolveSchema(config) {
@@ -29,27 +38,31 @@ export function resolveSchema(config) {
   if (schema.schemaVersion !== 1 || !object(schema.roots) || !object(schema.kindFolders)
     || !object(schema.fields) || !object(schema.values) || !object(schema.entryTypes)
     || !Array.isArray(schema.ignore) || !Array.isArray(schema.sourceRoots)) throw invalid();
+  // A physical name may not be another field's canonical or physical name, or both would be written to one key.
   const physical = new Set();
   for (const [field, name] of Object.entries(schema.fields)) {
-    if (!field || typeof name !== 'string' || !name || physical.has(name)) throw invalid();
+    if (!field || forbidden.has(field) || typeof name !== 'string' || !name || forbidden.has(name) || physical.has(name)
+      || (name !== field && Object.hasOwn(schema.fields, name))) throw invalid();
     physical.add(name);
   }
-  for (const aliases of Object.values(schema.values)) {
-    if (!object(aliases) || Object.values(aliases).some((value) => typeof value !== 'string')) throw invalid();
+  for (const [field, aliases] of Object.entries(schema.values)) {
+    if (forbidden.has(field) || !object(aliases) || Object.keys(aliases).some((alias) => forbidden.has(alias))
+      || Object.values(aliases).some((value) => typeof value !== 'string')) throw invalid();
   }
   for (const source of schema.sourceRoots) relativePath(source);
   for (const [entity, root] of Object.entries(schema.roots)) {
     if (!entities.includes(entity) || !object(root) || !paths(root.path).length
       || (root.flat !== undefined && typeof root.flat !== 'boolean')) throw invalid();
-    for (const path of paths(root.path)) {
-      if (isRawPath(schema, relativePath(path))) throw invalid();
-    }
+    for (const path of paths(root.path)) contentPath(schema, path);
   }
   for (const [kind, path] of Object.entries(schema.kindFolders)) {
-    if (!noteKinds.includes(kind) || isRawPath(schema, relativePath(path))) throw invalid();
+    if (!noteKinds.includes(kind)) throw invalid();
+    contentPath(schema, path);
   }
-  if (schema.ignore.some((pattern) => typeof pattern !== 'string' || !pattern)) throw invalid();
-  if (schema.catalog !== null && schema.catalog !== undefined) relativePath(schema.catalog);
+  if (schema.ignore.some((pattern) => typeof pattern !== 'string' || !pattern || pattern.length > 256)) throw invalid();
+  if (schema.catalog !== null && schema.catalog !== undefined
+    && !pathKey(contentPath(schema, schema.catalog)).endsWith('.md')) throw invalid();
+  if (schema.quickNotes !== undefined && schema.quickNotes !== '') contentPath(schema, schema.quickNotes);
   for (const labels of Object.values(schema.entryTypes)) {
     if (!Array.isArray(labels) || labels.some((label) => typeof label !== 'string')) throw invalid();
   }
@@ -65,21 +78,38 @@ export function fingerprint(schema) {
   return createHash('sha256').update(JSON.stringify(canonical(schema))).digest('hex').slice(0, 16);
 }
 
+// '*' matches within one path segment, '**' across segments and '**/' also matches nothing. Dynamic programming keeps
+// matching linear in pattern × path length whatever the pattern (no regex backtracking).
 function matches(rel, pattern) {
-  pattern = pathKey(pattern);
-  let source = '';
+  const tokens = [];
+  pattern = [...pathKey(pattern)];
   for (let index = 0; index < pattern.length; index++) {
-    if (pattern[index] !== '*') {
-      source += pattern[index].replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-    } else if (pattern[index + 1] === '*') {
+    if (pattern[index] !== '*') tokens.push(pattern[index]);
+    else if (pattern[index + 1] !== '*') tokens.push('*');
+    else if (pattern[index + 2] === '/') {
+      tokens.push('**/');
+      index += 2;
+    } else {
+      tokens.push('**');
       index++;
-      if (pattern[index + 1] === '/') {
-        source += '(?:.*/)?';
-        index++;
-      } else source += '.*';
-    } else source += '[^/]*';
+    }
   }
-  return new RegExp(`^${source}$`, 'u').test(rel);
+  // col[i]: tokens[0..i) match the path read so far; reach[i]: they matched some earlier prefix (for '**/').
+  let col = [true];
+  for (const token of tokens) col.push(col.at(-1) && token.startsWith('*'));
+  let reach = [...col];
+  for (const char of rel) {
+    const next = [false];
+    for (const [index, token] of tokens.entries()) {
+      if (token === '**') next.push(next[index] || col[index + 1]);
+      else if (token === '*') next.push(next[index] || (char !== '/' && col[index + 1]));
+      else if (token === '**/') next.push(next[index] || (char === '/' && reach[index]));
+      else next.push(col[index] && token === char);
+    }
+    reach = reach.map((value, index) => value || next[index]);
+    col = next;
+  }
+  return col[tokens.length];
 }
 
 function mappedValue(aliases, value) {
@@ -108,18 +138,24 @@ export function physicalPatch(schema, data, patch) {
       throw new CairnError('validation', 'Frontmatter contains both field names.', { reason: 'alias_conflict', field });
     }
   }
-  return Object.fromEntries(Object.entries(patch).map(([field, value]) => {
+  const result = {};
+  for (const [field, value] of Object.entries(patch)) {
     const physical = own(schema.fields, field) ?? field;
     const name = Object.hasOwn(data, field) ? field : physical;
     const aliases = own(schema.values, field) ?? {};
     const reverse = Object.fromEntries(Object.keys(aliases).sort().reverse().map((alias) => [aliases[alias], alias]));
-    return [name, name === physical ? mappedValue(reverse, value) : value];
-  }));
+    if (Object.hasOwn(result, name)) {
+      throw new CairnError('validation', 'Two fields map to one frontmatter key.', { reason: 'alias_conflict', field });
+    }
+    result[name] = name === physical ? mappedValue(reverse, value) : value;
+  }
+  return result;
 }
 
 export function classify(schema, rel, data) {
   rel = pathKey(relativePath(rel));
-  if ((schema.catalog && rel === pathKey(relativePath(schema.catalog)))
+  // Raw sources are never entities (wiki spec §2), whatever their frontmatter says.
+  if ((schema.catalog && rel === pathKey(relativePath(schema.catalog))) || isRawPath(schema, rel)
     || schema.ignore.some((pattern) => matches(rel, pattern))) return { ignored: true };
   if (!rel.endsWith('.md')) return { unclassified: true };
   const fields = readCanonical(schema, data);
@@ -128,7 +164,7 @@ export function classify(schema, rel, data) {
     if (noteKinds.includes(kind)) return { entity: 'note', kind };
     if (researchKinds.includes(kind)) return { entity: 'research', kind };
     if (['project', 'journal'].includes(kind)) return { entity: kind, kind };
-    return { entity: 'note', kind: 'note', unknownKind: String(kind) };
+    return { entity: 'note', kind: 'note', unknownKind: typeof kind === 'string' ? kind : JSON.stringify(kind) ?? 'undefined' };
   }
   let best = null;
   for (const [entity, root] of Object.entries(schema.roots)) {
@@ -154,9 +190,9 @@ export function destination(schema, entity, kind, slug) {
   const folder = entity === 'note' ? own(schema.kindFolders, kind) : null;
   const root = paths(schema.roots[entity]?.path)[0];
   if (!root) throw invalid();
-  // A note root that holds the wiki's kind folders is the wiki itself; quick notes then sit at the data root.
-  const wikiRoot = Object.values(schema.kindFolders).some((path) => under(pathKey(relativePath(path)), pathKey(relativePath(root))));
-  const base = folder ?? (entity === 'note' && (kind === 'note' || kind == null) && wikiRoot ? '' : root);
+  // Quick notes go where the schema says (`quickNotes`, '' is the data root), else into the first note root.
+  const quick = entity === 'note' && (kind === 'note' || kind == null) && schema.quickNotes !== undefined;
+  const base = folder ?? (quick ? schema.quickNotes : root);
   const rel = relativePath(folder && pathKey(folder).endsWith('.md') ? folder : `${base ? `${base}/` : ''}${slug}.md`);
   if (isRawPath(schema, rel)) throw invalid();
   return rel;

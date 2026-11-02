@@ -81,6 +81,7 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
       const file = `tag#${index + 1}`;
       for (const tag of annotatedTags(ref, { cwd })) {
         scan(tag.text, file);
+        findings.push(...scanText(tag.signature, { file, terms, allowIdentities, patterns: false }));
         if (!allowIdentities.includes(tag.email)) findings.push({ file, line: 2, rule: 'identity' });
       }
     }

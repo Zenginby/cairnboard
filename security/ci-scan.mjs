@@ -46,6 +46,7 @@ try {
   for (const ref of git(['for-each-ref', '--format=%(refname)', 'refs/tags/']).split('\n').filter(Boolean)) {
     for (const tag of annotatedTags(ref)) {
       scan(tag.text, 'tags');
+      findings.push(...scanText(tag.signature, { file: 'tags', patterns: false }));
       tagEmails.push(tag.email ?? '');
     }
   }

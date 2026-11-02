@@ -21,7 +21,14 @@ export function annotatedTags(sha, { cwd } = {}) {
     const header = split < 0 ? raw : raw.slice(0, split);
     const tagger = /^tagger (.*) <([^>]*)> \d+ [+-]\d{4}$/m.exec(header);
     // Everything but the structural object hash is scanned: the embedded tag name, unknown headers and the message.
-    tags.push({ text: raw.split('\n').filter((line) => !/^object [0-9a-f]+$/.test(line)).join('\n'), email: tagger?.[2] });
+    // Signature blocks are base64, so callers check them against the denylist only (no token rule).
+    const signatures = /^-----BEGIN (?:PGP|SSH) SIGNATURE-----\n[\s\S]*?^-----END (?:PGP|SSH) SIGNATURE-----$/gm;
+    const message = split < 0 ? '' : raw.slice(split + 2);
+    tags.push({
+      text: [header.replace(/^object [0-9a-f]+\n/, ''), message.replace(signatures, '')].join('\n'),
+      signature: (message.match(signatures) ?? []).join('\n'),
+      email: tagger?.[2],
+    });
     sha = /^object ([0-9a-f]+)$/m.exec(header)[1];
   }
   return tags;

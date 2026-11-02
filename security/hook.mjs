@@ -54,7 +54,7 @@ function outgoing(ctx, refLines, remote) {
     const names = git(['log', '--format=', '--name-only', '-z', '--diff-merges=first-parent', ...range]);
     for (const name of names.split('\0')) findings.push(...scanText(name, { ...ctx, file }));
     for (const tag of annotatedTags(localSha)) {
-      findings.push(...scanText(tag.text, { ...ctx, file }));
+      findings.push(...scanText(tag.text, { ...ctx, file }), ...scanText(tag.signature, { ...ctx, file, patterns: false }));
       if (!ctx.allowIdentities.includes(tag.email)) findings.push({ file, line: 2, rule: 'identity' });
     }
   }

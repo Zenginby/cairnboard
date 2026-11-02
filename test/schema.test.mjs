@@ -136,11 +136,56 @@ test('raw paths include configured source roots with case and Unicode normalizat
   }
 });
 
-test('quick notes sit at the data root only when the note root holds the kind folders', () => {
+test('quick notes follow quickNotes, else the first note root', () => {
   const custom = structuredClone(PRESETS['tr-wiki']);
-  custom.roots.note.path = 'kasa';
-  custom.kindFolders = { concept: 'kasa/kavramlar' };
+  custom.kindFolders = {};
   assert.equal(destination(resolveSchema({ schema: custom }), 'note', 'note', 'a'), 'a.md');
-  custom.kindFolders = { concept: 'sayfalar/kavramlar' };
-  assert.equal(destination(resolveSchema({ schema: custom }), 'note', 'note', 'a'), 'kasa/a.md');
+  delete custom.quickNotes;
+  assert.equal(destination(resolveSchema({ schema: custom }), 'note', 'note', 'a'), 'wiki/a.md');
+  const moved = structuredClone(PRESETS.default);
+  moved.kindFolders.concept = 'notes/concepts';
+  assert.equal(destination(resolveSchema({ schema: moved }), 'note', 'note', 'a'), 'notes/a.md');
+});
+
+test('schema validation rejects colliding names, forbidden keys, dot folders and unsafe catalogs', () => {
+  const variants = [
+    (s) => { s.fields = { tags: 'kind', kind: 'tur' }; },
+    (s) => { s.fields = { ['__proto__']: 'meta' }; },
+    (s) => { s.values = { kind: JSON.parse('{"__proto__": "x"}') }; },
+    (s) => { s.roots.note.path = '.obsidian/notes'; },
+    (s) => { s.kindFolders.concept = 'raw/concepts'; },
+    (s) => { s.catalog = '.git/config'; },
+    (s) => { s.catalog = 'index.txt'; },
+    (s) => { s.quickNotes = '.cairn'; },
+    (s) => { s.ignore = ['*'.repeat(300)]; },
+  ];
+  for (const [index, change] of variants.entries()) {
+    const schema = structuredClone(PRESETS['tr-wiki']);
+    change(schema);
+    assert.throws(() => resolveSchema({ schema }), { code: 'validation' }, `variant ${index}`);
+  }
+});
+
+test('physical patches never write two fields to one key', () => {
+  const schema = resolveSchema({ schema: PRESETS['tr-wiki'] });
+  assert.throws(() => physicalPatch(schema, {}, { kind: 'concept', tur: 'x' }), { code: 'validation' });
+});
+
+test('raw sources and odd kinds never become entities or crash', () => {
+  const schema = resolveSchema({});
+  assert.deepEqual(classify(schema, 'raw/a.md', { kind: 'concept' }), { ignored: true });
+  assert.equal(classify(schema, 'notes/a.md', { kind: { toString: 1 } }).unknownKind, '{"toString":1}');
+});
+
+test('ignore patterns match globs in linear time', () => {
+  const schema = structuredClone(PRESETS.default);
+  schema.ignore = ['**a**a**a**a**a**a**a**a**a**a**b', 'docs/*.md', 'deep/**/x.md'];
+  const resolved = resolveSchema({ schema });
+  const started = performance.now();
+  assert.equal(classify(resolved, `notes/${'a'.repeat(200)}.md`, null).entity, 'note');
+  assert.ok(performance.now() - started < 500);
+  assert.deepEqual(classify(resolved, 'docs/a.md', null), { ignored: true });
+  assert.notDeepEqual(classify(resolved, 'docs/sub/a.md', null), { ignored: true });
+  assert.deepEqual(classify(resolved, 'deep/x.md', null), { ignored: true });
+  assert.deepEqual(classify(resolved, 'deep/a/b/x.md', null), { ignored: true });
 });

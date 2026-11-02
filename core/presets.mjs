@@ -16,6 +16,7 @@ export const PRESETS = {
     kindFolders: {
       concept: 'wiki/concepts', tool: 'wiki/tools', query: 'wiki/queries', overview: 'wiki/overview.md',
     },
+    quickNotes: 'notes',
     fields: {},
     values: {},
     ignore: [...ignore],
@@ -33,6 +34,7 @@ export const PRESETS = {
     kindFolders: {
       concept: 'wiki/kavramlar', tool: 'wiki/araclar', query: 'wiki/sorgular', overview: 'wiki/genel-bakis.md',
     },
+    quickNotes: '',
     fields: {
       kind: 'tur', tags: 'etiketler', updated: 'guncelleme', sources: 'kaynaklar', raw: 'ham', sourceDate: 'kaynak_tarihi',
     },

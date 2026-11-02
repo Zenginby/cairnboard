@@ -174,3 +174,14 @@ test('pinned action hashes exempt only the hash', () => {
     assert.deepEqual(scanText(line, { file: 'x' }), [{ file: 'x', line: 1, rule: 'token' }]);
   }
 });
+
+test('terms wrapped over several lines or blank lines are found once', () => {
+  const terms = ['zorblax studio labs', 'zorblax studio'];
+  const findings = scanText('Zorblax\nStudio\nLabs\n\nzorblax\n\nStudio\n', { file: 'f', terms });
+  assert.deepEqual(findings.map((f) => `${f.line}:${f.rule}`).sort(), ['1:denylist:0', '1:denylist:1', '5:denylist:1']);
+});
+
+test('pattern rules can be skipped while the denylist still applies', () => {
+  const token = 'A'.repeat(48); // cairn-scan:allow-fixture
+  assert.deepEqual(scanText(`${token}\nzorblax`, { file: 'f', terms: ['zorblax'], patterns: false }).map((f) => f.rule), ['denylist:0']);
+});
