@@ -2,6 +2,25 @@ import { basename } from 'node:path';
 import { parseFile, acceptanceCounts } from './frontmatter.mjs';
 import { classify, readCanonical } from './schema.mjs';
 
+const blank = (char) => char === ' ' || char === '\t';
+
+// `# Title #` as text, or null. Loops instead of a lazy group plus whitespace runs: one hostile line must not
+// cost quadratic time.
+function atxHeading(line) {
+  if (line[0] !== '#' || !blank(line[1])) return null;
+  let start = 1;
+  let end = line.length;
+  while (start < end && blank(line[start])) start++;
+  while (end > start && blank(line[end - 1])) end--;
+  let hashes = end;
+  while (hashes > start && line[hashes - 1] === '#') hashes--;
+  if (hashes < end && hashes > start && blank(line[hashes - 1])) {
+    end = hashes;
+    while (end > start && blank(line[end - 1])) end--;
+  }
+  return start < end ? line.slice(start, end) : null;
+}
+
 export function extract(schema, path, text) {
   const file = parseFile(text);
   const classification = classify(schema, path, file.data);
@@ -19,8 +38,7 @@ export function extract(schema, path, text) {
       fence = marker[1];
       continue;
     }
-    const heading = line.match(/^#[\t ]+(.+?)[\t ]*$/u);
-    if (!title && heading) title = heading[1].replace(/[\t ]+#+$/u, '');
+    if (!title) title = atxHeading(line);
     if (title) break;
   }
   const id = typeof data.id === 'string' ? data.id : null;

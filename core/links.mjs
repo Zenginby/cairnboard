@@ -39,13 +39,37 @@ function withoutCode(text) {
   return result + text.slice(start);
 }
 
+// Targets exclude `[` so an unclosed `[[` stops at the next one; line numbers are counted forward, never by
+// re-reading the text before each match. Both keep a hostile line linear.
 function matches(text, field, line) {
-  return Array.from(text.matchAll(/\[\[([^\]\n]+)\]\]/gu), (match) => {
+  let at = 0;
+  return Array.from(text.matchAll(/\[\[([^[\]\n]+)\]\]/gu), (match) => {
+    for (; at < match.index; at++) if (text[at] === '\n') line++;
     const [target, ...heading] = match[1].split('|')[0].split('#');
     const targetName = target.trim().replace(/\.md$/iu, '').normalize('NFC');
     return targetName ? { field, expr: match[0], targetName, heading: heading.length ? heading.join('#').trim() : null,
-      line: line + text.slice(0, match.index).split('\n').length - 1 } : null;
+      line } : null;
   }).filter(Boolean);
+}
+
+// `## Topic: Title · label` split on a middle dot with whitespace on both sides, without a regex over the runs.
+function sectionParts(text) {
+  const parts = [];
+  let start = 0;
+  for (let at = 1; at < text.length - 1; at++) {
+    if (text[at] === '·' && /\s/u.test(text[at - 1]) && /\s/u.test(text[at + 1])) {
+      parts.push(text.slice(start, at).trim());
+      start = at + 1;
+    }
+  }
+  parts.push(text.slice(start).trim());
+  return parts;
+}
+
+function sectionTitle(content) {
+  if (!content.startsWith('##') || (content[2] !== ' ' && content[2] !== '\t')) return null;
+  const text = content.slice(3).trim();
+  return text || null;
 }
 
 export function parseLinks(text, { frontmatter = null, frontmatterText = null } = {}) {
@@ -89,9 +113,9 @@ export function parseJournal(text, entryTypes) {
   let label = null;
   let current = null;
   for (const { content, line } of visibleLines(text)) {
-    const section = content.match(/^##[\t ]+(.+?)\s*$/u);
+    const section = sectionTitle(content);
     if (section) {
-      const parts = section[1].split(/\s+·\s+/u);
+      const parts = sectionParts(section);
       label = parts.length > 1 ? parts.pop() : null;
       heading = parts.join(' · ').replace(/^[^:]+:\s+/u, '');
       current = null;
@@ -119,7 +143,7 @@ export function parseJournal(text, entryTypes) {
   for (const entry of entries) {
     const visible = withoutCode(entry.text);
     entry.links = matches(visible, null, entry.line).map((link) => link.targetName);
-    entry.processed = ['discovery', 'pitfall', 'lesson'].includes(entry.type) && /→\s*\[\[[^\]\n]+\]\]\s*$/u.test(visible);
+    entry.processed = ['discovery', 'pitfall', 'lesson'].includes(entry.type) && /→\s*\[\[[^[\]\n]+\]\]\s*$/u.test(visible);
   }
   return entries;
 }
