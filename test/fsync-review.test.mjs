@@ -61,3 +61,15 @@ test('a sequence hint torn by a crash is rebuilt from the event log', (t) => {
   assert.equal(appendEvent(ctx, event('2026-11-01T12:00:01Z', 't-b')), 2);
   assert.ok(existsSync(join(ctx.root, '.cairn/events/seq')));
 });
+
+test('any torn sequence hint is rebuilt, keeping the month of the newest event', (t) => {
+  const ctx = fixture(t);
+  appendEvent(ctx, event('2026-11-01T12:00:00Z', 't-a'));
+  assert.equal(appendEvent(ctx, event('2026-10-31T12:00:00Z', 't-b')), 2);
+  for (const torn of ['', '2 20', '2 ', 'x\n']) {
+    writeFileSync(join(ctx.root, '.cairn/events/seq'), torn);
+    // A retried older-month event is found again instead of being appended twice.
+    assert.equal(appendEvent(ctx, event('2026-10-31T12:00:00Z', 't-b')), 2, JSON.stringify(torn));
+  }
+  assert.equal(appendEvent(ctx, event('2026-11-01T12:00:01Z', 't-c')), 3);
+});

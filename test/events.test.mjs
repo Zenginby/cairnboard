@@ -256,10 +256,11 @@ test('month fields enforce YYYY-MM format and reasonable year range (2000-2100)'
     writeFileSync(file(ctx, 'seq'), `1 ${ym}\n`);
     assert.equal(appendEvent(ctx, event(ctx, `tx-${ym}`, { ts: `${ym}-01T12:00:00Z` })), 2);
   }
+  // An invalid month makes the mirror unreadable, so it is rebuilt from the (empty) log.
   for (const ym of ['1999-12', '2101-01', '2026-00', '2026-13', '2026-1', '2026']) {
     const ctx = fixture(t);
     writeFileSync(file(ctx, 'seq'), `1 ${ym}\n`);
-    assert.throws(() => appendEvent(ctx, event(ctx, 'tx-err')), { code: 'validation' });
+    assert.equal(appendEvent(ctx, event(ctx, 'tx-err')), 1);
   }
   const ctx = fixture(t);
   for (const ts of ['1999-12-31T23:59:59Z', '2101-01-01T00:00:00Z']) {
@@ -307,9 +308,10 @@ test('the bare sequence mirror of earlier versions is still read', (t) => {
   assert.equal(appendEvent(ctx, event(ctx)), 1);
   assert.equal(mirror(ctx), '1 2026-11\n');
   assert.equal(appendEvent(ctx, event(ctx, 'tx-b')), 2);
+  // The mirror is a hint: an unreadable one is rebuilt from the log, never trusted or fatal.
   for (const text of ['x\n', '1 2026\n', '-1\n']) {
     writeFileSync(file(ctx, 'seq'), text);
-    assert.throws(() => appendEvent(ctx, event(ctx, 'tx-c')), { code: 'validation' });
+    assert.equal(appendEvent(ctx, event(ctx, 'tx-b')), 2);
   }
 });
 
