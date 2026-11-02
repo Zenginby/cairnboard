@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { basename, dirname, join, sep } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
 import { checkedPath, readChecked, safeRelative } from './paths.mjs';
@@ -48,7 +48,8 @@ function syncDir(ctx, rel) {
 
 function mkdir(ctx, rel) {
   let parent = '.';
-  for (const part of rel.split(sep)) {
+  // Logical paths use `/`; the platform separator is accepted too.
+  for (const part of rel.split(/[\\/]/u)) {
     if (part === '.') continue;
     const child = parent === '.' ? part : join(parent, part);
     try {

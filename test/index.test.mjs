@@ -49,7 +49,8 @@ test('refresh caches metadata, detects ctime edits and removals, and searches Tu
   assert.equal(refresh(ctx).removed, 1);
   assert.deepEqual(findById(ctx, 'n-acme12'), ['notes/a.md']);
   assert.equal(rows(ctx, 'note')[0].body, null);
-  assert.equal(fs.statSync(dirname(ctx.indexPath)).mode & 0o777, 0o700);
+  // Windows has no POSIX permission bits.
+  if (process.platform !== 'win32') assert.equal(fs.statSync(dirname(ctx.indexPath)).mode & 0o777, 0o700);
 });
 
 test('link targets change without rereading source pages, with ambiguity and exact names', (t) => {
@@ -118,7 +119,8 @@ test('busy databases fall back to source files and cache hooks never break write
   refresh(ctx);
   const before = fs.statSync(ctx.indexPath).ino;
   const blocker = new DatabaseSync(ctx.indexPath);
-  t.after(() => blocker.close());
+  // Windows cannot delete an open database, and temp folders are removed by an earlier hook.
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
   blocker.exec('BEGIN IMMEDIATE');
   put(ctx, 'notes/a.md', '# New\nışık');
   const fresh = { ...ctx, warnings: [] };
@@ -130,6 +132,7 @@ test('busy databases fall back to source files and cache hooks never break write
   assert.equal(fs.statSync(ctx.indexPath).ino, before);
   blocker.exec('ROLLBACK');
   assert.equal(refresh(fresh).updated, 1);
+  blocker.close();
 });
 
 test('non-Markdown, symlinks and oversized Markdown are handled conservatively', (t) => {
@@ -178,7 +181,8 @@ test('ephemeral caches stay outside the data root, and names use case and NFC wi
   assert.equal(rows(ctx).length, 2);
   assert.deepEqual(outlinks(ctx, 'notes/a.md').map((link) => link.status), ['resolved', 'unresolved']);
   assert.deepEqual(fs.readdirSync(root), ['notes']);
-  assert.equal(fs.statSync(dirname(ctx.indexPath)).mode & 0o777, 0o700);
+  // Windows has no POSIX permission bits.
+  if (process.platform !== 'win32') assert.equal(fs.statSync(dirname(ctx.indexPath)).mode & 0o777, 0o700);
 });
 
 test('a busy version mismatch and a failed replacement of a corrupt cache preserve the old file', (t) => {
@@ -221,7 +225,8 @@ test('fallback queries retain ids, resolved links, journal filters and schema ki
   refresh(ctx);
   assert.equal(search(ctx, 'foo').length, 1);
   const blocker = new DatabaseSync(ctx.indexPath);
-  t.after(() => blocker.close());
+  // Windows cannot delete an open database, and temp folders are removed by an earlier hook.
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
   blocker.exec('BEGIN IMMEDIATE');
   const fresh = { ...ctx, warnings: [] };
   assert.deepEqual(findById(fresh, 'n-acme12'), ['notes/a.md']);
@@ -231,6 +236,7 @@ test('fallback queries retain ids, resolved links, journal filters and schema ki
   assert.deepEqual(backlinks(fresh, 'wiki/concepts/b.md'), [{ src_path: 'notes/a.md', line: 4, field: null }]);
   assert.equal(journalEntries(fresh, { type: 'discovery', unprocessed: true })[0].text, 'New [[a]]');
   blocker.exec('ROLLBACK');
+  blocker.close();
 });
 
 test('ignored Markdown supplies only target names, including ignored directories', (t) => {
