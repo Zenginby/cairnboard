@@ -1,6 +1,8 @@
 const emailDomains = new Set(['example.com', 'users.noreply.github.com']);
 // Public bot identities that appear in commit trailers.
 const emailAddresses = new Set(['noreply@anthropic.com']);
+// GitHub no-reply identity as it appears in folded (dot-free) form inside the interim hook script.
+const foldedNoreply = /^\d+\+[a-z0-9-]+@users$/i;
 const placeholderUsers = new Set(['user', 'you', 'example']);
 
 export const RULES = {
@@ -12,7 +14,7 @@ export const RULES = {
     // Quotes and other punctuation before the local part are not part of the address.
     return [...addresses].map(([raw]) => raw.replace(/^[^a-z0-9]+/i, ''))
       .filter((address) => /^[^@]+@/.test(address))
-      .some((address) => !emailAddresses.has(address.toLowerCase())
+      .some((address) => !emailAddresses.has(address.toLowerCase()) && !foldedNoreply.test(address)
       && !emailDomains.has(address.split('@')[1].toLowerCase()));
   },
   ipv4(line) {

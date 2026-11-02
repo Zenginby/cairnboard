@@ -16,6 +16,7 @@ const cases = [
   ['private email', 'mail me at a@b.com', ['email']], // cairn-scan:allow-fixture
   ['single-label localhost email', 'a@localhost', ['email']], // cairn-scan:allow-fixture
   ['single-label intranet email', 'a@intranet', ['email']], // cairn-scan:allow-fixture
+  ['folded GitHub no-reply identity', 'ALLOW="111437340+someone@users noreply"', []], // cairn-scan:allow-fixture
   ['single-label email with slash in local part', 'a/b@intranet', ['email']], // cairn-scan:allow-fixture
   ['single-label email in URL credentials', 'https://a@localhost/x', ['email']], // cairn-scan:allow-fixture
   ['scoped package path', 'node_modules/@esbuild/linux-x64', []],
