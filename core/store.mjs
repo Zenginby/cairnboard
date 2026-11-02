@@ -43,13 +43,7 @@ function remove(ctx, rel) {
 }
 
 function syncDir(ctx, rel) {
-  if (process.platform === 'win32') return;
-  const fd = fs.openSync(rel === '.' ? ctx.root : checkedPath(ctx.root, rel), fs.constants.O_RDONLY);
-  try {
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
+  fs.syncDirectory(rel === '.' ? ctx.root : checkedPath(ctx.root, rel));
 }
 
 function mkdir(ctx, rel) {
@@ -217,13 +211,19 @@ function cleanup(ctx, intent, completed) {
     }
     if (intent.undo) remove(ctx, historyPath(intent.undo.historyTx));
   }
-  // Lost history or pending deletions only make recovery repeat this cleanup; a lost trash deletion would bring a
-  // restored item back into the trash list, so that one is flushed.
+  // A lost history deletion only leaves a file for pruning; a lost trash deletion would bring a restored item back
+  // into the trash list, and a returning intent would replay a finished rollback over later changes.
   if (intent.cleanup?.length || intent.items.some((item) => item.trash)) syncDir(ctx, '.cairn/trash');
   remove(ctx, pendingPath(intent.tx));
+  syncDir(ctx, '.cairn/pending');
 }
 
 function complete(ctx, intent, recovering = true) {
+  // A writer that died before its directory flush may have left a rename that a power loss would still undo.
+  if (recovering) {
+    for (const dir of new Set(intent.items.map((item) => dirname(item.path)))) syncDir(ctx, dir);
+    if (intent.items.some((item) => item.trash)) syncDir(ctx, '.cairn/trash');
+  }
   for (const item of intent.items) {
     if (item.trash && readChecked(ctx.root, item.trash.sidecar) === null) {
       save(ctx, item.trash.sidecar, { path: item.path, deletedAt: intent.ts });

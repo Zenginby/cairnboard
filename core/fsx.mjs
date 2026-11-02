@@ -22,7 +22,7 @@ export const openSync = fs.openSync;
 export const realpathSync = fs.realpathSync;
 
 // The rename is durable only once its directory entry is flushed; Windows cannot open directories for this.
-function syncDirectory(dir) {
+export function syncDirectory(dir) {
   if (process.platform === 'win32') return;
   const fd = openSync(dir, fs.constants.O_RDONLY);
   try {
