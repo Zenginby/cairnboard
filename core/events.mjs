@@ -147,9 +147,11 @@ export function appendEvent(ctx, input) {
     const recent = [...recentMonths].flatMap((name) => tail(ctx, name));
     // Recover an event persisted before its sequence mirror without reading older months.
     const last = recent.reduce((seq, event) => Math.max(seq, event.seq), saved.seq);
-    const mirror = (seq, name) => {
+    // The mirror is a hint the tail scan can rebuild, so it is flushed only when it names an older month than the
+    // newest file: that is the one fact recovery could not find again.
+    const mirror = (seq, name, durable = false) => {
       const text = `${seq} ${name}\n`;
-      if (text !== counter) fs.writeFileAtomic(checkedPath(ctx.root, '.cairn/events/seq'), text);
+      if (text !== counter) fs.writeFileAtomic(checkedPath(ctx.root, '.cairn/events/seq'), text, undefined, { durable });
     };
     const previous = recent.find((event) => event.tx === tx);
     if (previous) {
@@ -160,7 +162,8 @@ export function appendEvent(ctx, input) {
     const seq = last + 1;
     if (!Number.isSafeInteger(seq)) throw invalid();
     // An older month is not found by recovery unless the mirror names it before the append.
-    if (newest !== null && newest > month && saved.month !== month) mirror(last, month);
+    const older = newest !== null && newest > month;
+    if (older && saved.month !== month) mirror(last, month, true);
     const fd = openForAppend(ctx.root, `.cairn/events/${month}.jsonl`);
     try {
       fs.writeFileSync(fd, line(seq));
@@ -168,7 +171,7 @@ export function appendEvent(ctx, input) {
     } finally {
       fs.closeSync(fd);
     }
-    mirror(seq, month);
+    mirror(seq, month, older);
     ctx.faults?.('after-event');
     return seq;
   });
