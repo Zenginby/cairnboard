@@ -222,14 +222,65 @@ test('readEvents is read-only and empty roots do not acquire metadata directorie
   assert.deepEqual(readdirSync(file(ctx, '')), []);
 });
 
-test('malformed log records and symlinks fail closed', (t) => {
+test('malformed log records are skipped without data loss while symlinks fail closed', (t) => {
   const ctx = fixture(t);
   writeFileSync(file(ctx, '2026-11.jsonl'), '{broken\n');
-  assert.throws(() => readEvents(ctx), { code: 'validation' });
-  assert.throws(() => appendEvent(ctx, event(ctx)), { code: 'validation' });
-  assert.equal(readFileSync(file(ctx, '2026-11.jsonl'), 'utf8'), '{broken\n');
+  assert.deepEqual(readEvents(ctx), []);
+  assert.equal(appendEvent(ctx, event(ctx)), 1);
+  assert.ok(readFileSync(file(ctx, '2026-11.jsonl'), 'utf8').startsWith('{broken\n'));
+  assert.equal(readEvents(ctx).length, 1);
   symlinkSync(file(ctx, '2026-11.jsonl'), file(ctx, '2026-10.jsonl'));
   assert.throws(() => readEvents(ctx));
+});
+
+test('a partial trailing line without newline is truncated under lock before append', (t) => {
+  const ctx = fixture(t);
+  assert.equal(appendEvent(ctx, event(ctx, 'tx-1')), 1);
+  const fullBytes = readFileSync(file(ctx, '2026-11.jsonl'), 'utf8');
+  writeFileSync(file(ctx, '2026-11.jsonl'), `${fullBytes}{"v":1,"seq":2,"tx":"truncated`);
+  assert.equal(appendEvent(ctx, event(ctx, 'tx-2')), 2);
+  const updated = readFileSync(file(ctx, '2026-11.jsonl'), 'utf8');
+  assert.equal(updated.endsWith('\n'), true);
+  const events = readEvents(ctx);
+  assert.deepEqual(events.map(({ seq, tx }) => [seq, tx]), [[1, 'tx-1'], [2, 'tx-2']]);
+
+  const ctx2 = fixture(t);
+  writeFileSync(file(ctx2, '2026-11.jsonl'), '{"v":1,"seq":1,"cut-off');
+  assert.equal(appendEvent(ctx2, event(ctx2, 'tx-first')), 1);
+  assert.deepEqual(readEvents(ctx2).map(({ seq, tx }) => [seq, tx]), [[1, 'tx-first']]);
+});
+
+test('month fields enforce YYYY-MM format and reasonable year range (2000-2100)', (t) => {
+  for (const ym of ['2000-01', '2100-12']) {
+    const ctx = fixture(t);
+    writeFileSync(file(ctx, 'seq'), `1 ${ym}\n`);
+    assert.equal(appendEvent(ctx, event(ctx, `tx-${ym}`, { ts: `${ym}-01T12:00:00Z` })), 2);
+  }
+  for (const ym of ['1999-12', '2101-01', '2026-00', '2026-13', '2026-1', '2026']) {
+    const ctx = fixture(t);
+    writeFileSync(file(ctx, 'seq'), `1 ${ym}\n`);
+    assert.throws(() => appendEvent(ctx, event(ctx, 'tx-err')), { code: 'validation' });
+  }
+  const ctx = fixture(t);
+  for (const ts of ['1999-12-31T23:59:59Z', '2101-01-01T00:00:00Z']) {
+    assert.throws(() => appendEvent(ctx, event(ctx, 'tx-year', { ts })), TypeError);
+  }
+  writeFileSync(file(ctx, '1999-12.jsonl'), '{"v":1,"seq":99}\n');
+  writeFileSync(file(ctx, '2026-13.jsonl'), '{"v":1,"seq":99}\n');
+  assert.equal(readEvents(ctx).some(({ seq }) => seq === 99), false);
+});
+
+test('corrupted lines in event log do not cause permanent lockout and data is preserved', (t) => {
+  const ctx = fixture(t);
+  assert.equal(appendEvent(ctx, event(ctx, 'tx-1')), 1);
+  const corruptChunk = 'not json\n{"v":2,"seq":2}\n{"v":1,"seq":-1}\n{"v":1}\n';
+  writeFileSync(file(ctx, '2026-11.jsonl'), readFileSync(file(ctx, '2026-11.jsonl'), 'utf8') + corruptChunk);
+  assert.equal(appendEvent(ctx, event(ctx, 'tx-2')), 2);
+  assert.equal(appendEvent(ctx, event(ctx, 'tx-3')), 3);
+  const fileContent = readFileSync(file(ctx, '2026-11.jsonl'), 'utf8');
+  assert.ok(fileContent.includes(corruptChunk));
+  const events = readEvents(ctx);
+  assert.deepEqual(events.map(({ seq, tx }) => [seq, tx]), [[1, 'tx-1'], [2, 'tx-2'], [3, 'tx-3']]);
 });
 
 test('a clock moved back a month keeps sequences unique after a lost mirror write', (t) => {
