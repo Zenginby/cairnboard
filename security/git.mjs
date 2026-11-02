@@ -4,11 +4,11 @@ const maxBuffer = 512 * 1024 * 1024;
 
 // Runs git without a shell; throws on a non-zero exit.
 export function git(args, { cwd, input } = {}) {
-  return execFileSync('git', args, { cwd, input, encoding: 'utf8', maxBuffer, stdio: ['pipe', 'pipe', 'pipe'] });
+  return execFileSync('git', args, { cwd, input, env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }, encoding: 'utf8', maxBuffer, stdio: ['pipe', 'pipe', 'pipe'] });
 }
 
 export function gitBuffer(args, { cwd } = {}) {
-  return execFileSync('git', args, { cwd, maxBuffer, stdio: ['pipe', 'pipe', 'pipe'] });
+  return execFileSync('git', args, { cwd, env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }, maxBuffer, stdio: ['pipe', 'pipe', 'pipe'] });
 }
 
 // Peels a tag chain (a tag may point at another tag) and returns each tag's tagger and message.

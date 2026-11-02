@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { realpathSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadDenylist } from './denylist.mjs';
 import { annotatedTags, git, gitBuffer } from './git.mjs';
@@ -27,6 +28,19 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
       errors.push(`${name}: failed`);
     }
   };
+
+  // History must be complete and must not depend on local rewriting.
+  step('repository state', () => {
+    if (git(['for-each-ref', '--format=%(refname)', 'refs/replace/'], { cwd }).trim()) errors.push('replace refs: present');
+    const grafts = git(['rev-parse', '--git-path', 'info/grafts'], { cwd }).trim();
+    try {
+      lstatSync(resolve(cwd ?? '.', grafts));
+      errors.push('grafts: present');
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    if (git(['rev-parse', '--is-shallow-repository'], { cwd }).trim() === 'true') errors.push('shallow: true');
+  });
 
   // 1. Tracked files: path and contents.
   step('files', () => {

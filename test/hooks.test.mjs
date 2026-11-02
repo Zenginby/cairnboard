@@ -213,3 +213,95 @@ test('push finds deleted Unicode file names in history', (t) => {
   assert.match(result.stderr, /denylist:0/);
   assert.doesNotMatch(result.stdout + result.stderr, /zörblax/);
 });
+
+for (const kind of ['binary', 'textconv']) {
+  test(`push scans raw ${kind} contents`, (t) => {
+    const s = sandbox(t);
+    if (kind === 'textconv') {
+      const converter = join(s.dir, 'converter');
+      writeFileSync(converter, "#!/bin/sh\nprintf 'clean\\n'\n");
+      chmodSync(converter, 0o755);
+      assert.equal(s.git('config', 'diff.mask.textconv', converter).status, 0);
+      writeFileSync(join(s.repo, '.gitattributes'), 'payload.dat diff=mask\n');
+    }
+    writeFileSync(join(s.repo, 'payload.dat'), kind === 'binary' ? Buffer.from('\0zorblax\n') : 'zorblax\n');
+    s.git('add', '-A');
+    assert.equal(s.git('commit', '-q', '--no-verify', '-m', 'payload').status, 0);
+    const result = hook(s, 'push', { input: refInput(s) });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /denylist:0/);
+    assert.doesNotMatch(result.stdout + result.stderr, /zorblax/);
+  });
+}
+
+for (const state of ['advertised', 'unavailable', 'unknown']) {
+  test(`push ignores forged tracking refs when remote is ${state}`, (t) => {
+    const s = sandbox(t);
+    const bare = join(s.dir, 'remote.git');
+    if (state !== 'unavailable') {
+      const cloned = spawnSync('git', ['clone', '-q', '--bare', s.repo, bare], { env: s.env });
+      assert.equal(cloned.status, 0);
+      if (state === 'unknown') {
+        const tree = s.git('rev-parse', 'HEAD^{tree}').stdout.trim();
+        const extra = spawnSync('git', ['--git-dir', bare, '-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit-tree', tree, '-m', 'remote'], { env: s.env, encoding: 'utf8' });
+        assert.equal(extra.status, 0, extra.stderr);
+        assert.equal(spawnSync('git', ['--git-dir', bare, 'update-ref', 'refs/heads/other', extra.stdout.trim()], { env: s.env }).status, 0);
+      }
+    }
+    s.git('remote', 'add', 'origin', bare);
+    assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'zorblax').status, 0);
+    assert.equal(s.git('update-ref', 'refs/remotes/origin/forged', 'HEAD').status, 0);
+    const result = hook(s, 'push', { input: refInput(s) });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /denylist:0/);
+    assert.doesNotMatch(result.stdout + result.stderr, /zorblax|fatal:/);
+  });
+}
+
+test('push excludes history actually advertised by the remote without tracking refs', (t) => {
+  const s = sandbox(t);
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'zorblax').status, 0);
+  const bare = join(s.dir, 'remote.git');
+  assert.equal(spawnSync('git', ['clone', '-q', '--bare', s.repo, bare], { env: s.env }).status, 0);
+  s.git('remote', 'add', 'origin', bare);
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'clean').status, 0);
+  const result = hook(s, 'push', { input: refInput(s) });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+for (const role of ['author', 'committer']) {
+  for (const email of ['other@example.com', '']) {
+    test(`push rejects ${email ? 'unapproved' : 'empty'} ${role} identities throughout the range`, (t) => {
+      const s = sandbox(t);
+      const base = s.git('rev-parse', 'HEAD').stdout.trim();
+      const key = `GIT_${role.toUpperCase()}_EMAIL`;
+      s.env[key] = email;
+      assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'earlier').status, 0);
+      delete s.env[key];
+      assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'latest').status, 0);
+      for (const remoteSha of ['0'.repeat(40), base]) {
+        const input = refInput(s).replace(/0{40}\n$/, `${remoteSha}\n`);
+        const result = hook(s, 'push', { input });
+        assert.equal(result.status, 1);
+        assert.match(result.stderr, /identity/);
+        assert.doesNotMatch(result.stdout + result.stderr, /other@example\.com/); // cairn-scan:allow-fixture
+      }
+    });
+  }
+}
+
+test('push finds historical content hidden by a blob replacement', (t) => {
+  const s = sandbox(t);
+  writeFileSync(join(s.repo, 'payload.txt'), 'zorblax\n');
+  s.git('add', '-A');
+  assert.equal(s.git('commit', '-q', '--no-verify', '-m', 'payload').status, 0);
+  const original = s.git('rev-parse', 'HEAD:payload.txt').stdout.trim();
+  writeFileSync(join(s.repo, 'payload.txt'), 'clean\n');
+  s.git('add', '-A');
+  assert.equal(s.git('commit', '-q', '--no-verify', '-m', 'clean').status, 0);
+  assert.equal(s.git('replace', original, 'HEAD:payload.txt').status, 0);
+  const result = hook(s, 'push', { input: refInput(s) });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /denylist:0/);
+  assert.doesNotMatch(result.stdout + result.stderr, /zorblax/);
+});

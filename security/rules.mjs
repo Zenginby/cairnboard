@@ -5,7 +5,10 @@ const placeholderUsers = new Set(['user', 'you', 'example']);
 
 export const RULES = {
   email(line) {
-    const addresses = line.matchAll(/[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[a-z0-9-]+\.)+[a-z0-9-]+/gi);
+    // Package scopes and pinned actions use @ without denoting an email address.
+    line = line.replace(/((?:https?:\/\/[^\s/"'<>]+|node_modules)\/)@(?=[a-z0-9_-]+\/)/gi, '$1');
+    line = line.replace(/^([+ -]?\s*-?\s*uses:\s+[\w.-]+\/[\w./-]+)@[0-9a-f]{40}(?=\s|$)/, '$1');
+    const addresses = line.matchAll(/[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[a-z0-9-]+\.)*[a-z0-9-]+/gi);
     // Quotes and other punctuation before the local part are not part of the address.
     return [...addresses].map(([raw]) => raw.replace(/^[^a-z0-9]+/i, ''))
       .filter((address) => /^[^@]+@/.test(address))
