@@ -14,6 +14,11 @@ test('RULES exposes the four built-in rule names', () => {
 
 const cases = [
   ['private email', 'mail me at a@b.com', ['email']], // cairn-scan:allow-fixture
+  ['single-label localhost email', 'a@localhost', ['email']], // cairn-scan:allow-fixture
+  ['single-label intranet email', 'a@intranet', ['email']], // cairn-scan:allow-fixture
+  ['single-label email with slash in local part', 'a/b@intranet', ['email']], // cairn-scan:allow-fixture
+  ['single-label email in URL credentials', 'https://a@localhost/x', ['email']], // cairn-scan:allow-fixture
+  ['scoped package path', 'node_modules/@esbuild/linux-x64', []],
   ['example email', 'x@example.com', []],
   ['noreply email', identity, []],
   ['case-insensitive email domain', 'x@EXAMPLE.COM', []],
@@ -172,6 +177,12 @@ test('pinned action hashes exempt only the hash', () => {
   for (const prefix of ['', '+', '-']) {
     const line = `${prefix}  - uses: actions/checkout@${'1a2b'.repeat(10)} # key=${'Ab9'.repeat(12)}`;
     assert.deepEqual(scanText(line, { file: 'x' }), [{ file: 'x', line: 1, rule: 'token' }]);
+  }
+});
+
+test('email exemptions leave single-label addresses beside package URLs and pinned actions visible', () => {
+  for (const prefix of ['https://registry.npmjs.org/@scope/package', `  - uses: actions/checkout@${'1a2b'.repeat(10)} #`]) {
+    assert.equal(RULES.email(`${prefix} ${['a', 'localhost'].join('@')}`), true);
   }
 });
 

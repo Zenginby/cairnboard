@@ -214,3 +214,19 @@ test('deleted Unicode file names are scanned in history', () => {
   assert.ok(rules(result).includes('denylist:0'));
   assert.doesNotMatch(formatFindings(result.findings), /zörblax/);
 });
+
+for (const state of ['replace refs', 'grafts', 'shallow']) {
+  test(`release check rejects ${state} without printing repository paths`, () => {
+    const cwd = makeRepo();
+    run(cwd, 'commit', '-q', '--allow-empty', '-m', 'latest');
+    if (state === 'replace refs') run(cwd, 'replace', 'HEAD', 'HEAD^');
+    else if (state === 'grafts') writeFileSync(join(cwd, '.git', 'info', 'grafts'), '');
+    else writeFileSync(join(cwd, '.git', 'shallow'), `${run(cwd, 'rev-parse', 'HEAD').trim()}\n`);
+    const expected = `${state}: ${state === 'shallow' ? 'true' : 'present'}`;
+    assert.deepEqual(check(cwd).errors, [expected]);
+    const proc = runCli(cwd, { CAIRN_DENYLIST: denylist });
+    assert.equal(proc.status, 2);
+    assert.ok(proc.stderr.includes(`release:check error: ${expected}`));
+    assert.ok(!(proc.stdout + proc.stderr).includes(cwd));
+  });
+}

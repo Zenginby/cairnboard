@@ -203,3 +203,34 @@ test('shared Git helpers support input and buffers without leaking stderr', (t) 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, '');
 });
+
+test('shared Git helpers ignore replace objects', (t) => {
+  const repo = repository(t);
+  repo.write('original\n');
+  repo.commit();
+  const original = repo.git('rev-parse', 'HEAD:fixture.txt').trim();
+  repo.write('replacement\n');
+  repo.commit();
+  repo.git('replace', original, 'HEAD:fixture.txt');
+  const module = new URL('../security/git.mjs', import.meta.url).href;
+  const script = `
+    import assert from 'node:assert/strict';
+    import { git, gitBuffer } from ${JSON.stringify(module)};
+    for (const run of [git, gitBuffer]) {
+      assert.equal(run(['cat-file', 'blob', ${JSON.stringify(original)}]).toString(), 'original\\n');
+    }
+  `;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], { cwd: repo.cwd, env: repo.env, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('ci-scan finds historical content hidden by a blob replacement', (t) => {
+  const repo = repository(t);
+  repo.write(privateEmail);
+  repo.commit();
+  const original = repo.git('rev-parse', 'HEAD:fixture.txt').trim();
+  repo.write('clean\n');
+  repo.commit();
+  repo.git('replace', original, 'HEAD:fixture.txt');
+  check(repo.scan(), 1, 'email', [privateEmail]);
+});

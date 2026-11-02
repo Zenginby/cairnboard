@@ -41,15 +41,33 @@ function staged(ctx) {
   return findings;
 }
 
+function advertisedCommits(remote) {
+  try {
+    const hashes = git(['ls-remote', '--', remote]).split('\n').filter(Boolean).map((line) => line.split('\t')[0]);
+    return [...new Set(hashes)].map((hash) => {
+      if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(hash)) throw new Error('invalid object id');
+      return git(['rev-parse', '--verify', `${hash}^{commit}`]).trim();
+    });
+  } catch {
+    // Unavailable remotes or objects we do not have locally: scan the full history.
+    return [];
+  }
+}
+
 function outgoing(ctx, refLines, remote) {
   const findings = [];
+  let exclusions;
   for (const [index, line] of refLines.split('\n').filter(Boolean).entries()) {
     const [, localSha, remoteRef, remoteSha] = line.split(' ');
     if (ZERO.test(localSha)) continue; // branch deletion
     const file = `push ref #${index + 1}`;
-    const range = ZERO.test(remoteSha) ? [localSha, '--not', `--remotes=${remote}`] : [`${remoteSha}..${localSha}`];
-    const log = git(['-c', 'core.quotePath=false', 'log', '-p', '--diff-merges=first-parent', '--format=%n%an <%ae>%n%cn <%ce>%n%B', ...range]);
+    const range = ZERO.test(remoteSha) ? [localSha, '--not', ...(exclusions ??= advertisedCommits(remote))] : [`${remoteSha}..${localSha}`];
+    const log = git(['-c', 'core.quotePath=false', 'log', '-p', '--text', '--no-textconv', '--no-ext-diff', '--no-color', '--diff-merges=first-parent', '--format=%n%an <%ae>%n%cn <%ce>%n%B', ...range]);
     findings.push(...scanText(log, { ...ctx, file }));
+    const identities = git(['log', '--format=%ae%x00%ce%x00', '--no-patch', ...range]);
+    for (const [index, email] of identities.split('\0').slice(0, -1).entries()) {
+      if (!ctx.allowIdentities.includes(email.replace(/^\n/, ''))) findings.push({ file, line: index + 1, rule: 'identity' });
+    }
     findings.push(...scanText(remoteRef, { ...ctx, file }));
     const names = git(['log', '--format=', '--name-only', '-z', '--diff-merges=first-parent', ...range]);
     for (const name of names.split('\0')) findings.push(...scanText(name, { ...ctx, file }));
