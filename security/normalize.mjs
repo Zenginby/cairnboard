@@ -5,11 +5,8 @@ const percentRun = /(?:%[0-9A-Fa-f]{2})+/g;
 function decodePercent(text) {
   for (let round = 0; round < 3; round++) {
     const next = text.replace(percentRun, (run) => {
-      try {
-        return decodeURIComponent(run);
-      } catch {
-        return run;
-      }
+      const bytes = run.match(/%[0-9A-Fa-f]{2}/g).map((byte) => parseInt(byte.slice(1), 16));
+      return Buffer.from(bytes).toString('utf8');
     });
     if (next === text) break;
     text = next;

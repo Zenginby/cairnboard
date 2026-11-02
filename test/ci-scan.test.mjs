@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isolatedGitEnv, makeRepo } from './support/git.mjs';
 
 const scanner = fileURLToPath(new URL('../security/ci-scan.mjs', import.meta.url));
 const privateEmail = ['a', 'b.com'].join('@');
@@ -14,26 +15,17 @@ const noreply = '1+zorblax@users.noreply.github.com';
 function repository(t) {
   const directory = mkdtempSync(join(tmpdir(), 'ci-scan-test-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const cwd = join(directory, 'repo');
   const home = join(directory, 'home');
-  mkdirSync(cwd);
   mkdirSync(home);
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
-  Object.assign(env, {
-    HOME: home,
-    USERPROFILE: home,
-    XDG_CONFIG_HOME: home,
-    GIT_CONFIG_NOSYSTEM: '1',
-    GIT_CONFIG_GLOBAL: join(home, 'config'),
+  const cwd = makeRepo({ home });
+  const env = {
+    ...isolatedGitEnv(home),
     GIT_AUTHOR_NAME: 't',
     GIT_AUTHOR_EMAIL: noreply,
     GIT_COMMITTER_NAME: 't',
     GIT_COMMITTER_EMAIL: noreply,
-  });
-  const git = (...args) => execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-  git('init', '--initial-branch=main');
-  git('config', 'user.name', 't');
-  git('config', 'user.email', 't@example.com');
+  };
+  const git = (...args) => execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
   const write = (text, file = 'fixture.txt') => writeFileSync(join(cwd, file), text);
   const commit = (message = 'fixture') => {
     git('add', '--all');
@@ -51,7 +43,7 @@ function check(result, status, rule, hidden = []) {
   for (const value of hidden) assert.ok(!output.includes(value));
 }
 
-test('ci-scan accepts a clean index without commits and ignores untracked files', (t) => {
+test('ci-scan accepts a clean index and ignores untracked files', (t) => {
   const repo = repository(t);
   repo.write('zorblax acme\n');
   repo.git('add', 'fixture.txt');
@@ -183,4 +175,23 @@ test('ci-scan fails closed without exposing Git errors', (t) => {
   assert.equal(result.status, 1);
   assert.equal(result.stdout, '');
   assert.ok(result.stderr === 'ci-scan failed\n');
+});
+
+test('shared Git helpers support input and buffers without leaking stderr', (t) => {
+  const repo = repository(t);
+  const module = new URL('../security/git.mjs', import.meta.url).href;
+  const script = `
+    import assert from 'node:assert/strict';
+    import { git, gitBuffer } from ${JSON.stringify(module)};
+    const cwd = process.cwd();
+    const args = ['hash-object', '--stdin'];
+    const hash = git(args, { cwd, input: 'acme' });
+    assert.equal(hash, git(args, { input: Buffer.from('acme') }));
+    assert.ok(Buffer.isBuffer(gitBuffer(['show', 'HEAD:README.md'], { cwd })));
+    assert.equal(gitBuffer(['show', 'HEAD:README.md']).toString(), '# acme\\n');
+    for (const run of [git, gitBuffer]) assert.throws(() => run(['show', 'missing-ref'], { cwd }));
+  `;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], { cwd: repo.cwd, env: repo.env, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, '');
 });

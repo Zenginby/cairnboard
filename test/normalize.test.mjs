@@ -24,3 +24,8 @@ test('normalize replaces separators and collapses whitespace', () => {
 test('normalize preserves malformed URL encoding without throwing', () => {
   assert.equal(normalize('ACME%ZZ'), 'acme zz');
 });
+
+test('normalize keeps valid UTF-8 beside malformed percent bytes', () => {
+  assert.equal(normalize('%FF%7A%6F%72%62%6C%61%78'), 'zorblax');
+  assert.equal(normalize('%FF%C5%9F%C3%BC%FEkr%C3%BC'), 'su kru');
+});

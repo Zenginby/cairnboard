@@ -148,3 +148,29 @@ test('pinned actions and sha256 checksum lines are not tokens, other hex is', ()
   assert.deepEqual(rules(`token: ${sha}`), ['token']);
   assert.deepEqual(rules(`sha256 ${sum} key=${'Ab9'.repeat(12)}`), ['token']);
 });
+
+test('malformed percent bytes cannot hide a denylist term', () => {
+  assert.deepEqual(scanText('%FF%7A%6F%72%62%6C%61%78', { file: 'x', terms: ['zorblax'] }), [
+    { file: 'x', line: 1, rule: 'denylist:0' },
+  ]);
+});
+
+test('scanText finds split terms once on their first line', () => {
+  const terms = ['zorblax studio'];
+  assert.deepEqual(scanText('Zorblax\nStudio', { file: 'x', terms }), [
+    { file: 'x', line: 1, rule: 'denylist:0' },
+  ]);
+  assert.deepEqual(scanText('Zorblax Studio\nacme', { file: 'x', terms }), [
+    { file: 'x', line: 1, rule: 'denylist:0' },
+  ]);
+  assert.deepEqual(scanText('acme\nZorblax Studio', { file: 'x', terms }), [
+    { file: 'x', line: 2, rule: 'denylist:0' },
+  ]);
+});
+
+test('pinned action hashes exempt only the hash', () => {
+  for (const prefix of ['', '+', '-']) {
+    const line = `${prefix}  - uses: actions/checkout@${'1a2b'.repeat(10)} # key=${'Ab9'.repeat(12)}`;
+    assert.deepEqual(scanText(line, { file: 'x' }), [{ file: 'x', line: 1, rule: 'token' }]);
+  }
+});
