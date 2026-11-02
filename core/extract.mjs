@@ -7,8 +7,11 @@ const blank = (char) => char === ' ' || char === '\t';
 // `# Title #` as text, or null. Loops instead of a lazy group plus whitespace runs: one hostile line must not
 // cost quadratic time.
 function atxHeading(line) {
-  if (line[0] !== '#' || !blank(line[1])) return null;
-  let start = 1;
+  // CommonMark allows up to three spaces of indentation; four make a code block.
+  let indent = 0;
+  while (indent < 3 && line[indent] === ' ') indent++;
+  if (line[indent] !== '#' || !blank(line[indent + 1])) return null;
+  let start = indent + 1;
   let end = line.length;
   while (start < end && blank(line[start])) start++;
   while (end > start && blank(line[end - 1])) end--;

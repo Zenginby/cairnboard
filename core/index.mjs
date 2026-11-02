@@ -9,7 +9,7 @@ import { foldTr, pathKey } from './text.mjs';
 import { revision } from './store.mjs';
 import { checkRuntime } from './runtime.mjs';
 import { extract } from './extract.mjs';
-import { parseLinks, parseJournal } from './links.mjs';
+import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 
 await checkRuntime();
 
@@ -22,6 +22,14 @@ const nameKey = (name) => pathKey(name).replace(/\.md$/u, '');
 const fileName = (path) => nameKey(path).split('/').at(-1);
 const signature = (ctx) => `${ctx.indexPath}:${fingerprint(ctx.schema)}`;
 const emptyResult = () => ({ added: 0, updated: 0, removed: 0, skipped: [] });
+
+// The cache may be busy, locked, corrupt, unwritable or unopenable; then queries read the files. Anything else is a
+// bug and must surface instead of silently turning every query into a full scan.
+const UNAVAILABLE_SQLITE = new Set([5, 6, 8, 10, 11, 13, 14, 26]);
+const UNAVAILABLE_FS = new Set(['EACCES', 'EPERM', 'EROFS', 'ENOSPC', 'EBUSY', 'unsafe_path']);
+function unavailable(error) {
+  return error?.indexUnavailable === true || UNAVAILABLE_SQLITE.has(error?.errcode & 255) || UNAVAILABLE_FS.has(error?.code);
+}
 
 function warn(ctx, warning = 'index_unavailable') {
   ctx.warnings ??= [];
@@ -40,8 +48,23 @@ function transaction(db, fn) {
   }
 }
 
+const TABLES = ['meta', 'files', 'links', 'catalog', 'journal_entries', 'fts', 'targets'];
+
 function createSchema(db, schema) {
+  transaction(db, () => createTables(db, schema));
+}
+
+// A schema or version change empties the cache inside one write transaction. Other processes keep using the same
+// file (SQLite re-prepares their statements); replacing a file someone has open is what corrupts databases.
+function resetSchema(db, schema) {
   transaction(db, () => {
+    for (const name of TABLES) db.exec(`DROP TABLE IF EXISTS ${name}`);
+    createTables(db, schema);
+  });
+}
+
+function createTables(db, schema) {
+  {
     db.exec(`
       CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
       CREATE TABLE files(path TEXT PRIMARY KEY, type TEXT, kind TEXT, id TEXT,
@@ -64,7 +87,13 @@ function createSchema(db, schema) {
     const insert = db.prepare('INSERT INTO meta VALUES (?, ?)');
     insert.run('schema_version', String(SCHEMA_VERSION));
     insert.run('schema_fp', fingerprint(schema));
-  });
+    // A new generation tells contexts that were fresh against an earlier cache to refresh.
+    insert.run('generation', randomBytes(8).toString('hex'));
+  }
+}
+
+function generation(db) {
+  return db.prepare("SELECT value FROM meta WHERE key = 'generation'").get()?.value ?? '';
 }
 
 function indexLocation(ctx) {
@@ -136,15 +165,18 @@ export function openIndex(ctx) {
     } else {
       const check = index.db.prepare('PRAGMA quick_check').all();
       replace = check.some((row) => row.quick_check !== 'ok');
-      const meta = index.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get();
-      const values = meta ? Object.fromEntries(index.db.prepare('SELECT key, value FROM meta').all().map((row) => [row.key, row.value])) : {};
-      replace ||= values.schema_version !== String(SCHEMA_VERSION) || values.schema_fp !== fingerprint(ctx.schema);
-      // A version mismatch is not permission to replace a database with an active writer.
-      if (replace) transaction(index.db, () => {});
+      if (!replace) {
+        const meta = index.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get();
+        const values = meta ? Object.fromEntries(index.db.prepare('SELECT key, value FROM meta').all().map((row) => [row.key, row.value])) : {};
+        if (values.schema_version !== String(SCHEMA_VERSION) || values.schema_fp !== fingerprint(ctx.schema)) {
+          resetSchema(index.db, ctx.schema);
+        }
+      }
     }
   } catch (error) {
     index?.close();
-    // Busy, locked, permissions and I/O failures must never trigger a rebuild.
+    index = undefined;
+    // Only a database SQLite cannot read at all is replaced; busy, locked and I/O failures never are.
     if (![11, 26].includes(error.errcode & 255) && !['SQLITE_CORRUPT', 'SQLITE_NOTADB'].includes(error.code)) throw error;
     replace = true;
   }
@@ -155,6 +187,7 @@ export function openIndex(ctx) {
     return rebuild(ctx, path);
   } catch (error) {
     warn(ctx);
+    error.indexUnavailable = true;
     throw error;
   }
 }
@@ -199,9 +232,10 @@ function inventory(ctx, skipped) {
 }
 
 function readSource(ctx, item) {
-  if (item.size <= MAX_SIZE) return { text: readChecked(ctx.root, item.path, 'utf8'), large: false };
   const fd = openForRead(ctx.root, item.path);
   try {
+    // The size that decides is the opened file's, not the inventory's: the file may have changed in between.
+    if (fs.fstatSync(fd).size <= MAX_SIZE) return { text: fs.readFileSync(fd, 'utf8'), large: false };
     // Oversized pages contribute at most a bounded frontmatter block, never their body.
     const buffer = Buffer.alloc(64 * 1024);
     const length = fs.readSync(fd, buffer, 0, buffer.length, 0);
@@ -228,7 +262,7 @@ function sourceData(ctx, item, source) {
     row.body = null;
     row.error = 'too-large';
   }
-  return { row, links: parseLinks(source.text, { frontmatter: row?.data ?? file.data,
+  return { row, links: parseLinks(source.text, { frontmatter: file.error ? null : row?.data ?? file.data,
     frontmatterText: file.error ? source.text.slice(file.yamlStart, file.yamlEnd) : null }),
   entries: row?.type === 'journal' ? parseJournal(source.text, ctx.schema.entryTypes) : [] };
 }
@@ -250,10 +284,30 @@ function collect(ctx, previous = new Map(), verify = false) {
       changes.push({ item, hash: null, data: null });
       continue;
     }
-    const source = readSource(ctx, item);
-    if (source.text === null) throw new Error('Source disappeared during refresh.');
+    let source;
+    try {
+      source = readSource(ctx, item);
+    } catch (error) {
+      // Removed or replaced since the inventory: the next refresh sees its new state.
+      if (!['ENOENT', 'unsafe_path', 'not_found'].includes(error.code)) throw error;
+      skipped.push({ path: item.path, reason: 'changed' });
+      continue;
+    }
     const hash = source.hash ?? revision(source.text);
-    changes.push({ item, hash, data: before?.hash === hash ? undefined : sourceData(ctx, item, source) });
+    if (before?.hash === hash) {
+      changes.push({ item, hash, data: undefined });
+      continue;
+    }
+    let data;
+    try {
+      data = sourceData(ctx, item, source);
+    } catch {
+      // Untrusted content (cyclic YAML aliases and the like) must not stop every other file from being indexed.
+      skipped.push({ path: item.path, reason: 'unreadable' });
+      warn(ctx, 'unreadable');
+      data = null;
+    }
+    changes.push({ item, hash, data });
   }
   return { items, changes, skipped };
 }
@@ -325,22 +379,27 @@ function resolveLinks(db, affected, changedSources) {
   }
 }
 
+// The stamp ties freshness to this cache's generation, so a cache rebuilt by another process is noticed.
+const stamp = (ctx, db) => `${signature(ctx)}#${generation(db)}`;
+
 export function refresh(ctx, { verify = false } = {}) {
   let index;
   fresh.delete(ctx);
   try {
     index = openIndex(ctx);
     const db = index.db;
+    // Walking and reading files happens outside the write lock; only applying the result holds it.
+    const previous = new Map(db.prepare('SELECT * FROM targets').all().map((item) => [item.path, item]));
+    const collected = collect(ctx, previous, verify);
     const result = transaction(db, () => {
-      const previous = new Map(db.prepare('SELECT * FROM targets').all().map((item) => [item.path, item]));
-      const collected = collect(ctx, previous, verify);
+      const current = new Set(db.prepare('SELECT path FROM targets').all().map((item) => item.path));
       const result = { ...emptyResult(), skipped: collected.skipped };
       const existing = new Set(db.prepare('SELECT path FROM files').all().map((row) => row.path));
       const present = new Set(collected.items.map((item) => item.path));
       const affected = new Set();
       const changedSources = new Set();
       function affect(path) { affected.add(fileName(path)); affected.add(nameKey(path)); }
-      for (const path of previous.keys()) {
+      for (const path of current) {
         if (present.has(path)) continue;
         removeSource(db, path);
         db.prepare('DELETE FROM targets WHERE path = ?').run(path);
@@ -351,7 +410,7 @@ export function refresh(ctx, { verify = false } = {}) {
       const targetInsert = db.prepare('INSERT OR REPLACE INTO targets VALUES (?, ?, ?, ?, ?, ?, ?)');
       for (const { item, hash, data } of collected.changes) {
         targetInsert.run(item.path, item.name, item.mtime_ms, item.ctime_ms, item.size, item.ino, hash);
-        if (!previous.has(item.path)) affect(item.path);
+        if (!current.has(item.path)) affect(item.path);
         saveSource(db, ctx, item, hash, data);
         if (data !== undefined) {
           changedSources.add(item.path);
@@ -360,11 +419,13 @@ export function refresh(ctx, { verify = false } = {}) {
         }
       }
       resolveLinks(db, affected, changedSources);
+      fresh.set(ctx, stamp(ctx, db));
       return result;
     });
-    fresh.set(ctx, signature(ctx));
     return result;
-  } catch {
+  } catch (error) {
+    fresh.delete(ctx);
+    if (!unavailable(error)) throw error;
     warn(ctx);
     return emptyResult();
   } finally {
@@ -373,8 +434,19 @@ export function refresh(ctx, { verify = false } = {}) {
 }
 
 export function ensureFresh(ctx) {
-  if (fresh.get(ctx) !== signature(ctx)) refresh(ctx);
-  return fresh.get(ctx) === signature(ctx);
+  let index;
+  try {
+    index = openIndex(ctx);
+    if (fresh.get(ctx) === stamp(ctx, index.db)) return true;
+  } catch (error) {
+    if (!unavailable(error)) throw error;
+    warn(ctx);
+    return false;
+  } finally {
+    index?.close();
+  }
+  refresh(ctx);
+  return fresh.has(ctx);
 }
 
 // Hooks deliberately refresh metadata too: other processes may have changed link targets.
@@ -413,7 +485,8 @@ function query(ctx, indexed, fallback) {
   try {
     if (ensureFresh(ctx)) {
       index = openIndex(ctx);
-      if (fresh.get(ctx) !== signature(ctx)) {
+      // Another process may have rebuilt the cache since the freshness check.
+      if (fresh.get(ctx) !== stamp(ctx, index.db)) {
         index.close();
         index = undefined;
         if (!ensureFresh(ctx)) return fallback(snapshot(ctx));
@@ -421,8 +494,9 @@ function query(ctx, indexed, fallback) {
       }
       return indexed(index.db);
     }
-  } catch {
+  } catch (error) {
     fresh.delete(ctx);
+    if (!unavailable(error)) throw error;
     warn(ctx);
   } finally {
     index?.close();
@@ -453,7 +527,7 @@ export function outlinks(ctx, path) {
   return query(ctx, (db) => {
     const resolveTarget = resolver(db.prepare('SELECT path FROM targets').all().map((item) => item.path));
     return db.prepare('SELECT * FROM links WHERE src_path = ? ORDER BY line, rowid').all(path).map((link) => ({
-      field: link.field, expr: link.expr, targetName: parseLinks(link.expr)[0].targetName, heading: link.heading, line: link.line,
+      field: link.field, expr: link.expr, targetName: linkTarget(link.expr).targetName, heading: link.heading, line: link.line,
       ...resolveTarget(link.target_name),
     }));
   }, (data) => data.links.filter((link) => link.src_path === path).map(({ src_path, ...link }) => link));
@@ -474,7 +548,7 @@ export function search(ctx, q, { type, limit = 20 } = {}) {
   if (!terms.length) return [];
   limit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 20;
   const match = terms.map((term) => `"${term}"`).join(' AND ');
-  return query(ctx, (db) => db.prepare(`SELECT files.path, type, id, title, snippet(fts, 2, '', '', '…', 24) AS snippet
+  return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.id, files.title, snippet(fts, 2, '', '', '…', 24) AS snippet
     FROM fts JOIN files ON files.path = fts.path WHERE fts MATCH ? AND (? IS NULL OR type = ?)
     ORDER BY rank, files.path LIMIT ?`).all(match, type ?? null, type ?? null, limit)
     .map((row) => ({ ...row, ref: row.id ?? `@${row.path.replace(/\.md$/iu, '')}` })), (data) => data.rows.filter((row) => {
