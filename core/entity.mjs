@@ -10,12 +10,13 @@ import { extract } from './extract.mjs';
 import { ensureFresh, rows, findById } from './index.mjs';
 import { readFile, revision, write } from './store.mjs';
 import { withLock } from './lock.mjs';
+import { keyBetween } from './position.mjs';
 
 /** @typedef {{ type: string, kind: string|null, id: string|null, ref: string, path: string,
  * revision: string, title: string, data: object, acceptance: { done: number, total: number }, warnings: string[] }} Summary */
 /** @typedef {Summary & { body: string }} Entity */
 
-const prefixes = { project: 'p', note: 'n', research: 'r' };
+const prefixes = { project: 'p', note: 'n', research: 'r', card: 'c' };
 const invalid = (message) => new CairnError('validation', message);
 const missing = () => new CairnError('not_found', 'Entity was not found.');
 
@@ -159,7 +160,9 @@ export function create(ctx, type, fields, body = '', opts = {}) {
     ensureFresh(ctx);
     const now = ctx.clock.now().toISOString();
     const defaults = type === 'project' ? { status: 'active', tone: rows(ctx, 'project').length % 8 + 1 }
-      : type === 'note' ? { kind: 'note', pinned: false, tags: [] } : { kind: 'source', date: localDate(ctx) };
+      : type === 'note' ? { kind: 'note', pinned: false, tags: [] }
+      : type === 'card' ? { column: ctx.config.columns[0].key, position: keyBetween(null, null), tags: [] }
+      : { kind: 'source', date: localDate(ctx) };
     const data = { ...defaults, ...fields, id: freshId(ctx, type), created: now, updated: now };
     validate(type, data);
     checkOverview(ctx, type, data.kind);
