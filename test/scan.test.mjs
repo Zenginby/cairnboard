@@ -185,3 +185,24 @@ test('pattern rules can be skipped while the denylist still applies', () => {
   const token = 'A'.repeat(48); // cairn-scan:allow-fixture
   assert.deepEqual(scanText(`${token}\nzorblax`, { file: 'f', terms: ['zorblax'], patterns: false }).map((f) => f.rule), ['denylist:0']);
 });
+
+test('scanText detects denylist terms split by invisible characters', () => {
+  for (const sample of ['zor\u200Bblax', 'zor\u00ADblax', 'zo\u200Cr\u200Dblax', 'Zor\uFEFFblax', 'zor%E2%80%8Bblax']) {
+    const findings = scanText(sample, { file: 'x', terms: ['zorblax'] });
+    assert.deepEqual(findings.map((f) => f.rule), ['denylist:0'], sample);
+  }
+});
+
+test('scanText detects bitişik yazım (camelCase, letter-digit, suffixes)', () => {
+  for (const sample of ['ZorblaxClient', 'zorblax2', '2zorblax', 'Zorblaxlar', 'zorblaxian', 'Zor\u200BblaxClient']) {
+    const findings = scanText(sample, { file: 'x', terms: ['zorblax'] });
+    assert.deepEqual(findings.map((f) => f.rule), ['denylist:0'], sample);
+  }
+});
+
+test('scanText avoids false positives on unrelated words and short substrings', () => {
+  for (const sample of ['pacemaker', 'acmes', 'cacme', 'acmeist', 'zorba', 'an unrelated sentence']) {
+    const findings = scanText(sample, { file: 'x', terms: ['acme', 'zorblax'] });
+    assert.deepEqual(findings, [], sample);
+  }
+});

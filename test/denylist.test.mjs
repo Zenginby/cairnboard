@@ -27,7 +27,7 @@ test('loadDenylist reports the source line of a short normalized term', (t) => {
 
 test('matchTerms uses normalized space boundaries and returns indices once', () => {
   assert.deepEqual(matchTerms('see zorblax-studio repo', ['zorblax studio']), [0]);
-  assert.deepEqual(matchTerms('zorblaxian', ['zorblax']), []);
+  assert.deepEqual(matchTerms('zorba', ['zorblax']), []);
   assert.deepEqual(matchTerms('ZÖRBLÂX acme zorblax', ['acme', 'zorblax', 'studio']), [0, 1]);
   assert.deepEqual(matchTerms('zorblax!', ['zorblax']), [0]);
   assert.deepEqual(matchTerms('acme', []), []);
@@ -36,5 +36,30 @@ test('matchTerms uses normalized space boundaries and returns indices once', () 
 test('matchTerms treats every non letter or digit as a separator', () => {
   assert.deepEqual(matchTerms('"zorblax",(acme)', ['zorblax', 'acme']), [0, 1]);
   assert.deepEqual(matchTerms('acme.studio', ['acme studio']), [0]);
-  assert.deepEqual(matchTerms('acme2', ['acme']), []);
+  assert.deepEqual(matchTerms('acme2', ['acme']), [0]);
+});
+
+test('matchTerms catches bitişik yazım for camelCase, digits and suffixes (5+ letters)', () => {
+  assert.deepEqual(matchTerms('ZorblaxClient', ['zorblax']), [0]);
+  assert.deepEqual(matchTerms('zorblax2', ['zorblax']), [0]);
+  assert.deepEqual(matchTerms('2zorblax', ['zorblax']), [0]);
+  assert.deepEqual(matchTerms('Zorblaxlar', ['zorblax']), [0]);
+  assert.deepEqual(matchTerms('zorblaxian', ['zorblax']), [0]);
+  assert.deepEqual(matchTerms('zor\u200Bblax', ['zorblax']), [0]);
+  assert.deepEqual(matchTerms('Zor\u00ADblaxClient', ['zorblax']), [0]);
+  assert.deepEqual(matchTerms('zorblax2Client', ['zorblax']), [0]);
+});
+
+test('matchTerms preserves word boundary matching for short terms (<5 letters) to avoid false positives', () => {
+  assert.deepEqual(matchTerms('AcmeClient', ['acme']), [0]);
+  assert.deepEqual(matchTerms('acme2', ['acme']), [0]);
+  assert.deepEqual(matchTerms('pacemaker', ['acme']), []);
+  assert.deepEqual(matchTerms('acmes', ['acme']), []);
+  assert.deepEqual(matchTerms('cacme', ['acme']), []);
+  assert.deepEqual(matchTerms('acmeist', ['acme']), []);
+});
+
+test('matchTerms does not produce false positives on unrelated words', () => {
+  assert.deepEqual(matchTerms('zorba', ['zorblax']), []);
+  assert.deepEqual(matchTerms('an unrelated sentence without the term', ['zorblax']), []);
 });

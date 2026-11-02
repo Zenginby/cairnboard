@@ -30,11 +30,38 @@ test('normalize keeps valid UTF-8 beside malformed percent bytes', () => {
   assert.equal(normalize('%FF%C5%9F%C3%BC%FEkr%C3%BC'), 'su kru');
 });
 
+test('normalize strips invisible and format characters before folding', () => {
+  assert.equal(normalize('zor\u200Bblax'), 'zorblax');
+  assert.equal(normalize('zor\u00ADblax'), 'zorblax');
+  assert.equal(normalize('zo\u200Cr\u200Dblax'), 'zorblax');
+  assert.equal(normalize('\uFEFFzorblax'), 'zorblax');
+  assert.equal(normalize('zor\u200Ebl\u200Fax'), 'zorblax');
+  assert.equal(normalize('zor\u202Abla\u202Ex'), 'zorblax');
+  assert.equal(normalize('zor\u2066bla\u2069x'), 'zorblax');
+  assert.equal(normalize('zor\uFE0Fblax'), 'zorblax');
+  assert.equal(normalize('zor\u3164blax'), 'zorblax');
+  assert.equal(normalize('zor%E2%80%8Bblax'), 'zorblax');
+  assert.equal(normalize('zor%C2%ADblax'), 'zorblax');
+});
+
+test('normalize splits camelCase and letter-digit boundaries', () => {
+  assert.equal(normalize('ZorblaxClient'), 'zorblax client');
+  assert.equal(normalize('zorblaxClient'), 'zorblax client');
+  assert.equal(normalize('ACMEClient'), 'acme client');
+  assert.equal(normalize('zorblax2'), 'zorblax 2');
+  assert.equal(normalize('2zorblax'), '2 zorblax');
+  assert.equal(normalize('Zorblax2Client'), 'zorblax 2 client');
+});
+
 // The gate keeps its own copy so it never depends on core/; this pins it to core's Turkish folding.
 test('normalize folds exactly like core foldTr', async () => {
   const { foldTr } = await import('../core/text.mjs');
   const viaCore = (s) => foldTr(s).replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
-  const samples = ['İSTANBUL', 'Iğdır', 'ışık', 'ŞEKER', 'İ', 'ﬁ', 'K', 'Çağrı Öz'];
+  const samples = [
+    'İSTANBUL', 'Iğdır', 'ışık', 'ŞEKER', 'İ', 'ﬁ', 'K', 'Çağrı Öz',
+    'İ\u200BSTANBUL', 'I\u00ADğdır', '\uFEFFışık', 'Ş\u200CE\u200DKER', 'Çağrı\u200E Öz', 'A\u2066ğ\u2069a',
+    '\u00AD', '\u200B', '\u200C', '\u200D', '\uFEFF', '\u200E', '\u200F', '\u202A', '\u202E', '\u2066', '\u2069', '\u3164', '\uFE0F',
+  ];
   for (let code = 0; code < 0x3000; code++) samples.push(String.fromCodePoint(code));
   for (const sample of samples) assert.equal(normalize(sample), viaCore(sample), `U+${sample.codePointAt(0).toString(16)}`);
 });

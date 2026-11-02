@@ -44,6 +44,16 @@ test('foldTr folds Turkish characters, lowercases and removes combining marks', 
   assert.equal(foldTr('ÇĞIİÖŞÜ ÂÎÛ'), 'cgiiosu aiu');
 });
 
+test('foldTr removes invisible and format characters', () => {
+  assert.equal(foldTr('zor\u200Bblax'), 'zorblax');
+  assert.equal(foldTr('zor\u00ADblax'), 'zorblax');
+  assert.equal(foldTr('zo\u200Cr\u200Dblax'), 'zorblax');
+  assert.equal(foldTr('\uFEFFzorblax'), 'zorblax');
+  assert.equal(foldTr('zor\u200Ebl\u200Fax'), 'zorblax');
+  assert.equal(foldTr('zor\u202Abla\u202Ex'), 'zorblax');
+  assert.equal(foldTr('zor\u2066bla\u2069x'), 'zorblax');
+});
+
 test('stripHidden removes invisible formatting and non-tab/newline control characters', () => {
   assert.deepEqual(stripHidden('a\u200Bb\u202Ec'), { text: 'abc', removed: 2 });
   assert.deepEqual(stripHidden('\ta\nb'), { text: '\ta\nb', removed: 0 });

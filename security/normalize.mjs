@@ -1,3 +1,5 @@
+const INVISIBLE_PATTERN = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
+const BOUNDARY_PATTERN = /(?<=\p{Lu})(?=\p{Lu}\p{Ll})|(?<=\p{Ll})(?=\p{Lu})|(?<=\p{L})(?=\p{N})|(?<=\p{N})(?=\p{L})/gu;
 const percentRun = /(?:%[0-9A-Fa-f]{2})+/g;
 
 // Decode each %XX run on its own so one malformed sequence cannot hide the rest;
@@ -15,7 +17,9 @@ function decodePercent(text) {
 }
 
 export function normalize(text) {
-  return decodePercent(text)
+  return decodePercent(text.replace(INVISIBLE_PATTERN, ''))
+    .replace(INVISIBLE_PATTERN, '')
+    .replace(BOUNDARY_PATTERN, ' ')
     .normalize('NFKD')
     .toLocaleLowerCase('tr')
     .replace(/\p{M}/gu, '')
