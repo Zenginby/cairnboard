@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { readFile, recover, write, writeMany } from '../core/store.mjs';
@@ -167,7 +167,9 @@ test('CAIRN_TEST_CRASH kills a subprocess at every fault point and recovery rema
     const child = spawnSync(process.execPath, ['--input-type=module', '-e', source], {
       env: { ...process.env, HOME: home, USERPROFILE: home, CAIRN_DATA: ctx.root, CAIRN_TEST_CRASH: point }, encoding: 'utf8',
     });
-    assert.equal(child.signal, 'SIGKILL', child.stderr);
+    // Windows has no signals: a killed process just exits with a non-zero code.
+    if (process.platform === 'win32') assert.notEqual(child.status, 0, child.stderr);
+    else assert.equal(child.signal, 'SIGKILL', child.stderr);
     const result = recover(ctx);
     assert.equal(result[point === 'before-rename' ? 'rolledBack' : 'completed'], point === 'after-check' ? 0 : 1);
     assert.equal(readEvents(ctx).length, ['after-check', 'before-rename'].includes(point) ? 0 : 1);
@@ -280,7 +282,7 @@ test('recovery handles interruption while saving per-target history or finalizin
     const ctx = fixture(t);
     t.after(() => __setFsHooks({}));
     __setFsHooks({ rename(from, to) {
-      if (to.includes(`${join('.cairn', 'history')}/`)
+      if (to.includes(`${join('.cairn', 'history')}${sep}`)
         && (phase === 'stage' ? to.endsWith('-1.pending.json') : !to.endsWith('.pending.json'))) {
         throw new Error('history crashed');
       }

@@ -20,9 +20,11 @@ function watchSyncs(t, onSync = () => {}) {
   __setFsHooks({ syncDirectory(dir) { synced.push(dir); onSync(dir); } });
   return synced;
 }
+// Windows cannot open a directory to flush it, so directory flushes are skipped there.
+const flushes = { skip: process.platform === 'win32' && 'no directory flush on Windows' };
 const event = (ts, tx) => ({ tx, op: 'note.write', target: 'a.md', rev: null, ts });
 
-test('the first event of a month makes its new file name durable', (t) => {
+test('the first event of a month makes its new file name durable', flushes, (t) => {
   const ctx = fixture(t);
   appendEvent(ctx, event('2026-10-31T12:00:00Z', 't-a'));
   const synced = watchSyncs(t);
@@ -30,7 +32,7 @@ test('the first event of a month makes its new file name durable', (t) => {
   assert.ok(synced.includes(join(ctx.root, '.cairn/events')));
 });
 
-test('a finished transaction removes its intent durably', (t) => {
+test('a finished transaction removes its intent durably', flushes, (t) => {
   const ctx = fixture(t);
   let durable = false;
   watchSyncs(t, (dir) => {
@@ -40,7 +42,7 @@ test('a finished transaction removes its intent durably', (t) => {
   assert.ok(durable);
 });
 
-test('recovery flushes a renamed target before recording the commit', (t) => {
+test('recovery flushes a renamed target before recording the commit', flushes, (t) => {
   const ctx = fixture(t);
   writeFileSync(join(ctx.root, 'note.md'), 'old');
   ctx.faults = (point) => { if (point === 'after-rename') throw new Error('crashed'); };

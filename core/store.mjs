@@ -109,8 +109,11 @@ const TX = /^t-[0-9a-z]+(?:-\d+)?$/u;
 const isTrashPair = (trash) => trash && typeof trash.payload === 'string' && /^\.cairn\/trash\/[^/\\]+$/u.test(trash.payload)
   && trash.sidecar === `${trash.payload}.json`;
 
+// Paths in results, intents and events always use `/`, whatever the platform separator.
+const logical = (rel) => safeRelative(rel).replace(/\\/gu, '/');
+
 function targetPath(path) {
-  const rel = typeof path === 'string' ? safeRelative(path) : null;
+  const rel = typeof path === 'string' ? logical(path) : null;
   if (!rel || pathKey(rel).split('/')[0] === '.cairn') throw invalid('Invalid transaction target.');
   return rel;
 }
@@ -318,7 +321,7 @@ export function writeMany(ctx, options) {
   if (!Array.isArray(options.items) || options.items.length === 0) throw invalid('At least one target is required.');
   const seen = new Set();
   const items = options.items.map((item) => {
-    const path = safeRelative(item.path);
+    const path = logical(item.path);
     if (pathKey(path).split('/')[0] === '.cairn' || seen.has(pathKey(path))) throw invalid('Invalid or duplicate mutation target.');
     seen.add(pathKey(path));
     return { ...item, path };
