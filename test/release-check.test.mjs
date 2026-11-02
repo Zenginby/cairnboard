@@ -1,39 +1,30 @@
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { releaseCheck } from '../security/release-check.mjs';
 import { formatFindings } from '../security/scan.mjs';
+import { tempHome } from './support/env.mjs';
+import { isolatedGitEnv, makeRepo as createRepo, commit } from './support/git.mjs';
 
-// Isolate every git call from the real user configuration.
-const home = mkdtempSync(join(tmpdir(), 'cairn-home-'));
-process.env.HOME = home;
-process.env.GIT_CONFIG_NOSYSTEM = '1';
-for (const key of ['GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'GIT_DIR', 'GIT_WORK_TREE']) {
-  delete process.env[key];
-}
+// releaseCheck runs Git in this process, so it needs the same isolated environment.
+const home = tempHome();
+after(() => rmSync(home, { recursive: true, force: true }));
+const env = isolatedGitEnv(home);
+for (const key of Object.keys(process.env)) if (key.startsWith('GIT_')) delete process.env[key];
+Object.assign(process.env, env);
 
 const cli = fileURLToPath(new URL('../security/release-check.mjs', import.meta.url));
 const denylist = join(home, 'denylist.txt');
 writeFileSync(denylist, '# fixture terms\nzorblax\n');
 
-const run = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8' });
+const run = (cwd, ...args) => execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
 
-function makeRepo() {
-  const cwd = mkdtempSync(join(tmpdir(), 'cairn-repo-'));
-  run(cwd, 'init', '-q', '-b', 'main');
-  run(cwd, 'config', 'user.name', 't');
-  run(cwd, 'config', 'user.email', 't@example.com');
-  writeFileSync(join(cwd, 'README.md'), '# acme\n');
-  run(cwd, 'add', '.');
-  run(cwd, 'commit', '-q', '-m', 'init');
-  return cwd;
-}
+const makeRepo = () => createRepo({ home });
 
-const check = (cwd, options = {}) => releaseCheck({ cwd, denylistPath: denylist, privateRoots: [], allowIdentities: ['t@example.com'], github: false, ...options });
+const check = (cwd, options = {}) => releaseCheck({ cwd, denylistPath: denylist, privateRoots: [], allowIdentities: ['t@users.noreply.github.com'], github: false, ...options });
 const rules = (result) => result.findings.map((f) => f.rule);
 
 function runCli(cwd, env) {
@@ -97,7 +88,7 @@ test('author email outside the allowed identities is reported', () => {
   const result = check(cwd);
   assert.ok(rules(result).includes('identity'));
   assert.doesNotMatch(formatFindings(result.findings), /corp\.test/);
-  const allowed = check(cwd, { allowIdentities: ['t@example.com', 'dev@corp.test'] }); // cairn-scan:allow-fixture
+  const allowed = check(cwd, { allowIdentities: ['t@users.noreply.github.com', 'dev@corp.test'] }); // cairn-scan:allow-fixture
   assert.equal(rules(allowed).includes('identity'), false);
 });
 
@@ -180,4 +171,46 @@ test('error output carries only the step name', (t) => {
   const repo = makeRepo(t);
   const { errors } = releaseCheck({ cwd: join(repo, 'missing-dir'), denylistPath: denylist, privateRoots: [], allowIdentities: [], github: false });
   for (const e of errors) assert.match(e, /^[\w ]+: failed$/);
+});
+
+test('unreadable denylist errors never print its path', () => {
+  const cwd = makeRepo();
+  const proc = runCli(cwd, { CAIRN_DENYLIST: join(home, 'zorblax-missing.txt') });
+  assert.equal(proc.status, 2);
+  assert.match(proc.stderr, /ENOENT/);
+  assert.doesNotMatch(proc.stdout + proc.stderr, /zorblax|cairn-home/);
+});
+
+test('historical binary versions of current text files are scanned', () => {
+  const cwd = makeRepo();
+  commit(cwd, { 'acme.txt': Buffer.from([1, 0, 2]) }, 'binary');
+  commit(cwd, { 'acme.txt': 'clean\n' }, 'text');
+  const result = check(cwd);
+  assert.deepEqual(result.errors, []);
+  assert.ok(rules(result).includes('binary'));
+});
+
+test('annotated tagger names and emails are scanned', () => {
+  const cwd = makeRepo();
+  run(cwd, 'config', 'user.name', 'Zorblax');
+  run(cwd, 'config', 'user.email', 'dev@corp.test'); // cairn-scan:allow-fixture
+  run(cwd, 'tag', '-a', 'v0', '-m', 'about acme');
+  const result = check(cwd);
+  assert.ok(result.findings.some((f) => f.file.startsWith('tag#') && f.rule === 'identity'));
+  assert.ok(result.findings.some((f) => f.file.startsWith('tag#') && f.rule === 'denylist:0'));
+  const allowed = check(cwd, { allowIdentities: ['t@users.noreply.github.com', 'dev@corp.test'] }); // cairn-scan:allow-fixture
+  assert.equal(rules(allowed).includes('identity'), false);
+  assert.doesNotMatch(formatFindings(result.findings), /zorblax|corp\.test/i);
+});
+
+test('deleted Unicode file names are scanned in history', () => {
+  const cwd = makeRepo();
+  writeFileSync(join(cwd, 'zörblax.md'), 'clean\n');
+  run(cwd, 'add', '-A');
+  run(cwd, 'commit', '-q', '-m', 'add');
+  run(cwd, 'rm', '-q', 'zörblax.md');
+  run(cwd, 'commit', '-q', '-m', 'remove');
+  const result = check(cwd);
+  assert.ok(rules(result).includes('denylist:0'));
+  assert.doesNotMatch(formatFindings(result.findings), /zörblax/);
 });

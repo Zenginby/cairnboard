@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { isolatedGitEnv, makeRepo, commit } from './support/git.mjs';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -15,7 +16,7 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 function sandbox(t, { gitleaks = 'ok', denylist = 'zorblax\n' } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'hooks-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const repo = join(dir, 'repo');
+  const repo = makeRepo({ home: dir });
   const bin = join(dir, 'bin');
   mkdirSync(bin);
   if (gitleaks === 'ok' || gitleaks === 'leak') {
@@ -25,26 +26,21 @@ function sandbox(t, { gitleaks = 'ok', denylist = 'zorblax\n' } = {}) {
   const list = join(dir, 'list.txt');
   if (denylist !== null) writeFileSync(list, denylist);
   const env = {
+    ...isolatedGitEnv(dir),
     PATH: `${bin}:/usr/bin:/bin:/usr/local/bin:${process.execPath.replace(/\/node$/, '')}`,
-    HOME: dir,
-    GIT_CONFIG_NOSYSTEM: '1',
-    ...(denylist !== null ? { CAIRN_DENYLIST: list } : {}),
+    CAIRN_DENYLIST: denylist === null ? '' : list,
   };
   const git = (...args) => spawnSync('git', args, { cwd: repo, env, encoding: 'utf8' });
-  spawnSync('git', ['init', '-q', '-b', 'main', repo], { env });
   cpSync(join(repoRoot, 'security'), join(repo, 'security'), { recursive: true });
   for (const h of ['pre-commit', 'commit-msg', 'pre-push']) chmodSync(join(repo, 'security', 'hooks', h), 0o755);
-  git('config', 'user.name', 't');
-  git('config', 'user.email', 't@example.com');
-  git('add', 'security');
-  assert.equal(git('commit', '-q', '-m', 'base').status, 0, 'base commit');
+  commit(repo, {}, 'base');
   git('config', 'core.hooksPath', 'security/hooks');
-  const commit = (file, content, message = 'change') => {
+  const change = (file, content, message = 'change') => {
     writeFileSync(join(repo, file), content);
     git('add', '-A');
     return git('commit', '-q', '-m', message);
   };
-  return { repo, git, commit, dir, env };
+  return { repo, git, commit: change, dir, env };
 }
 
 test('clean commit passes', (t) => {
@@ -103,4 +99,89 @@ test('content introduced only by a merge commit is scanned on push', (t) => {
   s.git('add', 'evil.txt');
   assert.equal(s.git('commit', '-q', '--no-verify', '-m', 'merge').status, 0);
   assert.notEqual(s.git('push', '-q', 'origin', 'main').status, 0);
+});
+
+function hook(s, mode, { input, env = s.env, cwd = s.repo } = {}) {
+  return spawnSync(process.execPath, [join(s.repo, 'security', 'hook.mjs'), mode], { cwd, env, input, encoding: 'utf8' });
+}
+
+function refInput(s, ref = 'refs/heads/main') {
+  return `${ref} ${s.git('rev-parse', 'HEAD').stdout.trim()} ${ref} ${'0'.repeat(40)}\n`;
+}
+
+test('push findings use numbered labels without leaking the ref name', (t) => {
+  const s = sandbox(t);
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'about zorblax').status, 0);
+  const result = hook(s, 'push', { input: refInput(s, 'refs/heads/zorblax') });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /push ref #1/);
+  assert.doesNotMatch(result.stdout + result.stderr, /zorblax/);
+});
+
+test('hook startup failures hide paths and Git diagnostics', (t) => {
+  const s = sandbox(t);
+  const missing = join(s.dir, 'zorblax-list.txt');
+  const result = hook(s, 'staged', { env: { ...s.env, CAIRN_DENYLIST: missing } });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /ENOENT/);
+  assert.doesNotMatch(result.stdout + result.stderr, /zorblax/);
+  const outside = hook(s, 'staged', { cwd: s.dir });
+  assert.equal(outside.status, 2);
+  assert.doesNotMatch(outside.stderr, /fatal:|Error:|node:|zorblax/);
+});
+
+test('push scans annotated tag names, identities and messages', (t) => {
+  const s = sandbox(t);
+  s.git('config', 'user.name', 'Zorblax');
+  s.git('config', 'user.email', 'dev@corp.test'); // cairn-scan:allow-fixture
+  assert.equal(s.git('tag', '-a', 'v0', '-m', 'about acme').status, 0);
+  s.git('config', 'user.email', 't@example.com');
+  const sha = s.git('rev-parse', 'v0').stdout.trim();
+  const input = `refs/tags/v0 ${sha} refs/tags/v0 ${'0'.repeat(40)}\n`;
+  const result = hook(s, 'push', { input });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /identity/);
+  assert.match(result.stderr, /denylist:0/);
+  assert.doesNotMatch(result.stdout + result.stderr, /Zorblax|corp\.test/);
+});
+
+test('push accepts an allowed tagger and scans the tag message', (t) => {
+  const s = sandbox(t);
+  assert.equal(s.git('tag', '-a', 'v0', '-m', 'about acme').status, 0);
+  assert.equal(s.git('tag', '-a', 'v1', '-m', 'about zorblax').status, 0);
+  for (const [tag, status] of [['v0', 0], ['v1', 1]]) {
+    const sha = s.git('rev-parse', tag).stdout.trim();
+    const input = `refs/tags/${tag} ${sha} refs/tags/${tag} ${'0'.repeat(40)}\n`;
+    const result = hook(s, 'push', { input });
+    assert.equal(result.status, status);
+    assert.doesNotMatch(result.stderr, /identity|zorblax/);
+    if (status) assert.match(result.stderr, /denylist:0/);
+  }
+});
+
+test('push peels nested annotated tags', (t) => {
+  const s = sandbox(t);
+  s.git('config', 'user.email', 'dev@corp.test'); // cairn-scan:allow-fixture
+  assert.equal(s.git('tag', '-a', 'inner', '-m', 'inner').status, 0);
+  s.git('config', 'user.email', 't@example.com');
+  assert.equal(s.git('tag', '-a', 'outer', '-m', 'outer', 'inner').status, 0);
+  const sha = s.git('rev-parse', 'outer').stdout.trim();
+  const input = `refs/tags/outer ${sha} refs/tags/outer ${'0'.repeat(40)}\n`;
+  const result = hook(s, 'push', { input });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /identity/);
+  assert.doesNotMatch(result.stdout + result.stderr, /corp\.test/);
+});
+
+test('push finds deleted Unicode file names in history', (t) => {
+  const s = sandbox(t);
+  writeFileSync(join(s.repo, 'zörblax.md'), 'clean\n');
+  s.git('add', '-A');
+  assert.equal(s.git('commit', '-q', '--no-verify', '-m', 'add').status, 0);
+  s.git('rm', '-q', 'zörblax.md');
+  assert.equal(s.git('commit', '-q', '--no-verify', '-m', 'remove').status, 0);
+  const result = hook(s, 'push', { input: refInput(s) });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /denylist:0/);
+  assert.doesNotMatch(result.stdout + result.stderr, /zörblax/);
 });

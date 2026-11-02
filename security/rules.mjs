@@ -27,7 +27,7 @@ export const RULES = {
   token(line) {
     // Pinned GitHub Actions (owner/repo@<40-hex commit>) and sha256 checksum lines are public hashes.
     // A leading '+', '-' or ' ' is a diff marker: history scans see these lines inside patches.
-    if (/^[+ -]?\s*-?\s*uses:\s+[\w.-]+\/[\w./-]+@[0-9a-f]{40}(?:\s|$)/.test(line)) return false;
+    line = line.replace(/^([+ -]?\s*-?\s*uses:\s+[\w.-]+\/[\w./-]+)@[0-9a-f]{40}(?=\s|$)/, '$1');
     if (/sha256/i.test(line) && !/[0-9a-f]{65,}/i.test(line) && /\b[0-9a-f]{64}\b/.test(line)
       && ![...line.matchAll(/[A-Za-z0-9+/_-]{32,}={0,2}/g)].some(([v]) => !/^[0-9a-f]{64}$/.test(v) && !/^sha(?:1|256|384|512)-/.test(v))) return false;
     const tokens = line.matchAll(/(?:sha(?:1|256|384|512)-)?[A-Za-z0-9+/_-]{32,}={0,2}/g);
