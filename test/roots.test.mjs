@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, posix, win32 } from 'node:path';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { findDataDir, findProjectLink, findRepoRoot, initDataDir, stateDir, writeProjectLink } from '../core/roots.mjs';
+import { PRESETS } from '../core/presets.mjs';
 
 function fixture(t) {
   const home = tempDir(t, 'cairn-home-');
@@ -41,12 +42,14 @@ test('init and discovery use the same custom XDG state directory', (t) => {
   assert.deepEqual(JSON.parse(readFileSync(join(env.XDG_STATE_HOME, 'cairnboard', 'state.json'), 'utf8')), { data: root });
 });
 
-test('init creates private metadata, directories and discovery state, and preserves config', (t) => {
+test('init creates only private metadata and discovery state, and preserves config', (t) => {
   const options = fixture(t);
   const root = join(options.home, 'data');
   const config = initDataDir(root, { ...options, language: 'tr' });
   assert.equal(config.language, 'tr');
-  for (const rel of ['projects', 'cards', 'notes', 'research', 'journal', '.cairn/events', '.cairn/history',
+  assert.deepEqual(readdirSync(root), ['.cairn']);
+  assert.equal(Object.hasOwn(config, 'schema'), false);
+  for (const rel of ['.cairn/events', '.cairn/history',
     '.cairn/pending', '.cairn/trash', '.cairn/locks', '.cairn/backup']) {
     assert.ok(statSync(join(root, rel)).isDirectory(), rel);
   }
@@ -59,8 +62,24 @@ test('init creates private metadata, directories and discovery state, and preser
   const file = join(root, '.cairn', 'config.json');
   const bytes = JSON.stringify({ ...config, leaseMinutes: 45 }, null, 4) + '\n';
   writeFileSync(file, bytes);
-  assert.equal(initDataDir(root, { ...options, language: 'en' }).leaseMinutes, 45);
+  assert.equal(initDataDir(root, { ...options, language: 'en', preset: 'tr-wiki' }).leaseMinutes, 45);
   assert.equal(readFileSync(file, 'utf8'), bytes);
+});
+
+test('wiki init saves the preset without creating content folders and preserves existing config bytes', (t) => {
+  const options = fixture(t);
+  const root = join(options.home, 'data');
+  const config = initDataDir(root, { ...options, preset: 'tr-wiki' });
+  assert.deepEqual(readdirSync(root), ['.cairn']);
+  assert.deepEqual(config.schema, PRESETS['tr-wiki']);
+  const file = join(root, '.cairn', 'config.json');
+  const bytes = readFileSync(file, 'utf8');
+  assert.deepEqual(JSON.parse(bytes).schema, PRESETS['tr-wiki']);
+  assert.deepEqual(initDataDir(root, { ...options, preset: 'default' }), config);
+  assert.equal(readFileSync(file, 'utf8'), bytes);
+  const invalid = join(options.home, 'invalid');
+  assert.throws(() => initDataDir(invalid, { ...options, preset: 'other' }), { code: 'validation' });
+  assert.equal(existsSync(invalid), false);
 });
 
 test('init preserves existing root permissions and supports spaces, Turkish and NFD paths', (t) => {

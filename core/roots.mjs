@@ -4,6 +4,7 @@ import * as fs from './fsx.mjs';
 import { checkedPath, readChecked, realRoot, samePath } from './paths.mjs';
 import { defaultConfig, loadConfig } from './config.mjs';
 import { CairnError } from './errors.mjs';
+import { PRESETS } from './presets.mjs';
 
 const invalid = () => new CairnError('validation', 'Data directory or project link is invalid or not writable.');
 const projectId = /^p-[0-9a-hjkmnp-tv-z]{6}$/u;
@@ -48,8 +49,10 @@ function makeDirectory(path) {
   fs.mkdirSync(path, { recursive: true, mode: 0o700 });
 }
 
-export function initDataDir(path, { language = 'en', home = homedir(), platform = process.platform, env = process.env, clock } = {}) {
+export function initDataDir(path, { language = 'en', preset = 'default', home = homedir(), platform = process.platform, env = process.env, clock } = {}) {
   const config = defaultConfig(language);
+  if (!Object.hasOwn(PRESETS, preset)) throw invalid();
+  if (preset !== 'default') config.schema = structuredClone(PRESETS[preset]);
   if (typeof path !== 'string' || !path || path.includes('\0') || protectedPath(path, home, platform)) throw invalid();
   try {
     const abs = resolve(path);
@@ -63,7 +66,7 @@ export function initDataDir(path, { language = 'en', home = homedir(), platform 
     const metadata = checkedPath(root, '.cairn');
     fs.mkdirSync(metadata, { recursive: true, mode: 0o700 });
     fs.chmodSync(metadata, 0o700);
-    for (const rel of ['projects', 'cards', 'notes', 'research', 'journal', '.cairn/events', '.cairn/history',
+    for (const rel of ['.cairn/events', '.cairn/history',
       '.cairn/pending', '.cairn/trash', '.cairn/locks', '.cairn/backup']) {
       fs.mkdirSync(checkedPath(root, rel), { recursive: true, mode: 0o700 });
     }

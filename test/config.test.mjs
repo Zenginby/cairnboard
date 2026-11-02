@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, s
 import { join } from 'node:path';
 import { defaultConfig, loadConfig, migrate, needsMigration } from '../core/config.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
+import { PRESETS } from '../core/presets.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 
 function fixture(t, config = defaultConfig('en')) {
@@ -47,6 +48,23 @@ test('config loads only valid schema and rejects future versions distinctly', (t
   assert.throws(() => loadConfig(root), { code: 'format_too_new' });
   rmSync(file);
   assert.throws(() => loadConfig(root), { code: 'not_found' });
+});
+
+test('config validates optional schemas without changing the saved representation', (t) => {
+  const schema = structuredClone(PRESETS['tr-wiki']);
+  const config = { ...defaultConfig(), schema };
+  const root = fixture(t, config);
+  assert.deepEqual(loadConfig(root), config);
+  const file = join(root, '.cairn', 'config.json');
+  const before = readFileSync(file, 'utf8');
+  loadConfig(root);
+  assert.equal(readFileSync(file, 'utf8'), before);
+  schema.fields.tags = 'tur';
+  writeFileSync(file, JSON.stringify(config));
+  assert.throws(() => loadConfig(root), { code: 'validation' });
+  schema.schemaVersion = 2;
+  writeFileSync(file, JSON.stringify(config));
+  assert.throws(() => loadConfig(root), { code: 'format_too_new' });
 });
 
 test('migration backs up exact config bytes and never overwrites an earlier attempt', (t) => {

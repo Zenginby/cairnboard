@@ -2,6 +2,7 @@ import { dirname, join, relative } from 'node:path';
 import * as fs from './fsx.mjs';
 import { checkedPath, readChecked, realRoot } from './paths.mjs';
 import { CairnError } from './errors.mjs';
+import { resolveSchema } from './schema.mjs';
 
 const version = 1;
 const invalid = () => new CairnError('validation', 'Invalid configuration.');
@@ -31,6 +32,7 @@ function validate(config) {
       || keys.has(column.key)) throw invalid();
     keys.add(column.key);
   }
+  resolveSchema(config);
   return config;
 }
 
