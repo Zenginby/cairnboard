@@ -91,7 +91,7 @@ function createTemp(ctx, rel, bytes) {
   } finally {
     fs.closeSync(fd);
   }
-  syncDir(ctx, dirname(rel));
+  // No directory flush here: the flush after the rename makes the final name durable, and a lost temp is rolled back.
 }
 
 function cas(ctx, item, expected = item.before) {
@@ -217,10 +217,10 @@ function cleanup(ctx, intent, completed) {
     }
     if (intent.undo) remove(ctx, historyPath(intent.undo.historyTx));
   }
-  syncDir(ctx, '.cairn/history');
+  // Lost history or pending deletions only make recovery repeat this cleanup; a lost trash deletion would bring a
+  // restored item back into the trash list, so that one is flushed.
   if (intent.cleanup?.length || intent.items.some((item) => item.trash)) syncDir(ctx, '.cairn/trash');
   remove(ctx, pendingPath(intent.tx));
-  syncDir(ctx, '.cairn/pending');
 }
 
 function complete(ctx, intent, recovering = true) {

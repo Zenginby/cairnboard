@@ -71,8 +71,8 @@ function create(ctx, rel) {
     throw error;
   }
   try {
+    // No fsync: a lock only matters to live processes, and after a power loss every lock is stale anyway.
     fs.writeFileSync(fd, JSON.stringify({ host: ctx.host, pid: ctx.pid, instance: ctx.instance, ts: ctx.clock.now().toISOString() }));
-    fs.fsyncSync(fd);
   } catch (error) {
     fs.unlinkSync(checkedPath(ctx.root, rel));
     throw error;
