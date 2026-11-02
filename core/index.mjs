@@ -462,7 +462,7 @@ function rowFrom(ctx, item) {
   const data = JSON.parse(item.data_json);
   const classification = classify(ctx.schema, item.path, data);
   return { path: item.path, type: item.type, kind: item.kind, id: item.id, ref: item.id ?? `@${item.path.replace(/\.md$/iu, '')}`,
-    title: item.title, data, body: null, acceptance: { done: item.acc_done, total: item.acc_total }, error: item.error,
+    title: item.title, data, body: null, revision: item.hash, acceptance: { done: item.acc_done, total: item.acc_total }, error: item.error,
     ...(classification.unknownKind === undefined ? {} : { unknownKind: classification.unknownKind }) };
 }
 
@@ -470,9 +470,9 @@ function snapshot(ctx) {
   const collected = collect(ctx);
   const resolveTarget = resolver(collected.items.map((item) => item.path));
   const result = { rows: [], links: [], entries: [] };
-  for (const { item, data } of collected.changes) {
+  for (const { item, hash, data } of collected.changes) {
     if (!data?.row) continue;
-    result.rows.push(data.row);
+    result.rows.push({ ...data.row, revision: hash });
     result.links.push(...data.links.map((link) => ({ ...link, src_path: item.path, ...resolveTarget(link.targetName) })));
     result.entries.push(...data.entries.map((entry) => ({ ...entry, path: item.path,
       date: String(data.row.data.date ?? basename(item.path, '.md')) })));
