@@ -87,6 +87,8 @@ test('author email outside the allowed identities is reported', () => {
   run(cwd, 'commit', '-q', '--allow-empty', '--author', 'Dev <dev@corp.test>', '-m', 'work'); // cairn-scan:allow-fixture
   const result = check(cwd);
   assert.ok(rules(result).includes('identity'));
+  // Identity findings point at the e-mail lines of the commit text, like every other finding there.
+  assert.deepEqual(result.findings.filter((f) => f.rule === 'identity').map((f) => f.line), [2]);
   assert.doesNotMatch(formatFindings(result.findings), /corp\.test/);
   const allowed = check(cwd, { allowIdentities: ['t@users.noreply.github.com', 'dev@corp.test'] }); // cairn-scan:allow-fixture
   assert.equal(rules(allowed).includes('identity'), false);

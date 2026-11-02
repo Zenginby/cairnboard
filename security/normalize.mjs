@@ -1,15 +1,17 @@
 const INVISIBLE_PATTERN = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
 const BOUNDARY_PATTERN = /(?<=\p{Lu})(?=\p{Lu}\p{Ll})|(?<=\p{Ll})(?=\p{Lu})|(?<=\p{L})(?=\p{N})|(?<=\p{N})(?=\p{L})/gu;
 const percentRun = /(?:%[0-9A-Fa-f]{2})+/g;
-// \uXXXX (a surrogate pair as one), \u{X…}, \xXX, numeric and a few named HTML references. Every alternative is a
-// fixed prefix followed by one character class, so matching never backtracks.
-const escapeRun = /\\u([dD][89abAB][0-9A-Fa-f]{2})\\u([dD][c-fC-F][0-9A-Fa-f]{2})|\\u\{([0-9A-Fa-f]{1,6})\}|\\u([0-9A-Fa-f]{4})|\\x([0-9A-Fa-f]{2})|&#[xX]([0-9A-Fa-f]+);?|&#(\d+);?|&(amp|lt|gt|quot|apos|nbsp);/g;
+// \uXXXX (a surrogate pair as one), \u{X…} (leading zeros allowed, as in JavaScript), \xXX, three-digit octal,
+// numeric and a few named HTML references (HTML also accepts the uppercase forms). Every alternative is a fixed
+// prefix followed by bounded character classes, so matching never backtracks far.
+const escapeRun = /\\u([dD][89abAB][0-9A-Fa-f]{2})\\u([dD][c-fC-F][0-9A-Fa-f]{2})|\\u\{0*([0-9A-Fa-f]{1,6})\}|\\u([0-9A-Fa-f]{4})|\\x([0-9A-Fa-f]{2})|\\([0-3][0-7]{2})|&#[xX]([0-9A-Fa-f]+);?|&#(\d+);?|&(amp|lt|gt|quot|apos|nbsp|AMP|LT|GT|QUOT);/g;
 const entities = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00A0' };
 
 function decodeEscapes(text) {
-  return text.replace(escapeRun, (escape, high, low, braced, four, byte, hex, decimal, name) => {
-    if (name) return entities[name];
+  return text.replace(escapeRun, (escape, high, low, braced, four, byte, octal, hex, decimal, name) => {
+    if (name) return entities[name.toLowerCase()];
     if (high) return String.fromCharCode(parseInt(high, 16), parseInt(low, 16));
+    if (octal) return String.fromCharCode(parseInt(octal, 8));
     const code = decimal === undefined ? parseInt(braced ?? four ?? byte ?? hex, 16) : Number(decimal);
     // Not a character (out of range or a lone surrogate half): keep the text as written.
     return code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF) ? escape : String.fromCodePoint(code);
