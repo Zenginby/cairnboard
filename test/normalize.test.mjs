@@ -23,6 +23,14 @@ test('normalize decodes code-point escapes and HTML references', () => {
   assert.equal(normalize('\\uD835\\uDC00cme'), 'acme');
 });
 
+test('normalize decodes padded braced, octal and uppercase named escapes', () => {
+  for (const sample of ['\\u{0000000061}cme', '\\141cme', '&AMP;#x41;cme', '&LT;acme&GT;', '&QUOT;acme&QUOT;']) {
+    assert.equal(normalize(sample), 'acme', sample);
+  }
+  // Octal needs exactly three digits, so short backslash-digit runs stay as written.
+  assert.equal(normalize('\\1acme'), '1 acme');
+});
+
 test('normalize unwraps nested escapes', () => {
   for (const sample of ['&amp;#x41;cme', '%5Cu0041cme', '&#38;#65;cme', '\\u0026#x41;cme', '%26amp;#65;cme']) {
     assert.equal(normalize(sample), 'acme', sample);

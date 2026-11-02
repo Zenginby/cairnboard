@@ -80,8 +80,8 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
       // Messages are indented (%w) so a message line can never pass for a diff header and unlock the fixture marker.
       const text = rest.join('\n');
       findings.push(...scanLines(text, fixtureLines(text), { file, terms, allowIdentities }));
-      for (const line of [3, 5]) {
-        const email = rest[line - 2]?.trim();
+      for (const line of [2, 4]) {
+        const email = rest[line - 1]?.trim();
         if (email !== undefined && !allowIdentities.includes(email)) findings.push({ file, line, rule: 'identity' });
       }
     }
