@@ -141,8 +141,13 @@ export function appendEvent(ctx, input) {
     const dir = checkedPath(ctx.root, '.cairn/events');
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     const counter = readChecked(ctx.root, '.cairn/events/seq', 'utf8');
-    const saved = parseMirror(counter);
-    const newest = fs.readdirSync(dir).filter(isMonthFile).sort().at(-1)?.slice(0, 7) ?? null;
+    const names = fs.readdirSync(dir).filter(isMonthFile).sort();
+    const newest = names.at(-1)?.slice(0, 7) ?? null;
+    // An unflushed mirror can come back zero-filled after a power loss; every month is read once to rebuild it.
+    // Any other malformed mirror is still refused.
+    const saved = counter?.includes('\0')
+      ? { seq: readEvents(ctx).reduce((seq, event) => Math.max(seq, event.seq), 0), month: null }
+      : parseMirror(counter);
     const recentMonths = new Set([saved.month ?? newest, newest].filter(Boolean));
     const recent = [...recentMonths].flatMap((name) => tail(ctx, name));
     // Recover an event persisted before its sequence mirror without reading older months.
@@ -171,6 +176,8 @@ export function appendEvent(ctx, input) {
     } finally {
       fs.closeSync(fd);
     }
+    // A month's first event creates its file, whose name is durable only once the directory is flushed.
+    if (!names.includes(`${month}.jsonl`)) fs.syncDirectory(dir);
     mirror(seq, month, older);
     ctx.faults?.('after-event');
     return seq;
