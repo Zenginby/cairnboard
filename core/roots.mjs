@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
-import { dirname, join, parse, relative, resolve, win32 } from 'node:path';
+import { dirname, join, parse, posix, relative, resolve, win32 } from 'node:path';
 import * as fs from './fsx.mjs';
-import { checkedPath, openForRead, realRoot, samePath } from './paths.mjs';
+import { checkedPath, readChecked, realRoot, samePath } from './paths.mjs';
 import { defaultConfig, loadConfig } from './config.mjs';
 import { CairnError } from './errors.mjs';
 
@@ -10,8 +10,8 @@ const projectId = /^p-[0-9a-hjkmnp-tv-z]{6}$/u;
 
 export function stateDir({ platform = process.platform, env = process.env, home = homedir() } = {}) {
   if (platform === 'win32') return win32.join(env.LOCALAPPDATA || win32.join(home, 'AppData', 'Local'), 'Cairnboard');
-  if (platform === 'darwin') return join(home, 'Library', 'Application Support', 'Cairnboard');
-  return join(env.XDG_STATE_HOME || join(home, '.local', 'state'), 'cairnboard');
+  if (platform === 'darwin') return posix.join(home, 'Library', 'Application Support', 'Cairnboard');
+  return posix.join(env.XDG_STATE_HOME || posix.join(home, '.local', 'state'), 'cairnboard');
 }
 
 export function findDataDir({ flag, env = process.env, home = homedir(), platform = process.platform } = {}) {
@@ -92,24 +92,14 @@ function* ancestors(cwd) {
 }
 
 function marker(dir, name) {
-  try {
-    return fs.lstatSync(join(dir, name));
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-    return null;
-  }
+  return fs.lstatSync(join(dir, name), { throwIfNoEntry: false });
 }
 
 export function findProjectLink(cwd) {
   for (const dir of ancestors(cwd)) {
     if (!marker(dir, '.cairn')?.isFile()) continue;
-    const fd = openForRead(realRoot(dir), '.cairn');
-    let text;
-    try {
-      text = fs.readFileSync(fd, 'utf8');
-    } finally {
-      fs.closeSync(fd);
-    }
+    const text = readChecked(realRoot(dir), '.cairn', 'utf8');
+    if (text === null) continue;
     const match = /^project\s*=\s*(p-[0-9a-hjkmnp-tv-z]{6})\s*$/u.exec(text);
     if (!match) throw invalid();
     return match[1];

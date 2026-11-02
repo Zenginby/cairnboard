@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
-import { checkedPath, openForRead, safeRelative } from './paths.mjs';
+import { checkedPath, readChecked, safeRelative } from './paths.mjs';
 import { pathKey } from './text.mjs';
 
 /**
@@ -23,27 +23,22 @@ export function lockName(rel) {
 }
 
 function readOwner(ctx, rel) {
-  let fd;
+  const text = readChecked(ctx.root, rel, 'utf8');
+  if (text === null) return undefined;
+  let owner = null;
   try {
-    fd = openForRead(ctx.root, rel);
-    let owner;
-    try {
-      owner = JSON.parse(fs.readFileSync(fd, 'utf8'));
-    } catch (error) {
-      if (!(error instanceof SyntaxError)) throw error;
-      owner = null;
-    }
-    return { owner, mtime: fs.fstatSync(fd).mtimeMs };
-  } catch (error) {
-    if (error.code === 'ENOENT') return undefined;
-    throw error;
-  } finally {
-    if (fd !== undefined) fs.closeSync(fd);
+    owner = JSON.parse(text);
+  } catch {
+    // Malformed owners fall back to the mtime rule.
   }
+  const stat = fs.lstatSync(checkedPath(ctx.root, rel), { throwIfNoEntry: false });
+  return stat && { owner, mtime: stat.mtimeMs };
 }
 
 function stale(ctx, { owner, mtime }) {
-  if (!owner || typeof owner.host !== 'string' || !Number.isInteger(owner.pid) || owner.pid <= 0
+  if (!owner || typeof owner.host !== 'string' || !Number.isInteger(owner.pid)
+    // process.kill rejects pids outside the signed 32-bit range.
+    || owner.pid < 1 || owner.pid > 2 ** 31 - 1
     || typeof owner.instance !== 'string' || typeof owner.ts !== 'string' || !Number.isFinite(Date.parse(owner.ts))) {
     return ctx.clock.now().getTime() - mtime > 2 * 60 * 1000;
   }

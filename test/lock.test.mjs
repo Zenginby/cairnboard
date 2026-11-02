@@ -3,17 +3,16 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { lockName, withLock } from '../core/lock.mjs';
 import { pathKey } from '../core/text.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
 import { CairnError } from '../core/errors.mjs';
-import { fixedClock, tempData, tempHome } from './support/env.mjs';
+import { fixedClock, tempDir } from './support/env.mjs';
 
 function fixture(t) {
-  const root = realpathSync(tempData());
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const root = tempDir(t, 'cairn-data-');
   mkdirSync(join(root, '.cairn', 'locks'), { recursive: true });
   return { root, config: {}, clock: fixedClock('2026-11-01T12:00:00Z'), actor: null,
     mode: 'write', host: 'acme', pid: process.pid, instance: 'instance-a' };
@@ -149,6 +148,19 @@ test('empty and malformed locks become stale only after two minutes', (t) => {
   }
 });
 
+test('pids that process.kill cannot address are malformed and follow the mtime rule', (t) => {
+  const ctx = fixture(t);
+  const now = ctx.clock.now().getTime() / 1000;
+  for (const pid of [2 ** 40, 2 ** 31, -1]) {
+    seed(ctx, { pid });
+    utimesSync(file(ctx), now - 60, now - 60);
+    assert.throws(() => withLock(ctx, 'd-cards', () => assert.fail()), { code: 'locked' });
+    utimesSync(file(ctx), now - 180, now - 180);
+    assert.equal(withLock(ctx, 'd-cards', () => 42), 42);
+    assert.equal(existsSync(file(ctx)), false);
+  }
+});
+
 test('non-write modes and unsafe names never acquire a lock or run the callback', (t) => {
   const ctx = fixture(t);
   for (const mode of ['read', 'dry-run', 'inspect']) {
@@ -190,8 +202,7 @@ test('failed stale renames preserve the original lock and release the reclaim gu
 
 test('two processes reclaiming a stale lock admit only one owner', { timeout: 15000 }, async (t) => {
   const ctx = fixture(t);
-  const home = tempHome();
-  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const home = tempDir(t, 'cairn-home-');
   seed(ctx, { host: 'zorblax', ts: '2026-11-01T11:52:00Z' });
   const release = join(ctx.root, 'release');
   const move = join(ctx.root, 'move');

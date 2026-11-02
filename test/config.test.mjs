@@ -1,14 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultConfig, loadConfig, migrate, needsMigration } from '../core/config.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
-import { fixedClock, tempData } from './support/env.mjs';
+import { fixedClock, tempDir } from './support/env.mjs';
 
 function fixture(t, config = defaultConfig('en')) {
-  const root = realpathSync(tempData());
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const root = tempDir(t, 'cairn-data-');
   mkdirSync(join(root, '.cairn'));
   writeFileSync(join(root, '.cairn', 'config.json'), JSON.stringify(config));
   return root;
@@ -46,6 +45,8 @@ test('config loads only valid schema and rejects future versions distinctly', (t
   assert.throws(() => loadConfig(root), { code: 'validation' });
   writeFileSync(file, JSON.stringify({ formatVersion: 2 }));
   assert.throws(() => loadConfig(root), { code: 'format_too_new' });
+  rmSync(file);
+  assert.throws(() => loadConfig(root), { code: 'not_found' });
 });
 
 test('migration backs up exact config bytes and never overwrites an earlier attempt', (t) => {
@@ -94,8 +95,7 @@ test('migration backs up Markdown bytes and paths, excluding metadata and symlin
   writeFileSync(join(root, 'root.md'), card);
   writeFileSync(join(root, 'notes', 'image.png'), 'image');
   writeFileSync(join(root, '.cairn', 'private.md'), 'metadata');
-  const outside = realpathSync(tempData());
-  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  const outside = tempDir(t, 'cairn-data-');
   writeFileSync(join(outside, 'outside.md'), 'outside');
   symlinkSync(join(outside, 'outside.md'), join(root, 'notes', 'link.md'));
   symlinkSync(outside, join(root, 'linked'), 'dir');

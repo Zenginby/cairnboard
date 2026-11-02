@@ -1,21 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { tempHome, fixedClock } from './support/env.mjs';
+import { chmodSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { join, posix, win32 } from 'node:path';
+import { fixedClock, tempDir } from './support/env.mjs';
 import { findDataDir, findProjectLink, findRepoRoot, initDataDir, stateDir, writeProjectLink } from '../core/roots.mjs';
 
 function fixture(t) {
-  const home = realpathSync(tempHome());
-  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const home = tempDir(t, 'cairn-home-');
   return { home, platform: 'darwin', clock: fixedClock('2026-11-01T10:20:30Z') };
 }
 
-test('state directories follow each platform convention', () => {
-  assert.equal(stateDir({ platform: 'darwin', home: '/acme', env: {} }), '/acme/Library/Application Support/Cairnboard');
-  assert.equal(stateDir({ platform: 'linux', home: '/acme', env: {} }), '/acme/.local/state/cairnboard');
-  assert.equal(stateDir({ platform: 'linux', home: '/acme', env: { XDG_STATE_HOME: '/state' } }), '/state/cairnboard');
-  assert.equal(stateDir({ platform: 'win32', home: 'C:\\acme', env: { LOCALAPPDATA: 'C:\\state' } }), 'C:\\state\\Cairnboard');
+test('state directories follow each platform convention on any host', () => {
+  assert.equal(stateDir({ platform: 'darwin', home: '/acme', env: {} }),
+    posix.join('/acme', 'Library', 'Application Support', 'Cairnboard'));
+  assert.equal(stateDir({ platform: 'linux', home: '/acme', env: {} }), posix.join('/acme', '.local', 'state', 'cairnboard'));
+  assert.equal(stateDir({ platform: 'linux', home: '/acme', env: { XDG_STATE_HOME: '/state' } }), posix.join('/state', 'cairnboard'));
+  assert.equal(stateDir({ platform: 'win32', home: 'C:\\acme', env: { LOCALAPPDATA: 'C:\\state' } }), win32.join('C:\\state', 'Cairnboard'));
+  assert.equal(stateDir({ platform: 'win32', home: 'C:\\acme', env: {} }), win32.join('C:\\acme', 'AppData', 'Local', 'Cairnboard'));
 });
 
 test('data discovery prefers flag, environment, state, then default', (t) => {
@@ -79,6 +80,8 @@ test('init refuses home, filesystem roots, protected paths and unwritable folder
     'C:\\', 'C:\\Windows', 'C:\\Program Files']) {
     assert.throws(() => initDataDir(root, options), { code: 'validation' }, root);
   }
+  // Windows ignores POSIX modes, so a read-only folder cannot be built this way there.
+  if (process.platform === 'win32') return;
   const root = join(options.home, 'readonly');
   mkdirSync(root, { mode: 0o500 });
   try {

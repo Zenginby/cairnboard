@@ -21,6 +21,18 @@ export function afterCheck(path) {
 export const openSync = fs.openSync;
 export const realpathSync = fs.realpathSync;
 
+// The rename is durable only once its directory entry is flushed; Windows cannot open directories for this.
+function syncDirectory(dir) {
+  if (process.platform === 'win32') return;
+  const fd = openSync(dir, fs.constants.O_RDONLY);
+  try {
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  hooks.syncDirectory?.(dir);
+}
+
 export function writeFileAtomic(path, data, beforeRename = () => {}) {
   const temp = join(dirname(path), `.tmp-${randomBytes(8).toString('hex')}`);
   const fd = openSync(temp, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL
@@ -34,6 +46,7 @@ export function writeFileAtomic(path, data, beforeRename = () => {}) {
     }
     beforeRename();
     rename(temp, path);
+    syncDirectory(dirname(path));
   } finally {
     try {
       fs.unlinkSync(temp);

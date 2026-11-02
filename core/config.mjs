@@ -1,6 +1,6 @@
 import { dirname, join, relative } from 'node:path';
 import * as fs from './fsx.mjs';
-import { checkedPath, openForRead, realRoot } from './paths.mjs';
+import { checkedPath, readChecked, realRoot } from './paths.mjs';
 import { CairnError } from './errors.mjs';
 
 const version = 1;
@@ -35,12 +35,9 @@ function validate(config) {
 }
 
 function readConfig(root) {
-  const fd = openForRead(root, '.cairn/config.json');
-  try {
-    return fs.readFileSync(fd, 'utf8');
-  } finally {
-    fs.closeSync(fd);
-  }
+  const bytes = readChecked(root, '.cairn/config.json', 'utf8');
+  if (bytes === null) throw new CairnError('not_found', 'Configuration not found.');
+  return bytes;
 }
 
 function parseConfig(bytes) {
@@ -69,13 +66,8 @@ function backupMarkdown(root, backup, rel = '') {
     if (entry.isDirectory()) {
       backupMarkdown(root, backup, child);
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
-      const fd = openForRead(root, child);
-      let bytes;
-      try {
-        bytes = fs.readFileSync(fd);
-      } finally {
-        fs.closeSync(fd);
-      }
+      const bytes = readChecked(root, child);
+      if (bytes === null) continue;
       const target = join(backup, child);
       fs.mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
       fs.writeFileAtomic(checkedPath(root, relative(root, target)), bytes);
@@ -114,7 +106,9 @@ export function migrate(root, { migrations, clock }) {
   const file = checkedPath(root, '.cairn/config.json');
   fs.writeFileAtomic(file, JSON.stringify(config, null, 2) + '\n', () => {
     // An external writer can still race the short interval between this comparison and rename.
-    if (readConfig(root) !== bytes) throw new CairnError('conflict', 'Configuration changed during migration.');
+    if (readChecked(root, '.cairn/config.json', 'utf8') !== bytes) {
+      throw new CairnError('conflict', 'Configuration changed during migration.');
+    }
   });
   return { from, to: config.formatVersion, backup };
 }
