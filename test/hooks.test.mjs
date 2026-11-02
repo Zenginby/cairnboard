@@ -173,6 +173,17 @@ test('push peels nested annotated tags', (t) => {
   assert.doesNotMatch(result.stdout + result.stderr, /corp\.test/);
 });
 
+test('push scans the tag name embedded in the tag object', (t) => {
+  const s = sandbox(t);
+  const head = s.git('rev-parse', 'HEAD').stdout.trim();
+  const object = `object ${head}\ntype commit\ntag zorblax\ntagger t <t@example.com> 0 +0000\n\nclean\n`;
+  const sha = spawnSync('git', ['hash-object', '-t', 'tag', '-w', '--stdin'], { cwd: s.repo, env: s.env, input: object, encoding: 'utf8' }).stdout.trim();
+  const input = `refs/tags/v9 ${sha} refs/tags/v9 ${'0'.repeat(40)}\n`;
+  const result = hook(s, 'push', { input });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /denylist:0/);
+});
+
 test('push finds deleted Unicode file names in history', (t) => {
   const s = sandbox(t);
   writeFileSync(join(s.repo, 'zörblax.md'), 'clean\n');

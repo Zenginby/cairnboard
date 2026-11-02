@@ -20,7 +20,8 @@ export function annotatedTags(sha, { cwd } = {}) {
     const split = raw.indexOf('\n\n');
     const header = split < 0 ? raw : raw.slice(0, split);
     const tagger = /^tagger (.*) <([^>]*)> \d+ [+-]\d{4}$/m.exec(header);
-    tags.push({ text: [tagger?.[1] ?? '', tagger?.[2] ?? '', split < 0 ? '' : raw.slice(split + 2)].join('\n'), email: tagger?.[2] });
+    // Everything but the structural object hash is scanned: the embedded tag name, unknown headers and the message.
+    tags.push({ text: raw.split('\n').filter((line) => !/^object [0-9a-f]+$/.test(line)).join('\n'), email: tagger?.[2] });
     sha = /^object ([0-9a-f]+)$/m.exec(header)[1];
   }
   return tags;
