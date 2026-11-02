@@ -1,0 +1,34 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { initDataDir } from '../core/roots.mjs';
+import { openContext } from '../core/context.mjs';
+import { readFile, write } from '../core/store.mjs';
+import { list, restore } from '../core/trash.mjs';
+import { readEvents } from '../core/events.mjs';
+import { fixedClock, tempDir } from './support/env.mjs';
+
+test('trash lists metadata and restores through a transaction with a unique destination', (t) => {
+  const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
+  initDataDir(root, { home, env: {}, clock });
+  const ctx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'agent:acme' });
+  writeFileSync(join(root, 'note.md'), 'deleted');
+  write(ctx, { op: 'note.delete', path: 'note.md', apply: () => null });
+  const [entry] = list(ctx);
+  assert.equal(entry.path, 'note.md');
+  assert.equal(entry.deletedAt, clock.now().toISOString());
+  assert.equal(readFileSync(join(root, '.cairn/trash', entry.trashId), 'utf8'), 'deleted');
+  writeFileSync(join(root, 'note.md'), 'occupied');
+  const preview = restore(ctx, entry.trashId, { dryRun: true });
+  assert.equal(preview.path, 'note-2.md');
+  assert.equal(list(ctx).length, 1);
+  const result = restore(ctx, entry.trashId, {});
+  assert.equal(result.path, 'note-2.md');
+  assert.equal(readFile(ctx, 'note-2.md').text, 'deleted');
+  assert.equal(readFile(ctx, 'note.md').text, 'occupied');
+  assert.deepEqual(list(ctx), []);
+  assert.equal(readEvents(ctx).at(-1).op, 'trash.restore');
+  assert.throws(() => restore(ctx, '../escape', {}), { code: 'unsafe_path' });
+  assert.throws(() => restore(ctx, entry.trashId, {}), { code: 'not_found' });
+});
