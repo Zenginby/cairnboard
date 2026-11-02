@@ -78,3 +78,17 @@ test('relative explicit and environment roots resolve against the supplied cwd',
   assert.equal(byEnv.root, opts.root);
   assert.throws(() => openContext({ ...opts, mode: 'write', dataDir: join(opts.root, 'missing') }), { code: 'validation' });
 });
+
+test('a committed write updates the index without a separate refresh', async (t) => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const { write } = await import('../core/store.mjs');
+  const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
+  initDataDir(root, { home, env: {}, clock });
+  const ctx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock });
+  write(ctx, { op: 'note.write', path: 'notes/acme.md', apply: () => '# Acme\n' });
+  const db = new DatabaseSync(ctx.indexPath);
+  t.after(() => db.close());
+  assert.deepEqual(db.prepare('SELECT path, title FROM files').all().map((row) => ({ ...row })), [{ path: 'notes/acme.md', title: 'Acme' }]);
+  write(ctx, { op: 'note.delete', path: 'notes/acme.md', apply: () => null });
+  assert.deepEqual(db.prepare('SELECT path FROM files').all(), []);
+});
