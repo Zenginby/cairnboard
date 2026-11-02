@@ -181,7 +181,7 @@ test('ephemeral caches stay outside the data root, and names use case and NFC wi
   assert.equal(fs.statSync(dirname(ctx.indexPath)).mode & 0o777, 0o700);
 });
 
-test('a busy version mismatch and a failed replacement preserve the old cache', (t) => {
+test('a busy version mismatch and a failed replacement of a corrupt cache preserve the old file', (t) => {
   const ctx = setup(t);
   put(ctx, 'notes/a.md', '# A');
   refresh(ctx);
@@ -194,6 +194,8 @@ test('a busy version mismatch and a failed replacement preserve the old cache', 
   blocker.exec('ROLLBACK');
   blocker.close();
   blocker = undefined;
+  // Only a corrupt cache is replaced; when that replacement fails the old file stays and queries read the files.
+  fs.writeFileSync(ctx.indexPath, 'broken database');
   fs.__setFsHooks({ rename: () => { throw new Error('Replacement unavailable.'); } });
   t.after(() => fs.__setFsHooks());
   const fresh = { ...ctx, warnings: [] };

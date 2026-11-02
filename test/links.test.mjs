@@ -37,7 +37,7 @@ test('journal entries recognize both languages, labels, continuation lines and p
 
 test('backtick delimiters must match exactly, including code spans crossing lines', () => {
   const text = '`unclosed [[a]]\n\n``[[hidden]]`still hidden`` [[b]]\n`code\n[[hidden]]` [[c]]';
-  assert.deepEqual(parseLinks(text).map((link) => [link.targetName, link.line]), [['b', 3], ['c', 5]]);
+  assert.deepEqual(parseLinks(text).map((link) => [link.targetName, link.line]), [['a', 1], ['b', 3], ['c', 5]]);
   assert.deepEqual(parseLinks('``unclosed [[a]] `code` [[b]]').map((link) => link.targetName), ['a', 'b']);
 });
 

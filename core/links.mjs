@@ -19,7 +19,12 @@ function* visibleLines(text) {
   }
 }
 
+// Code spans never cross a blank line (CommonMark), so backticks are paired paragraph by paragraph.
 function withoutCode(text) {
+  return text.split(/(\n[\t ]*\n)/u).map((part, index) => index % 2 ? part : withoutCodeSpans(part)).join('');
+}
+
+function withoutCodeSpans(text) {
   const runs = [...text.matchAll(/`+/gu)];
   const next = new Map();
   const closing = [];
@@ -39,16 +44,23 @@ function withoutCode(text) {
   return result + text.slice(start);
 }
 
+// `[[name#heading|label]]` (or an unclosed `[[name`) → its target name and heading.
+export function linkTarget(expr) {
+  const inner = expr.startsWith('[[') ? expr.slice(2).replace(/\]\]$/u, '') : expr;
+  const [target, ...heading] = inner.split('|')[0].split('#');
+  return { targetName: target.trim().replace(/\.md$/iu, '').normalize('NFC'), heading: heading.length ? heading.join('#').trim() : null };
+}
+
 // Targets exclude `[` so an unclosed `[[` stops at the next one; line numbers are counted forward, never by
 // re-reading the text before each match. Both keep a hostile line linear.
 function matches(text, field, line) {
   let at = 0;
   return Array.from(text.matchAll(/\[\[([^[\]\n]+)\]\]/gu), (match) => {
     for (; at < match.index; at++) if (text[at] === '\n') line++;
-    const [target, ...heading] = match[1].split('|')[0].split('#');
-    const targetName = target.trim().replace(/\.md$/iu, '').normalize('NFC');
-    return targetName ? { field, expr: match[0], targetName, heading: heading.length ? heading.join('#').trim() : null,
-      line } : null;
+    // `\[[a]]` is literal text in Obsidian.
+    if (text[match.index - 1] === '\\') return null;
+    const { targetName, heading } = linkTarget(match[0]);
+    return targetName ? { field, expr: match[0], targetName, heading, line } : null;
   }).filter(Boolean);
 }
 
@@ -72,10 +84,23 @@ function sectionTitle(content) {
   return text || null;
 }
 
-export function parseLinks(text, { frontmatter = null, frontmatterText = null } = {}) {
+// Broken YAML: the spec's `[[name` pattern, so an unclosed link still names its target.
+function looseMatches(text, line) {
+  let at = 0;
+  return Array.from(text.matchAll(/\[\[([^[\]|#\n"]+)/gu), (match) => {
+    for (; at < match.index; at++) if (text[at] === '\n') line++;
+    const targetName = match[1].trim().replace(/\.md$/iu, '').normalize('NFC');
+    return targetName && text[match.index - 1] !== '\\' ? { field: null, expr: match[0], targetName, heading: null, line } : null;
+  }).filter(Boolean);
+}
+
+export function parseLinks(text, options = {}) {
   const file = parseFile(text);
   const links = [];
   const yaml = text.slice(file.yamlStart, file.yamlEnd);
+  // Without options the frontmatter comes from the text itself.
+  const frontmatter = 'frontmatter' in options ? options.frontmatter : (file.error ? null : file.data);
+  const frontmatterText = 'frontmatterText' in options ? options.frontmatterText : (file.error ? yaml : null);
   const firstLine = text.slice(0, file.yamlStart).split('\n').length;
   if (frontmatter) {
     const seen = new WeakSet();
@@ -98,8 +123,8 @@ export function parseLinks(text, { frontmatter = null, frontmatterText = null } 
       }
     }
     for (const [field, value] of Object.entries(frontmatter)) values(value, field);
-  } else if (frontmatterText !== null) {
-    links.push(...matches(frontmatterText, null, firstLine));
+  } else if (frontmatterText !== null && frontmatterText !== undefined) {
+    links.push(...looseMatches(frontmatterText, firstLine));
   }
   const body = text.split('\n').map(() => '');
   for (const { content, line } of visibleLines(text)) body[line - 1] = content;
@@ -121,13 +146,16 @@ export function parseJournal(text, entryTypes) {
       current = null;
       continue;
     }
+    // A top-level heading closes the journal section; deeper ones only end the current entry.
+    if (/^#[\t ]/u.test(content)) [heading, label] = [null, null];
     if (/^#{1,6}\s/u.test(content)) current = null;
-    const item = content.match(/^ {0,3}[-+*][\t ]+(.*)$/u);
+    // Items indented two or more spaces are nested under the previous entry and continue it below.
+    const item = content.match(/^ ?[-+*][\t ]+(.*)$/u);
     if (heading !== null && item) {
       current = { heading, label, type: null, line, text: item[1], links: [], processed: false };
-      const prefix = current.text.match(/^(?:\*\*([^*]+):\*\*|([^:]+):)\s*/u);
+      const prefix = current.text.match(/^(?:\*\*([^*]+):\*\*|\*\*([^*]+)\*\*:|([^:]+):)\s*/u);
       if (prefix) {
-        const name = (prefix[1] ?? prefix[2]).trim().toLocaleLowerCase('tr');
+        const name = (prefix[1] ?? prefix[2] ?? prefix[3]).trim().toLocaleLowerCase('tr');
         for (const type of ['decision', 'discovery', 'pitfall', 'lesson']) {
           if ((entryTypes[type] ?? []).some((value) => value.toLocaleLowerCase('tr') === name)) current.type = type;
         }
