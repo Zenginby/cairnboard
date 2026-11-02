@@ -87,8 +87,10 @@ test('a committed write updates the index without a separate refresh', async (t)
   const ctx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock });
   write(ctx, { op: 'note.write', path: 'notes/acme.md', apply: () => '# Acme\n' });
   const db = new DatabaseSync(ctx.indexPath);
-  t.after(() => db.close());
+  // Windows cannot delete an open database, and temp folders are removed by an earlier hook.
+  t.after(() => { if (db.isOpen) db.close(); });
   assert.deepEqual(db.prepare('SELECT path, title FROM files').all().map((row) => ({ ...row })), [{ path: 'notes/acme.md', title: 'Acme' }]);
   write(ctx, { op: 'note.delete', path: 'notes/acme.md', apply: () => null });
   assert.deepEqual(db.prepare('SELECT path FROM files').all(), []);
+  db.close();
 });
