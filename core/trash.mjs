@@ -14,7 +14,7 @@ function payloadPath(trashId) {
 
 export function move(ctx, tx, path) {
   if (ctx.mode !== 'write') throw new CairnError('internal', 'Trash requires write mode.');
-  path = safeRelative(path);
+  path = safeRelative(path).replace(/\\/gu, '/');
   const before = readChecked(ctx.root, path);
   if (before === null) throw new CairnError('not_found', 'File not found.');
   const payload = payloadPath(`${tx}-${basename(path)}`);
@@ -58,7 +58,7 @@ export function restore(ctx, trashId, opts = {}) {
   const bytes = readChecked(ctx.root, payload);
   if (metadata === null || bytes === null) throw new CairnError('not_found', 'Trash item not found.');
   const { path } = JSON.parse(metadata);
-  const rel = safeRelative(path);
+  const rel = safeRelative(path).replace(/\\/gu, '/');
   const ext = extname(rel);
   let existing;
   try {

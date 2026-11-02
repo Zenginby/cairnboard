@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, readdirSync, renameSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { readFile, revision, write, writeMany } from '../core/store.mjs';
@@ -144,7 +144,7 @@ test('deletion repeats CAS after the sidecar is durable and preserves an externa
   t.after(() => __setFsHooks({}));
   __setFsHooks({ rename(from, to) {
     renameSync(from, to);
-    if (to.includes(`${join('.cairn', 'trash')}/`) && to.endsWith('.json')) {
+    if (to.includes(`${join('.cairn', 'trash')}${sep}`) && to.endsWith('.json')) {
       writeFileSync(join(ctx.root, 'note.md'), 'external');
     }
   } });

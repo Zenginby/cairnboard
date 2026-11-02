@@ -13,7 +13,7 @@ import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 
 await checkRuntime();
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const MAX_SIZE = 5 * 1024 * 1024;
 const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
 const fresh = new WeakMap();
@@ -68,7 +68,7 @@ function createTables(db, schema) {
     db.exec(`
       CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
       CREATE TABLE files(path TEXT PRIMARY KEY, type TEXT, kind TEXT, id TEXT,
-        mtime_ms REAL, ctime_ms REAL, size INTEGER, ino INTEGER, hash TEXT, title TEXT,
+        mtime_ms REAL, ctime_ms REAL, size INTEGER, ino TEXT, hash TEXT, title TEXT,
         data_json TEXT, acc_done INTEGER, acc_total INTEGER, error TEXT);
       CREATE TABLE links(src_path TEXT, field TEXT, expr TEXT, target_name TEXT,
         target_path TEXT, status TEXT, heading TEXT, line INTEGER);
@@ -81,7 +81,7 @@ function createTables(db, schema) {
       CREATE INDEX journal_path ON journal_entries(path);
       CREATE VIRTUAL TABLE fts USING fts5(path UNINDEXED, title, body, tokenize='unicode61');
       CREATE TABLE targets(path TEXT PRIMARY KEY, name TEXT, mtime_ms REAL, ctime_ms REAL,
-        size INTEGER, ino INTEGER, hash TEXT);
+        size INTEGER, ino TEXT, hash TEXT);
       CREATE INDEX targets_name ON targets(name);
     `);
     const insert = db.prepare('INSERT INTO meta VALUES (?, ?)');
@@ -219,7 +219,8 @@ function inventory(ctx, skipped) {
             continue;
           }
           found.push({ path, name: fileName(path), mtime_ms: stat.mtimeMs, ctime_ms: stat.ctimeMs,
-            size: stat.size, ino: stat.ino, ignored: !!classification.ignored });
+            // NTFS file ids exceed 2^53, which SQLite would refuse to hand back as a JavaScript number.
+            size: stat.size, ino: String(stat.ino), ignored: !!classification.ignored });
         } catch (error) {
           if (error.code !== 'unsafe_path') throw error;
           skipped.push({ path, reason: 'unsafe-path' });
