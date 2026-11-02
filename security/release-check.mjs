@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadDenylist } from './denylist.mjs';
 import { annotatedTags, git, gitBuffer } from './git.mjs';
-import { formatFindings, scanText } from './scan.mjs';
+import { fixtureLines, formatFindings, scanLines, scanText } from './scan.mjs';
 
 const allowlistPath = 'security/binary-allowlist.txt';
 
@@ -17,7 +17,7 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
   const errors = [];
   const allowed = new Set();
   const current = new Set();
-  const scan = (text, file) => findings.push(...scanText(text, { file, terms, allowIdentities }));
+  const scan = (text, file, fixtures = false) => findings.push(...scanText(text, { file, terms, allowIdentities, fixtures }));
   // A label is printed only when it is itself clean; otherwise a neutral fallback hides it.
   const label = (name, fallback) => (scanText(name, { file: '', terms, allowIdentities }).length ? fallback : name);
   const step = (name, fn) => {
@@ -63,20 +63,23 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
       if (content.includes(0)) {
         if (!allowed.has(path)) findings.push({ file, line: 1, rule: 'binary' });
       } else {
-        scan(content.toString('utf8'), file);
+        scan(content.toString('utf8'), file, path.startsWith('test/'));
       }
     }
   });
 
   // 2-3. History: patches, messages and identities. Notes are scanned separately (their tree paths are hashes).
   step('history', () => {
-    // --text puts raw binary patches (NUL bytes included) in the log, so commits are split on a per-run nonce.
-    const marker = `\0cairn-${randomBytes(16).toString('hex')}\n`;
-    const log = git(['-c', 'core.quotePath=false', 'log', '--exclude=refs/notes/*', '--all', '-p', '--text', '--no-textconv', '--no-ext-diff', '--diff-merges=first-parent', `--format=${marker.replace('\0', '%x00').replace('\n', '%n')}%H%n%an%n%ae%n%cn%n%ce%n%B`], { cwd });
+    // --text puts raw binary patches in the log, so commits are split on a per-run nonce. No NUL in it: %w drops
+    // everything around a NUL.
+    const marker = `cairn-${randomBytes(16).toString('hex')}\n`;
+    const log = git(['-c', 'core.quotePath=false', 'log', '--exclude=refs/notes/*', '--all', '-p', '--text', '--no-textconv', '--no-ext-diff', '--diff-merges=first-parent', `--format=${marker.replace('\n', '%n')}%H%n%an%n%ae%n%cn%n%ce%n%w(0,4,4)%B%w(0,0,0)`], { cwd });
     for (const chunk of log.split(marker).filter(Boolean)) {
       const [hash, ...rest] = chunk.split('\n');
       const file = `commit:${hash.slice(0, 12)}`;
-      scan(rest.join('\n'), file);
+      // Messages are indented (%w) so a message line can never pass for a diff header and unlock the fixture marker.
+      const text = rest.join('\n');
+      findings.push(...scanLines(text, fixtureLines(text), { file, terms, allowIdentities }));
       for (const line of [3, 5]) {
         const email = rest[line - 2]?.trim();
         if (email !== undefined && !allowIdentities.includes(email)) findings.push({ file, line, rule: 'identity' });

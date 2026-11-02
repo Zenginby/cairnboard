@@ -15,6 +15,35 @@ test('normalize decodes URLs before folding letters', () => {
   assert.equal(normalize('acme%2Fzorblax'), 'acme zorblax');
 });
 
+test('normalize decodes code-point escapes and HTML references', () => {
+  for (const sample of ['\\u0041cme', '\\u{41}cme', '\\u{000041}cme', '\\x41cme', '&#65;cme', '&#65cme', '&#x41;cme', '&#X41;cme', '&#x0041;cme']) {
+    assert.equal(normalize(sample), 'acme', sample);
+  }
+  assert.equal(normalize('acme&amp;zorblax&lt;&gt;&quot;&apos;&nbsp;x'), 'acme zorblax x');
+  assert.equal(normalize('\\uD835\\uDC00cme'), 'acme');
+});
+
+test('normalize unwraps nested escapes', () => {
+  for (const sample of ['&amp;#x41;cme', '%5Cu0041cme', '&#38;#65;cme', '\\u0026#x41;cme', '%26amp;#65;cme']) {
+    assert.equal(normalize(sample), 'acme', sample);
+  }
+});
+
+test('normalize keeps invalid escapes as written without throwing', () => {
+  for (const [sample, expected] of [
+    ['\\u{110000}acme', 'u 110000 acme'],
+    ['\\u{1234567}', 'u 1234567'],
+    ['&#1114112;acme', '1114112 acme'],
+    ['&#x110000;acme', 'x 110000 acme'],
+    [`&#${'9'.repeat(24)};`, '9'.repeat(24)],
+    ['\\uD800acme', 'u d 800 acme'],
+    ['&#xDFFF;acme', 'x dfff acme'],
+    ['\\uZZZZ \\x4 &#; &#x; &bogus; &AMP', 'u zzzz x 4 x bogus amp'],
+  ]) {
+    assert.equal(normalize(sample), expected, sample);
+  }
+});
+
 test('normalize replaces separators and collapses whitespace', () => {
   assert.equal(normalize('Zorblax_Studio'), 'zorblax studio');
   assert.equal(normalize('  acme-zorblax./studio\t\n '), 'acme zorblax studio');

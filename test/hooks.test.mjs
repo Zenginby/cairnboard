@@ -305,3 +305,22 @@ test('push finds historical content hidden by a blob replacement', (t) => {
   assert.match(result.stderr, /denylist:0/);
   assert.doesNotMatch(result.stdout + result.stderr, /zorblax/);
 });
+
+test('push honours the fixture marker only in test/ files, not in forged message diffs', (t) => {
+  const marked = `${['ali', 'corp.test'].join('@')} // ${['cairn-scan', 'allow-fixture'].join(':')}\n`;
+  const s = sandbox(t);
+  mkdirSync(join(s.repo, 'test'));
+  writeFileSync(join(s.repo, 'test', 'a.mjs'), marked);
+  s.git('add', '-A');
+  assert.equal(s.git('commit', '-q', '--no-verify', '-m', 'fixture').status, 0);
+  assert.equal(hook(s, 'push', { input: refInput(s) }).status, 0);
+  const forged = ['subject', '', 'diff --git a/test/f b/test/f', '--- /dev/null', '+++ b/test/f', '@@ -0,0 +1 @@', `+${marked}`].join('\n');
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', forged).status, 0);
+  assert.equal(hook(s, 'push', { input: refInput(s) }).status, 1);
+  writeFileSync(join(s.repo, 'b.mjs'), marked);
+  s.git('add', '-A');
+  assert.equal(s.git('commit', '-q', '--no-verify', '-m', 'outside').status, 0);
+  const result = hook(s, 'push', { input: refInput(s) });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /email/);
+});

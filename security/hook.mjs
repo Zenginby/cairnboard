@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { loadDenylist } from './denylist.mjs';
 import { annotatedTags, git, gitBuffer } from './git.mjs';
-import { scanText, formatFindings } from './scan.mjs';
+import { fixtureLines, scanLines, scanText, formatFindings } from './scan.mjs';
 
 const ZERO = /^0+$/;
 
@@ -36,7 +36,7 @@ function staged(ctx) {
     const content = gitBuffer(['show', `:${path}`]);
     // Binary files are left to gitleaks and release:check's allowlist.
     if (content.includes(0)) continue;
-    findings.push(...scanText(content.toString('utf8'), { ...ctx, file: label }));
+    findings.push(...scanText(content.toString('utf8'), { ...ctx, file: label, fixtures: path.startsWith('test/') }));
   }
   return findings;
 }
@@ -62,8 +62,9 @@ function outgoing(ctx, refLines, remote) {
     if (ZERO.test(localSha)) continue; // branch deletion
     const file = `push ref #${index + 1}`;
     const range = ZERO.test(remoteSha) ? [localSha, '--not', ...(exclusions ??= advertisedCommits(remote))] : [`${remoteSha}..${localSha}`];
-    const log = git(['-c', 'core.quotePath=false', 'log', '-p', '--text', '--no-textconv', '--no-ext-diff', '--no-color', '--diff-merges=first-parent', '--format=%n%an <%ae>%n%cn <%ce>%n%B', ...range]);
-    findings.push(...scanText(log, { ...ctx, file }));
+    const log = git(['-c', 'core.quotePath=false', 'log', '-p', '--text', '--no-textconv', '--no-ext-diff', '--no-color', '--diff-merges=first-parent', '--format=%n%an <%ae>%n%cn <%ce>%n%w(0,4,4)%B%w(0,0,0)', ...range]);
+    // Messages are indented (%w) so a message line can never pass for a diff header and unlock the fixture marker.
+    findings.push(...scanLines(log, fixtureLines(log), { ...ctx, file }));
     const identities = git(['log', '--format=%ae%x00%ce%x00', '--no-patch', ...range]);
     for (const [index, email] of identities.split('\0').slice(0, -1).entries()) {
       if (!ctx.allowIdentities.includes(email.replace(/^\n/, ''))) findings.push({ file, line: index + 1, rule: 'identity' });

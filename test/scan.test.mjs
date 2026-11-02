@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RULES } from '../security/rules.mjs';
-import { scanText, formatFindings } from '../security/scan.mjs';
+import { fixtureLines, scanLines, scanText, formatFindings } from '../security/scan.mjs';
 
 const hexToken = '0123456789abcdef'.repeat(2) + '01234567'; // gitleaks:allow (fake test token)
 const base64Token = 'AcmeZorblax0123456789+/'.repeat(2) + '=='; // gitleaks:allow (fake test token)
@@ -139,8 +139,43 @@ test('punctuation-only local parts are not addresses and do not crash', () => {
 
 test('fixture marker skips generic rules but never the denylist', () => {
   const marker = ['cairn-scan', 'allow-fixture'].join(':');
-  assert.deepEqual(scanText(`ali@corp.test 10.0.0.5 // ${marker}`, { file: 'x' }), []); // cairn-scan:allow-fixture
-  assert.deepEqual(scanText(`zorblax // ${marker}`, { file: 'x', terms: ['zorblax'] }).map((f) => f.rule), ['denylist:0']);
+  assert.deepEqual(scanText(`ali@corp.test 10.0.0.5 // ${marker}`, { file: 'x', fixtures: true }), []); // cairn-scan:allow-fixture
+  assert.deepEqual(scanText(`zorblax // ${marker}`, { file: 'x', terms: ['zorblax'], fixtures: true }).map((f) => f.rule), ['denylist:0']);
+});
+
+test('fixture marker is ignored unless the caller marks the text as a test fixture', () => {
+  const line = `ali@corp.test // ${['cairn-scan', 'allow-fixture'].join(':')}`; // cairn-scan:allow-fixture
+  assert.deepEqual(scanText(line, { file: 'test/x.mjs' }).map((f) => f.rule), ['email']);
+  assert.deepEqual(scanText(line, { file: 'x', fixtures: false }).map((f) => f.rule), ['email']);
+  assert.deepEqual(scanText(line, { file: 'x', fixtures: true }), []);
+});
+
+test('fixture marker applies only to hunk lines of files under test/ in git log -p output', () => {
+  const marked = `${['ali', 'corp.test'].join('@')} // ${['cairn-scan', 'allow-fixture'].join(':')}`;
+  const diff = (minus, plus, hunk, body) => ['diff --git a/x b/x', 'index 1a2b..3c4d 100644', `--- ${minus}`, `+++ ${plus}`, hunk, ...body];
+  const log = [
+    '', 'T <t@example.com>', 'T <t@example.com>', `subject ${marked}`, '', // commit header and message: 1-5
+    ...diff('a/test/x.mjs', 'b/test/x.mjs', '@@ -1,2 +1,2 @@', [' a', `-${marked}`, `+${marked}`, '\\ No newline at end of file']), // 6-14
+    ...diff('a/src/x.mjs', 'b/src/x.mjs', '@@ -1,2 +1,2 @@', [' a', `-${marked}`, `+${marked}`]), // 15-22
+    '', 'T <t@example.com>', 'T <t@example.com>', `next ${marked}`, '', // next commit right after a hunk: 23-27
+    ...diff('a/test/old file.mjs', '/dev/null', '@@ -1,2 +0,0 @@', [`-${marked}`, `-${marked}`]), // 28-34
+    ...diff('/dev/null', '"b/test/new\\tfile.mjs"', '@@ -0,0 +1,2 @@', [`+${marked}`, `+${marked}`]), // 35-41
+    `+${marked}`, // past the hunk counts: commit text again, 42
+  ].join('\n');
+  const flags = fixtureLines(log);
+  assert.deepEqual(flags.flatMap((flag, index) => (flag ? [index + 1] : [])), [11, 12, 13, 33, 34, 40, 41]);
+  const findings = scanLines(log, flags, { file: 'push ref #1', terms: ['zorblax'] });
+  assert.deepEqual(findings.map((f) => f.line), [4, 21, 22, 26, 42]);
+  assert.ok(findings.every((f) => f.file === 'push ref #1' && f.rule === 'email'));
+});
+
+test('scanLines keeps line numbers and finds terms wrapped across fixture runs', () => {
+  const text = 'a@b.com\nZorblax\nStudio\nx@c.com'; // cairn-scan:allow-fixture
+  assert.deepEqual(scanLines(text, [false, false, true, true], { file: 'f', terms: ['zorblax studio'] }), [
+    { file: 'f', line: 1, rule: 'email' },
+    { file: 'f', line: 2, rule: 'denylist:0' },
+    { file: 'f', line: 4, rule: 'email' },
+  ]);
 });
 
 test('pinned actions and sha256 checksum lines are not tokens, other hex is', () => {
@@ -201,6 +236,13 @@ test('pattern rules can be skipped while the denylist still applies', () => {
 test('scanText detects denylist terms split by invisible characters', () => {
   for (const sample of ['zor\u200Bblax', 'zor\u00ADblax', 'zo\u200Cr\u200Dblax', 'Zor\uFEFFblax', 'zor%E2%80%8Bblax']) {
     const findings = scanText(sample, { file: 'x', terms: ['zorblax'] });
+    assert.deepEqual(findings.map((f) => f.rule), ['denylist:0'], sample);
+  }
+});
+
+test('scanText detects denylist terms written with escapes', () => {
+  for (const sample of ['\\u0041cme', '\\u{41}cme', '\\x41cme', '&#65;cme', '&#65cme', '&#x41;cme', '&amp;#x41;cme', '%5Cu0041cme', 'acme&amp;zorblax']) {
+    const findings = scanText(sample, { file: 'x', terms: ['acme'] });
     assert.deepEqual(findings.map((f) => f.rule), ['denylist:0'], sample);
   }
 });
