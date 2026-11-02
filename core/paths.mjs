@@ -1,9 +1,16 @@
-import { dirname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
+import { dirname, isAbsolute, join, resolve, sep, win32 } from 'node:path';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
 import { pathKey } from './text.mjs';
 
 const unsafe = () => new CairnError('unsafe_path', 'Path is outside the root or contains unsafe components.');
+const nofollow = fs.constants.O_NOFOLLOW ?? 0;
+// Containment compares real paths exactly: Linux can hold distinct NFC and NFD names side by side.
+// APFS treats both forms as one name, so macOS folds them (Finder writes NFD).
+const real = {
+  darwin: (path) => path.normalize('NFC').toLowerCase(),
+  win32: (path) => path.toLowerCase(),
+}[process.platform] ?? ((path) => path);
 
 export function samePath(a, b, platform = process.platform) {
   return platform === 'darwin' || platform === 'win32'
@@ -26,13 +33,6 @@ export function safeRelative(rel) {
   return join(...clean);
 }
 
-function within(root, path) {
-  const from = process.platform === 'linux' ? root.normalize('NFC') : pathKey(root);
-  const to = process.platform === 'linux' ? path.normalize('NFC') : pathKey(path);
-  const rel = relative(from, to);
-  return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
-}
-
 function check(root, rel) {
   rel = safeRelative(rel);
   const abs = resolve(root, rel);
@@ -47,8 +47,8 @@ function check(root, rel) {
     }
   }
   fs.afterCheck(abs);
-  const parent = fs.realpathSync(dirname(abs));
-  if (!within(root, parent) || !samePath(parent, dirname(abs))) throw unsafe();
+  // The lexical parent lies under the root, so an unchanged real parent proves containment.
+  if (real(fs.realpathSync(dirname(abs))) !== real(dirname(abs))) throw unsafe();
   return abs;
 }
 
@@ -57,21 +57,40 @@ export function checkedPath(root, rel) {
   return check(resolve(root), rel);
 }
 
-export function openForRead(root, rel) {
-  root = resolve(root);
-  const abs = check(root, rel);
+function openChecked(root, rel, flags) {
+  const abs = check(resolve(root), rel);
   let fd;
   try {
-    fd = fs.openSync(abs, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
-    const actual = fs.realpathSync(abs);
-    if (!within(root, actual) || !samePath(actual, abs)) throw unsafe();
+    fd = fs.openSync(abs, flags | nofollow, 0o600);
+    if (real(fs.realpathSync(abs)) !== real(abs)) throw unsafe();
     const opened = fs.fstatSync(fd);
-    const resolved = fs.statSync(actual);
+    const resolved = fs.statSync(abs);
     if (opened.dev !== resolved.dev || opened.ino !== resolved.ino) throw unsafe();
     return fd;
   } catch (error) {
     if (fd !== undefined) fs.closeSync(fd);
     if (error.code === 'ELOOP') throw unsafe();
     throw error;
+  }
+}
+
+export function openForRead(root, rel) {
+  return openChecked(root, rel, fs.constants.O_RDONLY);
+}
+
+export function openForAppend(root, rel) {
+  return openChecked(root, rel, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_APPEND);
+}
+
+export function readChecked(root, rel, encoding) {
+  let fd;
+  try {
+    fd = openForRead(root, rel);
+    return fs.readFileSync(fd, encoding);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
   }
 }

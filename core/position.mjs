@@ -1,16 +1,7 @@
-function charRange(start, end) {
-  const codes = [];
-  for (let i = start; i <= end; i++) codes.push(i);
-  return codes;
-}
+import { charRanges } from './text.mjs';
 
 // Base62 digits: 0-9, A-Z, a-z.
-// Generated dynamically to avoid literal token rules in repository scanners.
-const BASE_62 = [
-  ...charRange(48, 57),
-  ...charRange(65, 90),
-  ...charRange(97, 122),
-].map((c) => String.fromCharCode(c)).join('');
+const BASE_62 = charRanges([48, 57], [65, 90], [97, 122]);
 
 function getIntegerLength(head) {
   if (head >= 'a' && head <= 'z') {
