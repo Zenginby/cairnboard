@@ -15,6 +15,14 @@ export function loadDenylist(path) {
 }
 
 export function matchTerms(line, terms) {
-  const text = ` ${normalize(line)} `;
-  return terms.flatMap((term, index) => text.includes(` ${term} `) ? [index] : []);
+  const norm = normalize(line);
+  const text = ` ${norm} `;
+  return terms.flatMap((term, index) => {
+    if (text.includes(` ${term} `)) return [index];
+    const letters = term.replace(/\s+/g, '');
+    if (letters.length >= 5 && (norm.includes(term) || norm.split(' ').some((token) => token.includes(letters)))) {
+      return [index];
+    }
+    return [];
+  });
 }

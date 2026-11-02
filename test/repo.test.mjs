@@ -4,15 +4,18 @@ import { readFileSync } from 'node:fs';
 
 const oku = (yol) => readFileSync(new URL(`../${yol}`, import.meta.url), 'utf8');
 
-test('package.json is private, ESM, MIT, Node >= 22.16 and has no dependencies', () => {
+test('package.json is private, ESM, MIT, Node >= 22.16 with exactly pinned dependencies', () => {
   const p = JSON.parse(oku('package.json'));
   assert.equal(p.private, true);
   assert.equal(p.type, 'module');
   assert.equal(p.engines.node, '>=22.16');
   assert.equal(p.license, 'MIT');
   assert.ok(Array.isArray(p.files));
-  assert.equal(Object.keys(p.dependencies ?? {}).length, 0);
-  assert.equal(Object.keys(p.devDependencies ?? {}).length, 0);
+  assert.deepEqual(p.dependencies, { yaml: '2.9.1' });
+  assert.deepEqual(p.devDependencies, { esbuild: '0.28.2' });
+  for (const version of [...Object.values(p.dependencies), ...Object.values(p.devDependencies)]) {
+    assert.match(version, /^\d+\.\d+\.\d+$/);
+  }
 });
 
 test('.npmrc disables install scripts', () => {

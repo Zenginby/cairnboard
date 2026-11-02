@@ -15,6 +15,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          # The PR head, not GitHub's synthetic merge commit: its message and committer are GitHub's, not ours,
+          # and would fail the history scan.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22.16'
@@ -56,7 +59,8 @@ jobs:
       - run: node scripts/sqlite-smoke.mjs
 
   dependency-review:
-    if: github.event_name == 'pull_request'
+    # Dependency review needs GitHub Advanced Security on private repositories; it runs once the repository is public.
+    if: github.event_name == 'pull_request' && !github.event.repository.private
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
