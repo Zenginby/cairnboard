@@ -10,6 +10,7 @@ import { defaultConfig, loadConfig, migrate, needsMigration } from './config.mjs
 import { PRESETS } from './presets.mjs';
 import { resolveSchema } from './schema.mjs';
 import { recover } from './store.mjs';
+import { dropPath, indexPath } from './index.mjs';
 
 export function openContext({ mode, dataDir, preset, env = process.env, home = homedir(),
   platform = process.platform, cwd = process.cwd(), clock = systemClock, actor = null }) {
@@ -42,6 +43,10 @@ export function openContext({ mode, dataDir, preset, env = process.env, home = h
     ctx.faults = (point) => { if (point === env.CAIRN_TEST_CRASH) process.kill(process.pid, 'SIGKILL'); };
   }
   if (!ephemeral && mode === 'write') {
+    // Step 9 of a write: keep the index current. Index failures only add a warning, never fail the write.
+    ctx.afterCommit = ({ items }) => {
+      for (const { path, revision } of items) revision === null ? dropPath(ctx, path) : indexPath(ctx, path);
+    };
     if (needsMigration(config)) {
       migrate(root, { clock, migrations: { 0: (old) => ({ ...old, formatVersion: 1 }) } });
       ctx.config = loadConfig(root);
