@@ -29,3 +29,12 @@ test('normalize keeps valid UTF-8 beside malformed percent bytes', () => {
   assert.equal(normalize('%FF%7A%6F%72%62%6C%61%78'), 'zorblax');
   assert.equal(normalize('%FF%C5%9F%C3%BC%FEkr%C3%BC'), 'su kru');
 });
+
+// The gate keeps its own copy so it never depends on core/; this pins it to core's Turkish folding.
+test('normalize folds exactly like core foldTr', async () => {
+  const { foldTr } = await import('../core/text.mjs');
+  const viaCore = (s) => foldTr(s).replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
+  const samples = ['İSTANBUL', 'Iğdır', 'ışık', 'ŞEKER', 'İ', 'ﬁ', 'K', 'Çağrı Öz'];
+  for (let code = 0; code < 0x3000; code++) samples.push(String.fromCodePoint(code));
+  for (const sample of samples) assert.equal(normalize(sample), viaCore(sample), `U+${sample.codePointAt(0).toString(16)}`);
+});
