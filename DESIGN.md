@@ -240,6 +240,10 @@ animation. Stagger is used only on first load, at most `stagger-max-items` items
 reduce` or the "Motion: less" setting, movement is removed and only short fades remain. `ease-spring` and `ease-spring-bouncy`
 fall back to `ease-spring-fallback` where `linear()` is not supported. Page changes are plain: content swaps instantly;
 only the tab pill slides and a home box may grow into its page title. Never give long content a view-transition name.
+Theme changes reveal the new palette as a circle growing from the control that changed it (a view transition on
+the root, `clip-path` from radius 0 to the farthest corner, `duration-theme-reveal` with `ease-out-quart`); this is
+the one animation that is not `transform` or `opacity`. During it nothing else transitions, and without view
+transition support, with reduced motion or with "Motion: less" the theme changes instantly.
 
 ```yaml
 duration-stagger: 40ms
@@ -249,11 +253,13 @@ duration-medium: 350ms
 duration-slow: 400ms
 duration-very-slow: 500ms
 duration-highlight: 700ms
+duration-theme-reveal: 800ms
 stagger-max-items: 5
 ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1)
 ease-out: ease-out
 ease-in-out: ease-in-out
 ease-settle: cubic-bezier(0.15, 1, 0.3, 1)
+ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1)
 ease-spring: linear(0, 0.038, 0.125, 0.233, 0.345, 0.451, 0.547, 0.63, 0.701, 0.76, 0.809, 0.849, 0.881, 0.906, 0.927, 0.943, 0.956, 0.966, 0.973, 0.979, 0.984, 0.988, 0.991, 0.993, 1)
 ease-spring-bouncy: linear(0, 0.051, 0.17, 0.319, 0.471, 0.611, 0.73, 0.826, 0.899, 0.952, 0.988, 1.01, 1.023, 1.028, 1.028, 1.026, 1.022, 1.018, 1.013, 1.01, 1.007, 1.004, 1.002, 1.001, 1)
 ease-spring-fallback: cubic-bezier(0.22, 1, 0.36, 1)

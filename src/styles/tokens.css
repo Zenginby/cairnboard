@@ -97,11 +97,13 @@
   --motion-duration-slow: 400ms;
   --motion-duration-very-slow: 500ms;
   --motion-duration-highlight: 700ms;
+  --motion-duration-theme-reveal: 800ms;
   --motion-stagger-max-items: 5;
   --motion-ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-out: ease-out;
   --motion-ease-in-out: ease-in-out;
   --motion-ease-settle: cubic-bezier(0.15, 1, 0.3, 1);
+  --motion-ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --motion-ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-spring-bouncy: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-spring-fallback: cubic-bezier(0.22, 1, 0.36, 1);
