@@ -31,18 +31,18 @@
   --color-tone-4: #1c9bd1;
   --color-tone-4-text: #0b5f86;
   --color-tone-4-bg: #e1f2fb;
-  --color-tone-5: #d4508f;
-  --color-tone-5-text: #9a2563;
-  --color-tone-5-bg: #fbe6f0;
-  --color-tone-6: #e5603a;
-  --color-tone-6-text: #a3341a;
-  --color-tone-6-bg: #fde9e2;
-  --color-tone-7: #3c9a4a;
-  --color-tone-7-text: #226b2e;
-  --color-tone-7-bg: #e4f3e6;
-  --color-tone-8: #7a7f8e;
-  --color-tone-8-text: #48506a;
-  --color-tone-8-bg: #e8ebf3;
+  --color-tone-5: #c45aa8;
+  --color-tone-5-text: #8a3a7a;
+  --color-tone-5-bg: #f8e7f3;
+  --color-tone-6: #d95060;
+  --color-tone-6-text: #a3343f;
+  --color-tone-6-bg: #fce8ea;
+  --color-tone-7: #7a7f8e;
+  --color-tone-7-text: #48506a;
+  --color-tone-7-bg: #e8ebf3;
+  --color-tone-8: #3c9a4a;
+  --color-tone-8-text: #226b2e;
+  --color-tone-8-bg: #e4f3e6;
   --color-done: #1a7340;
   --color-done-bg: #e3f4e9;
   --color-doing: #0060c0;
@@ -59,38 +59,100 @@
   --color-danger-bg: #fce8e6;
   --shadow-box: 0 1px 2px rgba(16, 16, 30, 0.04), 0 8px 24px rgba(16, 16, 30, 0.06);
   --shadow-box-raised: 0 2px 4px rgba(16, 16, 30, 0.05), 0 18px 40px rgba(16, 16, 30, 0.1);
+  --shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --space-6: 6px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-18: 18px;
+  --space-28: 28px;
+  --space-hairline: 1px;
+  --space-2xs: 2px;
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 40px;
+  --space-content-max: 1080px;
+  --space-page-max: 1152px;
+  --space-header-height: 56px;
+  --space-header-height-wide: 68px;
+  --space-nav-height: 48px;
+  --space-search-width: 240px;
+  --radius-xs: 6px;
   --radius-sm: 12px;
   --radius-md: 20px;
   --radius-lg: 28px;
   --radius-full: 999px;
+  --font-hero-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-hero-size: 72px;
+  --font-hero-weight: 700;
+  --font-hero-line-height: 1;
+  --font-hero-letter-spacing: -0.045em;
+  --font-page-title-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-page-title-size: 46.4px;
+  --font-page-title-weight: 700;
+  --font-page-title-line-height: 1.06;
+  --font-page-title-letter-spacing: -0.03em;
   --font-display-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display-size: 32px;
   --font-display-weight: 650;
   --font-display-line-height: 1.15;
   --font-display-letter-spacing: -0.02em;
+  --font-stat-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-stat-size: 28px;
+  --font-stat-weight: 700;
+  --font-stat-line-height: 1.1;
+  --font-stat-letter-spacing: -0.02em;
+  --font-project-title-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-project-title-size: 24px;
+  --font-project-title-weight: 700;
+  --font-project-title-line-height: 1.1;
+  --font-project-title-letter-spacing: -0.025em;
   --font-title-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-title-size: 20px;
   --font-title-weight: 600;
   --font-title-line-height: 1.3;
   --font-title-letter-spacing: -0.01em;
+  --font-box-title-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-box-title-size: 19px;
+  --font-box-title-weight: 650;
+  --font-box-title-line-height: 1.25;
+  --font-box-title-letter-spacing: -0.015em;
+  --font-lead-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-lead-size: 17px;
+  --font-lead-weight: 400;
+  --font-lead-line-height: 1.6;
   --font-body-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-body-size: 16px;
   --font-body-weight: 400;
   --font-body-line-height: 1.7;
+  --font-row-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-row-size: 15.5px;
+  --font-row-weight: 400;
+  --font-row-line-height: 1.5;
+  --font-ui-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-ui-size: 15px;
+  --font-ui-weight: 500;
+  --font-ui-line-height: 1.4;
+  --font-small-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-small-size: 14px;
+  --font-small-weight: 400;
+  --font-small-line-height: 1.45;
   --font-label-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-label-size: 13px;
   --font-label-weight: 550;
   --font-label-line-height: 1.3;
+  --font-caption-family: Inter Variable, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-caption-size: 12px;
+  --font-caption-weight: 500;
+  --font-caption-line-height: 1.3;
   --font-code-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --font-code-size: 14px;
   --font-code-weight: 400;
   --font-code-line-height: 1.6;
   --motion-duration-stagger: 40ms;
+  --motion-duration-press: 120ms;
   --motion-duration-quick: 150ms;
   --motion-duration-fast: 250ms;
   --motion-duration-medium: 350ms;
@@ -98,23 +160,31 @@
   --motion-duration-very-slow: 500ms;
   --motion-duration-highlight: 700ms;
   --motion-duration-theme-reveal: 800ms;
+  --motion-duration-pulse: 2400ms;
   --motion-stagger-max-items: 5;
   --motion-ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-out: ease-out;
   --motion-ease-in-out: ease-in-out;
+  --motion-ease-default: ease;
   --motion-ease-settle: cubic-bezier(0.15, 1, 0.3, 1);
   --motion-ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --motion-ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-spring-bouncy: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-spring-fallback: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-distance-lift-card: 2px;
+  --motion-distance-lift: 3px;
   --motion-distance-micro: 4px;
   --motion-distance-base: 8px;
   --motion-distance-medium: 12px;
   --motion-scale-press: 0.97;
+  --motion-scale-press-box: 0.98;
+  --motion-scale-hover: 1.012;
   --motion-scale-enter: 0.96;
   --motion-blur-small: 2px;
   --motion-blur-medium: 3px;
   --motion-blur-large: 8px;
+  --motion-blur-material: 20px;
+  --motion-saturate-material: 180%;
 }
 
 [data-theme="bento"] {
@@ -148,18 +218,18 @@
   --color-tone-4: #1c9bd1;
   --color-tone-4-text: #0b5f86;
   --color-tone-4-bg: #e1f2fb;
-  --color-tone-5: #d4508f;
-  --color-tone-5-text: #9a2563;
-  --color-tone-5-bg: #fbe6f0;
-  --color-tone-6: #e5603a;
-  --color-tone-6-text: #a3341a;
-  --color-tone-6-bg: #fde9e2;
-  --color-tone-7: #3c9a4a;
-  --color-tone-7-text: #226b2e;
-  --color-tone-7-bg: #e4f3e6;
-  --color-tone-8: #7a7f8e;
-  --color-tone-8-text: #48506a;
-  --color-tone-8-bg: #e8ebf3;
+  --color-tone-5: #c45aa8;
+  --color-tone-5-text: #8a3a7a;
+  --color-tone-5-bg: #f8e7f3;
+  --color-tone-6: #d95060;
+  --color-tone-6-text: #a3343f;
+  --color-tone-6-bg: #fce8ea;
+  --color-tone-7: #7a7f8e;
+  --color-tone-7-text: #48506a;
+  --color-tone-7-bg: #e8ebf3;
+  --color-tone-8: #3c9a4a;
+  --color-tone-8-text: #226b2e;
+  --color-tone-8-bg: #e4f3e6;
   --color-done: #1a7340;
   --color-done-bg: #e3f4e9;
   --color-doing: #0060c0;
@@ -176,6 +246,7 @@
   --color-danger-bg: #fce8e6;
   --shadow-box: 0 1px 2px rgba(16, 16, 30, 0.04), 0 8px 24px rgba(16, 16, 30, 0.06);
   --shadow-box-raised: 0 2px 4px rgba(16, 16, 30, 0.05), 0 18px 40px rgba(16, 16, 30, 0.1);
+  --shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 :root:not([data-theme])[data-mode="dark"],
@@ -210,18 +281,18 @@
   --color-tone-4: #4cc0f0;
   --color-tone-4-text: #8ad6f7;
   --color-tone-4-bg: #0d2a3a;
-  --color-tone-5: #f07ab2;
-  --color-tone-5-text: #f6a8cd;
-  --color-tone-5-bg: #3a1b2c;
-  --color-tone-6: #ff8a65;
-  --color-tone-6-text: #ffb39b;
-  --color-tone-6-bg: #3d1d12;
-  --color-tone-7: #6fcf7c;
-  --color-tone-7-text: #9be3a5;
-  --color-tone-7-bg: #13301a;
-  --color-tone-8: #a3a9ba;
-  --color-tone-8-text: #b9c1da;
-  --color-tone-8-bg: #252a38;
+  --color-tone-5: #e07fc8;
+  --color-tone-5-text: #f0a6dc;
+  --color-tone-5-bg: #3a1b33;
+  --color-tone-6: #ff7a88;
+  --color-tone-6-text: #ff9ea8;
+  --color-tone-6-bg: #3d1a1e;
+  --color-tone-7: #a3a9ba;
+  --color-tone-7-text: #b9c1da;
+  --color-tone-7-bg: #252a38;
+  --color-tone-8: #6fcf7c;
+  --color-tone-8-text: #9be3a5;
+  --color-tone-8-bg: #13301a;
   --color-done: #6fdc96;
   --color-done-bg: #133222;
   --color-doing: #6eb4ff;
@@ -238,6 +309,7 @@
   --color-danger-bg: #3d1a1e;
   --shadow-box: 0 0 0 1px rgba(255, 255, 255, 0.06);
   --shadow-box-raised: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 18px 40px rgba(0, 0, 0, 0.6);
+  --shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="graphite"] {
@@ -299,6 +371,7 @@
   --color-danger-bg: #f6e3e1;
   --shadow-box: 0 1px 2px rgba(20, 30, 50, 0.05), 0 8px 24px rgba(20, 30, 50, 0.07);
   --shadow-box-raised: 0 2px 4px rgba(20, 30, 50, 0.06), 0 18px 40px rgba(20, 30, 50, 0.12);
+  --shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 [data-theme="graphite"][data-mode="dark"] {
@@ -360,6 +433,7 @@
   --color-danger-bg: #432427;
   --shadow-box: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.25);
   --shadow-box-raised: 0 0 0 1px rgba(255, 255, 255, 0.09), 0 18px 40px rgba(0, 0, 0, 0.45);
+  --shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="paper"] {
@@ -421,6 +495,7 @@
   --color-danger-bg: #f8e3de;
   --shadow-box: 0 1px 2px rgba(60, 40, 20, 0.05), 0 8px 24px rgba(60, 40, 20, 0.07);
   --shadow-box-raised: 0 2px 4px rgba(60, 40, 20, 0.06), 0 18px 40px rgba(60, 40, 20, 0.12);
+  --shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 [data-theme="paper"][data-mode="dark"] {
@@ -482,6 +557,7 @@
   --color-danger-bg: #432423;
   --shadow-box: 0 0 0 1px rgba(255, 240, 220, 0.06);
   --shadow-box-raised: 0 0 0 1px rgba(255, 240, 220, 0.1), 0 18px 40px rgba(0, 0, 0, 0.55);
+  --shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -517,18 +593,18 @@
     --color-tone-4: #4cc0f0;
     --color-tone-4-text: #8ad6f7;
     --color-tone-4-bg: #0d2a3a;
-    --color-tone-5: #f07ab2;
-    --color-tone-5-text: #f6a8cd;
-    --color-tone-5-bg: #3a1b2c;
-    --color-tone-6: #ff8a65;
-    --color-tone-6-text: #ffb39b;
-    --color-tone-6-bg: #3d1d12;
-    --color-tone-7: #6fcf7c;
-    --color-tone-7-text: #9be3a5;
-    --color-tone-7-bg: #13301a;
-    --color-tone-8: #a3a9ba;
-    --color-tone-8-text: #b9c1da;
-    --color-tone-8-bg: #252a38;
+    --color-tone-5: #e07fc8;
+    --color-tone-5-text: #f0a6dc;
+    --color-tone-5-bg: #3a1b33;
+    --color-tone-6: #ff7a88;
+    --color-tone-6-text: #ff9ea8;
+    --color-tone-6-bg: #3d1a1e;
+    --color-tone-7: #a3a9ba;
+    --color-tone-7-text: #b9c1da;
+    --color-tone-7-bg: #252a38;
+    --color-tone-8: #6fcf7c;
+    --color-tone-8-text: #9be3a5;
+    --color-tone-8-bg: #13301a;
     --color-done: #6fdc96;
     --color-done-bg: #133222;
     --color-doing: #6eb4ff;
@@ -545,6 +621,7 @@
     --color-danger-bg: #3d1a1e;
     --shadow-box: 0 0 0 1px rgba(255, 255, 255, 0.06);
     --shadow-box-raised: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 18px 40px rgba(0, 0, 0, 0.6);
+    --shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.5);
   }
 
   [data-theme="graphite"]:not([data-mode="light"]) {
@@ -606,6 +683,7 @@
     --color-danger-bg: #432427;
     --shadow-box: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.25);
     --shadow-box-raised: 0 0 0 1px rgba(255, 255, 255, 0.09), 0 18px 40px rgba(0, 0, 0, 0.45);
+    --shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.5);
   }
 
   [data-theme="paper"]:not([data-mode="light"]) {
@@ -667,6 +745,7 @@
     --color-danger-bg: #432423;
     --shadow-box: 0 0 0 1px rgba(255, 240, 220, 0.06);
     --shadow-box-raised: 0 0 0 1px rgba(255, 240, 220, 0.1), 0 18px 40px rgba(0, 0, 0, 0.55);
+    --shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -680,10 +759,14 @@
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-duration-stagger: 0ms;
+    --motion-distance-lift-card: 0px;
+    --motion-distance-lift: 0px;
     --motion-distance-micro: 0px;
     --motion-distance-base: 0px;
     --motion-distance-medium: 0px;
     --motion-scale-press: 1;
+    --motion-scale-press-box: 1;
+    --motion-scale-hover: 1;
     --motion-scale-enter: 1;
   }
 }

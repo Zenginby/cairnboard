@@ -1,2 +1,4 @@
 # Reviewed binary files that release:check may publish, one repository path per line.
 # A file containing a NUL byte is a finding unless its exact path is listed here.
+src/styles/fonts/inter-latin-wght-normal.woff2
+src/styles/fonts/inter-latin-ext-wght-normal.woff2
