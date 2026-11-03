@@ -79,13 +79,19 @@ function selected(targets) {
   return [...new Set(names)];
 }
 
-// Resolve the trusted HOME once; reject symlinks in every installation component below it.
+// Resolve the trusted HOME once. The agent's own root (`~/.claude`) may be a symlink, as dotfile managers
+// and relocated homes make it; it must resolve to a directory the user owns. Symlinks below it are rejected.
 function targetPath(home, target) {
   if (!home) throw new CairnError('usage', 'HOME or USERPROFILE is required.');
   if (fs.lstatSync(home).isSymbolicLink()) throw new CairnError('unsafe_path', 'Agent home is a symlink.');
-  const root = fs.realpathSync(home);
-  const parts = TARGETS[target].path.slice(2).split('/');
-  let path = root;
+  const [first, ...parts] = TARGETS[target].path.slice(2).split('/');
+  let path = join(fs.realpathSync(home), first);
+  if (fs.lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink()) {
+    const real = fs.statSync(path, { throwIfNoEntry: false });
+    const owned = process.platform === 'win32' || real?.uid === process.getuid();
+    if (!real?.isDirectory() || !owned) throw new CairnError('unsafe_path', 'Agent root symlink does not lead to your own directory.');
+    path = fs.realpathSync(path);
+  }
   for (const part of parts) {
     path = join(path, part);
     if (fs.lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink()) {
@@ -127,11 +133,15 @@ export function prepareInstall({ home, repoRoot: root = repoRoot, targets, comma
   const apply = () => {
     for (const { target, path, before, text, status } of plans) {
       if (status === 'unchanged') continue;
-      targetPath(home, target);
+      // A re-pointed agent root symlink must not move the write away from the reviewed path.
+      const recheck = () => {
+        if (targetPath(home, target) !== path) throw new CairnError('conflict', 'Agent target moved during installation.');
+      };
+      recheck();
       fs.mkdirSync(dirname(path), { recursive: true });
-      targetPath(home, target);
+      recheck();
       fs.writeFileAtomic(path, text, () => {
-        targetPath(home, target);
+        recheck();
         if (readSkill(path) !== before) throw new CairnError('conflict', 'Agent skill changed during installation.');
       });
     }

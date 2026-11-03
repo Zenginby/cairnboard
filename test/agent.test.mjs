@@ -93,14 +93,50 @@ test('invalid targets and missing bundle fail before any write', (t) => {
   assert.throws(() => installAgent(f), (error) => error.code === 'validation' && error.message.includes('npm run build:cli'));
 });
 
-test('symlink directories and skill files are rejected without touching destinations', (t) => {
-  const f = fixture(t), outside = tempDir(t), target = join(f.home, '.claude');
-  try { fs.symlinkSync(outside, target, process.platform === 'win32' ? 'junction' : 'dir'); }
+function dirLink(t, from, to) {
+  try { fs.symlinkSync(from, to, process.platform === 'win32' ? 'junction' : 'dir'); return true; }
   catch (error) {
-    if (['EPERM', 'EACCES', 'ENOSYS'].includes(error.code)) return t.skip('Symlinks unavailable.');
+    if (['EPERM', 'EACCES', 'ENOSYS'].includes(error.code)) { t.skip('Symlinks unavailable.'); return false; }
     throw error;
   }
-  assert.throws(() => installAgent(f), { code: 'unsafe_path' });
+}
+
+test('a symlinked agent root such as ~/.claude is followed to its real directory', (t) => {
+  const f = fixture(t), outside = tempDir(t);
+  if (!dirLink(t, outside, join(f.home, '.claude'))) return;
+  const [plan] = installAgent({ ...f, targets: ['claude'] });
+  assert.equal(plan.path, join(fs.realpathSync(outside), 'skills/cairnboard/SKILL.md'));
+  assert.deepEqual(files(outside), ['skills/cairnboard/SKILL.md']);
+  assert.equal(checkAgents({ home: f.home }).find(({ target }) => target === 'claude').installed, packageVersion);
+});
+
+test('re-pointing the agent root after the diff was shown aborts the install', (t) => {
+  const f = fixture(t), first = tempDir(t), second = tempDir(t), link = join(f.home, '.claude');
+  if (!dirLink(t, first, link)) return;
+  const plan = prepareInstall({ ...f, targets: ['claude'] });
+  fs.rmSync(link, { recursive: false, force: true });
+  dirLink(t, second, link);
+  assert.throws(() => plan.apply(), { code: 'conflict' });
+  assert.deepEqual(files(first), []);
+  assert.deepEqual(files(second), []);
+});
+
+test('an agent root symlink to a file or a missing target is rejected', (t) => {
+  const f = fixture(t), outside = tempDir(t), file = join(outside, 'file');
+  fs.writeFileSync(file, '');
+  if (!dirLink(t, join(outside, 'missing'), join(f.home, '.claude'))) return;
+  assert.throws(() => installAgent({ ...f, targets: ['claude'] }), { code: 'unsafe_path' });
+  if (process.platform === 'win32') return;
+  fs.symlinkSync(file, join(f.home, '.agents'));
+  assert.throws(() => installAgent({ ...f, targets: ['agents'] }), { code: 'unsafe_path' });
+  assert.deepEqual(files(outside), ['file']);
+});
+
+test('symlinks below the agent root are rejected without touching destinations', (t) => {
+  const f = fixture(t), outside = tempDir(t);
+  fs.mkdirSync(join(f.home, '.claude'));
+  if (!dirLink(t, outside, join(f.home, '.claude/skills'))) return;
+  assert.throws(() => installAgent({ ...f, targets: ['claude'] }), { code: 'unsafe_path' });
   assert.deepEqual(files(outside), []);
   const skillPath = join(f.home, TARGETS.agents.path.slice(2));
   fs.mkdirSync(dirname(skillPath), { recursive: true });
