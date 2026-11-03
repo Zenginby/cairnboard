@@ -21,11 +21,12 @@ import { readFile } from '../core/store.mjs';
 import { safeRelative } from '../core/paths.mjs';
 import { readStdin, readStdinBytes } from './body.mjs';
 import { evaluateHook, hookOutput } from '../core/hook.mjs';
+import { mentions, linkMention } from '../core/mentions.mjs';
 
 /** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
  * { type: 'string'|'boolean', multiple?: boolean, summary: string }>, mode: 'read'|'write',
- * actor?: boolean, prepare?: (args: string[], opts: object, io: object) => unknown,
+ * actor?: boolean, writeOption?: string, prepare?: (args: string[], opts: object, io: object) => unknown,
  * needsData: boolean, dangerous: boolean|{ option: string }, run: (ctx: object|null, args: string[], opts: object, io: object, prepared?: unknown) => Result|Promise<Result> }} Command */
 
 const string = (summary) => ({ type: 'string', summary });
@@ -240,6 +241,22 @@ read('search', 'Search titles and bodies.', ['<q>'], {
   return result(ctx, matches.map((item) => ({ ...summaries.get(item.path), ...item })), opts);
 });
 
+read('mentions', 'Find unlinked mentions of a wiki page.', ['<ref>'], {
+  limit: string('Maximum results, 0 to 500 (default: 50).'),
+  link: string('Link the single mention at path:line; requires confirmation.'),
+}, (ctx, [ref], opts) => {
+  if (opts.limit !== undefined && !/^\d+$/u.test(opts.limit)) throw new CairnError('validation', 'Invalid limit.');
+  const limit = opts.limit === undefined ? 50 : Number(opts.limit);
+  if (!Number.isSafeInteger(limit) || limit > 500) throw new CairnError('validation', 'Invalid limit.');
+  if (opts.link !== undefined) return { data: linkMention(ctx, ref, opts.link,
+    { ifRevision: opts['if-revision'], dryRun: opts['dry-run'] }) };
+  return { data: { items: clean(mentions(ctx, ref, { limit }), opts) } };
+});
+commands.at(-1).writeOption = 'link';
+commands.at(-1).dangerous = { option: 'link' };
+// Skill documentation is integrated separately; this flag only omits the generated skill reference.
+commands.at(-1).hidden = true;
+
 read('status', 'Show data directory and entity counts.', [], {}, (ctx) => {
   const items = index.rows(ctx);
   const cards = Object.fromEntries(ctx.config.columns.map(({ key }) => [key, 0]));
@@ -270,8 +287,9 @@ read('doctor', 'Inspect data without migration or recovery.', [], {}, (ctx, args
 
 read('schema', 'Describe commands, fields and error codes.', [], {}, () => ({ data: {
   cli: packageVersion,
-  commands: commands.map(({ name, summary, args, options, mode, actor, needsData, dangerous }) => ({
+  commands: commands.map(({ name, summary, args, options, mode, actor, writeOption, needsData, dangerous }) => ({
     name, summary, args, options: { ...commonOptions, ...options }, mode, needsData, dangerous, ...(actor === false ? { actor } : {}),
+    ...(writeOption ? { writeOption } : {}),
   })),
   errors: Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })), fields,
   result: { exit: 'Optional process exit code; doctor returns 5 with ok: true when a check fails.' },

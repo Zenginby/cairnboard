@@ -39,9 +39,9 @@ function benchmark() {
     const seeded = refresh(ctx);
     if (seeded.added !== 1000 || ctx.warnings.length) throw new Error('Could not index benchmark cards.');
 
-    function run(args) {
+    function run(args, directory = data) {
       const start = performance.now();
-      const result = spawnSync(process.execPath, [cli, ...args, '--data', data, '--json'], {
+      const result = spawnSync(process.execPath, [cli, ...args, '--data', directory, '--json'], {
         cwd: scratch, env, encoding: 'utf8', timeout: 30000, maxBuffer: 4 * 1024 * 1024,
       });
       const ms = performance.now() - start;
@@ -67,6 +67,20 @@ function benchmark() {
       process.stdout.write(`${command}: median ${ms.toFixed(2)} ms (target < ${target} ms)\n`);
       if (ms >= target) process.stdout.write(`WARN: ${command} exceeded target\n`);
     }
+
+    const pages = join(scratch, 'pages');
+    initDataDir(pages, { home, env, clock });
+    fs.mkdirSync(join(pages, 'notes'));
+    fs.writeFileSync(join(pages, 'notes/target.md'), '# Borealis\n');
+    for (let at = 1; at < 5000; at++) fs.writeFileSync(join(pages, 'notes', `page-${at}.md`),
+      `# Page ${at}\n${at === 1 ? 'Borealis appears here.' : 'Ordinary page content.'}\n`);
+    const pagesCtx = openContext({ mode: 'read', dataDir: pages, home, env, clock });
+    if (refresh(pagesCtx).added !== 5000 || pagesCtx.warnings.length) throw new Error('Could not index benchmark pages.');
+    run(['mentions', '@notes/target'], pages);
+    const mention = run(['mentions', '@notes/target'], pages);
+    if (mention.data.items.length !== 1) throw new Error('Benchmark mentions did not return one page.');
+    process.stdout.write(`5000 pages; mentions @notes/target --json: ${mention.ms.toFixed(2)} ms (target < 200 ms; one query after warm-up)\n`);
+    if (mention.ms >= 200) process.stdout.write('WARN: mentions exceeded target\n');
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }
