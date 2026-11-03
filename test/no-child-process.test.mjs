@@ -10,6 +10,7 @@ const repo = fileURLToPath(new URL('..', import.meta.url));
 const FORBIDDEN = [
   /['"`](?:node:)?child_process['"`]/u,
   /['"`]node:(?:http|https|net|dgram|tls)['"`]/u,
+  /\b(?:from\s+|import\s*(?:\(\s*)?|require\s*\(\s*)['"`](?:http|https|net|dgram|tls)['"`]/u,
   /\bfetch\s*\(/u,
 ];
 

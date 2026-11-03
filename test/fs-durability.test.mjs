@@ -14,7 +14,7 @@ import { create, update } from '../core/entity.mjs';
 import { lockName } from '../core/lock.mjs';
 import { readEvents } from '../core/events.mjs';
 import { refresh } from '../core/index.mjs';
-import { runCli, spawnCli } from './support/cli.mjs';
+import { runCli } from './support/cli.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 
 function setup(t) {
@@ -25,10 +25,11 @@ function setup(t) {
   return { root, home, clock };
 }
 
-test('claim race: 4 concurrent workers compete for cards over multiple rounds', async (t) => {
+test('claim race: 4 concurrent workers compete for cards over multiple rounds', { timeout: 300_000 }, async (t) => {
   const { root, home, clock } = setup(t);
   const ctx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'cli:coordinator' });
   const { entity: card } = addCard(ctx, { title: 'Acme Race' });
+  const afterLeases = { ...ctx, clock: fixedClock('2100-01-01T00:00:00Z') };
 
   const workerScript = fileURLToPath(new URL('support/claim-worker.mjs', import.meta.url));
   const workers = [0, 1, 2, 3].map((index) => {
@@ -55,20 +56,39 @@ test('claim race: 4 concurrent workers compete for cards over multiple rounds', 
 
     const rl = createInterface({ input: child.stdout });
     let nextResolve = null;
+    let nextReject = null;
+    let failure = null;
     const queue = [];
+    const fail = (error) => {
+      failure ??= error;
+      nextReject?.(failure);
+      nextResolve = nextReject = null;
+    };
+    child.once('error', fail);
+    child.once('exit', (code, signal) => fail(new Error(`Worker ${actor} exited: ${signal ?? code}`)));
+    child.stdout.once('close', () => fail(new Error(`Worker ${actor} stdout closed`)));
+    child.stdin.on('error', fail);
+    t.signal.addEventListener('abort', () => {
+      fail(t.signal.reason);
+      cleanup();
+    }, { once: true });
     rl.on('line', (line) => {
       if (nextResolve) {
         const resolve = nextResolve;
-        nextResolve = null;
+        nextResolve = nextReject = null;
         resolve(line);
       } else {
         queue.push(line);
       }
     });
 
-    const nextLine = () => new Promise((resolve) => {
-      if (queue.length > 0) resolve(queue.shift());
-      else nextResolve = resolve;
+    const nextLine = () => new Promise((resolve, reject) => {
+      if (failure) reject(failure);
+      else if (queue.length > 0) resolve(queue.shift());
+      else {
+        nextResolve = resolve;
+        nextReject = reject;
+      }
     });
 
     return { child, actor, nextLine, cleanup };
@@ -83,7 +103,8 @@ test('claim race: 4 concurrent workers compete for cards over multiple rounds', 
   const start = performance.now();
 
   for (let round = 0; round < rounds; round++) {
-    releaseCard(ctx, card.id);
+    // Workers' leases run on the real clock; the coordinator acts after they expired, as a released card would be.
+    releaseCard(afterLeases, card.id);
 
     for (const worker of workers) {
       worker.child.stdin.write('go\n');
@@ -96,6 +117,10 @@ test('claim race: 4 concurrent workers compete for cards over multiple rounds', 
 
     assert.equal(winners.length, 1, `Round ${round}: expected exactly one winner, got: ${JSON.stringify(results)}`);
     assert.equal(losers.length, 3, `Round ${round}: expected 3 losers (code 4 or 6), got: ${JSON.stringify(results)}`);
+    for (const loser of losers.filter((result) => result.code === 4)) {
+      assert.equal(loser.json.error.code, 'claimed');
+      assert.equal(loser.json.error.current.assignee, winners[0].actor);
+    }
 
     const cardContent = fs.readFileSync(join(ctx.root, card.path), 'utf8');
     assert.ok(cardContent.includes(`assignee: ${winners[0].actor}`));
@@ -110,7 +135,7 @@ test('claim race: 4 concurrent workers compete for cards over multiple rounds', 
   }
 });
 
-test('crash injection: subprocess killed at each fault point recovers cleanly on next write', async (t) => {
+test('crash injection: subprocess killed at each fault point recovers cleanly on next write', { timeout: 60_000 }, async (t) => {
   const faultPoints = ['after-check', 'before-rename', 'after-rename', 'after-event'];
 
   for (const point of faultPoints) {
@@ -119,16 +144,24 @@ test('crash injection: subprocess killed at each fault point recovers cleanly on
     const addRes = await runCli(['card', 'add', '--title', 'Initial', '--actor', 'acme'], { home, data: root });
     assert.equal(addRes.code, 0);
 
-    const crashRes = await spawnCli(['card', 'update', '@cards/initial', '--title', 'Updated', '--actor', 'acme', '--json'], {
-      home,
-      data: root,
-      env: { CAIRN_TEST_CRASH: point },
+    const child = spawn(process.execPath, [fileURLToPath(new URL('../cli/cairn.mjs', import.meta.url)),
+      'card', 'update', '@cards/initial', '--title', 'Updated', '--actor', 'acme', '--json', '--data', root], {
+      env: { ...process.env, HOME: home, USERPROFILE: home, CAIRN_TEST_CRASH: point },
+      stdio: 'ignore',
+    });
+    t.after(() => { if (child.exitCode === null && child.signalCode === null) child.kill(); });
+    const crashRes = await new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', (code, signal) => resolve({ code, signal }));
     });
 
     if (process.platform === 'win32') {
       assert.notEqual(crashRes.code, 0);
+    } else {
+      assert.equal(crashRes.signal, 'SIGKILL', `Fault point: ${point}`);
     }
 
+    assert.equal(fs.readdirSync(join(root, '.cairn/pending')).length, point === 'after-check' ? 0 : 1);
     const recoveryCtx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'cli:acme' });
     const pendingIntents = fs.readdirSync(join(root, '.cairn/pending'));
     assert.deepEqual(pendingIntents, []);
@@ -301,7 +334,7 @@ test('rename retry: transient errors succeed on small attempts, fail cleanly whe
   __setFsHooks({});
 });
 
-test('concurrent card add with same title produces separate unique files under directory lock', async (t) => {
+test('concurrent card add with same title produces separate unique files under directory lock', { timeout: 60_000 }, async (t) => {
   const { root, home, clock } = setup(t);
   const initCtx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'cli:acme' });
   refresh(initCtx);
@@ -326,7 +359,8 @@ test('concurrent card add with same title produces separate unique files under d
         stderr: { write: (t) => { stderr += t; } },
       });
       console.log(stdout.trim());
-      process.exit(code);
+      process.exitCode = code;
+      process.stdin.pause();
     });
   `;
 
@@ -354,21 +388,21 @@ test('concurrent card add with same title produces separate unique files under d
         if (stdout.includes('ready\n')) resolve();
       });
       child.once('error', reject);
-      child.once('exit', (code) => {
-        if (code !== 0 && !stdout.includes('ready\n')) reject(new Error(stderr || `Child exited early: ${code}`));
+      child.once('close', (code) => {
+        if (!stdout.includes('ready\n')) reject(new Error(stderr || `Child exited early: ${code}`));
       });
     });
 
     const done = new Promise((resolve, reject) => {
       child.once('error', reject);
-      child.once('exit', (code) => {
+      child.once('close', (code) => {
         if (code === 0) {
-          resolve(JSON.parse(stdout.trim().split('\n').at(-1)));
+          resolve(stdout);
         } else {
           reject(new Error(stderr || `Child exited with code ${code}`));
         }
       });
-    });
+    }).then((output) => JSON.parse(output.trim().split('\n').at(-1)));
 
     return { child, ready, done, cleanup };
   });

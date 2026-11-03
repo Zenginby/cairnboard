@@ -1,7 +1,8 @@
 import { platform } from 'node:os';
+import { resolve } from 'node:path';
 import { checkRuntime } from '../core/runtime.mjs';
 import { CairnError, ERRORS } from '../core/errors.mjs';
-import { findProjectLink } from '../core/roots.mjs';
+import { findDataDir, findProjectLink } from '../core/roots.mjs';
 import { oneLine } from '../core/text.mjs';
 import { confirm } from './confirm.mjs';
 import { actorPattern, clean, human } from './output.mjs';
@@ -24,7 +25,7 @@ export async function main(argv, io) {
     if (opts.assignee === 'me') opts.assignee = actor;
     const prepared = await command.prepare?.(args, opts, io);
     const dangerous = command.dangerous === true || (command.dangerous && opts[command.dangerous.option]);
-    if (dangerous && !opts['dry-run'] && !await confirm(io, `Confirm ${command.name}?`)) {
+    if (dangerous && !opts['dry-run'] && !await confirm(io, `Confirm ${describe(command, args, opts, io)}?`)) {
       throw new CairnError('confirmation_required', 'Confirmation was declined.');
     }
     if (command.needsData) {
@@ -33,12 +34,22 @@ export async function main(argv, io) {
         dataDir: opts.data, preset: opts.preset, env: io.env, home: io.env.HOME ?? io.env.USERPROFILE,
         platform: platform(), cwd: io.cwd, clock: io.clock,
         actor: actor && actorPattern.test(actor) ? `cli:${actor}` : null });
-      if (opts.project === undefined) opts.project = findProjectLink(io.cwd) ?? undefined;
+      // The repository link is only a default for new items and list filters; updates never inherit it.
+      // A broken link fails only the commands that would use it, so `link` can still repair it.
+      if (opts.project === undefined) {
+        try {
+          opts.linkedProject = findProjectLink(io.cwd) ?? undefined;
+        } catch (error) {
+          opts.linkedProjectError = error;
+          if (command.mode !== 'write') ctx.warnings.push('invalid_project_link');
+        }
+      }
     }
     const result = await command.run(ctx, args, opts, io, prepared);
     const warnings = [...new Set([...(ctx?.warnings ?? []), ...(result.warnings ?? [])])];
     const envelope = clean({ v: 1, ok: true, data: result.data, warnings }, opts);
     const output = json ? JSON.stringify(envelope) : human(envelope.data);
+    if (!json && envelope.warnings.length) io.stderr.write(`warning: ${envelope.warnings.map((item) => oneLine(item)).join(', ')}\n`);
     io.stdout.write(output + (!json && typeof envelope.data === 'string' && output.endsWith('\n') ? '' : '\n'));
     return result.exit ?? 0;
   } catch (error) {
@@ -53,4 +64,15 @@ export async function main(argv, io) {
     if (!known && io.env.CAIRN_DEBUG === '1') io.stderr.write(`${error?.stack ?? error}\n`);
     return ERRORS[code];
   }
+}
+
+// The prompt names what will change and where, so a human can tell what an agent asked for.
+function describe(command, args, opts, io) {
+  const words = [command.name, ...args].map((part) => oneLine(clean(part))).join(' ');
+  const env = { ...io.env, ...(io.env.CAIRN_DATA ? { CAIRN_DATA: resolve(io.cwd, io.env.CAIRN_DATA) } : {}) };
+  const where = command.name === 'init' && args[0] ? resolve(io.cwd, args[0])
+    : command.needsData || command.name === 'init'
+      ? findDataDir({ flag: opts.data && resolve(io.cwd, opts.data), env, home: io.env.HOME ?? io.env.USERPROFILE, platform: platform() }).path
+      : null;
+  return where ? `${words} (data: ${oneLine(clean(where))})` : words;
 }

@@ -49,7 +49,8 @@ function makeDirectory(path) {
   fs.mkdirSync(path, { recursive: true, mode: 0o700 });
 }
 
-export function initDataDir(path, { language = 'en', preset = 'default', home = homedir(), platform = process.platform, env = process.env, clock } = {}) {
+// `register`: true replaces the default data directory, 'if-unset' only records the first one, false never records.
+export function initDataDir(path, { language = 'en', preset = 'default', home = homedir(), platform = process.platform, env = process.env, clock, register = true } = {}) {
   const config = defaultConfig(language);
   if (!Object.hasOwn(PRESETS, preset)) throw invalid();
   if (preset !== 'default') config.schema = structuredClone(PRESETS[preset]);
@@ -75,8 +76,11 @@ export function initDataDir(path, { language = 'en', preset = 'default', home = 
     const loaded = loadConfig(root);
     fs.writeFileAtomic(checkedPath(root, '.cairn/.gitignore'), 'index.db*\nhistory/\npending/\ntrash/\nlocks/\nbackup/\n');
     const state = stateDir({ platform, env, home });
-    makeDirectory(state);
-    fs.writeFileAtomic(checkedPath(realRoot(state), 'state.json'), JSON.stringify({ data: root }));
+    const recorded = fs.existsSync(join(state, 'state.json'));
+    if (register === true || (register === 'if-unset' && !recorded)) {
+      makeDirectory(state);
+      fs.writeFileAtomic(checkedPath(realRoot(state), 'state.json'), JSON.stringify({ data: root }));
+    }
     return loaded;
   } catch (error) {
     if (error instanceof CairnError) throw error;

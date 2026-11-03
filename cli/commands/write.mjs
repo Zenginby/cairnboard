@@ -8,7 +8,7 @@ import * as trash from '../../core/trash.mjs';
 import { latestUndoable, undo } from '../../core/history.mjs';
 import { extract } from '../../core/extract.mjs';
 import { revision } from '../../core/store.mjs';
-import { acceptanceCounts } from '../../core/frontmatter.mjs';
+import { acceptanceCounts, parseFile } from '../../core/frontmatter.mjs';
 import { checkedPath, readChecked, realRoot } from '../../core/paths.mjs';
 import { findDataDir, initDataDir, findRepoRoot, writeProjectLink } from '../../core/roots.mjs';
 import { defaultConfig, loadConfig } from '../../core/config.mjs';
@@ -66,8 +66,8 @@ function patchFields(ctx, type, opts) {
 
 export function writeCommands({ string, boolean }) {
   const commands = [];
-  const add = (name, summary, args, options, run, { mode = 'write', needsData = true, dangerous = false } = {}) => {
-    commands.push({ name, summary, args, options, mode, needsData, dangerous, run });
+  const add = (name, summary, args, options, run, { mode = 'write', needsData = true, dangerous = false, actor } = {}) => {
+    commands.push({ name, summary, args, options, mode, needsData, dangerous, ...(actor === false ? { actor } : {}), run });
   };
   const bodyOptions = { body: string('Read body from stdin; accepts only -.'), 'body-file': string('Read body from a file relative to cwd.') };
   const multiple = (summary) => ({ ...string(summary), multiple: true });
@@ -84,7 +84,8 @@ export function writeCommands({ string, boolean }) {
     };
     add(`${type} add`, `Create a ${type}.`, [], options, async (ctx, args, opts, io) => {
       const body = await readBody(opts, io);
-      const fields = patchFields(ctx, type, opts);
+      if (opts.project === undefined && opts.linkedProjectError) throw opts.linkedProjectError;
+      const fields = patchFields(ctx, type, { ...opts, project: opts.project ?? opts.linkedProject });
       const changed = type === 'card' ? card.addCard(ctx, fields, body ?? '', mutationOptions(opts))
         : entity.create(ctx, type, fields, body ?? '', mutationOptions(opts));
       return mutation(ctx, changed, opts);
@@ -154,6 +155,7 @@ export function writeCommands({ string, boolean }) {
   });
   add('init', 'Initialize a data directory.', ['[path]'], {
     language: string('Use tr or en (default: en).'), preset: string('Use default or tr-wiki (default: default).'),
+    'set-default': boolean('Make this the default data directory, replacing an existing default.'),
   }, (ctx, [path], opts, io) => {
     const settings = environment(io);
     const root = resolve(io.cwd, path ?? findDataDir({ ...settings,
@@ -175,9 +177,16 @@ export function writeCommands({ string, boolean }) {
     if (opts['dry-run']) {
       // Validate existing config without running initialization or writing discovery state.
       loaded = current === null ? config : loadConfig(realRoot(root));
-    } else loaded = initDataDir(root, { ...settings, language: opts.language, preset: opts.preset });
-    return { data: { path: root, config: loaded, revision: revision(current ?? JSON.stringify(loaded, null, 2) + '\n') } };
-  }, { needsData: false });
+    } else {
+      // An agent must not be able to redirect every later session to another folder.
+      loaded = initDataDir(root, { ...settings, language: opts.language, preset: opts.preset,
+        register: opts['set-default'] ? true : 'if-unset' });
+    }
+    const recorded = findDataDir({ ...settings, env: {} });
+    const warnings = recorded.source === 'state' && resolve(recorded.path) !== resolve(root) && !opts['dry-run']
+      ? [`not_default:${recorded.path}`] : [];
+    return { data: { path: root, config: loaded, revision: revision(current ?? JSON.stringify(loaded, null, 2) + '\n') }, warnings };
+  }, { needsData: false, dangerous: { option: 'set-default' } });
   add('link', 'Link a git repository to a project.', ['<project>'], { gitignore: boolean('Ignore the project link in git.') }, (ctx, [ref], opts, io) => {
     const root = findRepoRoot(io.cwd);
     if (!root || !fs.lstatSync(checkedPath(realRoot(root), '.git'), { throwIfNoEntry: false })) throw new CairnError('validation', 'A git repository is required.');
@@ -202,12 +211,22 @@ export function writeCommands({ string, boolean }) {
     }
     return { data: { ...summary(ctx, project, opts, []), revision: revision(text) } };
   }, { dangerous: true });
-  add('export board', 'Export the derived Obsidian board.', [], { stdout: boolean('Return board text instead of writing board.md.') }, (ctx, args, opts) => {
+  add('export board', 'Export the derived Obsidian board; writing board.md needs an actor.', [], { stdout: boolean('Return board text instead of writing board.md.') }, (ctx, args, opts) => {
     const text = exportBoard(ctx);
     if (opts.stdout) return { data: text };
+    if (!ctx.actor) throw new CairnError('actor_required', 'Writing board.md requires an actor.');
     const path = checkedPath(ctx.root, 'board.md');
-    if (!opts['dry-run']) fs.writeFileAtomic(path, text);
+    // board.md is derived and kept out of history, so only a board this command generated may be replaced.
+    const before = readChecked(ctx.root, 'board.md', 'utf8');
+    const generated = (content) => parseFile(content).data?.cairnboard === 'export';
+    if (before !== null && !generated(before)) {
+      throw new CairnError('conflict', 'board.md was not generated by Cairnboard; move it away first.',
+        { current: { path: 'board.md', revision: revision(before) } });
+    }
+    if (!opts['dry-run']) fs.writeFileAtomic(path, text, () => {
+      if (readChecked(ctx.root, 'board.md', 'utf8') !== before) throw new CairnError('conflict', 'board.md changed during export.');
+    });
     return { data: { path: 'board.md', revision: revision(text) } };
-  }, { mode: 'read' });
+  }, { actor: false });
   return commands;
 }

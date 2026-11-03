@@ -2099,11 +2099,17 @@
         "preset": {
           "type": "string",
           "summary": "Use default or tr-wiki (default: default)."
+        },
+        "set-default": {
+          "type": "boolean",
+          "summary": "Make this the default data directory, replacing an existing default."
         }
       },
       "mode": "write",
       "needsData": false,
-      "dangerous": false
+      "dangerous": {
+        "option": "set-default"
+      }
     },
     {
       "name": "link",
@@ -2159,7 +2165,7 @@
     },
     {
       "name": "export board",
-      "summary": "Export the derived Obsidian board.",
+      "summary": "Export the derived Obsidian board; writing board.md needs an actor.",
       "args": [],
       "options": {
         "json": {
@@ -2203,9 +2209,10 @@
           "summary": "Return board text instead of writing board.md."
         }
       },
-      "mode": "read",
+      "mode": "write",
       "needsData": true,
-      "dangerous": false
+      "dangerous": false,
+      "actor": false
     },
     {
       "name": "agent install",

@@ -57,6 +57,9 @@ function actorName(ctx) {
   return ctx.actor.slice(colon + 1);
 }
 
+// Another actor's live claim protects the card; releasing it first must not bypass `claim --steal`.
+const requireOwner = (ctx, current) => entity.requireCardOwner(ctx, current.data);
+
 function between(previous, next) {
   try {
     return keyBetween(previous ? position(previous) : null, next ? position(next) : null);
@@ -87,7 +90,7 @@ function summary(ctx, path, text) {
   return { ...card, revision: revision(text), warnings: effectiveColumn(ctx.config, card).warnings };
 }
 
-function mutate(ctx, ref, op, change, opts, retryClaim = false) {
+function mutate(ctx, ref, op, change, opts, retryClaim = false, owned = false) {
   actorName(ctx);
   const initial = entity.resolve(ctx, 'card', ref);
   writable(ctx, initial);
@@ -100,6 +103,7 @@ function mutate(ctx, ref, op, change, opts, retryClaim = false) {
       if (text === null) throw new CairnError('not_found', 'Card was not found.');
       const current = summary(ctx, initial.path, text);
       writable(ctx, current);
+      if (owned) requireOwner(ctx, current);
       const decision = change(text, current);
       const patch = { ...decision.patch, updated: ctx.clock.now().toISOString() };
       if (current.id === null) {
@@ -135,7 +139,7 @@ export function moveCard(ctx, ref, { column, before, after }, opts = {}) {
     const next = beforeIndex !== null ? cards[beforeIndex] : afterIndex !== null ? cards[afterIndex + 1] : null;
     return { patch: { column, position: between(previous, next) },
       extra: { from: effectiveColumn(ctx.config, current).key, to: column } };
-  }, opts);
+  }, opts, false, true);
 }
 
 export function claimCard(ctx, ref, { renew = false, steal = false } = {}, opts = {}) {
@@ -144,8 +148,8 @@ export function claimCard(ctx, ref, { renew = false, steal = false } = {}, opts 
     const column = columnFor(ctx.config, 'doing');
     const now = ctx.clock.now();
     const { assignee, lease } = current.data;
-    const expired = typeof lease === 'string' && now.getTime() > Date.parse(lease) + 5 * 60 * 1000;
-    if (renew ? assignee !== name : assignee && !expired && !steal) {
+    const live = entity.liveClaim(ctx, current.data);
+    if (renew ? assignee !== name : live && live.assignee !== name && !steal) {
       throw new CairnError('claimed', 'Card is already claimed.', { current: { assignee: assignee ?? null, lease: lease ?? null } });
     }
     const claimed = now.toISOString();
@@ -155,7 +159,7 @@ export function claimCard(ctx, ref, { renew = false, steal = false } = {}, opts 
 }
 
 export function releaseCard(ctx, ref, opts = {}) {
-  return mutate(ctx, ref, 'card.release', () => ({ patch: { assignee: undefined, claimed: undefined, lease: undefined } }), opts);
+  return mutate(ctx, ref, 'card.release', () => ({ patch: { assignee: undefined, claimed: undefined, lease: undefined } }), opts, false, true);
 }
 
 export function commentCard(ctx, ref, text, opts = {}) {
@@ -167,7 +171,7 @@ export function commentCard(ctx, ref, text, opts = {}) {
 }
 
 export function checkCard(ctx, ref, n, { uncheck = false } = {}, opts = {}) {
-  return mutate(ctx, ref, 'card.check', (text) => ({ text: setAcceptance(text, n, !uncheck) }), opts);
+  return mutate(ctx, ref, 'card.check', (text) => ({ text: setAcceptance(text, n, !uncheck) }), opts, false, true);
 }
 
 export function doneCard(ctx, ref, opts = {}) {
@@ -176,5 +180,5 @@ export function doneCard(ctx, ref, opts = {}) {
     const { done, total } = acceptanceCounts(parseFile(text).body);
     return { patch: { column: column.key, done: ctx.clock.now().toISOString(), lease: undefined },
       warnings: done < total ? [`acceptance_open:${total - done}/${total}`] : [] };
-  }, opts);
+  }, opts, false, true);
 }

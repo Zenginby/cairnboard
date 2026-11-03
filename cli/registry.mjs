@@ -50,6 +50,18 @@ function result(ctx, items, opts, many = true) {
   return { data: many || opts.compact ? { items: converted } : converted[0], warnings };
 }
 
+// An explicit --project must resolve; a stale repository link only warns, so reads keep working.
+function listProject(ctx, opts) {
+  if (opts.project !== undefined || opts.linkedProject === undefined) return opts.project;
+  try {
+    return entity.resolve(ctx, 'project', opts.linkedProject).id ?? opts.linkedProject;
+  } catch (error) {
+    if (error.code !== 'not_found') throw error;
+    ctx.warnings.push('invalid_project_link');
+    return undefined;
+  }
+}
+
 function projectFilter(ctx, items, project) {
   if (project === undefined) return items;
   const selected = entity.resolve(ctx, 'project', project);
@@ -74,10 +86,10 @@ for (const type of ['project', 'card', 'note', 'research']) {
     if (type === 'note' && opts.kind !== undefined && !['note', 'concept', 'tool', 'query', 'overview'].includes(opts.kind)) {
       throw new CairnError('validation', 'Invalid note kind.');
     }
-    const items = type === 'card' ? listCards(ctx, { project: opts.project, column: opts.column,
+    const items = type === 'card' ? listCards(ctx, { project: listProject(ctx, opts), column: opts.column,
       columnRole: opts['column-role'], assignee: opts.assignee, unassigned: opts.unassigned,
       priority: opts.priority, tag: opts.tag, includeDone: opts.all })
-      : projectFilter(ctx, entity.list(ctx, type, { kind: opts.kind, all: opts.all }), type === 'project' ? undefined : opts.project);
+      : projectFilter(ctx, entity.list(ctx, type, { kind: opts.kind, all: opts.all }), type === 'project' ? undefined : listProject(ctx, opts));
     return result(ctx, items, opts);
   });
   read(`${type} show`, `Show one ${type}.`, ['<ref>'], {}, (ctx, [ref], opts) => result(ctx, [entity.resolve(ctx, type, ref)], opts, false));

@@ -46,8 +46,16 @@ export function list(ctx) {
     if (readChecked(ctx.root, payloadPath(trashId)) === null) return [];
     const text = readChecked(ctx.root, `.cairn/trash/${name}`, 'utf8');
     if (text === null) return [];
-    const data = JSON.parse(text);
-    safeRelative(data.path);
+    // One damaged sidecar must not hide every other recoverable item.
+    let data;
+    try {
+      data = JSON.parse(text);
+      if (typeof data?.path !== 'string' || typeof data.deletedAt !== 'string' || !Number.isFinite(Date.parse(data.deletedAt))) throw new Error();
+      safeRelative(data.path);
+    } catch {
+      ctx.warnings?.push('invalid_trash_item');
+      return [];
+    }
     return [{ trashId, path: data.path, deletedAt: data.deletedAt }];
   }).sort((a, b) => a.deletedAt.localeCompare(b.deletedAt) || a.trashId.localeCompare(b.trashId));
 }
@@ -57,7 +65,14 @@ export function restore(ctx, trashId, opts = {}) {
   const metadata = readChecked(ctx.root, `${payload}.json`, 'utf8');
   const bytes = readChecked(ctx.root, payload);
   if (metadata === null || bytes === null) throw new CairnError('not_found', 'Trash item not found.');
-  const { path } = JSON.parse(metadata);
+  let path;
+  try {
+    ({ path } = JSON.parse(metadata));
+    if (typeof path !== 'string') throw new Error();
+    safeRelative(path);
+  } catch {
+    throw new CairnError('validation', 'Trash item metadata is damaged.');
+  }
   const rel = safeRelative(path).replace(/\\/gu, '/');
   const ext = extname(rel);
   let existing;
