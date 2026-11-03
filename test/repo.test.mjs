@@ -12,7 +12,7 @@ test('package.json is private, ESM, MIT, Node >= 22.16 with exactly pinned depen
   assert.equal(p.license, 'MIT');
   assert.ok(Array.isArray(p.files));
   assert.deepEqual(p.dependencies, { yaml: '2.9.1' });
-  assert.deepEqual(p.devDependencies, { esbuild: '0.28.2' });
+  assert.deepEqual(p.devDependencies, { '@google/design.md': '0.4.0', esbuild: '0.28.2' });
   for (const version of [...Object.values(p.dependencies), ...Object.values(p.devDependencies)]) {
     assert.match(version, /^\d+\.\d+\.\d+$/);
   }
