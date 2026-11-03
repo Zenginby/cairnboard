@@ -95,15 +95,21 @@ for (const type of ['project', 'card', 'note', 'research']) {
   });
   read(`${type} show`, `Show one ${type}.`, ['<ref>'], {}, (ctx, [ref], opts) => {
     const shown = result(ctx, [entity.resolve(ctx, type, ref)], opts, false);
-    if (type === 'note' && !opts.compact) shown.data.meta = { ...shown.data.meta, ...noteLinks(ctx, shown.data.path, opts) };
+    if (type === 'note' && !opts.compact) {
+      const { links, backlinks } = noteLinks(ctx, shown.data.path, opts);
+      shown.data.meta = { ...shown.data.meta, backlinks };
+      // Link text is page text, so it lives under content like the rest of the page.
+      Object.defineProperty(shown.data.content, 'links', { value: links, enumerable: true, configurable: true, writable: true });
+    }
     return shown;
   });
 }
 
 // Resolved links of one page plus the pages that link to it; paths and line numbers, bounded in count.
 const MAX_LINKS = 500;
+const MAX_EXPR = 300;
 function noteLinks(ctx, path, opts) {
-  const out = index.outlinks(ctx, path).slice(0, MAX_LINKS).map((link) => ({ expr: clean(link.expr, opts),
+  const out = index.outlinks(ctx, path).slice(0, MAX_LINKS).map((link) => ({ expr: clean(link.expr.slice(0, MAX_EXPR), opts),
     target_path: link.target_path ?? null, status: link.status, line: link.line }));
   const back = index.backlinks(ctx, path).slice(0, MAX_LINKS).map(({ src_path, line }) => ({ src_path: clean(src_path, opts), line }));
   return { links: out, backlinks: back };

@@ -105,8 +105,9 @@ test('note show adds links and backlinks as paths and counts, no page text beyon
   const before = snapshot(data);
   const shown = await cli(data, home, ['note', 'show', '@wiki/kavramlar/acme-kavrami', '--json']);
   assert.equal(shown.code, 0, shown.stderr);
-  const { meta } = shown.json.data;
-  assert.deepEqual(meta.links, [
+  const { meta, content } = shown.json.data;
+  assert.equal('links' in meta, false);
+  assert.deepEqual(content.links, [
     { expr: '[[zorblax-araci|Zorblax aracı]]', target_path: 'wiki/araclar/zorblax-araci.md', status: 'resolved', line: 9 },
     { expr: '[[acme-makalesi]]', target_path: 'wiki/kaynaklar/acme-makalesi.md', status: 'resolved', line: 5 },
     { expr: '[[acme-makalesi]]', target_path: 'wiki/kaynaklar/acme-makalesi.md', status: 'resolved', line: 13 },
@@ -116,7 +117,7 @@ test('note show adds links and backlinks as paths and counts, no page text beyon
   assert.ok(meta.backlinks.every((item) => Object.keys(item).sort().join() === 'line,src_path'));
   assert.equal(meta.kind, 'concept');
   const unresolved = await cli(data, home, ['note', 'show', '@wiki/kavramlar/sistem-1-sistem-2', '--json']);
-  assert.deepEqual(unresolved.json.data.meta.links.map((item) => [item.expr, item.status, item.target_path]),
+  assert.deepEqual(unresolved.json.data.content.links.map((item) => [item.expr, item.status, item.target_path]),
     [['[[Acme Kavramı]]', 'unresolved', null]]);
   assertUnchanged(before, data);
 });
@@ -127,6 +128,13 @@ test('note kind is note for an unrecognised kind value in list and show', async 
   assert.equal(list.json.data.items.find((item) => item.path === 'pano.md').meta.kind, 'note');
   const shown = await cli(data, home, ['note', 'show', '@pano', '--json']);
   assert.equal(shown.json.data.meta.kind, 'note');
+});
+
+test('note show bounds link text to 300 characters', async (t) => {
+  const data = files(t, { 'wiki/kavramlar/a.md': `---\ntur: kavram\n---\n# A\n\n[[${'u'.repeat(900)}]]\n` });
+  const shown = await cli(data, tempDir(t), ['note', 'show', '@wiki/kavramlar/a', '--json']);
+  assert.equal(shown.json.data.content.links[0].expr.length, 300);
+  assert.equal(shown.json.data.content.links[0].status, 'unresolved');
 });
 
 test('link resolution matches file names only (NFC, case-insensitive) and never slugs', (t) => {
