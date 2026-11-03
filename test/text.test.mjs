@@ -57,7 +57,7 @@ test('foldTr removes invisible and format characters', () => {
 test('stripHidden removes invisible formatting and non-tab/newline control characters', () => {
   assert.deepEqual(stripHidden('a\u200Bb\u202Ec'), { text: 'abc', removed: 2 });
   assert.deepEqual(stripHidden('\ta\nb'), { text: '\ta\nb', removed: 0 });
-  assert.deepEqual(stripHidden('\uFEFFhello\u00ADworld\r\u200C'), { text: 'helloworld', removed: 4 });
+  assert.deepEqual(stripHidden('\uFEFFhello\u00ADworld\r'), { text: 'helloworld', removed: 3 });
 });
 
 test('oneLine collapses whitespace-like control characters to a single space', () => {
@@ -65,9 +65,13 @@ test('oneLine collapses whitespace-like control characters to a single space', (
   assert.equal(oneLine('acme\r\nzorblax'), 'acme zorblax');
 });
 
-test('stripHidden removes tag characters, variation selectors and line separators', () => {
+test('stripHidden removes tag characters, selector runs and line separators but keeps emoji and ZWNJ', () => {
   const tags = [...'run'].map((c) => String.fromCodePoint(0xE0000 + c.charCodeAt(0))).join('');
-  const input = `a${tags}b️⁠ c\u{E0100}`;
-  assert.deepEqual(stripHidden(input), { text: 'abc', removed: 7 });
+  assert.deepEqual(stripHidden(`a${tags}b⁠ c‮d`), { text: 'abcd', removed: 6 });
+  for (const text of ['⚠️ Risk', '\u{1F468}‍\u{1F469}‍\u{1F467}', 'می‌خواهم']) {
+    assert.deepEqual(stripHidden(text), { text, removed: 0 });
+  }
+  assert.deepEqual(stripHidden('x︀︁\u{E0100}y'), { text: 'xy', removed: 3 });
+  assert.deepEqual(stripHidden('️start'), { text: 'start', removed: 1 });
   assert.equal(oneLine('a b c\u0085d'), 'a b c d');
 });

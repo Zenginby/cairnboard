@@ -69,7 +69,9 @@ function inspectFile(text) {
     const errors = doc.errors.filter((error) => !multiple || error.code !== 'MULTIPLE_DOCS');
     if (errors.length) throw new Error(errors.map((error) => error.message).join('\n'));
     const data = doc.toJS();
-    if (expandedSize(data) > MAX_EXPANDED) throw new Error('Frontmatter aliases refer to themselves or expand too far.');
+    let aliased = false;
+    visit(doc, { Alias: () => { aliased = true; return visit.BREAK; } });
+    if (aliased && expandedSize(data) > MAX_EXPANDED) throw new Error('Frontmatter aliases refer to themselves or expand past 10,000 values.');
     file.data = doc.contents === null ? {} : data !== null && typeof data === 'object' ? data : null;
     file.editable = (doc.contents === null || (isMap(doc.contents) && !doc.contents.flow)) && !multiple;
     visit(doc, (_key, node) => {

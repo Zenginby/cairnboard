@@ -2165,7 +2165,7 @@
     },
     {
       "name": "export board",
-      "summary": "Export the derived Obsidian board.",
+      "summary": "Export the derived Obsidian board; writing board.md needs an actor.",
       "args": [],
       "options": {
         "json": {
@@ -2211,7 +2211,8 @@
       },
       "mode": "write",
       "needsData": true,
-      "dangerous": false
+      "dangerous": false,
+      "actor": false
     },
     {
       "name": "agent install",

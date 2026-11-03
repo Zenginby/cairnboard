@@ -199,6 +199,8 @@ test('aliases that expand exponentially are rejected quickly', () => {
   const started = performance.now();
   const parsed = parseFile(`---\n${lines.join('\n')}\n---\n`);
   assert.ok(performance.now() - started < 2000);
-  assert.match(parsed.error, /expand too far/);
+  assert.match(parsed.error, /expand past/);
+  const many = `---\ntags: [${Array.from({ length: 10001 }, (_, i) => i).join(', ')}]\n---\n`;
+  assert.equal(parseFile(many).error, null);
   assert.deepEqual(parseFile('---\na: &y [1, 2]\nb: [*y, *y]\n---\n').data, { a: [1, 2], b: [[1, 2], [1, 2]] });
 });

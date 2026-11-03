@@ -57,15 +57,8 @@ function actorName(ctx) {
   return ctx.actor.slice(colon + 1);
 }
 
-const expiredLease = (ctx, lease) => typeof lease === 'string' && ctx.clock.now().getTime() > Date.parse(lease) + 5 * 60 * 1000;
-
 // Another actor's live claim protects the card; releasing it first must not bypass `claim --steal`.
-function requireOwner(ctx, current) {
-  const { assignee, lease } = current.data;
-  if (assignee && assignee !== actorName(ctx) && !expiredLease(ctx, lease)) {
-    throw new CairnError('claimed', 'Card is claimed by another actor.', { current: { assignee, lease: lease ?? null } });
-  }
-}
+const requireOwner = (ctx, current) => entity.requireCardOwner(ctx, current.data);
 
 function between(previous, next) {
   try {
@@ -155,8 +148,8 @@ export function claimCard(ctx, ref, { renew = false, steal = false } = {}, opts 
     const column = columnFor(ctx.config, 'doing');
     const now = ctx.clock.now();
     const { assignee, lease } = current.data;
-    const expired = expiredLease(ctx, lease);
-    if (renew ? assignee !== name : assignee && !expired && !steal) {
+    const live = entity.liveClaim(ctx, current.data);
+    if (renew ? assignee !== name : live && live.assignee !== name && !steal) {
       throw new CairnError('claimed', 'Card is already claimed.', { current: { assignee: assignee ?? null, lease: lease ?? null } });
     }
     const claimed = now.toISOString();

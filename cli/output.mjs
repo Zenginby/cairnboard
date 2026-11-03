@@ -77,7 +77,13 @@ export function toJson(entity, { raw = false, maxBytes = 65536, columns = [], wa
   content.title = entity.title ?? '';
   if (typeof entity.body === 'string') content.body = bounded(clean(entity.body, { raw }), maxBytes, warnings);
   if (typeof entity.snippet === 'string') content.snippet = bounded(clean(entity.snippet, { raw }), maxBytes, warnings);
-  return clean({ id: entity.id ?? null, type: entity.type, ref: entity.ref ?? null, path: entity.path ?? null,
+  // A cleaned selector would point at no file; fall back to the stable id, or say the selector needs --raw.
+  let ref = entity.ref ?? null;
+  if (!raw && typeof ref === 'string' && stripHidden(ref).removed) {
+    warnings.push('hidden_in_path');
+    if (entity.id) ref = entity.id;
+  }
+  return clean({ id: entity.id ?? null, type: entity.type, ref, path: entity.path ?? null,
     revision: entity.revision ?? null, meta, content }, { raw });
 }
 

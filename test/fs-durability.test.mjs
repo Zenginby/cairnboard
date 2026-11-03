@@ -29,6 +29,7 @@ test('claim race: 4 concurrent workers compete for cards over multiple rounds', 
   const { root, home, clock } = setup(t);
   const ctx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'cli:coordinator' });
   const { entity: card } = addCard(ctx, { title: 'Acme Race' });
+  const afterLeases = { ...ctx, clock: fixedClock('2100-01-01T00:00:00Z') };
 
   const workerScript = fileURLToPath(new URL('support/claim-worker.mjs', import.meta.url));
   const workers = [0, 1, 2, 3].map((index) => {
@@ -102,7 +103,8 @@ test('claim race: 4 concurrent workers compete for cards over multiple rounds', 
   const start = performance.now();
 
   for (let round = 0; round < rounds; round++) {
-    releaseCard(ctx, card.id);
+    // Workers' leases run on the real clock; the coordinator acts after they expired, as a released card would be.
+    releaseCard(afterLeases, card.id);
 
     for (const worker of workers) {
       worker.child.stdin.write('go\n');

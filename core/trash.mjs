@@ -65,7 +65,14 @@ export function restore(ctx, trashId, opts = {}) {
   const metadata = readChecked(ctx.root, `${payload}.json`, 'utf8');
   const bytes = readChecked(ctx.root, payload);
   if (metadata === null || bytes === null) throw new CairnError('not_found', 'Trash item not found.');
-  const { path } = JSON.parse(metadata);
+  let path;
+  try {
+    ({ path } = JSON.parse(metadata));
+    if (typeof path !== 'string') throw new Error();
+    safeRelative(path);
+  } catch {
+    throw new CairnError('validation', 'Trash item metadata is damaged.');
+  }
   const rel = safeRelative(path).replace(/\\/gu, '/');
   const ext = extname(rel);
   let existing;

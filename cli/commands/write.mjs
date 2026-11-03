@@ -66,8 +66,8 @@ function patchFields(ctx, type, opts) {
 
 export function writeCommands({ string, boolean }) {
   const commands = [];
-  const add = (name, summary, args, options, run, { mode = 'write', needsData = true, dangerous = false } = {}) => {
-    commands.push({ name, summary, args, options, mode, needsData, dangerous, run });
+  const add = (name, summary, args, options, run, { mode = 'write', needsData = true, dangerous = false, actor } = {}) => {
+    commands.push({ name, summary, args, options, mode, needsData, dangerous, ...(actor === false ? { actor } : {}), run });
   };
   const bodyOptions = { body: string('Read body from stdin; accepts only -.'), 'body-file': string('Read body from a file relative to cwd.') };
   const multiple = (summary) => ({ ...string(summary), multiple: true });
@@ -84,6 +84,7 @@ export function writeCommands({ string, boolean }) {
     };
     add(`${type} add`, `Create a ${type}.`, [], options, async (ctx, args, opts, io) => {
       const body = await readBody(opts, io);
+      if (opts.project === undefined && opts.linkedProjectError) throw opts.linkedProjectError;
       const fields = patchFields(ctx, type, { ...opts, project: opts.project ?? opts.linkedProject });
       const changed = type === 'card' ? card.addCard(ctx, fields, body ?? '', mutationOptions(opts))
         : entity.create(ctx, type, fields, body ?? '', mutationOptions(opts));
@@ -181,7 +182,10 @@ export function writeCommands({ string, boolean }) {
       loaded = initDataDir(root, { ...settings, language: opts.language, preset: opts.preset,
         register: opts['set-default'] ? true : 'if-unset' });
     }
-    return { data: { path: root, config: loaded, revision: revision(current ?? JSON.stringify(loaded, null, 2) + '\n') } };
+    const recorded = findDataDir({ ...settings, env: {} });
+    const warnings = recorded.source === 'state' && resolve(recorded.path) !== resolve(root) && !opts['dry-run']
+      ? [`not_default:${recorded.path}`] : [];
+    return { data: { path: root, config: loaded, revision: revision(current ?? JSON.stringify(loaded, null, 2) + '\n') }, warnings };
   }, { needsData: false, dangerous: { option: 'set-default' } });
   add('link', 'Link a git repository to a project.', ['<project>'], { gitignore: boolean('Ignore the project link in git.') }, (ctx, [ref], opts, io) => {
     const root = findRepoRoot(io.cwd);
@@ -207,9 +211,10 @@ export function writeCommands({ string, boolean }) {
     }
     return { data: { ...summary(ctx, project, opts, []), revision: revision(text) } };
   }, { dangerous: true });
-  add('export board', 'Export the derived Obsidian board.', [], { stdout: boolean('Return board text instead of writing board.md.') }, (ctx, args, opts) => {
+  add('export board', 'Export the derived Obsidian board; writing board.md needs an actor.', [], { stdout: boolean('Return board text instead of writing board.md.') }, (ctx, args, opts) => {
     const text = exportBoard(ctx);
     if (opts.stdout) return { data: text };
+    if (!ctx.actor) throw new CairnError('actor_required', 'Writing board.md requires an actor.');
     const path = checkedPath(ctx.root, 'board.md');
     // board.md is derived and kept out of history, so only a board this command generated may be replaced.
     const before = readChecked(ctx.root, 'board.md', 'utf8');
@@ -222,6 +227,6 @@ export function writeCommands({ string, boolean }) {
       if (readChecked(ctx.root, 'board.md', 'utf8') !== before) throw new CairnError('conflict', 'board.md changed during export.');
     });
     return { data: { path: 'board.md', revision: revision(text) } };
-  });
+  }, { actor: false });
   return commands;
 }

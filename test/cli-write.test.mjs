@@ -191,6 +191,7 @@ test('init preserves existing content; export board needs an actor and replaces 
   const ctx = openContext({ mode: 'read', dataDir: f.data, home: f.home, env: {} });
   const expected = exportBoard(ctx);
   assert.equal((await runCli(['export', 'board', '--json'], f.opts)).code, 2);
+  assert.equal((await runCli(['export', 'board', '--stdout'], f.opts)).code, 0);
   const stdout = await f.run(['export', 'board', '--stdout']);
   assert.equal(stdout.code, 0, stdout.stdout);
   assert.equal(stdout.json.data, expected);
@@ -288,7 +289,9 @@ test('undo reverts only the caller\'s own latest operation', async (t) => {
 
 test('init records only the first default unless --set-default is confirmed', async (t) => {
   const f = fixture(t), second = join(f.cwd, 'second');
-  assert.equal((await f.run(['init', second])).code, 0);
+  const kept = await f.run(['init', second]);
+  assert.equal(kept.code, 0);
+  assert.deepEqual(kept.json.warnings, [`not_default:${f.data}`]);
   const listed = await runCli(['status', '--json'], { ...f.opts, data: undefined });
   assert.equal(listed.json.data.dataDir, fs.realpathSync(f.data));
   assert.equal((await f.run(['init', second, '--set-default'])).code, 7);
@@ -305,5 +308,47 @@ test('dangerous commands refuse inside a coding agent even with a terminal and s
   }
   const confirmed = await f.run(['project', 'rm', project.id], { isTTY: true, stdin: 'yes\n' });
   assert.equal(confirmed.code, 0);
-  assert.match(confirmed.stderr, new RegExp(`Confirm project rm ${project.id}\\?`));
+  assert.match(confirmed.stderr, new RegExp(`Confirm project rm ${project.id} \\(data: [^)]+\\)\\?`));
+});
+
+test('body input is capped at 1 MB and bad body paths are validation errors', async (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(join(f.cwd, 'big.md'), 'x'.repeat(1024 * 1024 + 1));
+  fs.writeFileSync(join(f.cwd, 'file'), 'x');
+  assert.equal((await f.run(['card', 'add', '--title', 'Acme', '--body-file', 'big.md'])).code, 5);
+  assert.equal((await f.run(['card', 'add', '--title', 'Acme', '--body-file', 'file/sub'])).code, 5);
+  assert.equal((await f.run(['card', 'add', '--title', 'Acme', '--body', '-'], { stdin: 'y'.repeat(1024 * 1024 + 1) })).code, 5);
+  assert.equal((await f.run(['card', 'add', '--title=-1 bug'])).code, 0);
+});
+
+test('review focus 2: a frontmatter-less Obsidian card is listed, claimed and keeps its body bytes', async (t) => {
+  const f = fixture(t);
+  const body = '# Yeni iş\n\nMetin satırı.\n';
+  f.put('cards/yeni-is.md', body);
+  const listed = await runCli(['card', 'list', '--unassigned', '--column-role', 'todo', '--compact', '--json'], f.opts);
+  assert.equal(listed.code, 0, listed.stdout);
+  assert.deepEqual(listed.json.data.items.map((line) => line.split('\t')[0]), ['@cards/yeni-is']);
+  const claimed = await f.run(['card', 'claim', '@cards/yeni-is']);
+  assert.equal(claimed.code, 0, claimed.stdout);
+  const text = fs.readFileSync(join(f.data, 'cards/yeni-is.md'), 'utf8');
+  assert.match(text, /^---\n[\s\S]*\bid: c-[0-9a-z]{6}\n[\s\S]*---\n/u);
+  assert.ok(text.endsWith(body));
+});
+
+test('review focus 4: hostile card titles stay inside the card folder and never collide', async (t) => {
+  const f = fixture(t);
+  const titles = ['🎉🎉', '../../etc', 'CON', 'a/b', 'x'.repeat(300), '../../etc'];
+  const paths = [];
+  for (const title of titles) {
+    const added = await f.run(['card', 'add', '--title', title]);
+    assert.equal(added.code, 0, added.stdout);
+    paths.push(added.json.data.path);
+  }
+  assert.equal(new Set(paths).size, paths.length);
+  for (const path of paths) {
+    assert.match(path, /^cards\/[^/\\]+\.md$/u);
+    assert.doesNotMatch(path, /^cards\/(?:con|prn|aux|nul)\.md$/iu);
+    assert.ok(fs.existsSync(join(f.data, path)));
+  }
+  assert.equal(paths[0], 'cards/untitled.md');
 });

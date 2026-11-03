@@ -292,3 +292,19 @@ test('another actor cannot release, move, check or finish a live claim', (t) => 
   assert.doesNotThrow(() => releaseCard(later, card.id));
   assert.equal(show(ctx, card.id).data.assignee, undefined);
 });
+
+test('update and remove respect a live claim; finished or lease-less cards lock nobody out', (t) => {
+  const ctx = fixture(t);
+  const card = addCard(ctx, { title: 'Acme' }).entity;
+  claimCard(ctx, card.id);
+  const bob = { ...ctx, actor: 'cli:bob' };
+  assert.throws(() => entity.update(bob, 'card', card.id, { column: 'done' }), { code: 'claimed' });
+  assert.throws(() => entity.update(bob, 'card', card.id, {}, { body: '- [x] hijack\n' }), { code: 'claimed' });
+  assert.throws(() => entity.remove(bob, 'card', card.id), { code: 'claimed' });
+  doneCard(ctx, card.id);
+  assert.equal(show(ctx, card.id).data.assignee, 'acme');
+  assert.doesNotThrow(() => moveCard(bob, card.id, { column: 'backlog' }));
+  assert.doesNotThrow(() => claimCard(bob, card.id));
+  put(ctx, 'cards/manual.md', '---\nassignee: Ali\n---\n# Manual\n');
+  assert.doesNotThrow(() => claimCard(bob, '@cards/manual'));
+});
