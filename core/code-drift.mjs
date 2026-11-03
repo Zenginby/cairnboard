@@ -21,7 +21,7 @@ export function repoRoot(stateDir, projectId) {
 export function codeFile(root, rel) {
   try {
     const stat = fs.lstatSync(checkedPath(root, safeRelative(String(rel).replace(/\\/gu, '/'))));
-    return stat.isSymbolicLink() ? { missing: true } : { day: dayOf(new Date(stat.mtimeMs)) };
+    return !stat.isFile() ? { missing: true } : { day: dayOf(new Date(stat.mtimeMs)) };
   } catch {
     // Whatever stops the lookup (too long a name, an invalid path, a race) leaves this one path unverifiable.
     return { missing: true };

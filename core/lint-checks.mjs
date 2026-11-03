@@ -4,7 +4,7 @@ import * as fs from './fsx.mjs';
 import { openForRead, readChecked, safeRelative } from './paths.mjs';
 import { codeFile, repoRoot } from './code-drift.mjs';
 import { analyzePage, extractClaims, normalizeForEvidence, unsupported } from './evidence.mjs';
-import { localDate, validateDate } from './dates.mjs';
+import { dayOf, localDate, validateDate } from './dates.mjs';
 import { classify, isRawPath } from './schema.mjs';
 import { linkTarget } from './links.mjs';
 import { resolver } from './index.mjs';
@@ -77,7 +77,7 @@ const RAW_TEXT_MAX = 8 * 1024 * 1024;
 
 /**
  * The normalised text of a raw source for evidence checks, or null when it cannot be compared: not a safe regular
- * file, larger than 8 MiB, or binary (a NUL byte in the first 8 KiB). Read once per run.
+ * file, larger than 8 MiB, invalid UTF-8, or binary (a NUL byte in the first 8 KiB). Read once per run.
  */
 function rawNormalized(ctx, view, raw) {
   const rel = rawRel(ctx, raw);
@@ -90,7 +90,13 @@ function rawNormalized(ctx, view, raw) {
     const stat = fs.fstatSync(fd);
     if (stat.isFile() && stat.size <= RAW_TEXT_MAX) {
       const buffer = fs.readFileSync(fd);
-      if (!buffer.subarray(0, 8192).includes(0)) text = normalizeForEvidence(buffer.toString('utf8'));
+      if (!buffer.subarray(0, 8192).includes(0)) {
+        try {
+          text = normalizeForEvidence(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(buffer));
+        } catch {
+          // Invalid UTF-8 is unverifiable, just as it is in the raw search index.
+        }
+      }
     }
   } catch (error) {
     if (!MISSING.has(error.code)) throw error;
@@ -206,7 +212,9 @@ function codeScan(ctx, view) {
       result.unlinked.push(finding('code_unlinked', file.path, { target: id ?? '' }));
       continue;
     }
-    const updated = typeof file.data.updated === 'string' && /^\d{4}-\d{2}-\d{2}/u.test(file.data.updated) ? file.data.updated.slice(0, 10) : null;
+    const stamp = file.data.updated;
+    const updated = typeof stamp !== 'string' ? null : /^\d{4}-\d{2}-\d{2}$/u.test(stamp) ? stamp
+      : /^\d{4}-\d{2}-\d{2}T/u.test(stamp) && Number.isFinite(Date.parse(stamp)) ? dayOf(new Date(stamp)) : null;
     for (const rel of paths) {
       const code = codeFile(root, rel.trim());
       if (code.missing) result.missing.push(finding('code_missing', file.path, { target: rel }));
@@ -255,7 +263,12 @@ export const CHECKS = [
     .map((link) => finding('broken_link', link.src_path, { line: link.line, target: linkTarget(link.expr).targetName, excerpt: link.expr })) },
   { code: 'ambiguous_link', defaultSeverity: 'warn', run: (ctx, { view }) => view.links.filter((link) => link.status === 'ambiguous')
     .map((link) => finding('ambiguous_link', link.src_path, { line: link.line, target: linkTarget(link.expr).targetName,
-      candidates: view.resolve(link.target_name).candidates ?? [], excerpt: link.expr })) },
+      candidates: view.resolve(link.target_name).candidates ?? [], excerpt: link.expr }))
+    .concat(view.catalog.flatMap((link) => {
+      const target = view.resolve(link.target_name);
+      return target.status === 'ambiguous' ? [finding('ambiguous_link', ctx.schema.catalog, { line: link.line,
+        target: link.target_name, candidates: target.candidates })] : [];
+    })) },
   { code: 'missing_page', defaultSeverity: 'info', run: (ctx, { view }) => {
     const names = new Map();
     for (const link of view.links.filter((item) => item.status === 'unresolved')) {
@@ -299,7 +312,7 @@ export const CHECKS = [
       const raw = rawFile(ctx, view, file.data.raw, { hash: true, verify });
       return !raw.missing && raw.sha256 !== file.data.raw_sha256.trim().toLowerCase().replace(/^sha256:/u, '');
     }).map((file) => finding('raw_changed', file.path, { excerpt: file.data.raw })) },
-  { code: 'wakeup_budget', defaultSeverity: 'warn', run: (ctx, { view }) => view.files.filter((file) => file.kind === 'overview').flatMap((file) => {
+  { code: 'wakeup_budget', defaultSeverity: 'warn', run: (ctx, { view }) => view.files.filter((file) => file.kind === 'overview' && file.error !== 'too-large' && !file.badEncoding).flatMap((file) => {
     const text = readChecked(ctx.root, file.path, 'utf8');
     const section = text === null ? null : wakeupSection(text);
     return section && section.words > 350 ? [finding('wakeup_budget', file.path, { line: section.line, excerpt: `${section.heading} (${section.words} words)` })] : [];
@@ -343,7 +356,7 @@ export const CHECKS = [
     for (const link of view.catalog) {
       const target = view.resolve(link.target_name);
       if (target.status === 'unresolved') result.push(finding('index_mismatch', catalog, { line: link.line, target: link.target_name }));
-      for (const path of target.candidates ?? [target.target_path]) listed.add(path);
+      if (target.status === 'resolved') listed.add(target.target_path);
     }
     for (const file of pages(view)) if (!listed.has(file.path)) result.push(finding('index_mismatch', file.path));
     return result;

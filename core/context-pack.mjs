@@ -39,10 +39,11 @@ function byteCut(text, maxBytes) {
 }
 
 function wakeup(ctx, warnings) {
-  const overviews = rows(ctx, 'note', { kind: 'overview' }).map((row) => row.path).sort();
+  const overviews = rows(ctx, 'note', { kind: 'overview' }).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   if (overviews.length > 1) warnings.push('overview_multiple');
-  const path = overviews[0];
-  const file = path === undefined ? null : readFile(ctx, path);
+  const selected = overviews[0];
+  const path = selected?.path;
+  const file = !selected || selected.error === 'too-large' || selected.badEncoding ? null : readFile(ctx, path);
   const section = file && wakeupSection(file.text);
   return section ? { name: 'wakeup', source: { path, revision: file.revision }, text: section.text.trim() } : null;
 }
@@ -66,7 +67,7 @@ export function buildContext(ctx, { budget = 1200, project } = {}) {
   const projects = selected ? [selected] : entity.list(ctx, 'project').filter((item) => (item.data.status ?? 'active') === 'active');
   add('projects', bullets(projects.map((item) => `${line(item.title)} (${item.data.status ?? 'active'}) ${item.id ?? item.path}`)));
 
-  const cards = listCards(ctx, { project: selected ? selected.id ?? selected.path : undefined });
+  const cards = listCards(ctx, { project: selected ? selected.id ?? selected.ref : undefined });
   if (actor) {
     add('my_cards', bullets(cards.filter((card) => card.data.assignee === actor && liveClaim(ctx, card.data)).map(cardLine)));
   }

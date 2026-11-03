@@ -2,6 +2,7 @@ import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import * as fs from './fsx.mjs';
 import { readChecked } from './paths.mjs';
 import { classify } from './schema.mjs';
+import { parseFile } from './frontmatter.mjs';
 import { checkPage } from './check.mjs';
 import { oneLine, stripHidden } from './text.mjs';
 
@@ -74,16 +75,16 @@ function evaluate(ctx, input) {
   if (!given || typeof given.file_path !== 'string' || !isAbsolute(given.file_path)) throw new TypeError('Hook input has no absolute file_path.');
   const rel = rootRelative(ctx.root, given.file_path);
   if (rel === null) return allow();
+  const { text, skip } = newText(ctx, rel, name, given);
+  if (skip !== undefined) return allow(skip);
   let entity;
   try {
-    entity = classify(ctx.schema, rel, {}).entity;
+    entity = classify(ctx.schema, rel, parseFile(text).data).entity;
   } catch (error) {
     if (error.code === 'unsafe_path') return allow();
     throw error;
   }
   if (entity !== 'note' && entity !== 'research') return allow();
-  const { text, skip } = newText(ctx, rel, name, given);
-  if (skip !== undefined) return allow(skip);
   const { errors, warnings } = checkPage(ctx, { path: rel, text, lenient: true });
   if (errors.length) {
     return { decision: 'deny', warnings: lines(warnings),

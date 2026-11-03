@@ -1,4 +1,4 @@
-import { visibleLines } from './links.mjs';
+import { visibleLines, withoutCode } from './links.mjs';
 import { SOURCE_HEADING } from './rules.mjs';
 
 // Wiki spec §13: does a quote or number a page states occur in the raw source it cites? The comparison is the same
@@ -10,9 +10,10 @@ const DOUBLE = /[“”„‟«»″"]/gu;
 const SINGLE = /[‘’‚‛′']/gu;
 const DASH = /[‐-―−-]/gu;
 
-/** Markdown marks dropped, spacing, quotes and dashes unified, NFC, case folded (Turkish). */
+/** Markdown marks dropped, spacing, quotes and dashes unified, NFC, all four I variants folded together. */
 export function normalizeForEvidence(text) {
-  return String(text).normalize('NFC').toLocaleLowerCase('tr').normalize('NFC')
+  // Match foldTr's I/ı folding, but keep accents: evidence must still distinguish café from cafe.
+  return String(text).normalize('NFC').replace(/[Iıİ]/gu, 'i').toLowerCase().normalize('NFC')
     .replace(INVISIBLE, '').replace(DOUBLE, '"').replace(SINGLE, "'").replace(DASH, '-').replace(MARKS, '').replace(/\s+/gu, ' ').trim();
 }
 
@@ -45,7 +46,7 @@ export function extractClaims(text, limit = Infinity) {
     const start = at;
     at = close;
     const value = text.slice(start + 1, close).trim();
-    if (value.length > MAX_QUOTE || /\n[\t ]*\n/u.test(value) || value.split(/\s+/u).length < MIN_WORDS) continue;
+    if (value.length > MAX_QUOTE || /\r?\n[\t \r]*\n/u.test(value) || value.split(/\s+/u).length < MIN_WORDS) continue;
     spans.push([start, close + 1]);
     claims.push({ at: start, kind: 'quote', value });
   }
@@ -75,7 +76,7 @@ const blank = (line) => ' '.repeat(line.length);
  * Sources section blanked out (line numbers stay), plus the line numbers inside the Sources section.
  */
 export function analyzePage(text) {
-  const lines = text.split('\n');
+  const lines = text.split(/\r?\n/u);
   const keep = new Array(lines.length).fill(false);
   const sources = new Set();
   let inSources = false;
@@ -85,8 +86,9 @@ export function analyzePage(text) {
     if (inSources) sources.add(line);
     else keep[line - 1] = true;
   }
-  const claimText = lines.map((line, index) => keep[index]
-    ? line.replace(/`[^`]*`/gu, blank).replace(/\[\[[^\]]*\]\]/gu, blank).replace(/\bhttps?:\/\/[^\s)>\]]+/giu, blank) : '').join('\n');
+  const visible = lines.map((line, index) => keep[index] ? line : '').join('\n');
+  const claimText = withoutCode(visible).replace(/\[\[[^\[\]\n]*\]\]/gu, blank)
+    .replace(/\bhttps?:\/\/[^\s)>\]]+/giu, blank);
   return { claimText, sources };
 }
 

@@ -80,7 +80,14 @@ function openChecked(root, rel, flags) {
 }
 
 export function openForRead(root, rel) {
-  return openChecked(root, rel, fs.constants.O_RDONLY);
+  const fd = openChecked(root, rel, fs.constants.O_RDONLY | (fs.constants.O_NONBLOCK ?? 0));
+  try {
+    if (!fs.fstatSync(fd).isFile()) throw unsafe();
+    return fd;
+  } catch (error) {
+    fs.closeSync(fd);
+    throw error;
+  }
 }
 
 export function openForAppend(root, rel) {

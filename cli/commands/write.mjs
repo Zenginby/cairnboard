@@ -45,7 +45,7 @@ function patchFields(ctx, type, opts) {
   const patch = {};
   const names = {
     title: 'title', project: 'project', status: 'status', tone: 'tone', alias: 'aliases', tag: 'tags',
-    column: 'column', priority: 'priority', kind: 'kind', pin: 'pinned', source: 'source',
+    column: 'column', priority: 'priority', kind: 'kind', pin: 'pinned', source: 'source', sources: 'sources',
     'valid-from': 'valid_from', 'valid-until': 'valid_until', 'superseded-by': 'superseded_by', code: 'code',
     date: 'date', 'source-date': 'sourceDate', processed: 'processed',
   };
@@ -77,9 +77,10 @@ export function writeCommands({ string, boolean }) {
       ...(type === 'project' ? { status: string('Set active, paused or archived.'), tone: string('Set tone from 1 to 8.'),
         alias: multiple('Add an alias; repeat for multiple aliases.') } : { tag: multiple('Set tags; repeat for multiple tags.') }),
       ...(type === 'card' ? { column: string('Set the column key.'), priority: string('Set urgent, important or low.') } : {}),
-      ...(['note', 'research'].includes(type) ? { kind: string('Set the entity kind.'), source: string('Set the source.') } : {}),
+      ...(['note', 'research'].includes(type) ? { kind: string('Set the entity kind.'), source: string('Set the source.'),
+        sources: multiple('Set sources; repeat for multiple sources.') } : {}),
       ...(type === 'note' ? { pin: boolean('Pin the note.'), 'valid-from': string('Set the first valid date.'),
-        'valid-until': string('Set the last valid date.'), 'superseded-by': string('Set the replacement reference.'), code: string('Set the wiki code.') } : {}),
+        'valid-until': string('Set the last valid date.'), 'superseded-by': string('Set the replacement reference.'), code: multiple('Set code paths; repeat for multiple paths.') } : {}),
       ...(type === 'research' ? { date: string('Set the research date.'), 'source-date': string('Set the source date.'),
         processed: boolean('Mark as processed.') } : {}),
     };
