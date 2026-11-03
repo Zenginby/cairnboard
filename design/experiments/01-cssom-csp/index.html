@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 CSSOM under CSP</title>
+<link rel="stylesheet" href="../_shared/base.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="wrap">
+<h1>01 CSSOM writes under CSP (<code>style-src 'self'</code>)</h1>
+<p><a href="../">← index</a></p>
+<div class="track"><div id="box" class="box">box</div></div>
+<div class="row"><button id="all" type="button">Run all</button><button id="reset" type="button">Reset</button><span id="buttons"></span></div>
+<table>
+<thead><tr><th>Method</th><th>Applied?</th><th>Violation?</th></tr></thead>
+<tbody id="results"></tbody>
+</table>
+<h2>Log</h2>
+<ol id="log"></ol>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>08 Dialog close animation</title>
+<link rel="stylesheet" href="../_shared/base.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="wrap">
+<h1>08 <code>&lt;dialog&gt;</code> open/close animation</h1>
+<p><a href="../">← index</a></p>
+<div class="row"><button id="open" type="button">Open dialog</button></div>
+<table>
+<thead><tr><th>Phase</th><th>transitionstart seen</th><th>transitionend seen</th><th>display / overlay transitioned</th></tr></thead>
+<tbody>
+<tr id="row-open"><td>Open (240 ms)</td><td>—</td><td>—</td><td>—</td></tr>
+<tr id="row-close"><td>Close (180 ms)</td><td>—</td><td>—</td><td>—</td></tr>
+</tbody>
+</table>
+<h2>Log</h2>
+<ol id="log"></ol>
+</div>
+<dialog id="dlg" aria-labelledby="dlg-title">
+<h2 id="dlg-title">Fictional dialog</h2>
+<p>acme / ornek-proje. Close with the button, Esc, or by clicking the backdrop.</p>
+<form method="dialog"><button id="ok" type="submit">Close</button></form>
+</dialog>
+<script type="module" src="app.js"></script>
+</body>
+</html>

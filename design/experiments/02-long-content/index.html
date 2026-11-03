@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 Long content – switcher</title>
+<link rel="stylesheet" href="../_shared/base.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body data-mode="both">
+<div class="wrap">
+<h1>02 View Transitions between a 300-card board and a ~20,000 px note</h1>
+<p><a href="../">← index</a> · standalone: <a href="board.html">board.html</a>, <a href="note.html">note.html</a></p>
+<div class="row">
+<button id="toggle" type="button">Switch view</button>
+<label><input id="named" type="checkbox"> give <code>main</code> a <code>view-transition-name</code></label>
+<label><input id="vt" type="checkbox" checked> use startViewTransition</label>
+<span id="support" class="muted"></span>
+</div>
+<p id="current" class="muted"></p>
+<main id="main" class="main"></main>
+<h2>Log</h2>
+<ol id="log"></ol>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
