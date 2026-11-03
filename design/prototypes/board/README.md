@@ -2,7 +2,7 @@
 
 Compact inset columns, collapse headers, priority subheads and label-led cards follow the reference's layout. The board has a 72rem content cap through `--space-page-max`, exact 15rem minimum columns and 12px gaps, with stacked columns below 50rem.
 
-- Preview: `npm run design:serve`, then `http://127.0.0.1:4391/prototypes/board-a/`; the `project` query parameter selects the initial filter.
+- Preview: `npm run design:serve`, then `http://127.0.0.1:4391/prototypes/board/`; the `project` query parameter selects the initial filter.
 - Precision: page-title typography now uses the 46.4px/700/1.06 role, card text uses 14px/1.45, and quiet counts/metadata use 12px. Header/card padding, subhead alignment, footer spacing, chip insets, chevrons and 2px card lifts use the exact tokens or arithmetic, including 13.6px, 5.6px, 6.4px, 8.8px and 1.5-unit strokes. The supplied shared base loads Inter; no font assets or links were added.
 - Shell: identical shell files to Home A, with exact row heights, tab metrics, indicator shadow, material blur/saturation and search width. The collision guard, theme families, light/dark/system controls and supplied theme reveal remain intact. The document-frame header uses the reference's 78% surface mixture.
 - Collapse: manual toggles animate grid rows from 0fr to 1fr and fade through the small blur with the original timing/easing. A clipped inner wrapper enables the transition without `hidden`. Collapsed content is inert and hidden from accessibility APIs immediately; focus returns to the header if needed. Automatic destination expansion is immediate so moved-card focus is visible. Reduced motion removes layout/blur movement and retains the short opacity fade.
@@ -12,7 +12,7 @@ Compact inset columns, collapse headers, priority subheads and label-led cards f
 
 ## Remaining differences
 
-No board geometry, type, spacing, lift or collapse substitutions remain. Shared palette literals and instant hover color changes are the remaining visual differences listed in [Home A's report](../home-a/README.md#remaining-differences); the supplied palette and animation rules remain authoritative.
+No board geometry, type, spacing, lift or collapse substitutions remain. Shared palette literals and instant hover color changes are the remaining visual differences listed in [Home A's report](../home/README.md#remaining-differences); the supplied palette and animation rules remain authoritative.
 
 Cairn-specific filters, inline forms, move controls, metadata, state controls and larger touch targets occupy additional space as required. A single card list with presentation-only priority headings preserves focused DOM nodes during moves. The reference is not copied into an artifact. Direct served-page visual comparison and physical-device drag smoothness remain coordinator checks.
 

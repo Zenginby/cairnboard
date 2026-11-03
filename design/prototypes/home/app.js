@@ -1,5 +1,5 @@
 import { lessMotion, tokenTime } from '../_shared/components.js';
-import { $, el, button, projectChip, lockMessage, field, loadData, setupUI, renderState } from './ui.js';
+import { $, el, button, projectChip, lockMessage, field, loadData, setupUI, renderState } from '../_shared/app-ui.js';
 
 let data;
 let fixtures;
@@ -9,7 +9,7 @@ let selectedProjects = new Set();
 let sequence = 0;
 let journalDraft = '';
 const animations = new Set();
-const preferenceKey = 'home-a-projects';
+const preferenceKey = 'home-projects';
 const kindNames = { note: 'Not', wiki: 'Wiki', research: 'Araştırma' };
 const titleFor = (record, index = 0) => state === 'long' ? `${record.title} — ${index % 2 ? data.longText.english : data.longText.title}` : record.title;
 const projectFor = (record) => {
@@ -193,7 +193,7 @@ function renderProjects() {
     const records = data.cards.filter((record) => record.projectId === project.id);
     const completed = records.filter((record) => roleFor(record) === 'done').length + summary.completedArchive;
     const total = records.length + summary.completedArchive;
-    const { node, header } = box(state === 'long' ? data.longText.projectName : project.name, 'project-box', `../board-a/?project=${encodeURIComponent(project.id)}`);
+    const { node, header } = box(state === 'long' ? data.longText.projectName : project.name, 'project-box', `../board/?project=${encodeURIComponent(project.id)}`);
     node.style.setProperty('--project-wash', `var(--color-tone-${project.tone}-bg)`);
     node.style.setProperty('--project-ink', `var(--color-tone-${project.tone}-text)`);
     node.style.setProperty('--project-tone', `var(--color-tone-${project.tone})`);
@@ -234,13 +234,13 @@ function move(record, instant) {
 }
 function ongoing() {
   const { node, header } = box('Sürüyor', 'ongoing');
-  header.append(link('Panoda gör', '../board-a/'));
+  header.append(link('Panoda gör', '../board/'));
   const list = el('ul', 'summary-list');
   data.cards.filter((record) => roleFor(record) === 'doing').forEach((record, index) => {
     const item = el('li', 'ongoing-item');
     item.id = record.id;
     item.tabIndex = 0;
-    const row = link('', '../board-a/', 'summary-row');
+    const row = link('', '../board/', 'summary-row');
     row.addEventListener('click', (event) => { event.preventDefault(); ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0); });
     const text = el('span', 'row-copy');
     const detail = el('span', 'row-detail');
@@ -276,7 +276,7 @@ function ongoing() {
   return node;
 }
 function boardSummary() {
-  const { node, header } = box('Pano', 'board-summary', '../board-a/');
+  const { node, header } = box('Pano', 'board-summary', '../board/');
   const archive = data.projectSummaries.reduce((sum, project) => sum + project.completedArchive, 0);
   header.append(el('span', 'type-label muted counter', `${data.cards.length + archive} kart`));
   node.append(el('p', 'muted type-label', 'Bütün projelerin şu anki durumu'));

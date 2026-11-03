@@ -1,5 +1,5 @@
 import { lessMotion, tokenTime } from '../_shared/components.js';
-import { $, el, button, priorities, projectChip, lockMessage, field, loadData, setupUI, renderState } from './ui.js';
+import { $, el, button, priorities, projectChip, lockMessage, field, loadData, setupUI, renderState } from '../_shared/app-ui.js';
 
 let data;
 let fixtures;
