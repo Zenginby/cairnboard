@@ -299,3 +299,79 @@
 .theme-toggle.is-dark .moon { opacity: 1; transform: none; filter: none; }
 :root[data-motion="less"] .theme-toggle svg { transform: none; filter: none; }
 @media (prefers-reduced-motion: reduce) { .theme-toggle svg { transform: none; filter: none; } }
+
+/* Pinned notes rail (pinned-rail.js): wide screens only, on every page, right of the content and under the top bar. */
+:root { --pinned-rail-width: calc(var(--space-xl) * 7.2); }
+.pinned-rail, .pinned-rail-tab { display: none; }
+@media (min-width: 90rem) {
+  .pinned-rail {
+    position: fixed;
+    z-index: 9;
+    top: calc(var(--space-header-height-wide) + var(--space-md));
+    right: var(--space-md);
+    max-height: calc(100dvh - var(--space-header-height-wide) - var(--space-md) * 2);
+    display: flex;
+    flex-direction: column;
+    width: var(--pinned-rail-width);
+    padding: var(--space-18) var(--space-sm) var(--space-sm);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-box);
+    transition:
+      transform var(--motion-duration-fast) var(--motion-ease-spring),
+      opacity var(--motion-duration-quick) var(--motion-ease-out);
+  }
+  :root[data-pinned-rail="closed"] .pinned-rail {
+    transform: translateX(calc(100% + var(--space-md)));
+    opacity: 0;
+    pointer-events: none;
+    transition-duration: var(--motion-duration-quick);
+  }
+  :root[data-pinned-rail="open"] main { margin-inline-end: calc(var(--pinned-rail-width) + var(--space-md) * 2); }
+  :root[data-pinned-rail="open"] .prototype-controls { right: calc(var(--pinned-rail-width) + var(--space-md) * 2); }
+  .pinned-rail-tab {
+    position: fixed;
+    z-index: 9;
+    top: calc(var(--space-header-height-wide) + var(--space-md));
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-6);
+    min-height: calc(var(--space-md) * 2 + var(--space-sm));
+    padding: 0 var(--space-12) 0 var(--space-14);
+    border: 0;
+    border-radius: var(--radius-full) 0 0 var(--radius-full);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-box);
+    color: var(--color-text);
+    font-family: var(--font-ui-family);
+    font-size: var(--font-ui-size);
+    font-weight: var(--font-ui-weight);
+    cursor: pointer;
+    transition: transform var(--motion-duration-fast) var(--motion-ease-spring), opacity var(--motion-duration-quick) var(--motion-ease-out);
+  }
+  :root[data-pinned-rail="open"] .pinned-rail-tab { transform: translateX(100%); opacity: 0; pointer-events: none; }
+}
+.pinned-rail-tab svg, .pinned-rail-close svg { width: var(--space-md); height: var(--space-md); fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.pinned-rail-header { display: flex; align-items: center; gap: var(--space-sm); padding: 0 var(--space-sm) var(--space-sm) var(--space-12); }
+.pinned-rail-heading { font-family: var(--font-box-title-family); font-size: var(--font-box-title-size); font-weight: var(--font-box-title-weight); line-height: var(--font-box-title-line-height); letter-spacing: var(--font-box-title-letter-spacing); color: var(--color-text); }
+.pinned-rail-count { font-family: var(--font-small-family); font-size: var(--font-small-size); color: var(--color-text-3); font-variant-numeric: tabular-nums; }
+.pinned-rail-close { display: grid; place-items: center; width: calc(var(--space-md) * 2); height: calc(var(--space-md) * 2); margin-inline-start: auto; padding: 0; border: 0; border-radius: var(--radius-full); background: var(--color-pill-bg); color: var(--color-text-2); cursor: pointer; transition: transform var(--motion-duration-press) var(--motion-ease-out); }
+.pinned-rail-close:active { transform: scale(var(--motion-scale-press)); }
+.pinned-rail-list { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; overscroll-behavior: contain; }
+.pinned-rail-item + .pinned-rail-item { border-top: var(--space-hairline) solid var(--color-line); }
+.pinned-rail-link { display: grid; gap: var(--space-2xs); width: 100%; padding: var(--space-12); border: 0; border-radius: var(--radius-sm); background: none; color: var(--color-text); text-align: start; cursor: pointer; transition: background-color var(--motion-duration-quick) var(--motion-ease-out); }
+.pinned-rail-meta { display: flex; align-items: center; gap: var(--space-6); font-family: var(--font-caption-family); font-size: var(--font-caption-size); font-weight: var(--font-caption-weight); color: var(--color-text-3); }
+.pinned-rail-dot { width: var(--space-6); height: var(--space-6); border-radius: var(--radius-full); background: var(--pinned-dot, var(--color-text-3)); }
+.pinned-rail-kind { margin-inline-start: auto; }
+.pinned-rail-title { font-family: var(--font-row-family); font-size: var(--font-row-size); font-weight: var(--font-box-title-weight); line-height: var(--font-row-line-height); }
+.pinned-rail-excerpt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-family: var(--font-small-family); font-size: var(--font-small-size); line-height: var(--font-small-line-height); color: var(--color-text-2); }
+.pinned-rail-hint, .pinned-rail-empty { padding: var(--space-sm) var(--space-12) 0; font-family: var(--font-caption-family); font-size: var(--font-caption-size); color: var(--color-text-3); }
+.pinned-dialog-meta { font-family: var(--font-caption-family); font-size: var(--font-caption-size); font-weight: var(--font-caption-weight); color: var(--color-text-3); }
+.pinned-dialog-title { font-family: var(--font-box-title-family); font-size: var(--font-box-title-size); font-weight: var(--font-box-title-weight); letter-spacing: var(--font-box-title-letter-spacing); }
+.pinned-dialog-body { color: var(--color-text-2); }
+@media (hover: hover) and (pointer: fine) {
+  .pinned-rail-link:hover { background: var(--color-surface-inset); }
+}
+:root[data-motion="less"] .pinned-rail, :root[data-motion="less"] .pinned-rail-tab { transform: none !important; transition-property: opacity; }
+@media (prefers-reduced-motion: reduce) { .pinned-rail, .pinned-rail-tab { transform: none !important; transition-property: opacity; } }

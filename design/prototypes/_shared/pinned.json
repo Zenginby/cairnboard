@@ -1,0 +1,34 @@
+{
+  "projects": {
+    "ornek-proje": {
+      "name": "Örnek proje",
+      "tone": 1
+    }
+  },
+  "pinned": [
+    {
+      "id": "note-1",
+      "kind": "note",
+      "title": "İlk fikirler",
+      "projectId": "ornek-proje",
+      "updated": "Bugün 10.42",
+      "body": "Küçük adımlarla başlayalım; her kararın nedenini kısa bir notla saklayalım. Kartı kapatmadan önce kabul ölçütlerine bir kez daha bakalım."
+    },
+    {
+      "id": "note-3",
+      "kind": "wiki",
+      "title": "Ajanlarla çalışma anlaşması",
+      "projectId": "ornek-proje",
+      "updated": "Dün",
+      "body": "Bir kartı üstlen, kabul ölçütlerini denetle ve bitirirken ne değiştiğini not et."
+    },
+    {
+      "id": "note-5",
+      "kind": "research",
+      "title": "Yerel aramada bağlamı korumak",
+      "projectId": "ornek-proje",
+      "updated": "3 Kasım",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek."
+    }
+  ]
+}

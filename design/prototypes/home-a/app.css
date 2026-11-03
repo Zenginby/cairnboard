@@ -132,3 +132,9 @@ a.panel:active { transform: scale(var(--motion-scale-press-box)); transition-dur
   .summary-row, .summary-row:hover { transform: none; transition-property: opacity; }
   a.panel { transition: opacity var(--motion-duration-quick) var(--motion-ease-out); }
 }
+
+/* Wide screens show pinned notes in the shared rail on every page, so the home box steps aside while the rail is open. */
+@media (min-width: 90rem) {
+  :root[data-pinned-rail="open"] .bento > .pinned { display: none; }
+  :root[data-pinned-rail="open"] .board-summary { grid-row: span 2; }
+}
