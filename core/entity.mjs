@@ -7,6 +7,8 @@ import { checkedPath, safeRelative } from './paths.mjs';
 import { parseFile, setFields, replaceBody } from './frontmatter.mjs';
 import { classify, readCanonical, physicalPatch, destination, isRawPath } from './schema.mjs';
 import { extract } from './extract.mjs';
+import { dayOf, localDate, validateDate } from './dates.mjs';
+
 import { ensureFresh, rows, findById } from './index.mjs';
 import { readFile, revision, write } from './store.mjs';
 import { retryWhileLocked, withLock } from './lock.mjs';
@@ -18,22 +20,9 @@ import { assertRules, checkPage, ruleWarnings } from './check.mjs';
 /** @typedef {Summary & { body: string }} Entity */
 
 const prefixes = { project: 'p', note: 'n', research: 'r', card: 'c' };
+export { dayOf, localDate, validateDate };
 const invalid = (message) => new CairnError('validation', message);
 const missing = () => new CairnError('not_found', 'Entity was not found.');
-
-export function validateDate(value) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) throw invalid('Invalid date.');
-  const [year, month, day] = value.split('-').map(Number);
-  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  if (!year || month < 1 || month > 12 || day < 1 || day > days[month - 1]) throw invalid('Invalid date.');
-}
-
-export function localDate(ctx) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: process.env.TZ ?? undefined, year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(ctx.clock.now());
-}
 
 // Only a valid, unexpired lease protects a claim (5 minutes of clock tolerance). A finished card or a hand-typed
 // `assignee:` without a lease protects nothing, so it can never lock other actors out for good.

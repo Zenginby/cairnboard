@@ -36,6 +36,7 @@ export function openContext({ mode, dataDir, preset, env = process.env, home = h
     config = loadConfig(root);
   }
   const ctx = { root, config, schema: resolveSchema(config), clock, actor, mode, ephemeral, warnings: [],
+    stateDir: stateDir({ platform, env, home }),
     host: hostname(), pid: process.pid, instance: randomBytes(8).toString('hex'),
     indexPath: ephemeral ? join(stateDir({ platform, env, home }), 'cache',
       createHash('sha256').update(root).digest('hex').slice(0, 16), 'index.db') : join(root, '.cairn/index.db') };

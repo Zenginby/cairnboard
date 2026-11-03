@@ -1,6 +1,6 @@
 import { parseFile } from './frontmatter.mjs';
 
-function* visibleLines(text) {
+export function* visibleLines(text) {
   const file = parseFile(text);
   let fence = null;
   let line = text.slice(0, file.bodyStart).split('\n').length;

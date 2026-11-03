@@ -10,7 +10,7 @@ import { defaultConfig } from '../core/config.mjs';
 import { openIndex, refresh, search } from '../core/index.mjs';
 import { lint, CHECKS } from '../core/lint.mjs';
 import { wikiIndex } from '../core/wiki.mjs';
-import { filenameOk, requiredFields } from '../core/rules.mjs';
+import { LINT_CODES, filenameOk, requiredFields } from '../core/rules.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 
@@ -37,14 +37,17 @@ const found = (result, code) => result.findings.filter((finding) => finding.code
 const paths = (result, code) => found(result, code).map((finding) => finding.path);
 const page = (kind, extra = '', body = '# T\n') => `---\nkind: ${kind}\ntags: [a]\nupdated: 2026-10-30\n${extra}---\n${body}`;
 
-test('CHECKS lists every non-W8 spec code with its default severity', () => {
+test('CHECKS lists every spec code with its default severity', () => {
   const table = Object.fromEntries(CHECKS.map((check) => [check.code, check.defaultSeverity]));
   assert.deepEqual(table, {
     orphan: 'warn', broken_link: 'warn', ambiguous_link: 'warn', missing_page: 'info', missing_frontmatter: 'warn',
     invalid_frontmatter: 'warn', unknown_kind: 'info', invalid_encoding: 'info', unclassified: 'info', alias_conflict: 'error', stale: 'info',
     unprocessed_lesson: 'info', unprocessed_source: 'info', raw_missing: 'error', raw_changed: 'error',
     wakeup_budget: 'warn', overview_multiple: 'warn', index_mismatch: 'info', filename: 'off',
+    superseded_link: 'warn', expired: 'warn', superseded_missing: 'warn', invalid_validity: 'warn',
+    evidence_missing: 'warn', code_changed: 'info', code_missing: 'warn', code_unlinked: 'info',
   });
+  assert.deepEqual([...CHECKS.map((check) => check.code)].sort(), [...LINT_CODES].sort());
 });
 
 test('orphan: pages nobody links to, except journals, overviews and quick notes', (t) => {
@@ -358,4 +361,43 @@ test('a non-UTF-8 page gets invalid_encoding and stays out of search; nothing cr
   assert.equal(found(lint(ctx), 'invalid_encoding')[0].severity, 'info');
   assert.deepEqual(search(ctx, 'kelime').map((hit) => hit.path), ['notes/ok.md']);
   assert.deepEqual(paths(lint(make(t, { 'notes/a.md': '# A\n' }).ctx), 'invalid_encoding'), []);
+});
+
+test('validity: expired, invalid_validity, superseded_missing and superseded_link (wiki spec 7)', (t) => {
+  const val = (extra, body = '# T\n') => `---\nkind: concept\ntags: [a]\nupdated: 2026-10-30\n${extra}---\n${body}`;
+  const { ctx } = make(t, {
+    'wiki/concepts/new.md': val(''),
+    'wiki/concepts/old.md': val('superseded_by: "[[new]]"\nvalid_from: 2026-01-01\n'),
+    'wiki/concepts/expired.md': val('valid_until: 2026-10-01\n'),
+    'wiki/concepts/today.md': val('valid_until: 2026-11-01\n'),
+    'wiki/concepts/future.md': val('valid_until: 2026-12-01\n'),
+    'wiki/concepts/dangling.md': val('superseded_by: "[[nowhere]]"\n'),
+    'wiki/concepts/plain.md': val('superseded_by: nothing\n'),
+    'wiki/concepts/reversed.md': val('valid_from: 2026-05-01\nvalid_until: 2026-04-01\n'),
+    'wiki/concepts/bad.md': val('valid_from: yesterday\nvalid_until: 2026-02-30\n'),
+    'wiki/concepts/ref.md': val('', 'See [[old]] and [[expired]] and [[future]] and [[today]].\n'),
+  });
+  const result = lint(ctx);
+  assert.deepEqual(paths(result, 'expired'), ['wiki/concepts/expired.md', 'wiki/concepts/reversed.md']);
+  assert.deepEqual(found(result, 'invalid_validity').map((f) => `${f.path}:${f.target}`),
+    ['wiki/concepts/bad.md:valid_from', 'wiki/concepts/bad.md:valid_until', 'wiki/concepts/reversed.md:valid_from']);
+  assert.deepEqual(paths(result, 'superseded_missing'), ['wiki/concepts/dangling.md', 'wiki/concepts/plain.md']);
+  assert.deepEqual(found(result, 'superseded_link').map((f) => [f.path, f.line, f.target]),
+    [['wiki/concepts/ref.md', 6, 'old'], ['wiki/concepts/ref.md', 6, 'expired']]);
+  for (const code of ['expired', 'invalid_validity', 'superseded_missing', 'superseded_link']) {
+    assert.ok(found(result, code).every((f) => f.severity === 'warn'), code);
+  }
+  // The checks run without a flag, and --only selects them.
+  assert.deepEqual(lint(ctx, { only: ['expired'] }).findings.map((f) => f.code), ['expired', 'expired']);
+});
+
+test('validity on the tr-wiki preset reads the canonical field names', (t) => {
+  const { ctx } = make(t, {
+    'wiki/kavramlar/a.md': '---\ntur: kavram\netiketler: [a]\nguncelleme: 2026-10-30\nvalid_until: 2026-01-01\n---\n# A\n',
+    'wiki/kavramlar/b.md': '---\ntur: kavram\netiketler: [a]\nguncelleme: 2026-10-30\nsuperseded_by: "[[yok]]"\n---\n# B\nSee [[a]].\n',
+  }, { preset: 'tr-wiki' });
+  const result = lint(ctx);
+  assert.deepEqual(paths(result, 'expired'), ['wiki/kavramlar/a.md']);
+  assert.deepEqual(paths(result, 'superseded_missing'), ['wiki/kavramlar/b.md']);
+  assert.deepEqual(found(result, 'superseded_link').map((f) => [f.path, f.line]), [['wiki/kavramlar/b.md', 8]]);
 });

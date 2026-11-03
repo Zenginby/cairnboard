@@ -10,7 +10,7 @@ import { extract } from '../../core/extract.mjs';
 import { revision } from '../../core/store.mjs';
 import { acceptanceCounts, parseFile } from '../../core/frontmatter.mjs';
 import { checkedPath, readChecked, realRoot } from '../../core/paths.mjs';
-import { findDataDir, initDataDir, findRepoRoot, writeProjectLink } from '../../core/roots.mjs';
+import { findDataDir, initDataDir, findRepoRoot, recordRepo, writeProjectLink } from '../../core/roots.mjs';
 import { defaultConfig, loadConfig } from '../../core/config.mjs';
 import { PRESETS } from '../../core/presets.mjs';
 import { exportBoard } from '../../core/export.mjs';
@@ -221,6 +221,12 @@ export function writeCommands({ string, boolean }) {
     const ignore = opts.gitignore ? readChecked(realRoot(root), '.gitignore', 'utf8') ?? '' : null;
     if (!opts['dry-run']) {
       writeProjectLink(root, project.id);
+      try {
+        recordRepo(ctx.stateDir, project.id, realRoot(root));
+      } catch (error) {
+        if (!(error instanceof CairnError)) throw error;
+        ctx.warnings.push('repo_not_recorded');
+      }
       if (ignore !== null && !ignore.split(/\r?\n/u).includes('.cairn')) {
         fs.writeFileAtomic(checkedPath(realRoot(root), '.gitignore'), `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}.cairn\n`, () => {
           if ((readChecked(realRoot(root), '.gitignore', 'utf8') ?? '') !== ignore) throw new CairnError('conflict', 'Git ignore file has changed.');
