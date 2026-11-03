@@ -126,3 +126,43 @@ export function findRepoRoot(cwd) {
   for (const dir of ancestors(cwd)) if (marker(dir, '.git')) return dir;
   return resolve(cwd);
 }
+
+const linksFile = (dir) => join(dir, 'links.json');
+
+function readRepoLinks(dir) {
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(linksFile(dir), 'utf8'));
+  } catch (error) {
+    return error.code === 'ENOENT' ? {} : null;
+  }
+  return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+}
+
+/**
+ * Remembers where this machine keeps a project's repository: `{ "<project id>": "<repository root>" }` in the state
+ * directory (wiki spec §14). It is machine specific, so it never lands in the data folder.
+ */
+export function recordRepo(dir, id, repoRoot) {
+  if (typeof id !== 'string' || !projectId.test(id) || typeof repoRoot !== 'string' || !repoRoot || repoRoot.includes('\0')
+    || !(posix.isAbsolute(repoRoot) || win32.isAbsolute(repoRoot))) throw invalid();
+  try {
+    makeDirectory(dir);
+    // A file that cannot be read is never overwritten: it may hold other projects' entries.
+    const current = readRepoLinks(dir);
+    if (current === null) throw invalid();
+    const links = Object.fromEntries(Object.entries(current).filter(([key, value]) => projectId.test(key) && typeof value === 'string'));
+    links[id] = repoRoot;
+    fs.writeFileAtomic(linksFile(dir), JSON.stringify(links, null, 2) + '\n');
+  } catch (error) {
+    if (error instanceof CairnError) throw error;
+    throw invalid();
+  }
+}
+
+/** The repository root recorded for a project on this machine, or null (also for an unreadable file). */
+export function repoFor(dir, id) {
+  if (typeof dir !== 'string' || typeof id !== 'string' || !projectId.test(id)) return null;
+  const links = readRepoLinks(dir) ?? {};
+  return Object.hasOwn(links, id) && typeof links[id] === 'string' && links[id] ? links[id] : null;
+}

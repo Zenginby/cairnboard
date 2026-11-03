@@ -446,6 +446,294 @@
       "dangerous": false
     },
     {
+      "name": "wiki index",
+      "summary": "List wiki pages with summaries and link counts.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "kind": {
+          "type": "string",
+          "summary": "Filter by wiki page kind."
+        },
+        "format": {
+          "type": "string",
+          "summary": "json (default) or markdown catalog."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "wiki lint",
+      "summary": "Check wiki pages, links and sources.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "verify": {
+          "type": "boolean",
+          "summary": "Recompute every raw source digest."
+        },
+        "evidence": {
+          "type": "boolean",
+          "summary": "Also check quotes and numbers against raw sources."
+        },
+        "code": {
+          "type": "boolean",
+          "summary": "Also check referenced code files."
+        },
+        "only": {
+          "type": "string",
+          "summary": "Comma-separated lint codes to run."
+        },
+        "strict": {
+          "type": "boolean",
+          "summary": "Exit 5 when an error or warning is found."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "wiki check",
+      "summary": "Check a page or stdin draft against the write rules.",
+      "args": [
+        "<path|->"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "path": {
+          "type": "string",
+          "summary": "Target path of a draft read from stdin (decides classification and file name rule)."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "wiki hook",
+      "summary": "Internal: Claude Code write hook; reads the hook input from stdin.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": false,
+      "dangerous": false
+    },
+    {
+      "name": "context",
+      "summary": "Print the session-start context pack.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "budget": {
+          "type": "string",
+          "summary": "Token budget, characters / 4 (default: 1200)."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
       "name": "journal list",
       "summary": "List journal days or filtered entries.",
       "args": [],
@@ -609,11 +897,78 @@
         "preset": {
           "type": "string",
           "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "type": {
+          "type": "string",
+          "summary": "Filter by type; raw searches raw sources instead of pages."
         }
       },
       "mode": "read",
       "needsData": true,
       "dangerous": false
+    },
+    {
+      "name": "mentions",
+      "summary": "Find unlinked mentions of a note.",
+      "args": [
+        "<note>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "limit": {
+          "type": "string",
+          "summary": "Maximum results, 0 to 500 (default: 50)."
+        },
+        "link": {
+          "type": "string",
+          "summary": "Link the single mention at path:line; requires confirmation."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": {
+        "option": "link"
+      },
+      "writeOption": "link"
     },
     {
       "name": "status",
@@ -1956,6 +2311,76 @@
       "dangerous": false
     },
     {
+      "name": "ingest",
+      "summary": "Store a raw source and an unprocessed research record in one operation.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "title": {
+          "type": "string",
+          "summary": "Set the source title."
+        },
+        "file": {
+          "type": "string",
+          "summary": "Read the source from a .md or .txt file relative to cwd."
+        },
+        "body": {
+          "type": "string",
+          "summary": "Read the source from stdin; accepts only -."
+        },
+        "url": {
+          "type": "string",
+          "summary": "Record the source url (never fetched)."
+        },
+        "date": {
+          "type": "string",
+          "summary": "Set the source date, YYYY-MM-DD; defaults to today."
+        },
+        "into": {
+          "type": "string",
+          "summary": "Store under this raw/ subfolder."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
       "name": "trash restore",
       "summary": "Restore a trash item.",
       "args": [
@@ -2259,6 +2684,10 @@
           "type": "string",
           "multiple": true,
           "summary": "Select claude, agents or antigravity-cli; repeat as needed."
+        },
+        "hooks": {
+          "type": "boolean",
+          "summary": "Also add the Claude Code wiki write hook to its user settings."
         }
       },
       "mode": "write",
@@ -2465,6 +2894,10 @@
       "exit": 1
     },
     {
+      "code": "index_unavailable",
+      "exit": 1
+    },
+    {
       "code": "usage",
       "exit": 2
     },
@@ -2577,6 +3010,7 @@
       "source",
       "raw",
       "raw_sha256",
+      "input_sha256",
       "sourceDate",
       "processed"
     ],

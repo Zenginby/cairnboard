@@ -3,3 +3,6 @@
 *.jpg binary
 *.gif binary
 *.webp binary
+
+# Fixture vault keeps its bytes (CRLF) on every checkout.
+test/fixtures/tr-wiki-vault/** -text

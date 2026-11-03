@@ -1,6 +1,6 @@
 import { parseFile } from './frontmatter.mjs';
 
-function* visibleLines(text) {
+export function* visibleLines(text) {
   const file = parseFile(text);
   let fence = null;
   let line = text.slice(0, file.bodyStart).split('\n').length;
@@ -20,7 +20,7 @@ function* visibleLines(text) {
 }
 
 // Code spans never cross a blank line (CommonMark), so backticks are paired paragraph by paragraph.
-function withoutCode(text) {
+export function withoutCode(text) {
   return text.split(/(\n[\t ]*\n)/u).map((part, index) => index % 2 ? part : withoutCodeSpans(part)).join('');
 }
 
@@ -37,7 +37,8 @@ function withoutCodeSpans(text) {
   for (let at = 0; at < runs.length; at++) {
     if (closing[at] === undefined) continue;
     const end = runs[closing[at]].index + runs[at][0].length;
-    result += text.slice(start, runs[at].index) + text.slice(runs[at].index, end).replace(/[^\n]/gu, ' ');
+    // Preserve UTF-16 offsets as well as newlines, including surrogate pairs in code spans.
+    result += text.slice(start, runs[at].index) + text.slice(runs[at].index, end).replace(/[^\n]/g, ' ');
     start = end;
     at = closing[at];
   }

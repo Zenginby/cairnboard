@@ -18,19 +18,21 @@ export async function main(argv, io) {
     opts = parsed.opts;
     json = opts.json === true;
     const actor = opts.actor ?? io.env.CAIRN_ACTOR;
-    if ((command.mode === 'write' && command.actor !== false) || opts.assignee === 'me') {
+    const mode = command.writeOption && opts[command.writeOption] !== undefined ? 'write' : command.mode;
+    if ((mode === 'write' && command.actor !== false) || opts.assignee === 'me') {
       if (!actor) throw new CairnError('actor_required', 'An actor is required.');
       if (!actorPattern.test(actor)) throw new CairnError('usage', 'Invalid actor name.');
     }
     if (opts.assignee === 'me') opts.assignee = actor;
     const prepared = await command.prepare?.(args, opts, io);
-    const dangerous = command.dangerous === true || (command.dangerous && opts[command.dangerous.option]);
+    const dangerous = command.dangerous === true || (command.dangerous
+      && opts[command.dangerous.option] !== undefined && opts[command.dangerous.option] !== false);
     if (dangerous && !opts['dry-run'] && !await confirm(io, `Confirm ${describe(command, args, opts, io)}?`)) {
       throw new CairnError('confirmation_required', 'Confirmation was declined.');
     }
     if (command.needsData) {
       const { openContext } = await import('../core/context.mjs');
-      ctx = openContext({ mode: command.mode === 'write' && opts['dry-run'] ? 'dry-run' : command.mode,
+      ctx = openContext({ mode: mode === 'write' && opts['dry-run'] ? 'dry-run' : mode,
         dataDir: opts.data, preset: opts.preset, env: io.env, home: io.env.HOME ?? io.env.USERPROFILE,
         platform: platform(), cwd: io.cwd, clock: io.clock,
         actor: actor && actorPattern.test(actor) ? `cli:${actor}` : null });
@@ -41,11 +43,16 @@ export async function main(argv, io) {
           opts.linkedProject = findProjectLink(io.cwd) ?? undefined;
         } catch (error) {
           opts.linkedProjectError = error;
-          if (command.mode !== 'write') ctx.warnings.push('invalid_project_link');
+          if (mode !== 'write') ctx.warnings.push('invalid_project_link');
         }
       }
     }
     const result = await command.run(ctx, args, opts, io, prepared);
+    // A command that speaks another protocol (the Claude Code hook) writes its own stdout, without the envelope.
+    if (typeof result.stdout === 'string') {
+      if (result.stdout) io.stdout.write(result.stdout);
+      return result.exit ?? 0;
+    }
     const warnings = [...new Set([...(ctx?.warnings ?? []), ...(result.warnings ?? [])])];
     const envelope = clean({ v: 1, ok: true, data: result.data, warnings }, opts);
     const output = json ? JSON.stringify(envelope) : human(envelope.data);
@@ -57,8 +64,10 @@ export async function main(argv, io) {
     const code = known ? error.code : 'internal';
     const message = oneLine(clean(known ? error.message : 'An internal error occurred.'));
     const current = known ? error.details.current : undefined;
+    const rules = known ? error.details.rules : undefined;
     const envelope = { v: 1, ok: false, error: { code, message,
-      ...(current === undefined ? {} : { current: clean(current, opts) }) }, warnings: [...new Set(ctx?.warnings ?? [])] };
+      ...(current === undefined ? {} : { current: clean(current, opts) }),
+      ...(rules === undefined ? {} : { rules: clean(rules, opts) }) }, warnings: [...new Set(ctx?.warnings ?? [])] };
     if (json) io.stdout.write(`${JSON.stringify(envelope)}\n`);
     else io.stderr.write(`${code}: ${message}\n`);
     if (!known && io.env.CAIRN_DEBUG === '1') io.stderr.write(`${error?.stack ?? error}\n`);
@@ -68,7 +77,8 @@ export async function main(argv, io) {
 
 // The prompt names what will change and where, so a human can tell what an agent asked for.
 function describe(command, args, opts, io) {
-  const words = [command.name, ...args].map((part) => oneLine(clean(part))).join(' ');
+  const words = [command.name, ...args, ...(command.writeOption ? [`--${command.writeOption}`, opts[command.writeOption]] : [])]
+    .map((part) => oneLine(clean(part))).join(' ');
   const env = { ...io.env, ...(io.env.CAIRN_DATA ? { CAIRN_DATA: resolve(io.cwd, io.env.CAIRN_DATA) } : {}) };
   const where = command.name === 'init' && args[0] ? resolve(io.cwd, args[0])
     : command.needsData || command.name === 'init'

@@ -6,6 +6,7 @@ import { fixedClock, systemClock } from '../core/clock.mjs';
 test('every error code maps to its fixed exit code', () => {
   assert.deepEqual(ERRORS, {
     internal: 1,
+    index_unavailable: 1,
     usage: 2,
     actor_required: 2,
     not_found: 3,

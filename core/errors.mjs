@@ -1,6 +1,7 @@
 // Fixed error codes and their CLI exit codes. The list is part of the public contract (`cairn schema`).
 export const ERRORS = Object.freeze({
   internal: 1,
+  index_unavailable: 1,
   usage: 2,
   actor_required: 2,
   not_found: 3,

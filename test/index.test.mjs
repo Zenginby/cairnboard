@@ -109,7 +109,7 @@ test('corruption, schema version and schema fingerprint rebuild the cache', (t) 
   assert.equal(refresh(ctx).added, 0);
   assert.deepEqual(rows(ctx), []);
   index = openIndex(ctx);
-  assert.equal(index.db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '3');
+  assert.equal(index.db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '6');
   index.close();
 });
 
@@ -248,7 +248,8 @@ test('ignored Markdown supplies only target names, including ignored directories
   fs.__setFsHooks({ afterCheck: (path) => { if (path.endsWith('.md')) read.push(path); } });
   t.after(() => fs.__setFsHooks());
   refresh(ctx);
-  assert.deepEqual(read, [join(ctx.root, 'a.md')]);
+  // A raw source is read once more, only for raw search (wiki spec §5); it never becomes a page or a link source.
+  assert.deepEqual(read, [join(ctx.root, 'a.md'), join(ctx.root, 'raw/source.md')]);
   assert.deepEqual(outlinks(ctx, 'a.md').map((link) => link.status), ['resolved', 'resolved']);
   assert.equal(rows(ctx).length, 1);
   assert.deepEqual(backlinks(ctx, 'raw/source.md'), []);

@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import * as fs from '../core/fsx.mjs';
 import { commands } from '../cli/registry.mjs';
-import { cliInvocation, renderSkill } from '../core/agent.mjs';
+import { cliInvocation, renderSkill, renderAgentsMd } from '../core/agent.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { runCli } from './support/cli.mjs';
 import { tempDir, fixedClock } from './support/env.mjs';
+import { snapshot } from './support/vault.mjs';
 
 // Parse only quoted arguments and escapes; no shell expansion or execution.
 function split(line) {
@@ -45,11 +46,13 @@ test('every fenced skill command succeeds with real fixtures and dry-run', async
   await run(['note', 'rm', note.id, '--actor', 'codex', '--json']);
   const trash = await run(['trash', 'list', '--json']);
   const values = { ...ids, '<date>': '2026-11-01', '<text>': 'x', '<query>': 'x', '<column>': 'doing', '<n>': '1',
-    '<path>': tempDir(t), '<actor>': 'codex', '<revision>': (await run(['card', 'show', ids['<card-id>'], '--json'])).revision,
+    '<path>': tempDir(t), '<target-path>': 'wiki/concepts/draft.md', '<actor>': 'codex', '<revision>': (await run(['card', 'show', ids['<card-id>'], '--json'])).revision,
     '<trash-id>': trash.items[0].trashId };
   const invocation = cliInvocation(join(home, 'Proje Notları'));
   const prefix = split(invocation);
   const skill = renderSkill({ version: '1.2.3', invocation, actor: null, commands });
+  assert.ok(Buffer.byteLength(skill) <= 24 * 1024, 'rendered skill exceeds 24 KB');
+  const before = snapshot(data);
   const seen = new Set();
   let count = 0;
   for (const [, block] of skill.matchAll(/```[^\n]*\n([\s\S]*?)```/gu)) {
@@ -60,14 +63,74 @@ test('every fenced skill command succeeds with real fixtures and dry-run', async
       assert.ok(filled.every((arg) => typeof arg === 'string' && !/<[^>]+>/u.test(arg)), line);
       const command = [...commands].reverse().find(({ name }) => name.split(' ').every((word, i) => filled[i] === word));
       assert.ok(command, line);
+      if (command.name === 'research update' && filled.includes('--if-revision')) {
+        filled[filled.indexOf('--if-revision') + 1] = (await run(['research', 'show', ids['<research-id>'], '--json'])).revision;
+      }
       assert.ok(command.dangerous !== true, line);
       assert.ok(!filled.includes('--steal'), line);
       seen.add(command.name);
-      await run([...filled, '--dry-run']);
+      const result = await run([...filled, '--dry-run'], {
+        stdin: command.name === 'wiki check'
+          ? '---\nkind: concept\ntags: [acme]\nupdated: 2026-11-01\nsources: [acme]\n---\n# Draft\n'
+          : 'A fictional raw source.\n',
+      });
+      if (command.name === 'wiki check') assert.deepEqual(result, { errors: [], warnings: [] });
+      if (command.name === 'ingest') assert.ok(result.raw.path.startsWith('raw/'));
       count++;
     }
   }
-  assert.ok(count >= commands.length - 3);
-  for (const command of commands.filter(({ dangerous }) => dangerous !== true)) assert.ok(seen.has(command.name), command.name);
+  assert.ok(count >= commands.filter(({ hidden }) => !hidden).length - 3);
+  for (const command of commands.filter(({ dangerous, hidden }) => dangerous !== true && !hidden)) assert.ok(seen.has(command.name), command.name);
+  const sources = (map) => [...map].filter(([path]) => !/^\.cairn\/index\.db/u.test(path)).sort();
+  assert.deepEqual(sources(snapshot(data)), sources(before), 'skill dry-runs changed source or state files');
   assert.deepEqual(fs.readdirSync(home).filter((name) => ['.claude', '.agents', '.gemini'].includes(name)), []);
+});
+
+test('wiki workflow gives runnable context, capture, draft check, index and lint commands for every agent', () => {
+  const invocation = cliInvocation(join('acme', 'Proje Notları'));
+  for (const actor of ['claude', 'antigravity', null]) {
+    const skill = renderSkill({ version: '1.2.3', invocation, actor, commands });
+    assert.ok(Buffer.byteLength(skill) <= 24 * 1024, `${actor}: rendered skill exceeds 24 KB`);
+    const wiki = skill.match(/^## Wiki\n([\s\S]*?)(?=^## |$(?![\s\S]))/mu)?.[1];
+    assert.ok(wiki, `${actor}: missing Wiki workflow`);
+    for (const command of ['context --json', 'ingest --title', 'wiki check - --path', 'wiki index --json', 'wiki lint --json']) {
+      assert.ok(wiki.includes(`${invocation} ${command}`), `${actor}: missing ${command}`);
+    }
+    const fragment = renderAgentsMd({ version: '1.2.3', invocation, commands });
+    assert.ok(fragment.includes(`${invocation} context --json`));
+    assert.match(fragment, /wiki check/u);
+    assert.match(wiki, /research update <research-id> --processed --if-revision <revision>/u);
+    assert.match(fragment, /--processed/u);
+  }
+});
+
+test('the documented source completion command clears lint and pending counts without changing raw bytes', async (t) => {
+  const home = tempDir(t), data = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
+  initDataDir(data, { home, env: {}, clock });
+  const run = async (args, stdin = '') => {
+    const response = await runCli([...args, '--json'], { home, data, clock, stdin });
+    assert.equal(response.code, 0, response.stdout + response.stderr);
+    return response.json.data;
+  };
+  const captured = await run(['ingest', '--title', 'acme source', '--body', '-', '--actor', 'codex'], 'A fictional source.\n');
+  const ref = `@${captured.research.path.slice(0, -3)}`;
+  const raw = fs.readFileSync(join(data, captured.raw.path));
+  const summary = await run(['research', 'update', ref, '--body', '-', '--if-revision', captured.research.revision, '--actor', 'codex'],
+    '# Acme summary\nA short source summary.\n');
+  const pending = async () => (await run(['context'])).sections.find((section) => section.name === 'pending').content.text;
+  assert.match(await pending(), /unprocessed_sources: 1/u);
+  assert.equal((await run(['wiki', 'lint', '--only', 'unprocessed_source'])).findings.length, 1);
+  const invocation = cliInvocation(join(home, 'acme'));
+  const skill = renderSkill({ version: '1.2.3', invocation, actor: 'codex', commands });
+  const line = skill.split('\n').find((text) => text.startsWith(`${invocation} research update <research-id> --processed`));
+  assert.ok(line, 'missing runnable source completion command');
+  const args = split(line).slice(split(invocation).length).map((arg) => ({ '<research-id>': ref, '<revision>': summary.revision })[arg] ?? arg);
+  const before = snapshot(data);
+  await run([...args, '--dry-run']);
+  const sources = (map) => [...map].filter(([path]) => !/^\.cairn\/index\.db/u.test(path)).sort();
+  assert.deepEqual(sources(snapshot(data)), sources(before));
+  await run(args);
+  assert.equal((await run(['wiki', 'lint', '--only', 'unprocessed_source'])).findings.length, 0);
+  assert.match(await pending(), /unprocessed_sources: 0/u);
+  assert.deepEqual(fs.readFileSync(join(data, captured.raw.path)), raw);
 });

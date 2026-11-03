@@ -7,32 +7,22 @@ import { checkedPath, safeRelative } from './paths.mjs';
 import { parseFile, setFields, replaceBody } from './frontmatter.mjs';
 import { classify, readCanonical, physicalPatch, destination, isRawPath } from './schema.mjs';
 import { extract } from './extract.mjs';
+import { dayOf, localDate, validateDate } from './dates.mjs';
+
 import { ensureFresh, rows, findById } from './index.mjs';
 import { readFile, revision, write } from './store.mjs';
 import { retryWhileLocked, withLock } from './lock.mjs';
 import { keyBetween } from './position.mjs';
+import { assertRules, checkPage, ruleWarnings } from './check.mjs';
 
 /** @typedef {{ type: string, kind: string|null, id: string|null, ref: string, path: string,
  * revision: string, title: string, data: object, acceptance: { done: number, total: number }, warnings: string[] }} Summary */
 /** @typedef {Summary & { body: string }} Entity */
 
 const prefixes = { project: 'p', note: 'n', research: 'r', card: 'c' };
+export { dayOf, localDate, validateDate };
 const invalid = (message) => new CairnError('validation', message);
 const missing = () => new CairnError('not_found', 'Entity was not found.');
-
-export function validateDate(value) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) throw invalid('Invalid date.');
-  const [year, month, day] = value.split('-').map(Number);
-  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  if (!year || month < 1 || month > 12 || day < 1 || day > days[month - 1]) throw invalid('Invalid date.');
-}
-
-export function localDate(ctx) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: process.env.TZ ?? undefined, year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(ctx.clock.now());
-}
 
 // Only a valid, unexpired lease protects a claim (5 minutes of clock tolerance). A finished card or a hand-typed
 // `assignee:` without a lease protects nothing, so it can never lock other actors out for good.
@@ -140,7 +130,7 @@ function checkOverview(ctx, type, kind, path) {
   }
 }
 
-function directoryLock(ctx, folder, opts, fn) {
+export function directoryLock(ctx, folder, opts, fn) {
   if (opts.dryRun === true || ctx.mode === 'dry-run') return fn();
   if (ctx.mode !== 'write') throw new CairnError('internal', 'Mutations require write mode.');
   const name = 'd-' + createHash('sha1').update(pathKey(folder)).digest('hex').slice(0, 16);
@@ -148,7 +138,7 @@ function directoryLock(ctx, folder, opts, fn) {
   return retryWhileLocked((state) => withLock(ctx, name, () => { state.entered = true; return fn(); }));
 }
 
-function names(ctx, folder) {
+export function names(ctx, folder) {
   try {
     return fs.readdirSync(folder === '.' ? ctx.root : checkedPath(ctx.root, folder))
       .filter((name) => /\.md$/iu.test(name)).map((name) => name.slice(0, -3));
@@ -161,29 +151,55 @@ function names(ctx, folder) {
 export function create(ctx, type, fields, body = '', opts = {}) {
   if (!Object.hasOwn(prefixes, type)) throw invalid('Unsupported entity type.');
   if (typeof body !== 'string') throw invalid('Body must be text.');
+  return directoryLock(ctx, createFolder(ctx, type, fields), opts, () => {
+    const { path, text, entity, warnings, data } = draft(ctx, type, fields, body);
+    const result = write(ctx, { ...opts, path, target: data.id, op: `${type}.create`, expectAbsent: true, apply: () => text });
+    return { ...result, warnings: [...result.warnings, ...warnings], entity };
+  });
+}
+
+/** The folder a new entity of this type and kind lands in; `create` and `draft` callers lock it while choosing names. */
+export function createFolder(ctx, type, fields) {
+  const kind = fields.kind ?? (type === 'note' ? 'note' : type === 'research' ? 'source' : null);
+  return dirname(destination(ctx.schema, type, kind, slugify(fields.title)));
+}
+
+/**
+ * A new entity's file without writing it: `{ path, text, entity, warnings, data }`. Callers hold the directory lock
+ * (`directoryLock(ctx, createFolder(...))`) so the chosen name stays free until their write.
+ */
+export function draft(ctx, type, fields, body = '') {
+  if (!Object.hasOwn(prefixes, type)) throw invalid('Unsupported entity type.');
+  if (typeof body !== 'string') throw invalid('Body must be text.');
   const kind = fields.kind ?? (type === 'note' ? 'note' : type === 'research' ? 'source' : null);
   const slug = slugify(fields.title);
   const initial = destination(ctx.schema, type, kind, slug);
   const folder = dirname(initial);
-  return directoryLock(ctx, folder, opts, () => {
-    ensureFresh(ctx);
-    const now = ctx.clock.now().toISOString();
-    const defaults = type === 'project' ? { status: 'active', tone: rows(ctx, 'project').length % 8 + 1 }
-      : type === 'note' ? { kind: 'note', pinned: false, tags: [] }
-      : type === 'card' ? { column: ctx.config.columns[0].key, position: keyBetween(null, null), tags: [] }
-      : { kind: 'source', date: localDate(ctx) };
-    const data = { ...defaults, ...fields, id: freshId(ctx, type), created: now, updated: now };
-    validate(type, data);
-    checkOverview(ctx, type, data.kind);
-    const fixed = type === 'note' && /\.md$/iu.test(ctx.schema.kindFolders[data.kind] ?? '');
-    const path = fixed ? initial : destination(ctx.schema, type, data.kind, uniqueName(names(ctx, folder), slug));
-    if (isRawPath(ctx.schema, path)) throw invalid('Raw sources cannot be entities.');
-    if (fixed && readFile(ctx, path)) throw invalid('The page already exists.');
-    const text = replaceBody(setFields('', physicalPatch(ctx.schema, {}, data)), body);
-    const { body: ignored, ...entity } = fromText(ctx, type, path, text);
-    const result = write(ctx, { ...opts, path, target: data.id, op: `${type}.create`, expectAbsent: true, apply: () => text });
-    return { ...result, entity };
-  });
+  ensureFresh(ctx);
+  const now = ctx.clock.now().toISOString();
+  const defaults = type === 'project' ? { status: 'active', tone: rows(ctx, 'project').length % 8 + 1 }
+    : type === 'note' ? { kind: 'note', pinned: false, tags: [] }
+    : type === 'card' ? { column: ctx.config.columns[0].key, position: keyBetween(null, null), tags: [] }
+    : { kind: 'source', date: localDate(ctx) };
+  const data = { ...defaults, ...fields, id: freshId(ctx, type), created: now, updated: now };
+  validate(type, data);
+  checkOverview(ctx, type, data.kind);
+  const fixed = type === 'note' && /\.md$/iu.test(ctx.schema.kindFolders[data.kind] ?? '');
+  const path = fixed ? initial : destination(ctx.schema, type, data.kind, uniqueName(names(ctx, folder), slug));
+  if (isRawPath(ctx.schema, path)) throw invalid('Raw sources cannot be entities.');
+  if (fixed && readFile(ctx, path)) throw invalid('The page already exists.');
+  const text = replaceBody(setFields('', physicalPatch(ctx.schema, {}, data)), body);
+  const { body: ignored, ...entity } = fromText(ctx, type, path, text);
+  const warnings = enforce(ctx, type, path, text);
+  return { path, text, entity, warnings, data };
+}
+
+// Notes and research obey the write rules (wiki spec §10): an `error` rule refuses the write, a `warn` rule is reported.
+function enforce(ctx, type, path, text) {
+  if (type !== 'note' && type !== 'research') return [];
+  const { errors, warnings } = checkPage(ctx, { path, text, lenient: true });
+  assertRules(errors);
+  return ruleWarnings(warnings);
 }
 
 function writable(ctx, entity) {
@@ -204,7 +220,8 @@ export function update(ctx, type, ref, patch, opts = {}) {
   writable(ctx, entity);
   const { body, ...options } = opts;
   if (body !== undefined && typeof body !== 'string') throw invalid('Body must be text.');
-  return write(ctx, { ...options, path: entity.path, target: entity.ref, op: `${type}.update`, apply: (text) => {
+  let warnings = [];
+  const result = write(ctx, { ...options, path: entity.path, target: entity.ref, op: `${type}.update`, apply: (text) => {
     if (text === null) throw missing();
     const current = fromText(ctx, type, entity.path, text);
     writable(ctx, current);
@@ -218,8 +235,10 @@ export function update(ctx, type, ref, patch, opts = {}) {
     checkOverview(ctx, type, merged.kind, entity.path);
     let updated = setFields(text, physicalPatch(ctx.schema, file.data, changes));
     if (body !== undefined) updated = replaceBody(updated, body);
+    warnings = enforce(ctx, type, entity.path, updated);
     return updated;
   } });
+  return { ...result, warnings: [...result.warnings, ...warnings] };
 }
 
 export function remove(ctx, type, ref, opts = {}) {

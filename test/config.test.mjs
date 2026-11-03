@@ -162,3 +162,14 @@ test('migration detects an external edit before replacing configuration', (t) =>
   assert.equal(readFileSync(file, 'utf8'), edited);
   assert.deepEqual(readdirSync(join(root, '.cairn')).sort(), ['backup', 'config.json']);
 });
+
+test('config.lint accepts a severity per code and staleDays, and rejects anything else', (t) => {
+  const config = { ...defaultConfig(), lint: { orphan: 'off', broken_link: 'error', filename: 'warn', staleDays: 0 } };
+  const root = fixture(t, config);
+  assert.deepEqual(loadConfig(root).lint, config.lint);
+  const file = join(root, '.cairn', 'config.json');
+  for (const lint of [[], 'warn', { orphan: 'loud' }, { not_a_code: 'warn' }, { staleDays: -1 }, { staleDays: 1.5 }, { staleDays: '9' }]) {
+    writeFileSync(file, JSON.stringify({ ...config, lint }));
+    assert.throws(() => loadConfig(root), { code: 'validation' }, JSON.stringify(lint));
+  }
+});
