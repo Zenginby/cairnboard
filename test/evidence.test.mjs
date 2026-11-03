@@ -112,7 +112,8 @@ test('the tr-wiki preset reads its physical sources field and Kaynaklar section'
 });
 
 test('claim extraction stays linear on hostile text and honours the limit', () => {
-  const shapes = ['"a b c d e" ', '\u201cx ', '\u201ex ', '"x ', '12 MB '];
+  const shapes = ['"a b c d e" ', '\u201cx ', '\u201ex ', '"x ', '12 MB ', `${'\u201e'.repeat(399)}\n\n\u201c`, `${'\u201e'.repeat(300)} \n\n\u201c `,
+    `"${'y'.repeat(500)}" `, '"a" ', '"a\n\n'];
   for (const shape of shapes) {
     const text = shape.repeat(Math.ceil(400_000 / shape.length));
     const started = Date.now();
@@ -124,4 +125,50 @@ test('claim extraction stays linear on hostile text and honours the limit', () =
   assert.equal(extractClaims(many, 10).length, 10);
   assert.deepEqual(extractClaims('a\n\n"one two three four"\n9 MB').map(({ line, kind }) => [line, kind]), [[3, 'quote'], [4, 'number']]);
   assert.deepEqual(extractClaims('"one two\n\nthree four"'), []);
+});
+
+// The first implementation (quadratic, but simple): the oracle for inputs whose quotes are at most 400 characters and hold no blank line.
+function oracle(text) {
+  const QUOTE = /"([^"]+)"|\u201c([^\u201d]+)\u201d|\u201e([^\u201c\u201d]+)[\u201c\u201d]/gu;
+  const NUMBER = /(?<![\p{L}\p{N}])(?:\d+(?:[.,]\d+)?\s?(?:%|(?:k|K|M|MB|GB|KB|ms|sn|s)\b)|%\d+(?:[.,]\d+)?|\d{4}-\d{2}-\d{2})/gu;
+  const claims = [];
+  const lineAt = (index) => text.slice(0, index).split('\n').length;
+  let rest = text;
+  for (const match of text.matchAll(QUOTE)) {
+    const value = (match[1] ?? match[2] ?? match[3]).trim();
+    if (value.length > 400 || /\n[\t ]*\n/u.test(value) || value.split(/\s+/u).length < 4) continue;
+    claims.push({ at: match.index, line: lineAt(match.index), kind: 'quote', value });
+    rest = rest.slice(0, match.index) + match[0].replace(/[^\n]/gu, ' ') + rest.slice(match.index + match[0].length);
+  }
+  for (const match of rest.matchAll(NUMBER)) claims.push({ at: match.index, line: lineAt(match.index), kind: 'number', value: match[0] });
+  return claims.sort((a, b) => a.at - b.at).map(({ line, kind, value }) => ({ line, kind, value }));
+}
+
+test('extractClaims matches the original semantics on seeded random text and on known edge cases', () => {
+  let seed = 20261103;
+  const random = (n) => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed % n;
+  };
+  const tokens = ['"', '"', '\u201c', '\u201d', '\u201e', 'one', 'two', 'three', 'four', 'five', 'alpha', '12 MB', '5%', '%35', '11.2k', '2026-09-28',
+    '7 s', '300ms', '9', 'x1', '\n', '\n', '\t'];
+  for (let n = 0; n < 4000; n++) {
+    let text = '';
+    let previous = '';
+    for (let i = random(40); i >= 0; i--) {
+      let token = tokens[random(tokens.length)];
+      if (token === '\n' && previous === '\n') token = 'w';
+      text += (random(3) ? ' ' : '') + token;
+      previous = token;
+    }
+    assert.deepEqual(extractClaims(text), oracle(text), JSON.stringify(text));
+    const limit = 1 + random(5);
+    assert.deepEqual(extractClaims(text, limit), oracle(text).slice(0, limit), `limit ${limit} ${JSON.stringify(text)}`);
+  }
+  const claim = (text, limit) => extractClaims(text, limit).map(({ kind, value }) => `${kind}:${value}`);
+  assert.deepEqual(claim('He said "up 35%" today.'), ['number:35%']);
+  assert.deepEqual(claim('Wert "12 MB" und \u201e5 s\u201c'), ['number:12 MB', 'number:5 s']);
+  assert.deepEqual(claim(`"${'x'.repeat(500)}" then 5% and "one two three four".`), ['number:5%', 'quote:one two three four']);
+  assert.deepEqual(claim(`${'"a" '.repeat(300)}"one two three four"`, 200), ['quote:one two three four']);
+  assert.deepEqual(claim('"one two\n\nthree four" 5%'), ['number:5%']);
 });
