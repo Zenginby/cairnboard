@@ -44,7 +44,7 @@ a.panel { color: inherit; text-decoration: none; transition: transform var(--mot
 .project-menu > .row { gap: var(--space-12); }
 .project-menu > .row > a { display: inline-flex; align-items: center; min-height: calc(var(--space-md) * 2); font: inherit; }
 .project-menu .button { padding: calc(var(--space-md) * .35) calc(var(--space-md) * .8); background: var(--color-surface); border-color: var(--color-line); font: inherit; }
-.calendar-box, .board-summary, .pinned { grid-column: span 2; }
+.calendar-box, .board-summary { grid-column: span 2; }
 .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: calc(var(--space-xs) + var(--space-hairline)); margin-top: var(--space-14); }
 .calendar-day, .calendar-blank { aspect-ratio: 1; border-radius: calc(var(--radius-xs) - var(--space-hairline)); background: var(--color-surface-inset); }
 .calendar-blank { background: none; }
@@ -82,7 +82,16 @@ a.panel { color: inherit; text-decoration: none; transition: transform var(--mot
 .note-row { display: flex; gap: var(--space-md); align-items: start; padding-block: var(--space-sm); font-size: var(--font-ui-size); }
 .text-button { display: block; width: 100%; min-height: calc(var(--space-md) * 2); padding: 0; border: 0; background: none; color: var(--color-text); text-align: start; font-size: inherit; font-weight: var(--font-title-weight); line-height: inherit; cursor: pointer; overflow-wrap: anywhere; }
 .note-row .chip { flex-shrink: 0; }
-.pinned .summary-list { margin-top: var(--space-14); }
+.pinned { grid-column: 1 / -1; }
+.pinned-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--space-xl) * 6.5)), 1fr)); gap: var(--space-md); margin: var(--space-18) 0 0; padding: 0; list-style: none; }
+.pinned-tile { position: relative; gap: var(--space-sm); padding: var(--space-18) var(--space-lg) var(--space-lg); border-radius: var(--radius-md); background: var(--color-surface-inset); box-shadow: inset 0 calc(var(--space-2xs) + var(--space-hairline)) 0 var(--pinned-tone, var(--color-line-strong)); transition: transform var(--motion-duration-medium) var(--motion-ease-spring); }
+.pinned-meta { flex-wrap: wrap; gap: var(--space-sm); font-family: var(--font-caption-family); font-size: var(--font-caption-size); font-weight: var(--font-caption-weight); color: var(--color-text-3); }
+.pinned-project { display: inline-flex; align-items: center; gap: var(--space-6); }
+.pinned-project .tone-dot { margin: 0; width: var(--space-6); height: var(--space-6); }
+.pinned-updated { margin-inline-start: auto; }
+.pinned-title { font-family: var(--font-box-title-family); font-size: var(--font-box-title-size); font-weight: var(--font-box-title-weight); line-height: var(--font-box-title-line-height); letter-spacing: var(--font-box-title-letter-spacing); text-align: start; color: var(--color-text); }
+.pinned-title::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.pinned-excerpt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; font-family: var(--font-small-family); font-size: var(--font-small-size); line-height: var(--font-small-line-height); color: var(--color-text-2); }
 .recent, .research, .today { grid-column: span 3; }
 .recent .summary-list { margin-top: var(--space-md); }
 .segmented-bar { display: flex; gap: var(--space-xs); height: var(--space-10); margin: var(--space-18) 0 var(--space-14); }
@@ -106,17 +115,22 @@ a.panel { color: inherit; text-decoration: none; transition: transform var(--mot
 @media (hover: hover) and (pointer: fine) {
   a.panel:hover { transform: translateY(calc(-1 * var(--motion-distance-lift))) scale(var(--motion-scale-hover)); box-shadow: var(--shadow-box-raised); }
   .summary-row:hover { transform: translateX(var(--motion-distance-micro)); }
+  .pinned-tile:hover { transform: translateY(calc(var(--motion-distance-lift-card) * -1)); }
 }
 a.panel:active { transform: scale(var(--motion-scale-press-box)); transition-duration: var(--motion-duration-press); transition-timing-function: var(--motion-ease-out); }
 @media (max-width: 64rem) {
   .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hero, .ongoing, .today { grid-column: span 2; }
   .ongoing { grid-row: auto; }
-  .calendar-box, .board-summary, .pinned, .recent, .research, .project-box { grid-column: span 1; }
+  .pinned { grid-column: 1 / -1; }
+  .calendar-box, .board-summary, .recent, .research, .project-box { grid-column: span 1; }
 }
 @media (max-width: 40rem) {
   .bento { grid-template-columns: minmax(0, 1fr); }
   .bento > *, .project-box { grid-column: auto !important; }
+  /* One column: pinned notes come straight after the hero, before the calendar. */
+  .hero { order: -2; }
+  .pinned { order: -1; }
   .summary-row { flex-direction: column; gap: var(--space-6); }
   .summary-row .chip { max-width: 100%; }
   .month-grid { max-width: calc(var(--space-md) * 16); }
@@ -125,10 +139,10 @@ a.panel:active { transform: scale(var(--motion-scale-press-box)); transition-dur
   .text-button, .panel-header > a, .project-checks label, .project-menu > .row > a { min-height: calc(var(--space-xl) + var(--space-xs)); }
 }
 [data-motion="less"] .journal-pill .tone-dot::after { animation: none; }
-[data-motion="less"] .summary-row { transform: none; transition-property: opacity; }
+[data-motion="less"] .summary-row, [data-motion="less"] .pinned-tile { transform: none; transition-property: opacity; }
 [data-motion="less"] a.panel { transition: opacity var(--motion-duration-quick) var(--motion-ease-out); }
 @media (prefers-reduced-motion: reduce) {
   .journal-pill .tone-dot::after { animation: none; }
-  .summary-row, .summary-row:hover { transform: none; transition-property: opacity; }
+  .summary-row, .summary-row:hover, .pinned-tile, .pinned-tile:hover { transform: none; transition-property: opacity; }
   a.panel { transition: opacity var(--motion-duration-quick) var(--motion-ease-out); }
 }

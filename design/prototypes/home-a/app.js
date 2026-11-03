@@ -364,12 +364,38 @@ function noteBox(title, className, records, numbered = false) {
   if (!records.length) node.append(el('p', 'muted', 'Henüz bir kayıt yok. N ile bir not ekleyebilirsin.'));
   return node;
 }
+// Pinned notes sit right under the hero, full width, one tile each: they are what the owner keeps at hand.
+function pinnedBox(records) {
+  const { node, header } = box('Sabitlenenler', 'pinned');
+  node.id = 'pinned';
+  header.append(el('span', 'panel-count', `${records.length} kayıt`));
+  node.append(el('p', 'panel-subtitle', 'Elinin altında tuttuğun notlar ve sayfalar'));
+  const grid = el('ul', 'pinned-grid');
+  records.forEach((record, index) => {
+    const project = record.projectId ? projectFor(record) : null;
+    const tile = el('li', 'pinned-tile stack');
+    if (project) tile.style.setProperty('--pinned-tone', `var(--color-tone-${project.tone})`);
+    const meta = el('div', 'row pinned-meta');
+    meta.append(el('span', 'chip', kindNames[record.kind]));
+    if (project) {
+      const name = el('span', 'pinned-project', project.name);
+      name.prepend(dot(`tone-${project.tone}`));
+      meta.append(name);
+    }
+    meta.append(el('span', 'pinned-updated', record.updated));
+    tile.append(meta, button(titleFor(record, index), (event) => ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0), 'text-button pinned-title'), el('p', 'pinned-excerpt', record.body));
+    grid.append(tile);
+  });
+  node.append(grid);
+  if (!records.length) node.append(el('p', 'muted', 'Henüz sabitlenen bir not yok. Bir notu açıp “Sabitle” ile buraya alabilirsin.'));
+  return node;
+}
 function render() {
   if (!data) return;
   stopAnimations();
   const projects = el('div', 'project-grid');
   projects.id = 'project-grid';
-  $('#dashboard').replaceChildren(hero(), calendar(), projects, ongoing(), boardSummary(), noteBox('Sabitlenenler', 'pinned', data.notes.filter((note) => note.pinned)), noteBox('Son notlar', 'recent', data.notes.filter((note) => note.kind === 'note')), noteBox('Araştırmalar', 'research', data.notes.filter((note) => note.kind === 'research'), true), today());
+  $('#dashboard').replaceChildren(hero(), calendar(), pinnedBox(data.notes.filter((note) => note.pinned)), projects, ongoing(), boardSummary(), noteBox('Son notlar', 'recent', data.notes.filter((note) => note.kind === 'note')), noteBox('Araştırmalar', 'research', data.notes.filter((note) => note.kind === 'research'), true), today());
   renderProjects();
 }
 function animateFirstLoad() {
