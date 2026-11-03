@@ -141,7 +141,7 @@ function checkOverview(ctx, type, kind, path) {
   }
 }
 
-function directoryLock(ctx, folder, opts, fn) {
+export function directoryLock(ctx, folder, opts, fn) {
   if (opts.dryRun === true || ctx.mode === 'dry-run') return fn();
   if (ctx.mode !== 'write') throw new CairnError('internal', 'Mutations require write mode.');
   const name = 'd-' + createHash('sha1').update(pathKey(folder)).digest('hex').slice(0, 16);
@@ -149,7 +149,7 @@ function directoryLock(ctx, folder, opts, fn) {
   return retryWhileLocked((state) => withLock(ctx, name, () => { state.entered = true; return fn(); }));
 }
 
-function names(ctx, folder) {
+export function names(ctx, folder) {
   try {
     return fs.readdirSync(folder === '.' ? ctx.root : checkedPath(ctx.root, folder))
       .filter((name) => /\.md$/iu.test(name)).map((name) => name.slice(0, -3));
@@ -162,30 +162,47 @@ function names(ctx, folder) {
 export function create(ctx, type, fields, body = '', opts = {}) {
   if (!Object.hasOwn(prefixes, type)) throw invalid('Unsupported entity type.');
   if (typeof body !== 'string') throw invalid('Body must be text.');
+  return directoryLock(ctx, createFolder(ctx, type, fields), opts, () => {
+    const { path, text, entity, warnings, data } = draft(ctx, type, fields, body);
+    const result = write(ctx, { ...opts, path, target: data.id, op: `${type}.create`, expectAbsent: true, apply: () => text });
+    return { ...result, warnings: [...result.warnings, ...warnings], entity };
+  });
+}
+
+/** The folder a new entity of this type and kind lands in; `create` and `draft` callers lock it while choosing names. */
+export function createFolder(ctx, type, fields) {
+  const kind = fields.kind ?? (type === 'note' ? 'note' : type === 'research' ? 'source' : null);
+  return dirname(destination(ctx.schema, type, kind, slugify(fields.title)));
+}
+
+/**
+ * A new entity's file without writing it: `{ path, text, entity, warnings, data }`. Callers hold the directory lock
+ * (`directoryLock(ctx, createFolder(...))`) so the chosen name stays free until their write.
+ */
+export function draft(ctx, type, fields, body = '') {
+  if (!Object.hasOwn(prefixes, type)) throw invalid('Unsupported entity type.');
+  if (typeof body !== 'string') throw invalid('Body must be text.');
   const kind = fields.kind ?? (type === 'note' ? 'note' : type === 'research' ? 'source' : null);
   const slug = slugify(fields.title);
   const initial = destination(ctx.schema, type, kind, slug);
   const folder = dirname(initial);
-  return directoryLock(ctx, folder, opts, () => {
-    ensureFresh(ctx);
-    const now = ctx.clock.now().toISOString();
-    const defaults = type === 'project' ? { status: 'active', tone: rows(ctx, 'project').length % 8 + 1 }
-      : type === 'note' ? { kind: 'note', pinned: false, tags: [] }
-      : type === 'card' ? { column: ctx.config.columns[0].key, position: keyBetween(null, null), tags: [] }
-      : { kind: 'source', date: localDate(ctx) };
-    const data = { ...defaults, ...fields, id: freshId(ctx, type), created: now, updated: now };
-    validate(type, data);
-    checkOverview(ctx, type, data.kind);
-    const fixed = type === 'note' && /\.md$/iu.test(ctx.schema.kindFolders[data.kind] ?? '');
-    const path = fixed ? initial : destination(ctx.schema, type, data.kind, uniqueName(names(ctx, folder), slug));
-    if (isRawPath(ctx.schema, path)) throw invalid('Raw sources cannot be entities.');
-    if (fixed && readFile(ctx, path)) throw invalid('The page already exists.');
-    const text = replaceBody(setFields('', physicalPatch(ctx.schema, {}, data)), body);
-    const { body: ignored, ...entity } = fromText(ctx, type, path, text);
-    const warnings = enforce(ctx, type, path, text);
-    const result = write(ctx, { ...opts, path, target: data.id, op: `${type}.create`, expectAbsent: true, apply: () => text });
-    return { ...result, warnings: [...result.warnings, ...warnings], entity };
-  });
+  ensureFresh(ctx);
+  const now = ctx.clock.now().toISOString();
+  const defaults = type === 'project' ? { status: 'active', tone: rows(ctx, 'project').length % 8 + 1 }
+    : type === 'note' ? { kind: 'note', pinned: false, tags: [] }
+    : type === 'card' ? { column: ctx.config.columns[0].key, position: keyBetween(null, null), tags: [] }
+    : { kind: 'source', date: localDate(ctx) };
+  const data = { ...defaults, ...fields, id: freshId(ctx, type), created: now, updated: now };
+  validate(type, data);
+  checkOverview(ctx, type, data.kind);
+  const fixed = type === 'note' && /\.md$/iu.test(ctx.schema.kindFolders[data.kind] ?? '');
+  const path = fixed ? initial : destination(ctx.schema, type, data.kind, uniqueName(names(ctx, folder), slug));
+  if (isRawPath(ctx.schema, path)) throw invalid('Raw sources cannot be entities.');
+  if (fixed && readFile(ctx, path)) throw invalid('The page already exists.');
+  const text = replaceBody(setFields('', physicalPatch(ctx.schema, {}, data)), body);
+  const { body: ignored, ...entity } = fromText(ctx, type, path, text);
+  const warnings = enforce(ctx, type, path, text);
+  return { path, text, entity, warnings, data };
 }
 
 // Notes and research obey the write rules (wiki spec §10): an `error` rule refuses the write, a `warn` rule is reported.

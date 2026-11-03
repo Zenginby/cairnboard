@@ -41,7 +41,7 @@ const fields = {
   project: ['id', 'title', 'created', 'updated', 'status', 'tone', 'aliases'],
   card: ['id', 'title', 'created', 'updated', 'project', 'column', 'position', 'priority', 'tags', 'assignee', 'claimed', 'lease', 'done'],
   note: ['id', 'title', 'created', 'updated', 'kind', 'project', 'tags', 'pinned', 'source', 'superseded_by', 'valid_from', 'valid_until', 'code'],
-  research: ['id', 'title', 'created', 'updated', 'project', 'kind', 'date', 'tags', 'source', 'raw', 'raw_sha256', 'sourceDate', 'processed'],
+  research: ['id', 'title', 'created', 'updated', 'project', 'kind', 'date', 'tags', 'source', 'raw', 'raw_sha256', 'input_sha256', 'sourceDate', 'processed'],
   journal: ['date'],
 };
 
@@ -200,8 +200,11 @@ read('journal list', 'List journal days or filtered entries.', [], {
 read('journal show', 'Show a journal day or reference.', ['<date|ref>'], {}, (ctx, [ref], opts) => result(ctx,
   [ref.startsWith('@') ? entity.resolve(ctx, 'journal', ref) : journal.show(ctx, ref)], opts, false));
 
-read('search', 'Search titles and bodies.', ['<q>'], {}, (ctx, [query], opts) => {
-  const matches = index.search(ctx, query);
+read('search', 'Search titles and bodies.', ['<q>'], {
+  type: string('Filter by type; raw searches raw sources instead of pages.'),
+}, (ctx, [query], opts) => {
+  if (opts.type !== undefined && !index.SEARCH_TYPES.includes(opts.type)) throw new CairnError('validation', 'Invalid search type.');
+  const matches = index.search(ctx, query, { type: opts.type });
   const summaries = new Map(index.rows(ctx).map((item) => [item.path, item]));
   return result(ctx, matches.map((item) => ({ ...summaries.get(item.path), ...item })), opts);
 });

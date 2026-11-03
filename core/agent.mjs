@@ -48,6 +48,7 @@ function commandLine(command, invocation, actor) {
   });
   if (/ (?:add|update)$/u.test(command.name) && type !== 'journal') args.push('--title', "'<text>'");
   if (command.name === 'journal add') args.push('--title', "'<text>'", '--label', "'<text>'", '--date', '<date>', '--item', "'<text>'");
+  if (command.name === 'ingest') args.push('--title', "'<text>'", '--body', '-');
   if (command.name === 'card done') args.push('--if-revision', '<revision>');
   // Agents read the board; writing board.md is left to a human.
   if (command.name === 'export board') args.push('--stdout');

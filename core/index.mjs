@@ -4,7 +4,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import * as fs from './fsx.mjs';
 import { checkedPath, openForRead, readChecked } from './paths.mjs';
 import { parseFile } from './frontmatter.mjs';
-import { classify, fingerprint } from './schema.mjs';
+import { classify, fingerprint, isRawPath } from './schema.mjs';
 import { foldTr, pathKey } from './text.mjs';
 import { revision } from './store.mjs';
 import { checkRuntime } from './runtime.mjs';
@@ -14,7 +14,7 @@ import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 
 await checkRuntime();
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 const MAX_SIZE = 5 * 1024 * 1024;
 const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
 const fresh = new WeakMap();
@@ -49,7 +49,7 @@ function transaction(db, fn) {
   }
 }
 
-const TABLES = ['meta', 'files', 'links', 'catalog', 'journal_entries', 'fts', 'targets', 'raw_digests'];
+const TABLES = ['meta', 'files', 'links', 'catalog', 'journal_entries', 'fts', 'targets', 'raw_digests', 'raw_docs'];
 
 function createSchema(db, schema) {
   transaction(db, () => createTables(db, schema));
@@ -80,11 +80,12 @@ function createTables(db, schema) {
       CREATE TABLE journal_entries(path TEXT, date TEXT, heading TEXT, label TEXT, type TEXT,
         line INTEGER, text TEXT, links_json TEXT, processed INTEGER);
       CREATE INDEX journal_path ON journal_entries(path);
-      CREATE VIRTUAL TABLE fts USING fts5(path UNINDEXED, title, body, tokenize='unicode61');
+      CREATE VIRTUAL TABLE fts USING fts5(path UNINDEXED, type UNINDEXED, title, body, tokenize='unicode61');
       CREATE TABLE targets(path TEXT PRIMARY KEY, name TEXT, mtime_ms REAL, ctime_ms REAL,
         size INTEGER, ino TEXT, hash TEXT);
       CREATE INDEX targets_name ON targets(name);
       CREATE TABLE raw_digests(path TEXT PRIMARY KEY, mtime_ms REAL, ctime_ms REAL, size INTEGER, ino TEXT, sha256 TEXT);
+      CREATE TABLE raw_docs(path TEXT PRIMARY KEY, mtime_ms REAL, ctime_ms REAL, size INTEGER, ino TEXT, sha256 TEXT, text_ok INTEGER);
     `);
     const insert = db.prepare('INSERT INTO meta VALUES (?, ?)');
     insert.run('schema_version', String(SCHEMA_VERSION));
@@ -194,7 +195,10 @@ export function openIndex(ctx) {
   }
 }
 
-function inventory(ctx, skipped) {
+// Raw sources (wiki spec §5) are searchable text, never pages: `.md` and `.txt` files under `raw/` or `sourceRoots`.
+const rawText = (ctx, path) => /\.(?:md|txt)$/iu.test(path) && isRawPath(ctx.schema, path);
+
+function inventory(ctx, skipped, raw = []) {
   const found = [];
   checkedPath(ctx.root, '.index-probe');
   function walk(dir, prefix, quiet = false) {
@@ -211,7 +215,8 @@ function inventory(ctx, skipped) {
         const internal = quiet || entry.name.startsWith('.');
         walk(checkedPath(ctx.root, path), `${path}/`, internal);
       } else if (!entry.isFile() || !/\.md$/iu.test(entry.name)) {
-        if (!quiet) skipped.push({ path, reason: 'not-markdown' });
+        if (!quiet && entry.isFile() && rawText(ctx, path)) rawStat(raw, path, abs, skipped);
+        else if (!quiet) skipped.push({ path, reason: 'not-markdown' });
       } else {
         try {
           const classification = classify(ctx.schema, path, null);
@@ -223,6 +228,7 @@ function inventory(ctx, skipped) {
           found.push({ path, name: fileName(path), mtime_ms: stat.mtimeMs, ctime_ms: stat.ctimeMs,
             // NTFS file ids exceed 2^53, which SQLite would refuse to hand back as a JavaScript number.
             size: stat.size, ino: String(stat.ino), ignored: !!classification.ignored });
+          if (!quiet && rawText(ctx, path)) raw.push({ ...found.at(-1) });
         } catch (error) {
           if (error.code !== 'unsafe_path') throw error;
           skipped.push({ path, reason: 'unsafe-path' });
@@ -231,8 +237,55 @@ function inventory(ctx, skipped) {
     }
   }
   walk(ctx.root, '');
+  raw.sort((a, b) => a.path.localeCompare(b.path));
   return found.sort((a, b) => a.path.localeCompare(b.path));
 }
+
+function rawStat(raw, path, abs, skipped) {
+  const stat = fs.lstatSync(abs);
+  if (stat.isSymbolicLink() || !stat.isFile()) return void skipped.push({ path, reason: 'symlink' });
+  raw.push({ path, mtime_ms: stat.mtimeMs, ctime_ms: stat.ctimeMs, size: stat.size, ino: String(stat.ino) });
+}
+
+// Only a raw source whose stat changed is read again. Oversized files are recorded from their stat alone, and text that
+// is not UTF-8 is recorded but never searchable (`text_ok = 0`).
+function collectRaw(ctx, items, previous, verify, skipped) {
+  const changes = [];
+  for (const item of items) {
+    if (!verify && sameStat(item, previous.get(item.path))) continue;
+    if (item.size > MAX_SIZE) {
+      changes.push({ ...item, sha256: null, text: null });
+      continue;
+    }
+    let bytes;
+    let fd;
+    try {
+      fd = openForRead(ctx.root, item.path);
+      const stat = fs.fstatSync(fd);
+      bytes = stat.size <= MAX_SIZE ? fs.readFileSync(fd) : null;
+    } catch (error) {
+      if (!['ENOENT', 'unsafe_path', 'not_found'].includes(error.code)) throw error;
+      skipped.push({ path: item.path, reason: 'changed' });
+      continue;
+    } finally {
+      if (fd !== undefined) fs.closeSync(fd);
+    }
+    if (bytes === null) {
+      changes.push({ ...item, sha256: null, text: null });
+      continue;
+    }
+    let text = null;
+    try {
+      text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+    } catch {
+      // Not UTF-8: recorded, never searchable.
+    }
+    changes.push({ ...item, sha256: createHash('sha256').update(bytes).digest('hex'), text });
+  }
+  return changes;
+}
+
+const rawTitle = (path) => basename(path).replace(/\.(?:md|txt)$/iu, '');
 
 function readSource(ctx, item) {
   const fd = openForRead(ctx.root, item.path);
@@ -284,9 +337,10 @@ function sourceData(ctx, item, source) {
 
 const sameStat = (a, b) => b && ['mtime_ms', 'ctime_ms', 'size', 'ino'].every((key) => a[key] === b[key]);
 
-function collect(ctx, previous = new Map(), verify = false) {
+function collect(ctx, previous = new Map(), verify = false, { raw = true, previousRaw = new Map() } = {}) {
   const skipped = [];
-  const items = inventory(ctx, skipped);
+  const rawItems = [];
+  const items = inventory(ctx, skipped, rawItems);
   const changes = [];
   for (const item of items) {
     if (item.size > MAX_SIZE && !item.ignored) {
@@ -324,12 +378,13 @@ function collect(ctx, previous = new Map(), verify = false) {
     }
     changes.push({ item, hash, data });
   }
-  return { items, changes, skipped };
+  return { items, changes, skipped, rawItems,
+    rawChanges: raw ? collectRaw(ctx, rawItems, previousRaw, verify, skipped) : [] };
 }
 
 function removeSource(db, path) {
   db.prepare('DELETE FROM files WHERE path = ?').run(path);
-  db.prepare('DELETE FROM fts WHERE path = ?').run(path);
+  db.prepare("DELETE FROM fts WHERE path = ? AND type IS NOT 'raw'").run(path);
   db.prepare('DELETE FROM links WHERE src_path = ?').run(path);
   db.prepare('DELETE FROM journal_entries WHERE path = ?').run(path);
 }
@@ -352,13 +407,29 @@ function saveSource(db, ctx, item, hash, data) {
     .run(row.path, row.type, row.kind, row.id, item.mtime_ms, item.ctime_ms, item.size, item.ino, hash,
       row.title, JSON.stringify(row.data), row.acceptance.done, row.acceptance.total, row.error,
       Number(row.untitled), row.conflicts.length ? JSON.stringify(row.conflicts) : null, Number(!!row.badEncoding));
-  if (!row.badEncoding) db.prepare('INSERT INTO fts VALUES (?, ?, ?)').run(row.path, foldTr(row.title), foldTr(row.body ?? ''));
+  if (!row.badEncoding) db.prepare('INSERT INTO fts VALUES (?, ?, ?, ?)').run(row.path, row.type, foldTr(row.title), foldTr(row.body ?? ''));
   const linkInsert = db.prepare('INSERT INTO links VALUES (?, ?, ?, ?, NULL, ?, ?, ?)');
   for (const link of data.links) linkInsert.run(row.path, link.field, link.expr, nameKey(link.targetName), 'unresolved', link.heading, link.line);
   const entryInsert = db.prepare('INSERT INTO journal_entries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
   const date = row.data.date ?? basename(row.path, '.md');
   for (const entry of data.entries) entryInsert.run(row.path, String(date), entry.heading, entry.label,
     entry.type, entry.line, entry.text, JSON.stringify(entry.links), Number(entry.processed));
+}
+
+function saveRaw(db, collected) {
+  const present = new Set(collected.rawItems.map((item) => item.path));
+  const removeRaw = (path) => {
+    db.prepare('DELETE FROM raw_docs WHERE path = ?').run(path);
+    db.prepare("DELETE FROM fts WHERE path = ? AND type = 'raw'").run(path);
+  };
+  for (const { path } of db.prepare('SELECT path FROM raw_docs').all()) if (!present.has(path)) removeRaw(path);
+  const insert = db.prepare('INSERT INTO raw_docs VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const text = db.prepare("INSERT INTO fts VALUES (?, 'raw', ?, ?)");
+  for (const item of collected.rawChanges) {
+    removeRaw(item.path);
+    insert.run(item.path, item.mtime_ms, item.ctime_ms, item.size, item.ino, item.sha256, Number(item.text !== null));
+    if (item.text !== null) text.run(item.path, foldTr(rawTitle(item.path)), foldTr(item.text));
+  }
 }
 
 export function resolver(paths) {
@@ -406,7 +477,8 @@ export function refresh(ctx, { verify = false } = {}) {
     const db = index.db;
     // Walking and reading files happens outside the write lock; only applying the result holds it.
     const previous = new Map(db.prepare('SELECT * FROM targets').all().map((item) => [item.path, item]));
-    const collected = collect(ctx, previous, verify);
+    const previousRaw = new Map(db.prepare('SELECT * FROM raw_docs').all().map((item) => [item.path, item]));
+    const collected = collect(ctx, previous, verify, { previousRaw });
     const result = transaction(db, () => {
       const current = new Set(db.prepare('SELECT path FROM targets').all().map((item) => item.path));
       const result = { ...emptyResult(), skipped: collected.skipped };
@@ -435,6 +507,7 @@ export function refresh(ctx, { verify = false } = {}) {
         }
       }
       resolveLinks(db, affected, changedSources);
+      saveRaw(db, collected);
       fresh.set(ctx, stamp(ctx, db));
       return result;
     });
@@ -482,10 +555,11 @@ function rowFrom(ctx, item) {
     ...(classification.unknownKind === undefined ? {} : { unknownKind: classification.unknownKind }) };
 }
 
-function snapshot(ctx) {
-  const collected = collect(ctx);
+function snapshot(ctx, { raw = false } = {}) {
+  const collected = collect(ctx, new Map(), false, { raw });
   const resolveTarget = resolver(collected.items.map((item) => item.path));
-  const result = { rows: [], links: [], entries: [] };
+  const result = { rows: [], links: [], entries: [],
+    raw: collected.rawChanges.filter((item) => item.text !== null).map((item) => ({ path: item.path, title: rawTitle(item.path), body: item.text })) };
   for (const { item, hash, data } of collected.changes) {
     if (!data?.row) continue;
     result.rows.push({ ...data.row, revision: hash });
@@ -496,7 +570,7 @@ function snapshot(ctx) {
   return result;
 }
 
-function query(ctx, indexed, fallback) {
+function query(ctx, indexed, fallback, snapshotOptions) {
   let index;
   try {
     if (ensureFresh(ctx)) {
@@ -505,7 +579,7 @@ function query(ctx, indexed, fallback) {
       if (fresh.get(ctx) !== stamp(ctx, index.db)) {
         index.close();
         index = undefined;
-        if (!ensureFresh(ctx)) return fallback(snapshot(ctx));
+        if (!ensureFresh(ctx)) return fallback(snapshot(ctx, snapshotOptions));
         index = openIndex(ctx);
       }
       return indexed(index.db);
@@ -517,7 +591,7 @@ function query(ctx, indexed, fallback) {
   } finally {
     index?.close();
   }
-  return fallback(snapshot(ctx));
+  return fallback(snapshot(ctx, snapshotOptions));
 }
 
 // Strict access for commands that must not fall back to scanning files (`wiki lint`, `wiki index`): the cache is
@@ -586,16 +660,33 @@ export function journalEntries(ctx, { type, unprocessed = false, since } = {}) {
   }).filter(matches), (data) => data.entries.filter(matches).sort((a, b) => a.date.localeCompare(b.date) || a.path.localeCompare(b.path) || a.line - b.line));
 }
 
-export function search(ctx, q, { type, limit = 20 } = {}) {
-  const terms = foldTr(q).match(/[\p{L}\p{N}]+/gu) ?? [];
+export const SEARCH_TYPES = Object.freeze(['project', 'card', 'note', 'research', 'journal', 'raw']);
+
+/**
+ * Full-text search. Pages by default (optionally one `type`); `type: 'raw'` searches raw sources instead (wiki spec §5),
+ * which are never pages. All terms must match, or any term with `any` (ranked by relevance).
+ */
+export function search(ctx, q, { type, limit = 20, any = false } = {}) {
+  const terms = [...new Set(foldTr(q).match(/[\p{L}\p{N}]+/gu) ?? [])];
   if (!terms.length) return [];
   limit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 20;
-  const match = terms.map((term) => `"${term}"`).join(' AND ');
-  return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.id, files.title, snippet(fts, 2, '', '', '…', 24) AS snippet
-    FROM fts JOIN files ON files.path = fts.path WHERE fts MATCH ? AND (? IS NULL OR type = ?)
+  const match = terms.map((term) => `"${term}"`).join(any ? ' OR ' : ' AND ');
+  const hit = (title, body) => {
+    const words = new Set(foldTr(`${title}\n${body ?? ''}`).match(/[\p{L}\p{N}]+/gu));
+    return any ? terms.some((term) => words.has(term)) : terms.every((term) => words.has(term));
+  };
+  if (type === 'raw') {
+    return query(ctx, (db) => db.prepare(`SELECT path, title, snippet(fts, 3, '', '', '…', 24) AS snippet
+      FROM fts WHERE fts MATCH ? AND type = 'raw' ORDER BY rank, path LIMIT ?`).all(match, limit)
+      .map((row) => ({ path: row.path, type: 'raw', id: null, ref: null, title: rawTitle(row.path), snippet: row.snippet })),
+    (data) => data.raw.filter((row) => hit(row.title, row.body)).slice(0, limit)
+      .map(({ path, title, body }) => ({ path, type: 'raw', id: null, ref: null, title, snippet: foldTr(body).slice(0, 160) })),
+    { raw: true });
+  }
+  return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.id, files.title, snippet(fts, 3, '', '', '…', 24) AS snippet
+    FROM fts JOIN files ON files.path = fts.path WHERE fts MATCH ? AND fts.type IS NOT 'raw' AND (? IS NULL OR files.type = ?)
     ORDER BY rank, files.path LIMIT ?`).all(match, type ?? null, type ?? null, limit)
-    .map((row) => ({ ...row, ref: row.id ?? `@${row.path.replace(/\.md$/iu, '')}` })), (data) => data.rows.filter((row) => {
-    const words = new Set(foldTr(`${row.title}\n${row.body ?? ''}`).match(/[\p{L}\p{N}]+/gu));
-    return (type === undefined || row.type === type) && terms.every((term) => words.has(term));
-  }).slice(0, limit).map(({ path, type, id, ref, title, body }) => ({ path, type, id, ref, title, snippet: foldTr(body ?? '').slice(0, 160) })));
+    .map((row) => ({ ...row, ref: row.id ?? `@${row.path.replace(/\.md$/iu, '')}` })), (data) => data.rows.filter((row) =>
+    (type === undefined || row.type === type) && hit(row.title, row.body))
+    .slice(0, limit).map(({ path, type, id, ref, title, body }) => ({ path, type, id, ref, title, snippet: foldTr(body ?? '').slice(0, 160) })));
 }

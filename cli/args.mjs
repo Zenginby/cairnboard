@@ -27,7 +27,7 @@ export function parse(argv) {
     if (command.name === 'journal add') values.entries = tokens
       .filter((token) => token.kind === 'option' && ['decision', 'discovery', 'pitfall', 'lesson', 'item'].includes(token.name))
       .map(({ name, value }) => ({ type: name === 'item' ? null : name, text: value }));
-    return { command, args, opts: { ...values, 'max-bytes': Number(maxBytes) } };
+    return { command, args, opts: { ...values, 'max-bytes': Number(maxBytes), maxBytesSet: values['max-bytes'] !== undefined } };
   } catch (error) {
     if (error instanceof CairnError) throw error;
     if (error.code?.startsWith('ERR_PARSE_ARGS')) throw usage('Invalid command options.');

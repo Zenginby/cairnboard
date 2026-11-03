@@ -16,7 +16,8 @@ import { PRESETS } from '../../core/presets.mjs';
 import { exportBoard } from '../../core/export.mjs';
 import { CairnError } from '../../core/errors.mjs';
 import { toJson } from '../output.mjs';
-import { readBody } from '../body.mjs';
+import { readBody, readFileBytes, readStdinBytes } from '../body.mjs';
+import { ingest, MAX_INPUT } from '../../core/ingest.mjs';
 
 const mutationOptions = (opts) => ({ ifRevision: opts['if-revision'], dryRun: opts['dry-run'] === true });
 const environment = (io) => ({ home: io.env.HOME ?? io.env.USERPROFILE, env: io.env,
@@ -136,6 +137,23 @@ export function writeCommands({ string, boolean }) {
       ref: `@${changed.path.slice(0, -3)}`, title: date, data: { date } });
   });
 
+  add('ingest', 'Store a raw source and an unprocessed research record in one operation.', [], {
+    title: string('Set the source title.'), file: string('Read the source from a .md or .txt file relative to cwd.'),
+    body: string('Read the source from stdin; accepts only -.'), url: string('Record the source url (never fetched).'),
+    date: string('Set the source date, YYYY-MM-DD; defaults to today.'), into: string('Store under this raw/ subfolder.'),
+  }, async (ctx, args, opts, io) => {
+    if (opts.title === undefined) throw new CairnError('usage', 'ingest needs --title.');
+    if ((opts.file === undefined) === (opts.body === undefined)) throw new CairnError('usage', 'Choose --file or --body -.');
+    // --max-bytes lowers the 5 MB input limit only when given; its default bounds output text.
+    const limit = opts.maxBytesSet ? Math.min(opts['max-bytes'], MAX_INPUT) : MAX_INPUT;
+    if (opts.file !== undefined && !/\.(?:md|txt)$/iu.test(opts.file)) throw new CairnError('validation', 'Only .md and .txt files can be ingested.');
+    const bytes = opts.file !== undefined ? readFileBytes(io, opts.file, limit, 'Source') : await readStdinBytes(io, limit, 'Source');
+    if (opts.project === undefined && opts.linkedProjectError) throw opts.linkedProjectError;
+    const done = ingest(ctx, { title: opts.title, bytes, url: opts.url, date: opts.date, into: opts.into,
+      project: opts.project ?? opts.linkedProject, maxBytes: limit }, mutationOptions(opts));
+    const { raw, research, input_sha256, duplicate, todo, related } = done;
+    return { data: { raw, research, input_sha256, duplicate, todo, related }, warnings: done.warnings };
+  });
   add('trash restore', 'Restore a trash item.', ['<id>'], {}, (ctx, [id], opts) => {
     const changed = trash.restore(ctx, id, mutationOptions(opts));
     const text = readChecked(ctx.root, `.cairn/trash/${id}`, 'utf8');

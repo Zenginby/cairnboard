@@ -22,7 +22,7 @@ export async function runCli(args, opts = {}) {
   let stdout = '', stderr = '';
   const code = await main(args, {
     env: environment(opts), cwd: opts.cwd ?? opts.home ?? process.cwd(), isTTY: opts.isTTY ?? false,
-    stdin: typeof opts.stdin === 'object' ? opts.stdin : Readable.from([opts.stdin ?? '']),
+    stdin: typeof opts.stdin === 'object' && !Buffer.isBuffer(opts.stdin) ? opts.stdin : Readable.from([opts.stdin ?? '']),
     stdout: { write: (text) => { stdout += text; } },
     stderr: { write: (text) => { stderr += text; } }, clock: opts.clock,
   });
