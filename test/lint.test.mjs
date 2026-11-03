@@ -297,6 +297,8 @@ test('busy or unavailable index raises index_unavailable and never scans files',
   assert.throws(() => lint(stale), (error) => error.code === 'index_unavailable' && error.exit === 1);
   assert.throws(() => wikiIndex(stale), (error) => error.code === 'index_unavailable');
   blocker.exec('ROLLBACK');
+  // Close before the temp folder's cleanup hook, which runs first: Windows cannot delete an open database.
+  blocker.close();
   assert.doesNotThrow(() => lint(stale));
 });
 
@@ -329,6 +331,8 @@ test('wiki lint and wiki index exit 1 with index_unavailable when the cache is l
     assert.equal(result.code, 1, command.join(' '));
     assert.equal(result.json.error.code, 'index_unavailable');
   }
+  blocker.exec('ROLLBACK');
+  blocker.close();
 });
 
 test('wiki index reads only through the strict cache callback, never the fallback readers', () => {

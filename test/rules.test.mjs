@@ -208,5 +208,7 @@ test('links: an unusable index skips a warn rule but fails closed for an error r
     if (severity === 'warn') assert.deepEqual(names(checkPage(stale, draft).warnings), ['links_skipped']);
     else assert.throws(() => checkPage(stale, draft), (error) => error.code === 'index_unavailable' && error.exit === 1);
     blocker.exec('ROLLBACK');
+    // Close before the temp folder's cleanup hook, which runs first: Windows cannot delete an open database.
+    blocker.close();
   }
 });
