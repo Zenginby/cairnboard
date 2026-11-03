@@ -136,6 +136,13 @@ test('paths with short upper-case words are not tokens, long upper-case runs sti
   assert.deepEqual(scanText('JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP', { file: 'x' }).map((f) => f.rule), ['token']); // gitleaks:allow (fake test token) cairn-scan:allow-fixture
 });
 
+test('a diff marker before a repository path is not part of a token', () => {
+  for (const line of ['+src/styles/fonts/inter-latin-ext-wght-normal.woff2', '    -src/styles/fonts/inter-latin-wght-normal.woff2', "['+src/styles/fonts/inter-latin-ext-wght-normal.woff2']"]) {
+    assert.deepEqual(scanText(line, { file: 'x' }), [], line);
+  }
+  assert.deepEqual(scanText('+AbCdEf0123_GhIjKl4567-MnOpQr89StUvWx', { file: 'x' }).map((f) => f.rule), ['token']); // gitleaks:allow (fake test token) cairn-scan:allow-fixture
+});
+
 test('quoted allowed addresses stay allowed', () => {
   for (const line of ["'noreply@anthropic.com'", '"x@example.com"', '`1+zorblax@users.noreply.github.com`']) {
     assert.deepEqual(scanText(line, { file: 'x' }), [], line);

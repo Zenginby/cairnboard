@@ -12,6 +12,20 @@ const allowlistPath = 'security/binary-allowlist.txt';
 
 const lines = (text) => text.split('\n').filter(Boolean);
 
+// Reviewed binaries (security/binary-allowlist.txt) are exempt by path; their raw bytes, dumped by --text, are not text
+// and would match the text rules at random. Their diff sections are blanked line for line so line numbers stay true;
+// message lines are indented, so they cannot pose as a diff header.
+function withoutAllowedBinaries(text, allowed) {
+  let skip = false;
+  return text.split('\n').map((line) => {
+    if (line.startsWith('diff --git ')) {
+      const paths = /^diff --git a\/(.*) b\/(.*)$/.exec(line);
+      skip = Boolean(paths) && allowed.has(paths[1]) && allowed.has(paths[2]);
+    }
+    return skip ? '' : line;
+  }).join('\n');
+}
+
 export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdentities = [], github = false }) {
   const { terms } = loadDenylist(denylistPath);
   const findings = [];
@@ -79,7 +93,7 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
       const [hash, ...rest] = chunk.split('\n');
       const file = `commit:${hash.slice(0, 12)}`;
       // Messages are indented (%w) so a message line can never pass for a diff header and unlock the fixture marker.
-      const text = rest.join('\n');
+      const text = withoutAllowedBinaries(rest.join('\n'), allowed);
       findings.push(...scanLines(text, fixtureLines(text), { file, terms, allowIdentities }));
       for (const line of [2, 4]) {
         const email = rest[line - 1]?.trim();

@@ -122,6 +122,23 @@ test('binary file is reported until it is on the binary allowlist', () => {
   assert.deepEqual(check(cwd), { findings: [], errors: [] });
 });
 
+test('allowlisted binary patches are not scanned as text, other files in the same commit still are', () => {
+  const cwd = makeRepo();
+  mkdirSync(join(cwd, 'security'));
+  writeFileSync(join(cwd, 'security', 'binary-allowlist.txt'), 'font.woff2\n');
+  // Raw font bytes can look like an address or a token once a binary patch is read as text.
+  writeFileSync(join(cwd, 'font.woff2'), Buffer.concat([Buffer.from([0x77, 0x4f, 0x46, 0x32, 0x00]), Buffer.from('\nx@corp.test zorblax\n')])); // cairn-scan:allow-fixture
+  run(cwd, 'add', '.');
+  run(cwd, 'commit', '-q', '-m', 'font');
+  assert.deepEqual(check(cwd), { findings: [], errors: [] });
+  writeFileSync(join(cwd, 'font.woff2'), Buffer.concat([Buffer.from([0x77, 0x4f, 0x46, 0x32, 0x00]), Buffer.from('\ny@corp.test\n')])); // cairn-scan:allow-fixture
+  writeFileSync(join(cwd, 'notes.txt'), 'zorblax\n');
+  run(cwd, 'add', '.');
+  run(cwd, 'commit', '-q', '-m', 'font and notes');
+  assert.ok(check(cwd).findings.some((f) => f.file.startsWith('commit:') && f.rule.startsWith('denylist')));
+  assert.ok(!check(cwd).findings.some((f) => f.file.startsWith('commit:') && f.rule === 'email'));
+});
+
 test('missing CAIRN_DENYLIST exits 2', () => {
   const cwd = makeRepo();
   const proc = runCli(cwd, {});

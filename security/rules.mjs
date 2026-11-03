@@ -38,8 +38,9 @@ export const RULES = {
     if (/sha256/i.test(line) && !/[0-9a-f]{65,}/i.test(line) && /\b[0-9a-f]{64}\b/.test(line)
       && ![...line.matchAll(/[A-Za-z0-9+/_-]{32,}={0,2}/g)].some(([v]) => !/^[0-9a-f]{64}$/.test(v) && !/^sha(?:1|256|384|512)-/.test(v))) return false;
     const tokens = line.matchAll(/(?:sha(?:1|256|384|512)-)?[A-Za-z0-9+/_-]{32,}={0,2}/g);
+    // A diff marker glued to a path (+src/…) is not part of the identifier.
     return [...tokens].some(([value]) => !/^sha(?:1|256|384|512)-/.test(value)
-      && !value.split(/[-_/]+/).filter(Boolean).every((part) => /^(?:[A-Z]?[a-z]+\d*|[A-Z]{2,10}\d*|\d+[a-z]*|[a-z]+\d+[a-z]{1,3})$/.test(part)));
+      && !value.replace(/^[+-]+/, '').split(/[-_/]+/).filter(Boolean).every((part) => /^(?:[A-Z]?[a-z]+\d*|[A-Z]{2,10}\d*|\d+[a-z]*|[a-z]+\d+[a-z]{1,3})$/.test(part)));
   },
 
 };
