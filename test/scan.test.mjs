@@ -131,6 +131,11 @@ test('nested node_modules paths are not tokens', () => {
   assert.deepEqual(scanText(line, { file: 'x' }), [], line);
 });
 
+test('paths with short upper-case words are not tokens, long upper-case runs still are', () => {
+  assert.deepEqual(scanText('design/experiments/01-cssom-csp/README.md', { file: 'x' }), []);
+  assert.deepEqual(scanText('JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP', { file: 'x' }).map((f) => f.rule), ['token']); // gitleaks:allow (fake test token) cairn-scan:allow-fixture
+});
+
 test('quoted allowed addresses stay allowed', () => {
   for (const line of ["'noreply@anthropic.com'", '"x@example.com"', '`1+zorblax@users.noreply.github.com`']) {
     assert.deepEqual(scanText(line, { file: 'x' }), [], line);

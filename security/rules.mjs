@@ -39,7 +39,7 @@ export const RULES = {
       && ![...line.matchAll(/[A-Za-z0-9+/_-]{32,}={0,2}/g)].some(([v]) => !/^[0-9a-f]{64}$/.test(v) && !/^sha(?:1|256|384|512)-/.test(v))) return false;
     const tokens = line.matchAll(/(?:sha(?:1|256|384|512)-)?[A-Za-z0-9+/_-]{32,}={0,2}/g);
     return [...tokens].some(([value]) => !/^sha(?:1|256|384|512)-/.test(value)
-      && !value.split(/[-_/]+/).filter(Boolean).every((part) => /^(?:[A-Z]?[a-z]+\d*|\d+[a-z]*|[a-z]+\d+[a-z]{1,3})$/.test(part)));
+      && !value.split(/[-_/]+/).filter(Boolean).every((part) => /^(?:[A-Z]?[a-z]+\d*|[A-Z]{2,10}\d*|\d+[a-z]*|[a-z]+\d+[a-z]{1,3})$/.test(part)));
   },
 
 };
