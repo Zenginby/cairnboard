@@ -14,7 +14,7 @@ import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 
 await checkRuntime();
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 const MAX_SIZE = 5 * 1024 * 1024;
 const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
 const fresh = new WeakMap();
@@ -227,7 +227,7 @@ function inventory(ctx, skipped, raw = []) {
           }
           found.push({ path, name: fileName(path), mtime_ms: stat.mtimeMs, ctime_ms: stat.ctimeMs,
             // NTFS file ids exceed 2^53, which SQLite would refuse to hand back as a JavaScript number.
-            size: stat.size, ino: String(stat.ino), ignored: !!classification.ignored });
+            size: stat.size, ino: String(stat.ino), ignored: quiet || !!classification.ignored });
           if (!quiet && rawText(ctx, path)) raw.push({ ...found.at(-1) });
         } catch (error) {
           if (error.code !== 'unsafe_path') throw error;
@@ -552,6 +552,7 @@ function rowFrom(ctx, item) {
   const classification = classify(ctx.schema, item.path, data);
   return { path: item.path, type: item.type, kind: item.kind, id: item.id, ref: item.id ?? `@${item.path.replace(/\.md$/iu, '')}`,
     title: item.title, data, body: null, revision: item.hash, acceptance: { done: item.acc_done, total: item.acc_total }, error: item.error,
+    ...(item.bad_encoding ? { badEncoding: true } : {}),
     ...(classification.unknownKind === undefined ? {} : { unknownKind: classification.unknownKind }) };
 }
 
@@ -642,7 +643,8 @@ export function backlinks(ctx, path) {
 
 // FTS is only a candidate filter; callers verify literal phrases against the original visible lines.
 export function mentionCandidates(ctx, path, names) {
-  const phrases = names.map(foldTr);
+  const phrases = names.map(foldTr).filter((name) => name.trim());
+  if (!phrases.length) return [];
   const match = phrases.map((name) => `"${name.replace(/"/gu, '""')}"`).join(' OR ');
   // Punctuation-only names have no FTS tokens, so they need every otherwise eligible page.
   const all = phrases.some((name) => !/[\p{L}\p{N}]/u.test(name));
@@ -708,6 +710,6 @@ export function search(ctx, q, { type, limit = 20, any = false } = {}) {
     FROM fts JOIN files ON files.path = fts.path WHERE fts MATCH ? AND fts.type IS NOT 'raw' AND (? IS NULL OR files.type = ?)
     ORDER BY rank, files.path LIMIT ?`).all(match, type ?? null, type ?? null, limit)
     .map((row) => ({ ...row, ref: row.id ?? `@${row.path.replace(/\.md$/iu, '')}` })), (data) => data.rows.filter((row) =>
-    (type === undefined || row.type === type) && hit(row.title, row.body))
+    !row.badEncoding && (type === undefined || row.type === type) && hit(row.title, row.body))
     .slice(0, limit).map(({ path, type, id, ref, title, body }) => ({ path, type, id, ref, title, snippet: foldTr(body ?? '').slice(0, 160) })));
 }

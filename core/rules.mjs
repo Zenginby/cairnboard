@@ -49,7 +49,7 @@ export function filenameDefault(schema) {
 export const RULE_NAMES = Object.freeze(['required', 'sources', 'links', 'filename']);
 export const RULE_SEVERITIES = Object.freeze(['error', 'warn', 'off']);
 
-export const SOURCE_HEADING = /^ {0,3}##[ \t]+(?:sources|kaynaklar)[ \t]*#*[ \t]*$/u;
+export const SOURCE_HEADING = /^ {0,3}##[ \t]+(?:sources|kaynaklar)[ \t]*(?:#+[ \t]*)?$/u;
 
 // A `## Sources` (`## Kaynaklar`) heading outside code fences.
 export function hasSourcesSection(body) {

@@ -111,6 +111,7 @@ export function ingest(ctx, { title, bytes, url, date, into, project, maxBytes }
       projectRef = found.id ?? found.ref;
     }
     const header = `${url === undefined ? '' : `Source: ${url}\n`}Date: ${day}\n\n`;
+    if (Buffer.byteLength(header) + bytes.length > MAX_INPUT) throw invalid(`Stored source is larger than ${MAX_INPUT} bytes.`);
     const stored = Buffer.concat([Buffer.from(header), bytes]);
     const rawPath = `${folder}/${uniqueName(names(ctx, folder), `${day}-${slugify(title)}`)}.md`;
     if (!isRawPath(ctx.schema, rawPath)) throw invalid('The raw folder must be raw/ or a folder under it.');

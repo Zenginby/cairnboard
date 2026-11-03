@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Fix review findings: wiki classification, text matching, bounded reads, indexing, mentions and repeatable source/code options.
 - Add `mentions`: pages that name a note without linking to it (Turkish folding, word boundaries,
   code and existing links skipped), and `--link path:line` to convert one mention with confirmation and undo.
   The skill lists mentions after saving a note. 5,000 pages: ~30 ms of its own on top of the shared index freshness check.

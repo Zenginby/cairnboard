@@ -1,4 +1,5 @@
 import { parseFile } from './frontmatter.mjs';
+import { foldTr } from './text.mjs';
 
 export function* visibleLines(text) {
   const file = parseFile(text);
@@ -156,9 +157,9 @@ export function parseJournal(text, entryTypes) {
       current = { heading, label, type: null, line, text: item[1], links: [], processed: false };
       const prefix = current.text.match(/^(?:\*\*([^*]+):\*\*|\*\*([^*]+)\*\*:|([^:]+):)\s*/u);
       if (prefix) {
-        const name = (prefix[1] ?? prefix[2] ?? prefix[3]).trim().toLocaleLowerCase('tr');
+        const name = foldTr((prefix[1] ?? prefix[2] ?? prefix[3]).trim());
         for (const type of ['decision', 'discovery', 'pitfall', 'lesson']) {
-          if ((entryTypes[type] ?? []).some((value) => value.toLocaleLowerCase('tr') === name)) current.type = type;
+          if ((entryTypes[type] ?? []).some((value) => foldTr(value) === name)) current.type = type;
         }
         if (current.type) current.text = current.text.slice(prefix[0].length);
       }

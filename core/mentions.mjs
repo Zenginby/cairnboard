@@ -5,7 +5,7 @@ import { requireCardOwner, resolve } from './entity.mjs';
 import { extract } from './extract.mjs';
 import { assertRules, checkPage, ruleWarnings } from './check.mjs';
 import { mentionCandidates, withIndex } from './index.mjs';
-import { visibleLines, withoutCode } from './links.mjs';
+import { linkTarget, visibleLines, withoutCode } from './links.mjs';
 import { openForRead, safeRelative } from './paths.mjs';
 import { foldTr, pathKey } from './text.mjs';
 import { revision, write } from './store.mjs';
@@ -24,6 +24,9 @@ function namesOf(target) {
 function linkName(ctx, path) {
   const full = path.replace(/\.md$/iu, '');
   const name = basename(full);
+  if (linkTarget(name).targetName !== name.normalize('NFC')) {
+    return linkTarget(full).targetName === full.normalize('NFC') ? full : path;
+  }
   try {
     return withIndex(ctx, (db) => {
       const paths = db.prepare('SELECT path FROM targets WHERE name = ?').all(pathKey(name));
@@ -83,8 +86,50 @@ function lineMatches(visible, names) {
   return matches;
 }
 
+// Tabs advance to four-column stops. List content indentation is measured in the same columns.
+function columns(text, start = 0) {
+  let column = start;
+  for (const char of text) column += char === '\t' ? 4 - column % 4 : 1;
+  return column;
+}
+
+function* mentionLines(text) {
+  const lists = [];
+  let blank = true;
+  let codeIndent = null;
+  let previous = 0;
+  for (const item of visibleLines(text)) {
+    const { content, line } = item;
+    if (previous && line !== previous + 1) {
+      lists.length = 0;
+      codeIndent = null;
+      blank = true;
+    }
+    previous = line;
+    if (!content.trim()) {
+      blank = true;
+      continue;
+    }
+    const space = content.match(/^[ \t]*/u)[0];
+    const indent = columns(space);
+    if (codeIndent !== null && indent >= codeIndent) continue;
+    codeIndent = null;
+    while (lists.length && indent < lists.at(-1)) lists.pop();
+    const base = lists.at(-1) ?? 0;
+    // Indented code cannot interrupt a paragraph, and a list's content indentation is not code indentation.
+    if (blank && indent >= base + 4) {
+      codeIndent = base + 4;
+      continue;
+    }
+    const marker = content.slice(space.length).match(/^(?:[-+*]|\d{1,9}[.)])([ \t]+)/u);
+    if (marker && indent < base + 4) lists.push(columns(marker[0], indent));
+    blank = /^ {0,3}#{1,6}(?:[ \t]|$)/u.test(content);
+    yield item;
+  }
+}
+
 function scan(text, names) {
-  const lines = [...visibleLines(text)];
+  const lines = [...mentionLines(text)];
   const body = text.split('\n').map(() => '');
   for (const { content, line } of lines) body[line - 1] = content;
   const visible = withoutCode(body.join('\n'))

@@ -1520,6 +1520,11 @@
           "type": "string",
           "summary": "Set the source."
         },
+        "sources": {
+          "type": "string",
+          "summary": "Set sources; repeat for multiple sources.",
+          "multiple": true
+        },
         "pin": {
           "type": "boolean",
           "summary": "Pin the note."
@@ -1538,7 +1543,8 @@
         },
         "code": {
           "type": "string",
-          "summary": "Set the wiki code."
+          "summary": "Set code paths; repeat for multiple paths.",
+          "multiple": true
         }
       },
       "mode": "write",
@@ -1613,6 +1619,11 @@
           "type": "string",
           "summary": "Set the source."
         },
+        "sources": {
+          "type": "string",
+          "summary": "Set sources; repeat for multiple sources.",
+          "multiple": true
+        },
         "pin": {
           "type": "boolean",
           "summary": "Pin the note."
@@ -1631,7 +1642,8 @@
         },
         "code": {
           "type": "string",
-          "summary": "Set the wiki code."
+          "summary": "Set code paths; repeat for multiple paths.",
+          "multiple": true
         }
       },
       "mode": "write",
@@ -1752,6 +1764,11 @@
           "type": "string",
           "summary": "Set the source."
         },
+        "sources": {
+          "type": "string",
+          "summary": "Set sources; repeat for multiple sources.",
+          "multiple": true
+        },
         "date": {
           "type": "string",
           "summary": "Set the research date."
@@ -1836,6 +1853,11 @@
         "source": {
           "type": "string",
           "summary": "Set the source."
+        },
+        "sources": {
+          "type": "string",
+          "summary": "Set sources; repeat for multiple sources.",
+          "multiple": true
         },
         "date": {
           "type": "string",

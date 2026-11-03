@@ -48,12 +48,12 @@ export function wikiIndex(ctx, { kind } = {}) {
   const pages = withIndex(ctx, (db) => {
     const outs = db.prepare('SELECT COUNT(*) AS n FROM links WHERE src_path = ?');
     const ins = db.prepare(`SELECT COUNT(*) AS n FROM (SELECT DISTINCT src_path, line, field FROM links WHERE target_path = ?)`);
-    return db.prepare("SELECT path, kind, title FROM files WHERE type = 'note' AND kind != 'note' ORDER BY path").all()
+    return db.prepare("SELECT path, kind, title, error, bad_encoding FROM files WHERE type = 'note' AND kind != 'note' ORDER BY path").all()
       .filter((row) => kind === undefined || row.kind === kind)
       .map((row) => ({ ...row, out: outs.get(row.path).n, in: ins.get(row.path).n }));
   });
   const entries = pages.map((row) => {
-    const file = readFile(ctx, row.path);
+    const file = row.error === 'too-large' || row.bad_encoding ? null : readFile(ctx, row.path);
     return { path: row.path, kind: row.kind, title: row.title, summary: file ? firstSentence(parseFile(file.text).body) : '',
       out: row.out, in: row.in };
   });

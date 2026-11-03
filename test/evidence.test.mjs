@@ -22,9 +22,9 @@ const concept = (body, extra = '') => `---\nkind: concept\ntags: [a]\nupdated: 2
 
 test('normalizeForEvidence folds marks, quotes, dashes, spacing, case and Unicode form', () => {
   assert.equal(normalizeForEvidence('**Bold**  _text_\n> “Quoted” – ‘it’s’ — `x` | [a](b) #h'), 'bold text "quoted" - \'it\'s\' - x ab h');
-  assert.equal(normalizeForEvidence('İSTANBUL ISPARTA'), 'istanbul ısparta');
+  assert.equal(normalizeForEvidence('İSTANBUL ISPARTA'), 'istanbul isparta');
   assert.equal(normalizeForEvidence('é'), 'é');
-  assert.equal(normalizeForEvidence('„alıntı”'), '"alıntı"');
+  assert.equal(normalizeForEvidence('„alıntı”'), '"alinti"');
 });
 
 test('extractClaims finds quotes of at least four words and number patterns with their lines', () => {
