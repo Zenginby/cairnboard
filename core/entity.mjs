@@ -9,7 +9,7 @@ import { classify, readCanonical, physicalPatch, destination, isRawPath } from '
 import { extract } from './extract.mjs';
 import { ensureFresh, rows, findById } from './index.mjs';
 import { readFile, revision, write } from './store.mjs';
-import { withLock } from './lock.mjs';
+import { retryWhileLocked, withLock } from './lock.mjs';
 import { keyBetween } from './position.mjs';
 
 /** @typedef {{ type: string, kind: string|null, id: string|null, ref: string, path: string,
@@ -127,16 +127,8 @@ function directoryLock(ctx, folder, opts, fn) {
   if (opts.dryRun === true || ctx.mode === 'dry-run') return fn();
   if (ctx.mode !== 'write') throw new CairnError('internal', 'Mutations require write mode.');
   const name = 'd-' + createHash('sha1').update(pathKey(folder)).digest('hex').slice(0, 16);
-  for (let attempt = 0; ; attempt++) {
-    let entered = false;
-    try {
-      return withLock(ctx, name, () => { entered = true; return fn(); });
-    } catch (error) {
-      if (entered || error.code !== 'locked' || attempt === 9) throw error;
-      // Contending creators must choose their names after the previous creator has committed.
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.min(200, 20 * (attempt + 1)));
-    }
-  }
+  // Contending creators must choose their names after the previous creator has committed.
+  return retryWhileLocked((state) => withLock(ctx, name, () => { state.entered = true; return fn(); }));
 }
 
 function names(ctx, folder) {

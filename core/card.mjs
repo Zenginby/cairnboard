@@ -1,5 +1,6 @@
 import { CairnError } from './errors.mjs';
 import * as entity from './entity.mjs';
+import { retryWhileLocked } from './lock.mjs';
 import { parseFile, setFields, appendToSection, setAcceptance, acceptanceCounts } from './frontmatter.mjs';
 import { physicalPatch } from './schema.mjs';
 import { extract } from './extract.mjs';
@@ -90,34 +91,30 @@ function mutate(ctx, ref, op, change, opts, retryClaim = false) {
   actorName(ctx);
   const initial = entity.resolve(ctx, 'card', ref);
   writable(ctx, initial);
-  for (let attempt = 0; ; attempt++) {
-    let entered = false, card, warnings = [];
+  // Wait only for acquisition: the loser must inspect the winner's committed owner under the file lock.
+  const attempt = (state) => {
+    let card, warnings = [];
     const extra = {};
-    try {
-      const result = write(ctx, { ...opts, path: initial.path, target: initial.ref, op, extra, apply: (text) => {
-        entered = true;
-        if (text === null) throw new CairnError('not_found', 'Card was not found.');
-        const current = summary(ctx, initial.path, text);
-        writable(ctx, current);
-        const decision = change(text, current);
-        const patch = { ...decision.patch, updated: ctx.clock.now().toISOString() };
-        if (current.id === null) {
-          do { patch.id = newId('c'); } while (findById(ctx, patch.id).length);
-        }
-        entity.validate('card', { ...current.data, title: current.title, ...patch });
-        const after = setFields(decision.text ?? text, physicalPatch(ctx.schema, parseFile(text).data, patch));
-        card = summary(ctx, initial.path, after);
-        warnings = [...card.warnings, ...(decision.warnings ?? [])];
-        Object.assign(extra, decision.extra);
-        return after;
-      } });
-      return { ...result, entity: card, warnings };
-    } catch (error) {
-      if (!retryClaim || entered || error.code !== 'locked' || attempt === 9) throw error;
-      // Wait only for acquisition: the loser must inspect the winner's committed owner under the file lock.
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.min(200, 20 * (attempt + 1)));
-    }
-  }
+    const result = write(ctx, { ...opts, path: initial.path, target: initial.ref, op, extra, apply: (text) => {
+      state.entered = true;
+      if (text === null) throw new CairnError('not_found', 'Card was not found.');
+      const current = summary(ctx, initial.path, text);
+      writable(ctx, current);
+      const decision = change(text, current);
+      const patch = { ...decision.patch, updated: ctx.clock.now().toISOString() };
+      if (current.id === null) {
+        do { patch.id = newId('c'); } while (findById(ctx, patch.id).length);
+      }
+      entity.validate('card', { ...current.data, title: current.title, ...patch });
+      const after = setFields(decision.text ?? text, physicalPatch(ctx.schema, parseFile(text).data, patch));
+      card = summary(ctx, initial.path, after);
+      warnings = [...card.warnings, ...(decision.warnings ?? [])];
+      Object.assign(extra, decision.extra);
+      return after;
+    } });
+    return { ...result, entity: card, warnings };
+  };
+  return retryClaim ? retryWhileLocked(attempt) : attempt({ entered: false });
 }
 
 export function moveCard(ctx, ref, { column, before, after }, opts = {}) {

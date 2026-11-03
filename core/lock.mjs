@@ -130,3 +130,21 @@ export function withLock(ctx, name, fn) {
     release(ctx, rel);
   }
 }
+
+// Contenders wait on a time budget, not a try count: one fsync-heavy write can outlast any fixed count under load.
+const LOCK_WAIT_MS = 5000;
+
+export function retryWhileLocked(fn, { budgetMs = LOCK_WAIT_MS } = {}) {
+  const start = performance.now();
+  for (let attempt = 0; ; attempt++) {
+    const state = { entered: false };
+    try {
+      return fn(state);
+    } catch (error) {
+      if (state.entered || error.code !== 'locked' || performance.now() - start >= budgetMs) throw error;
+      // Jitter keeps contenders from waking in lockstep.
+      const step = Math.min(200, 20 * (attempt + 1));
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, step / 2 + Math.random() * step / 2);
+    }
+  }
+}
