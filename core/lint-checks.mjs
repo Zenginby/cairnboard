@@ -173,7 +173,7 @@ function evidenceFindings(ctx, view) {
       .map((link) => byPath.get(link.target_path).data.raw))];
     const haystacks = raws.map((raw) => rawNormalized(ctx, view, raw)).filter((item) => item !== null);
     if (!haystacks.length) continue;
-    for (const claim of unsupported(extractClaims(claimText).slice(0, MAX_CLAIMS), haystacks)) {
+    for (const claim of unsupported(extractClaims(claimText, MAX_CLAIMS), haystacks)) {
       out.push(finding('evidence_missing', file.path, { line: claim.line, target: claim.kind, excerpt: clip(claim.value, 80) }));
     }
   }

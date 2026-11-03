@@ -110,3 +110,18 @@ test('the tr-wiki preset reads its physical sources field and Kaynaklar section'
   }, { preset: 'tr-wiki' });
   assert.deepEqual(found(ctx).map((item) => [item.path, item.content.excerpt]), [['wiki/kavramlar/a.md', '%90'], ['wiki/kaynaklar/k.md', '%80']]);
 });
+
+test('claim extraction stays linear on hostile text and honours the limit', () => {
+  const shapes = ['"a b c d e" ', '\u201cx ', '\u201ex ', '"x ', '12 MB '];
+  for (const shape of shapes) {
+    const text = shape.repeat(Math.ceil(400_000 / shape.length));
+    const started = Date.now();
+    extractClaims(text, 200);
+    extractClaims(text);
+    assert.ok(Date.now() - started < 2000, `slow for ${JSON.stringify(shape)}`);
+  }
+  const many = '"one two three four" 5%\n'.repeat(1000);
+  assert.equal(extractClaims(many, 10).length, 10);
+  assert.deepEqual(extractClaims('a\n\n"one two three four"\n9 MB').map(({ line, kind }) => [line, kind]), [[3, 'quote'], [4, 'number']]);
+  assert.deepEqual(extractClaims('"one two\n\nthree four"'), []);
+});

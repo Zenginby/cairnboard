@@ -41,8 +41,13 @@ test('recordRepo writes links.json atomically and repoFor reads it back', (t) =>
   assert.equal(repoFor(join(state, 'nested'), PROJECT), '/acme/repo2');
   assert.equal(repoFor(join(state, 'nested'), 'p-zzzzzz'), null);
   assert.deepEqual(readdirSync(join(state, 'nested')), ['links.json']);
+  // A corrupt file is never overwritten (it may hold other projects); repoFor reads it as unlinked.
   writeFileSync(join(state, 'nested', 'links.json'), '{broken');
   assert.equal(repoFor(join(state, 'nested'), PROJECT), null);
+  assert.throws(() => recordRepo(join(state, 'nested'), PROJECT, '/acme/repo'), { code: 'validation' });
+  assert.equal(readFileSync(join(state, 'nested', 'links.json'), 'utf8'), '{broken');
+  writeFileSync(join(state, 'nested', 'links.json'), '[1]');
+  assert.throws(() => recordRepo(join(state, 'nested'), PROJECT, '/acme/repo'), { code: 'validation' });
   assert.throws(() => recordRepo(state, 'not-an-id', '/x'), { code: 'validation' });
   assert.throws(() => recordRepo(state, PROJECT, 'relative/path'), { code: 'validation' });
 });
@@ -121,4 +126,25 @@ test('a page code path in a finding is clipped and cleaned', (t) => {
   const [item] = run(ctx);
   assert.equal(item.code, 'code_missing');
   assert.ok(item.target.length <= 200);
+});
+
+test('an over-long or odd code path is code_missing for that path and does not abort the run', (t) => {
+  const { ctx } = setup(t, { pages: { 'wiki/concepts/a.md': page([`${'a'.repeat(5000)}/x.mjs`, 'src/a\u0001b.mjs', 'src/ok.mjs']) }, repoFiles: { 'src/ok.mjs': 'x' } });
+  const result = run(ctx);
+  assert.equal(result.filter((item) => item.code === 'code_missing').length, 2);
+});
+
+test('a corrupt links.json makes every code page unlinked, and link warns without touching it', async (t) => {
+  const home = tempDir(t), data = tempDir(t), cwd = tempDir(t);
+  initDataDir(data, { home, env: {}, clock: clock() });
+  mkdirSync(join(cwd, '.git'));
+  const opts = { home, data, cwd, clock: clock() };
+  const id = (await runCli(['project', 'add', '--title', 'Acme', '--actor', 'acme', '--json'], opts)).json.data.id;
+  const state = stateDir({ home, env: {}, platform: process.platform });
+  mkdirSync(state, { recursive: true });
+  writeFileSync(join(state, 'links.json'), '{broken');
+  const linked = await runCli(['link', id, '--actor', 'acme', '--json'], { ...opts, isTTY: true, stdin: 'yes\n' });
+  assert.equal(linked.code, 0, linked.stdout + linked.stderr);
+  assert.ok(linked.json.warnings.includes('repo_not_recorded'));
+  assert.equal(readFileSync(join(state, 'links.json'), 'utf8'), '{broken');
 });

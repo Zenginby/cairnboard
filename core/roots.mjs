@@ -130,12 +130,13 @@ export function findRepoRoot(cwd) {
 const linksFile = (dir) => join(dir, 'links.json');
 
 function readRepoLinks(dir) {
+  let data;
   try {
-    const data = JSON.parse(fs.readFileSync(linksFile(dir), 'utf8'));
-    return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
-  } catch {
-    return {};
+    data = JSON.parse(fs.readFileSync(linksFile(dir), 'utf8'));
+  } catch (error) {
+    return error.code === 'ENOENT' ? {} : null;
   }
+  return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
 }
 
 /**
@@ -147,7 +148,10 @@ export function recordRepo(dir, id, repoRoot) {
     || !(posix.isAbsolute(repoRoot) || win32.isAbsolute(repoRoot))) throw invalid();
   try {
     makeDirectory(dir);
-    const links = Object.fromEntries(Object.entries(readRepoLinks(dir)).filter(([key, value]) => projectId.test(key) && typeof value === 'string'));
+    // A file that cannot be read is never overwritten: it may hold other projects' entries.
+    const current = readRepoLinks(dir);
+    if (current === null) throw invalid();
+    const links = Object.fromEntries(Object.entries(current).filter(([key, value]) => projectId.test(key) && typeof value === 'string'));
     links[id] = repoRoot;
     fs.writeFileAtomic(linksFile(dir), JSON.stringify(links, null, 2) + '\n');
   } catch (error) {
@@ -159,6 +163,6 @@ export function recordRepo(dir, id, repoRoot) {
 /** The repository root recorded for a project on this machine, or null (also for an unreadable file). */
 export function repoFor(dir, id) {
   if (typeof dir !== 'string' || typeof id !== 'string' || !projectId.test(id)) return null;
-  const links = readRepoLinks(dir);
+  const links = readRepoLinks(dir) ?? {};
   return Object.hasOwn(links, id) && typeof links[id] === 'string' && links[id] ? links[id] : null;
 }
