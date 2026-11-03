@@ -37,8 +37,9 @@ export async function main(argv, io) {
     const result = await command.run(ctx, args, opts, io);
     const warnings = [...new Set([...(ctx?.warnings ?? []), ...(result.warnings ?? [])])];
     const envelope = clean({ v: 1, ok: true, data: result.data, warnings }, opts);
-    io.stdout.write(`${json ? JSON.stringify(envelope) : human(envelope.data)}\n`);
-    return 0;
+    const output = json ? JSON.stringify(envelope) : human(envelope.data);
+    io.stdout.write(output + (!json && typeof envelope.data === 'string' && output.endsWith('\n') ? '' : '\n'));
+    return result.exit ?? 0;
   } catch (error) {
     const known = error instanceof CairnError;
     const code = known ? error.code : 'internal';

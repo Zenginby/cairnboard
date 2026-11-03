@@ -7,8 +7,10 @@ import * as trash from '../core/trash.mjs';
 import { listCards, effectiveColumn } from '../core/card.mjs';
 import { oneLine } from '../core/text.mjs';
 import { toJson, compact, clean } from './output.mjs';
+import { writeCommands } from './commands/write.mjs';
+import { checkData } from '../core/doctor.mjs';
 
-/** @typedef {{ data: unknown, warnings?: string[] }} Result */
+/** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
  * { type: 'string'|'boolean', multiple?: boolean, summary: string }>, mode: 'read'|'write',
  * needsData: boolean, dangerous: boolean|{ option: string }, run: (ctx: object|null, args: string[], opts: object, io: object) => Result|Promise<Result> }} Command */
@@ -28,7 +30,7 @@ const readOptions = { preset: string('Read an uninitialized directory with defau
 const fields = {
   project: ['id', 'title', 'created', 'updated', 'status', 'tone', 'aliases'],
   card: ['id', 'title', 'created', 'updated', 'project', 'column', 'position', 'priority', 'tags', 'assignee', 'claimed', 'lease', 'done'],
-  note: ['id', 'title', 'created', 'updated', 'kind', 'project', 'tags', 'pinned', 'source', 'superseded_by', 'valid_until', 'code'],
+  note: ['id', 'title', 'created', 'updated', 'kind', 'project', 'tags', 'pinned', 'source', 'superseded_by', 'valid_from', 'valid_until', 'code'],
   research: ['id', 'title', 'created', 'updated', 'project', 'kind', 'date', 'tags', 'source', 'raw', 'raw_sha256', 'sourceDate', 'processed'],
   journal: ['date'],
 };
@@ -124,10 +126,19 @@ read('status', 'Show data directory and entity counts.', [], {}, (ctx) => {
 read('trash list', 'List recoverable trash items.', [], {}, (ctx, args, opts) => ({ data: { items: trash.list(ctx)
   .map((item) => opts.compact ? oneLine(clean(item.path, opts)) : clean(item, opts)) } }));
 
+commands.push(...writeCommands({ string, boolean }));
+
+read('doctor', 'Inspect data without migration or recovery.', [], {}, (ctx, args, opts, io) => {
+  const checks = checkData({ dataDir: opts.data, env: io.env, home: io.env.HOME ?? io.env.USERPROFILE,
+    cwd: io.cwd, clock: io.clock });
+  return { data: { checks }, exit: checks.every((check) => check.ok) ? 0 : 5 };
+}, false);
+
 read('schema', 'Describe commands, fields and error codes.', [], {}, () => ({ data: {
   cli: JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version,
   commands: commands.map(({ name, summary, args, options, mode, needsData, dangerous }) => ({
     name, summary, args, options: { ...commonOptions, ...options }, mode, needsData, dangerous,
   })),
   errors: Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })), fields,
+  result: { exit: 'Optional process exit code; doctor returns 5 with ok: true when a check fails.' },
 } }), false);

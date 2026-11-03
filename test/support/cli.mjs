@@ -36,9 +36,15 @@ export async function spawnCli(args, opts = {}) {
   child.stdout.on('data', (text) => { stdout += text; });
   child.stderr.on('data', (text) => { stderr += text; });
   child.stdin.on('error', () => {});
-  child.stdin.end(opts.stdin ?? '');
+  if (!opts.keepStdinOpen) child.stdin.end(opts.stdin ?? '');
+  else if (opts.stdin) child.stdin.write(opts.stdin);
   return new Promise((resolve, reject) => {
-    child.on('error', reject);
-    child.on('close', (code) => resolve(result(code, stdout, stderr)));
+    const timer = opts.timeout ? setTimeout(() => child.kill(), opts.timeout) : null;
+    child.on('error', (error) => { clearTimeout(timer); reject(error); });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      child.stdin.destroy();
+      resolve(result(code, stdout, stderr));
+    });
   });
 }

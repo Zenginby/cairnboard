@@ -46,7 +46,10 @@ test('schema needs no data and matches the public snapshot', async (t) => {
   if (process.env.UPDATE_SNAPSHOTS === '1') fs.writeFileSync(snapshot, `${JSON.stringify(response.json.data, null, 2)}\n`);
   assert.deepEqual(response.json.data, JSON.parse(fs.readFileSync(snapshot, 'utf8')));
   assert.deepEqual(response.json.data.errors, Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })));
-  assert.ok(response.json.data.commands.every((item) => item.dangerous === false));
+  const commands = response.json.data.commands;
+  assert.ok(commands.filter((item) => item.mode === 'read').every((item) => item.dangerous === false));
+  assert.deepEqual(commands.filter((item) => item.dangerous !== false).map((item) => [item.name, item.dangerous]),
+    [['project rm', true], ['card claim', { option: 'steal' }], ['link', true]]);
 });
 
 test('strict parsing accepts common flags anywhere and rejects invalid input', () => {
