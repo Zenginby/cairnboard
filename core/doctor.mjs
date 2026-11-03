@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import * as fs from './fsx.mjs';
+import { checkAgents } from './agent.mjs';
 import { openContext } from './context.mjs';
 import { defaultConfig } from './config.mjs';
 import { checkedPath, readChecked } from './paths.mjs';
@@ -103,6 +104,12 @@ export function checkData(options = {}) {
   check('unknown_column', () => {
     const unknown = items.filter((item) => item.type === 'card' && !ctx.config.columns.some(({ key }) => key === item.data.column));
     return { ok: !unknown.length, hint: unknown.map((item) => `${item.path}: ${JSON.stringify(item.data.column) ?? 'missing column'}`).join('; ') || 'All card columns are known.' };
+  });
+  check('agent', () => {
+    const agents = checkAgents({ home: options.home ?? options.env?.HOME ?? options.env?.USERPROFILE });
+    const ok = agents.every((agent) => (!fs.existsSync(agent.path) && agent.installed === null) || agent.ok);
+    return { ok, hint: ok ? 'Agent skills are optional and installed skills are current.'
+      : 'npm run build:cli && cairn agent install' };
   });
   return checks;
 }
