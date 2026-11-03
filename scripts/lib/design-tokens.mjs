@@ -155,12 +155,14 @@ export function buildTokens(sources) {
   const output = [
     `/* Generated; do not edit. Sources: ${sources.map(({ file }) => file).join(', ')} */`,
     block(':root', rootLines),
-    block('[data-theme="bento"]', themeDeclarations(root, 'light')),
   ];
-  let dark;
+  // A theme is a family with a light palette (<family>.md, the root file for bento) and a dark one (<family>-dark.md).
+  const families = new Map([['bento', { light: root }]]);
   for (const theme of themes) {
     const id = basename(theme.file, '.md');
-    name(id, theme.file, 'theme');
+    if (!/^[a-z0-9]+(?:-dark)?$/u.test(id)) fail(theme.file, 'theme', 'expected <family>.md or <family>-dark.md');
+    const mode = id.endsWith('-dark') ? 'dark' : 'light';
+    const family = id.replace(/-dark$/u, '');
     if (id === 'bento') fail(theme.file, 'theme', 'bento is reserved for the root theme');
     sameKeys(root.colors, theme.colors, theme.file, 'colors');
     sameKeys(root.shadows, theme.shadows, theme.file, 'Elevation & Depth');
@@ -170,12 +172,21 @@ export function buildTokens(sources) {
       }
     }
     if (theme.hasMotion) fail(theme.file, 'Motion', 'themes cannot define motion');
-    const lines = themeDeclarations(theme, colorScheme(theme.colors.canvas, theme.file));
-    // Plain attribute selectors so a theme also applies to any element (side-by-side previews).
-    output.push(block(`[data-theme="${id}"]`, lines));
-    if (id === 'bento-dark') dark = theme;
+    if (colorScheme(theme.colors.canvas, theme.file) !== mode) fail(theme.file, 'colors.canvas', `canvas is not ${mode}`);
+    families.set(family, { ...families.get(family), [mode]: theme });
   }
-  if (dark) output.push(nested('@media (prefers-color-scheme: dark)', ':root:not([data-theme])', themeDeclarations(dark, 'dark')));
+  const darkMedia = [];
+  // Plain attribute selectors so a theme also applies to any element (side-by-side previews).
+  for (const [family, { light, dark }] of families) {
+    if (!light || !dark) fail(`design/themes/${family}${light ? '-dark' : ''}.md`, 'theme', `family ${family} needs a light and a dark palette`);
+    const unset = family === 'bento' ? [':root:not([data-theme])'] : [];
+    output.push(block(`[data-theme="${family}"]`, themeDeclarations(light, 'light')));
+    output.push(block([...unset, `[data-theme="${family}"]`].map((s) => `${s}[data-mode="dark"]`).join(',\n'),
+      themeDeclarations(dark, 'dark')));
+    darkMedia.push(block([...unset, `[data-theme="${family}"]`].map((s) => `${s}:not([data-mode="light"])`).join(',\n'),
+      themeDeclarations(dark, 'dark')));
+  }
+  output.push(`@media (prefers-color-scheme: dark) {\n${darkMedia.join('\n\n').split('\n').map((line) => (line ? `  ${line}` : line)).join('\n')}\n}`);
   const springLines = springs.filter((key) => Object.hasOwn(root.motion, key))
     .map((key) => `--motion-${key}: ${root.motion[key]};`);
   if (springLines.length) output.push(nested('@supports (transition-timing-function: linear(0, 1))', ':root', springLines));

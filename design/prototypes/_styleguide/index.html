@@ -16,10 +16,19 @@
     <div class="row">
       <label class="row type-label">Tema
         <select data-theme-menu aria-label="Tema">
-          <option value="system">Sistem</option><option value="bento">Bento</option>
-          <option value="bento-dark">Bento Dark</option><option value="paper">Paper</option><option value="graphite">Graphite</option>
+          <option value="bento">Bento</option><option value="paper">Kâğıt</option><option value="graphite">Grafit</option>
         </select>
       </label>
+      <!-- Longer English equivalent: Appearance. -->
+      <label class="row type-label">Görünüm
+        <select data-mode-menu aria-label="Görünüm">
+          <option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option>
+        </select>
+      </label>
+      <button type="button" class="theme-toggle" data-theme-toggle aria-label="Koyu görünüme geç">
+        <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg>
+      </button>
       <!-- Longer English equivalent: Motion: less. -->
       <label class="motion-toggle row type-label"><input type="checkbox" data-motion-toggle> Hareket: az</label>
     </div>
@@ -28,7 +37,7 @@
     <section class="stack" aria-labelledby="guide-title">
       <div class="box box--hero stack">
         <p class="type-label muted">Tasarım dili / 01</p>
-        <h1 id="guide-title">Aynı parçalar, dört tema.</h1>
+        <h1 id="guide-title">Aynı parçalar, üç tema, açık ve koyu.</h1>
         <p class="prose intro">Renkleri, biçimleri ve etkileşimleri birlikte inceleyin. Yukarıdaki tema seçimi bütün örnekleri değiştirir.</p>
         <nav class="row" aria-label="Rehber bölümleri"><a class="button button--quiet" href="#colors">Renkler</a><a class="button button--quiet" href="#foundations">Ölçekler</a><a class="button button--quiet" href="#components">Bileşenler</a><a class="button button--quiet" href="#motion">Hareket</a></nav>
       </div>

@@ -1,4 +1,4 @@
-import '../_shared/theme.js';
+import { families } from '../_shared/theme.js';
 import { initComponents, lessMotion, moveCard, showDialog } from '../_shared/components.js';
 
 const $ = (selector) => document.querySelector(selector);
@@ -239,12 +239,14 @@ try {
   const response = await fetch('../_shared/sample.json');
   if (!response.ok) throw new Error('Sample data unavailable');
   const data = await response.json();
-  ['bento', 'bento-dark', 'paper', 'graphite'].forEach((theme) => {
+  Object.entries(families).flatMap(([family, label]) => [[family, 'light', `${label} açık`], [family, 'dark', `${label} koyu`]])
+    .forEach(([family, mode, label]) => {
     const preview = element('section', 'theme-preview stack');
-    preview.dataset.theme = theme;
-    preview.append(element('h2', 'type-title', { bento: 'Bento', 'bento-dark': 'Bento Dark', paper: 'Paper', graphite: 'Graphite' }[theme]));
+    preview.dataset.theme = family;
+    preview.dataset.mode = mode;
+    preview.append(element('h2', 'type-title', label));
     const board = element('div', 'mini-board');
-    board.id = `mini-${theme}`;
+    board.id = `mini-${family}-${mode}`;
     board.dataset.board = '';
     createBoard(board, data, true);
     preview.append(board);
