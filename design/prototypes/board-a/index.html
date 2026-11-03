@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+  <title>Pano · Cairnboard</title>
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="../_shared/components.css">
+  <link rel="stylesheet" href="app.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip-link button" href="#main">İçeriğe geç</a>
+  <header class="topbar">
+    <div class="row"><a class="brand" href="../home-a/">Cairnboard<span class="badge">acme</span></a><nav class="row" aria-label="Ana gezinme"><a class="button button--quiet" href="../home-a/">Bugün</a><a class="button button--quiet" href="../board-a/" aria-current="page">Pano</a></nav></div>
+    <div class="row"><label class="row type-label">Tema <select data-theme-menu><option value="system">Sistem</option><option value="bento">Bento</option><option value="bento-dark">Bento Dark</option><option value="paper">Paper</option><option value="graphite">Graphite</option></select></label><label class="motion-toggle row type-label"><input type="checkbox" data-motion-toggle> Hareket: az</label></div>
+  </header>
+  <main id="main" class="page-frame stack workspace" tabindex="-1">
+    <div class="toolbar row"><p class="type-label muted">Kendi alanın. Bir sonraki küçük adım.</p><div class="row"><button class="button" id="search-open">Ara <kbd>/</kbd></button><button class="button" id="note-open">Not ekle <kbd>N</kbd></button><button class="button button--primary" id="card-open">Kart ekle <kbd>C</kbd></button><button class="button" id="help-open" aria-label="Klavye kısayolları">?</button></div></div>
+    <section id="conflict" class="toast is-open stack" aria-label="Dosya çakışması" hidden><div class="row"><span class="chip chip--warning">409 çakışma</span><h2 class="type-title">Bu dosya dışarıda değişti</h2></div><p>Son değişiklikleri inceleyip güncel dosyayı yükleyin.</p><div class="row"><button class="button" id="reload">Yeniden yükle</button><button class="button" id="diff-open">Farkı gör</button></div></section>
+    <div id="screen-content" class="stack"><div class="section-heading row"><div><p class="type-label muted">acme / tüm projeler</p><h1>Pano</h1></div><p class="muted type-label" id="board-summary"></p></div>
+      <section class="box stack" aria-label="Pano filtreleri"><div class="row" id="project-filters" aria-label="Proje filtresi"></div><label class="row type-label">Öncelik <select id="priority-filter"><option value="all">Tüm öncelikler</option><option value="urgent">Acil</option><option value="important">Önemli</option><option value="normal">Diğer</option><option value="low">Düşük</option></select></label></section>
+      <div id="column-tabs" class="tabs mobile-tabs" role="tablist" aria-label="Sütun seçimi"><span class="tab-indicator" aria-hidden="true"></span></div>
+      <div id="board" class="board" data-board></div></div>
+    <section id="state-content" class="box empty-state" aria-labelledby="state-title" hidden></section>
+    <p class="type-label muted">Yerel çalışma alanı · Kurgusal örnek veriler</p>
+  </main>
+  <aside class="prototype-controls" aria-label="Prototip denetimleri"><label class="row type-label">Prototip durumu <select id="prototype-state"><option value="full">dolu</option><option value="empty">boş</option><option value="loading">yükleniyor</option><option value="error">hata</option><option value="locked">kilitli</option><option value="conflict">409 çakışma</option><option value="many">300 kart</option><option value="long">uzun metin</option></select></label></aside>
+  <dialog class="modal" id="editor" aria-labelledby="editor-title"><form id="editor-form" class="stack"><h2 id="editor-title"></h2><div id="editor-body" class="stack"></div><div class="row"><button class="button button--primary" id="editor-save" type="submit">Ekle</button><button class="button" id="editor-close" type="button">Kapat</button></div></form></dialog>
+  <p id="announcements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+</body>
+</html>

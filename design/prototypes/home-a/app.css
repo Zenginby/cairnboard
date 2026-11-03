@@ -1,0 +1,49 @@
+.workspace { max-width: calc(var(--space-xl) * 35); margin-inline: auto; padding-bottom: calc(var(--space-xl) * 4); }
+.brand { gap: var(--space-sm); color: var(--color-text); font-weight: var(--font-title-weight); text-decoration: none; }
+.topbar [aria-current="page"] { background: var(--color-focus-bg); color: var(--color-text); }
+.toolbar, .section-heading, .card-footer { justify-content: space-between; }
+.motion-toggle { padding: var(--space-xs); min-height: calc(var(--space-md) * 2); }
+.skip-link { position: fixed; top: var(--space-sm); left: var(--space-md); z-index: 100; transform: translateY(-200%); }
+.skip-link:focus { transform: none; }
+.prototype-controls { position: fixed; bottom: var(--space-md); right: var(--space-md); z-index: 20; max-width: calc(100% - var(--space-md) * 2); padding: var(--space-sm) var(--space-md); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-box-raised); }
+.prototype-controls select { min-width: 0; }
+.modal { width: calc(var(--space-xl) * 15); transition-property: opacity, transform; }
+.modal[open], .modal::backdrop, .modal[open]::backdrop { transition-property: opacity, transform; }
+.search-results { max-height: calc(100vh - var(--space-xl) * 8); overflow-y: auto; padding: var(--space-xs); }
+.result-button { text-align: start; justify-content: start; white-space: normal; }
+.criteria-list { margin: 0; padding-inline-start: var(--space-lg); }
+.skeletons { width: 100%; }
+.lock-message { display: flex; gap: var(--space-sm); align-items: start; }
+.lock-message svg { width: var(--space-md); height: var(--space-md); flex-shrink: 0; fill: none; stroke: var(--color-text-3); stroke-width: 2; }
+.bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--space-md); align-items: start; }
+.hero { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-xl); }
+.hero-intro { align-content: start; }
+.journal { border-inline-start: 1px solid var(--color-line); padding-inline-start: var(--space-lg); }
+.journal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-sm); }
+.journal-entry { border-inline-start: 2px solid var(--color-line-strong); padding-inline-start: var(--space-md); }
+.journal-form .field { flex: 1; }
+.priorities { grid-column: span 7; grid-row: span 2; padding: var(--space-lg); }
+.pinned, .recent { grid-column: span 5; padding: var(--space-lg); }
+.projects { grid-column: 1 / -1; padding: var(--space-lg); }
+.priority-group { display: grid; gap: var(--space-sm); }
+.task-list, .note-list { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-md); }
+.task { display: grid; gap: var(--space-sm); padding-block: var(--space-md); border-block-start: 1px solid var(--color-line); }
+.card-title, .note-title { display: block; width: 100%; padding: 0; min-height: calc(var(--space-md) * 2); text-align: start; border: 0; background: none; color: var(--color-text); font-weight: var(--font-title-weight); overflow-wrap: anywhere; cursor: pointer; }
+.card-title { font-size: var(--font-body-size); }
+.note-title { font-size: var(--font-title-size); }
+.note { display: grid; gap: var(--space-sm); }
+.note + .note { border-top: 1px solid var(--color-line); padding-top: var(--space-md); }
+.note-excerpt { color: var(--color-text-2); }
+.project-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-md); }
+.project-link { text-decoration: none; display: grid; gap: var(--space-sm); }
+.low-priority summary { cursor: pointer; min-height: calc(var(--space-md) * 2); padding-block: var(--space-sm); color: var(--color-text-2); }
+@media (max-width: 46rem) {
+  .bento { grid-template-columns: minmax(0, 1fr); }
+  .hero, .priorities, .pinned, .recent, .projects { grid-column: auto; grid-row: auto; }
+  .hero { grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); }
+  .journal { border-inline-start: 0; border-block-start: 1px solid var(--color-line); padding-inline-start: 0; padding-block-start: var(--space-lg); }
+  .project-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (pointer: coarse) {
+  .motion-toggle, .card-title, .note-title, .low-priority summary { min-height: calc(var(--space-xl) + var(--space-xs)); }
+}

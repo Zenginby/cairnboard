@@ -1,0 +1,293 @@
+{
+  "columns": [
+    {
+      "id": "todo",
+      "label": "Bekleyen",
+      "role": "todo"
+    },
+    {
+      "id": "doing",
+      "label": "Yapılıyor",
+      "role": "doing"
+    },
+    {
+      "id": "review",
+      "label": "İncelemede",
+      "role": "doing"
+    },
+    {
+      "id": "done",
+      "label": "Bitti",
+      "role": "done"
+    }
+  ],
+  "cards": [
+    {
+      "id": "card-1",
+      "title": "İlk taslağı birlikte gözden geçir",
+      "projectId": "ornek-proje",
+      "column": "todo",
+      "priority": "urgent",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "İlk taslak hazır",
+          "done": true
+        },
+        {
+          "text": "Dar ekranda doğrulandı",
+          "done": true
+        },
+        {
+          "text": "Birlikte gözden geçirildi",
+          "done": false
+        }
+      ],
+      "comments": 3
+    },
+    {
+      "id": "card-2",
+      "title": "Dar ekranda başlıkları doğrula",
+      "projectId": "ornek-proje-2",
+      "column": "doing",
+      "priority": "important",
+      "assigneeId": "claude",
+      "criteria": [
+        {
+          "text": "İlk taslak hazır",
+          "done": true
+        },
+        {
+          "text": "Dar ekranda doğrulandı",
+          "done": false
+        },
+        {
+          "text": "Birlikte gözden geçirildi",
+          "done": false
+        }
+      ],
+      "comments": 2
+    },
+    {
+      "id": "card-3",
+      "title": "Örnek notları düzenle",
+      "projectId": "ornek-proje-8",
+      "column": "done",
+      "priority": "normal",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "İlk taslak hazır",
+          "done": true
+        },
+        {
+          "text": "Dar ekranda doğrulandı",
+          "done": true
+        },
+        {
+          "text": "Birlikte gözden geçirildi",
+          "done": true
+        }
+      ],
+      "comments": 1
+    },
+    {
+      "id": "card-4",
+      "title": "Arama sonuçlarında bağlamı göster",
+      "projectId": "ornek-proje",
+      "column": "todo",
+      "priority": "important",
+      "assigneeId": "deniz",
+      "criteria": [
+        {
+          "text": "İlk taslak hazır",
+          "done": false
+        },
+        {
+          "text": "Dar ekranda doğrulandı",
+          "done": false
+        },
+        {
+          "text": "Birlikte gözden geçirildi",
+          "done": false
+        }
+      ],
+      "comments": 2
+    },
+    {
+      "id": "card-5",
+      "title": "Günlüğe kısa bir özet ekle",
+      "projectId": "ornek-proje-3",
+      "column": "todo",
+      "priority": "normal",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "İlk taslak hazır",
+          "done": true
+        },
+        {
+          "text": "Dar ekranda doğrulandı",
+          "done": false
+        },
+        {
+          "text": "Birlikte gözden geçirildi",
+          "done": false
+        }
+      ],
+      "comments": 0
+    },
+    {
+      "id": "card-6",
+      "title": "Klavye ile kart taşıma akışını dene",
+      "projectId": "ornek-proje",
+      "column": "doing",
+      "priority": "urgent",
+      "assigneeId": "codex",
+      "criteria": [
+        {
+          "text": "İlk taslak hazır",
+          "done": true
+        },
+        {
+          "text": "Dar ekranda doğrulandı",
+          "done": true
+        },
+        {
+          "text": "Birlikte gözden geçirildi",
+          "done": false
+        }
+      ],
+      "comments": 4
+    },
+    {
+      "id": "card-7",
+      "title": "Not bağlantılarını birlikte incele",
+      "projectId": "ornek-proje-2",
+      "column": "review",
+      "priority": "important",
+      "assigneeId": "deniz",
+      "criteria": [
+        {
+          "text": "İlk taslak hazır",
+          "done": true
+        },
+        {
+          "text": "Dar ekranda doğrulandı",
+          "done": true
+        },
+        {
+          "text": "Birlikte gözden geçirildi",
+          "done": false
+        }
+      ],
+      "comments": 1
+    },
+    {
+      "id": "card-8",
+      "title": "İlk kullanım metnini sadeleştir",
+      "projectId": "ornek-proje-8",
+      "column": "review",
+      "priority": "normal",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "İlk taslak hazır",
+          "done": true
+        },
+        {
+          "text": "Dar ekranda doğrulandı",
+          "done": true
+        },
+        {
+          "text": "Birlikte gözden geçirildi",
+          "done": false
+        }
+      ],
+      "comments": 0
+    },
+    {
+      "id": "card-9",
+      "title": "Eski örnekleri arşive ayır",
+      "projectId": "ornek-proje-3",
+      "column": "todo",
+      "priority": "low",
+      "assigneeId": "deniz",
+      "criteria": [
+        {
+          "text": "İlk taslak hazır",
+          "done": false
+        },
+        {
+          "text": "Dar ekranda doğrulandı",
+          "done": false
+        },
+        {
+          "text": "Birlikte gözden geçirildi",
+          "done": false
+        }
+      ],
+      "comments": 0
+    },
+    {
+      "id": "card-10",
+      "title": "Tamamlanan işleri günlüğe bağla",
+      "projectId": "ornek-proje",
+      "column": "done",
+      "priority": "normal",
+      "assigneeId": "codex",
+      "criteria": [
+        {
+          "text": "İlk taslak hazır",
+          "done": true
+        },
+        {
+          "text": "Dar ekranda doğrulandı",
+          "done": true
+        },
+        {
+          "text": "Birlikte gözden geçirildi",
+          "done": true
+        }
+      ],
+      "comments": 2
+    }
+  ],
+  "notes": [
+    {
+      "id": "note-1",
+      "kind": "note",
+      "pinned": true,
+      "updated": "10.42"
+    },
+    {
+      "id": "note-2",
+      "kind": "note",
+      "pinned": false,
+      "updated": "09.18"
+    },
+    {
+      "id": "note-3",
+      "projectId": "ornek-proje",
+      "title": "Ajanlarla çalışma anlaşması",
+      "body": "Bir kartı üstlen, kabul ölçütlerini denetle ve bitirirken ne değiştiğini not et.",
+      "kind": "wiki",
+      "pinned": true,
+      "updated": "Dün"
+    },
+    {
+      "id": "note-4",
+      "projectId": "ornek-proje-3",
+      "title": "Bir sonraki küçük adım",
+      "body": "Arama için önce başlık ve proje adı yeterli. Kalanını ihtiyaç oldukça ekleyelim.",
+      "kind": "note",
+      "pinned": false,
+      "updated": "Dün"
+    }
+  ],
+  "longText": {
+    "projectName": "Örnek proje araştırma ve tasarım defteri",
+    "title": "Kullanıcıların farklı ekran boyutlarında uzun Türkçe başlıkları, proje adlarını ve kabul ölçütlerini rahatça okuyabildiğini birlikte doğrulayalım",
+    "english": "Verify together that developers can comfortably read lengthy project names, acceptance criteria and detailed task descriptions on smaller screens"
+  }
+}
