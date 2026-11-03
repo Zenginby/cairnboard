@@ -49,7 +49,7 @@ test('schema needs no data and matches the public snapshot', async (t) => {
   const commands = response.json.data.commands;
   assert.ok(commands.filter((item) => item.mode === 'read').every((item) => item.dangerous === false));
   assert.deepEqual(commands.filter((item) => item.dangerous !== false).map((item) => [item.name, item.dangerous]),
-    [['project rm', true], ['card claim', { option: 'steal' }], ['link', true]]);
+    [['project rm', true], ['card claim', { option: 'steal' }], ['link', true], ['agent install', true]]);
 });
 
 test('strict parsing accepts common flags anywhere and rejects invalid input', () => {
