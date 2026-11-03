@@ -13,6 +13,16 @@ function* lines(text, start = 0) {
   }
 }
 
+// Self-referencing aliases (`&x [*x]`) yield a cyclic object that no caller can serialise.
+function cyclic(value, path = new Set()) {
+  if (value === null || typeof value !== 'object') return false;
+  if (path.has(value)) return true;
+  path.add(value);
+  const found = Object.values(value).some((item) => cyclic(item, path));
+  path.delete(value);
+  return found;
+}
+
 function inspectFile(text) {
   const bom = text.startsWith('\uFEFF');
   const offset = bom ? 1 : 0;
@@ -50,6 +60,7 @@ function inspectFile(text) {
     const errors = doc.errors.filter((error) => !multiple || error.code !== 'MULTIPLE_DOCS');
     if (errors.length) throw new Error(errors.map((error) => error.message).join('\n'));
     const data = doc.toJS();
+    if (cyclic(data)) throw new Error('Frontmatter aliases refer to themselves.');
     file.data = doc.contents === null ? {} : data !== null && typeof data === 'object' ? data : null;
     file.editable = (doc.contents === null || (isMap(doc.contents) && !doc.contents.flow)) && !multiple;
     visit(doc, (_key, node) => {
