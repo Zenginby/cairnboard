@@ -908,6 +908,69 @@
       "dangerous": false
     },
     {
+      "name": "mentions",
+      "summary": "Find unlinked mentions of a wiki page.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "limit": {
+          "type": "string",
+          "summary": "Maximum results, 0 to 500 (default: 50)."
+        },
+        "link": {
+          "type": "string",
+          "summary": "Link the single mention at path:line; requires confirmation."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": {
+        "option": "link"
+      },
+      "writeOption": "link"
+    },
+    {
       "name": "status",
       "summary": "Show data directory and entity counts.",
       "args": [],

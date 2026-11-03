@@ -47,9 +47,9 @@ test('schema needs no data and matches the public snapshot', async (t) => {
   assert.deepEqual(response.json.data, JSON.parse(fs.readFileSync(snapshot, 'utf8')));
   assert.deepEqual(response.json.data.errors, Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })));
   const commands = response.json.data.commands;
-  assert.ok(commands.filter((item) => item.mode === 'read').every((item) => item.dangerous === false));
+  assert.ok(commands.filter((item) => item.mode === 'read' && !item.writeOption).every((item) => item.dangerous === false));
   assert.deepEqual(commands.filter((item) => item.dangerous !== false).map((item) => [item.name, item.dangerous]),
-    [['project rm', true], ['card claim', { option: 'steal' }], ['init', { option: 'set-default' }], ['link', true], ['agent install', true]]);
+    [['mentions', { option: 'link' }], ['project rm', true], ['card claim', { option: 'steal' }], ['init', { option: 'set-default' }], ['link', true], ['agent install', true]]);
 });
 
 test('strict parsing accepts common flags anywhere and rejects invalid input', () => {
@@ -204,7 +204,7 @@ test('all read commands preserve sources and metadata except the index cache', a
     const folder = type === 'research' ? type : `${type}s`;
     assert.equal((await f.run([type, 'show', `@${folder}/acme`, '--json'])).json.data.content.title, 'Acme');
   }
-  for (const args of [['journal', 'list'], ['journal', 'show', '2026-11-01'], ['trash', 'list'], ['status'], ['search', 'Acme']]) {
+  for (const args of [['journal', 'list'], ['journal', 'show', '2026-11-01'], ['trash', 'list'], ['status'], ['search', 'Acme'], ['mentions', '@notes/acme']]) {
     const response = await f.run([...args, '--json'], { env: { CAIRN_DEBUG: '1' } });
     assert.equal(response.code, 0, `${args.join(' ')}: ${response.stdout}${response.stderr}`);
   }

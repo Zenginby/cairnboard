@@ -640,6 +640,27 @@ export function backlinks(ctx, path) {
     .map(({ src_path, line, field }) => ({ src_path, line, field })) : []);
 }
 
+// FTS is only a candidate filter; callers verify literal phrases against the original visible lines.
+export function mentionCandidates(ctx, path, names) {
+  const phrases = names.map(foldTr);
+  const match = phrases.map((name) => `"${name.replace(/"/gu, '""')}"`).join(' OR ');
+  // Punctuation-only names have no FTS tokens, so they need every otherwise eligible page.
+  const all = phrases.some((name) => !/[\p{L}\p{N}]/u.test(name));
+  // unicode61 includes private-use characters in tokens; our word boundary only includes letters/numbers.
+  const privateUse = '*[\uE000-\uF8FF\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]*';
+  return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.title FROM files
+    WHERE files.path != ? AND files.bad_encoding = 0 AND files.error IS NOT 'too-large'
+      AND NOT EXISTS (SELECT 1 FROM links WHERE src_path = files.path AND target_path = ?)
+      ${all ? '' : `AND files.path IN (SELECT path FROM fts WHERE fts MATCH ? AND type IS NOT 'raw'
+        UNION SELECT path FROM fts WHERE body GLOB ? AND type IS NOT 'raw')`}
+    ORDER BY files.path`).all(...(all ? [path, path] : [path, path, match, privateUse])).map((row) => ({ ...row })),
+  (data) => {
+    const linked = new Set(data.links.filter((link) => link.target_path === path).map((link) => link.src_path));
+    return data.rows.filter((row) => row.path !== path && !row.badEncoding && row.error !== 'too-large' && !linked.has(row.path))
+      .map(({ path, type, title }) => ({ path, type, title }));
+  }).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+}
+
 export function outlinks(ctx, path) {
   return query(ctx, (db) => {
     const resolveTarget = resolver(db.prepare('SELECT path FROM targets').all().map((item) => item.path));
