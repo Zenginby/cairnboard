@@ -53,9 +53,8 @@ test('note list --all classifies the vault in transient read mode', async (t) =>
   const items = new Map(all.json.data.items.map((item) => [item.path, item.meta.kind]));
   const noteExpected = Object.entries(expected).filter(([, [type]]) => type === 'note');
   assert.deepEqual([...items.keys()].sort(), noteExpected.map(([path]) => path).sort());
-  // Unrecognised `tur` values (pano, gorevler) classify as kind note in the index; the CLI omits meta.kind for them.
-  const unknownKind = ['pano.md', 'gorevler.md'];
-  for (const [path, [, kind]] of noteExpected) assert.equal(items.get(path), unknownKind.includes(path) ? undefined : kind, path);
+  // Unrecognised `tur` values (pano, gorevler) classify as kind note, in the CLI output too.
+  for (const [path, [, kind]] of noteExpected) assert.equal(items.get(path), kind, path);
   for (const path of notEntities) assert.equal(items.has(path), false, path);
   const quick = await cli(['note', 'list']);
   assert.deepEqual(quick.json.data.items.map((item) => item.path).sort(), ['gorevler.md', 'kok-notu.md', 'pano.md']

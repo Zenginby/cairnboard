@@ -124,7 +124,7 @@ test('file strings stay in content and are recursively cleaned, including keys',
   const f = fixture(t);
   f.put('notes/acme.md', '---\ntitle: Acme\nkind: note\npinned: true\ntags: ["a\u200bb"]\nassignee: "bad\u200b name"\nx-extra:\n  "a\u200bb": "c\u200bd"\n---\nBody\u200b\n');
   const clean = await f.run(['note', 'show', '@notes/acme', '--json']);
-  assert.deepEqual(clean.json.data.meta, { kind: 'note', pinned: true, acceptance: { done: 0, total: 0 } });
+  assert.deepEqual(clean.json.data.meta, { kind: 'note', pinned: true, acceptance: { done: 0, total: 0 }, links: [], backlinks: [] });
   assert.deepEqual(clean.json.data.content['x-extra'], { ab: 'cd' });
   assert.deepEqual(clean.json.data.content.tags, ['ab']);
   assert.equal(clean.json.data.content.assignee, 'bad name');

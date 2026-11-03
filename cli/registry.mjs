@@ -10,6 +10,7 @@ import { writeCommands } from './commands/write.mjs';
 import { agentCommands } from './commands/agent.mjs';
 import { packageVersion } from '../core/agent.mjs';
 import { checkData } from '../core/doctor.mjs';
+import { wikiIndex, formatCatalog } from '../core/wiki.mjs';
 
 /** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
@@ -92,8 +93,38 @@ for (const type of ['project', 'card', 'note', 'research']) {
       : projectFilter(ctx, entity.list(ctx, type, { kind: opts.kind, all: opts.all }), type === 'project' ? undefined : listProject(ctx, opts));
     return result(ctx, items, opts);
   });
-  read(`${type} show`, `Show one ${type}.`, ['<ref>'], {}, (ctx, [ref], opts) => result(ctx, [entity.resolve(ctx, type, ref)], opts, false));
+  read(`${type} show`, `Show one ${type}.`, ['<ref>'], {}, (ctx, [ref], opts) => {
+    const shown = result(ctx, [entity.resolve(ctx, type, ref)], opts, false);
+    if (type === 'note' && !opts.compact) shown.data.meta = { ...shown.data.meta, ...noteLinks(ctx, shown.data.path, opts) };
+    return shown;
+  });
 }
+
+// Resolved links of one page plus the pages that link to it; paths and line numbers, bounded in count.
+const MAX_LINKS = 500;
+function noteLinks(ctx, path, opts) {
+  const out = index.outlinks(ctx, path).slice(0, MAX_LINKS).map((link) => ({ expr: clean(link.expr, opts),
+    target_path: link.target_path ?? null, status: link.status, line: link.line }));
+  const back = index.backlinks(ctx, path).slice(0, MAX_LINKS).map(({ src_path, line }) => ({ src_path: clean(src_path, opts), line }));
+  return { links: out, backlinks: back };
+}
+
+read('wiki index', 'List wiki pages with summaries and link counts.', [], {
+  kind: string('Filter by wiki page kind.'), format: string('json (default) or markdown catalog.'),
+}, (ctx, args, opts) => {
+  if (opts.kind !== undefined && !['concept', 'tool', 'query', 'overview'].includes(opts.kind)) {
+    throw new CairnError('validation', 'Invalid wiki page kind.');
+  }
+  if (opts.format !== undefined && !['json', 'markdown'].includes(opts.format)) throw new CairnError('validation', 'Invalid format.');
+  const entries = wikiIndex(ctx, { kind: opts.kind });
+  if (opts.format === 'markdown') {
+    const markdown = clean(formatCatalog(entries, ctx), opts);
+    return { data: opts.json ? { markdown } : markdown };
+  }
+  return { data: { items: entries.map((entry) => opts.compact ? oneLine(clean(`${entry.kind}\t${entry.title}\t${entry.path}`, opts))
+    : clean({ path: entry.path, kind: entry.kind, out: entry.out, in: entry.in,
+      content: { title: entry.title, summary: entry.summary } }, opts)) } };
+});
 
 read('journal list', 'List journal days or filtered entries.', [], {
   month: string('Filter days by YYYY-MM.'), type: string('Filter decision, discovery, pitfall or lesson entries.'),

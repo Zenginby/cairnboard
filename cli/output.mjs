@@ -71,7 +71,8 @@ export function toJson(entity, { raw = false, maxBytes = 65536, columns = [], wa
     if (valid(field, value, entity.type, columns)) meta[field] = value;
     else Object.defineProperty(content, field, { value, enumerable: true, configurable: true, writable: true });
   }
-  if (entity.kind !== undefined && entity.kind !== null && !Object.hasOwn(entity.data ?? {}, 'kind')
+  // The classifier's kind wins over an unrecognised raw value (a page with `tur: pano` is a note of kind note).
+  if (entity.kind !== undefined && entity.kind !== null && !Object.hasOwn(meta, 'kind')
     && valid('kind', entity.kind, entity.type, columns)) meta.kind = entity.kind;
   if (count(entity.acceptance)) meta.acceptance = { done: entity.acceptance.done, total: entity.acceptance.total };
   content.title = entity.title ?? '';
