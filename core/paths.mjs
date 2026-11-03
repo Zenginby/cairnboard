@@ -58,19 +58,24 @@ export function checkedPath(root, rel) {
 }
 
 function openChecked(root, rel, flags) {
-  const abs = check(resolve(root), rel);
-  let fd;
-  try {
-    fd = fs.openSync(abs, flags | nofollow, 0o600);
-    if (real(fs.realpathSync(abs)) !== real(abs)) throw unsafe();
-    const opened = fs.fstatSync(fd);
-    const resolved = fs.statSync(abs);
-    if (opened.dev !== resolved.dev || opened.ino !== resolved.ino) throw unsafe();
-    return fd;
-  } catch (error) {
-    if (fd !== undefined) fs.closeSync(fd);
-    if (error.code === 'ELOOP') throw unsafe();
-    throw error;
+  // A concurrent atomic save replaces the file between open and stat; only a lasting mismatch is suspicious.
+  for (let attempt = 0; ; attempt++) {
+    const abs = check(resolve(root), rel);
+    let fd;
+    try {
+      fd = fs.openSync(abs, flags | nofollow, 0o600);
+      if (real(fs.realpathSync(abs)) !== real(abs)) throw unsafe();
+      const opened = fs.fstatSync(fd);
+      const resolved = fs.statSync(abs);
+      if (opened.dev === resolved.dev && opened.ino === resolved.ino) return fd;
+      fs.closeSync(fd);
+      fd = undefined;
+      if (attempt === 4) throw unsafe();
+    } catch (error) {
+      if (fd !== undefined) fs.closeSync(fd);
+      if (error.code === 'ELOOP') throw unsafe();
+      throw error;
+    }
   }
 }
 

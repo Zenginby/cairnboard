@@ -1,0 +1,2590 @@
+{
+  "cli": "0.0.0",
+  "commands": [
+    {
+      "name": "project list",
+      "summary": "List project items.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "project show",
+      "summary": "Show one project.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "card list",
+      "summary": "List card items.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "column": {
+          "type": "string",
+          "summary": "Filter by column key."
+        },
+        "column-role": {
+          "type": "string",
+          "summary": "Filter by column role."
+        },
+        "assignee": {
+          "type": "string",
+          "summary": "Filter by owner, or me."
+        },
+        "unassigned": {
+          "type": "boolean",
+          "summary": "Only unowned cards."
+        },
+        "priority": {
+          "type": "string",
+          "summary": "Filter by priority."
+        },
+        "tag": {
+          "type": "string",
+          "summary": "Filter by tag."
+        },
+        "all": {
+          "type": "boolean",
+          "summary": "Include done cards."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "card show",
+      "summary": "Show one card.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "note list",
+      "summary": "List note items.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "kind": {
+          "type": "string",
+          "summary": "Filter by note kind."
+        },
+        "all": {
+          "type": "boolean",
+          "summary": "Include wiki pages."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "note show",
+      "summary": "Show one note.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "research list",
+      "summary": "List research items.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "research show",
+      "summary": "Show one research.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "journal list",
+      "summary": "List journal days or filtered entries.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "month": {
+          "type": "string",
+          "summary": "Filter days by YYYY-MM."
+        },
+        "type": {
+          "type": "string",
+          "summary": "Filter decision, discovery, pitfall or lesson entries."
+        },
+        "unprocessed": {
+          "type": "boolean",
+          "summary": "Only unprocessed discoveries, pitfalls and lessons."
+        },
+        "since": {
+          "type": "string",
+          "summary": "Include entries since YYYY-MM-DD."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "journal show",
+      "summary": "Show a journal day or reference.",
+      "args": [
+        "<date|ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "search",
+      "summary": "Search titles and bodies.",
+      "args": [
+        "<q>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "status",
+      "summary": "Show data directory and entity counts.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "trash list",
+      "summary": "List recoverable trash items.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "project add",
+      "summary": "Create a project.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "title": {
+          "type": "string",
+          "summary": "Set the title."
+        },
+        "body": {
+          "type": "string",
+          "summary": "Read body from stdin; accepts only -."
+        },
+        "body-file": {
+          "type": "string",
+          "summary": "Read body from a file relative to cwd."
+        },
+        "status": {
+          "type": "string",
+          "summary": "Set active, paused or archived."
+        },
+        "tone": {
+          "type": "string",
+          "summary": "Set tone from 1 to 8."
+        },
+        "alias": {
+          "type": "string",
+          "summary": "Add an alias; repeat for multiple aliases.",
+          "multiple": true
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "project update",
+      "summary": "Update a project.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "title": {
+          "type": "string",
+          "summary": "Set the title."
+        },
+        "body": {
+          "type": "string",
+          "summary": "Read body from stdin; accepts only -."
+        },
+        "body-file": {
+          "type": "string",
+          "summary": "Read body from a file relative to cwd."
+        },
+        "status": {
+          "type": "string",
+          "summary": "Set active, paused or archived."
+        },
+        "tone": {
+          "type": "string",
+          "summary": "Set tone from 1 to 8."
+        },
+        "alias": {
+          "type": "string",
+          "summary": "Add an alias; repeat for multiple aliases.",
+          "multiple": true
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "project rm",
+      "summary": "Move a project to trash.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": true
+    },
+    {
+      "name": "card add",
+      "summary": "Create a card.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "title": {
+          "type": "string",
+          "summary": "Set the title."
+        },
+        "body": {
+          "type": "string",
+          "summary": "Read body from stdin; accepts only -."
+        },
+        "body-file": {
+          "type": "string",
+          "summary": "Read body from a file relative to cwd."
+        },
+        "tag": {
+          "type": "string",
+          "summary": "Set tags; repeat for multiple tags.",
+          "multiple": true
+        },
+        "column": {
+          "type": "string",
+          "summary": "Set the column key."
+        },
+        "priority": {
+          "type": "string",
+          "summary": "Set urgent, important or low."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "card update",
+      "summary": "Update a card.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "title": {
+          "type": "string",
+          "summary": "Set the title."
+        },
+        "body": {
+          "type": "string",
+          "summary": "Read body from stdin; accepts only -."
+        },
+        "body-file": {
+          "type": "string",
+          "summary": "Read body from a file relative to cwd."
+        },
+        "tag": {
+          "type": "string",
+          "summary": "Set tags; repeat for multiple tags.",
+          "multiple": true
+        },
+        "column": {
+          "type": "string",
+          "summary": "Set the column key."
+        },
+        "priority": {
+          "type": "string",
+          "summary": "Set urgent, important or low."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "card rm",
+      "summary": "Move a card to trash.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "note add",
+      "summary": "Create a note.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "title": {
+          "type": "string",
+          "summary": "Set the title."
+        },
+        "body": {
+          "type": "string",
+          "summary": "Read body from stdin; accepts only -."
+        },
+        "body-file": {
+          "type": "string",
+          "summary": "Read body from a file relative to cwd."
+        },
+        "tag": {
+          "type": "string",
+          "summary": "Set tags; repeat for multiple tags.",
+          "multiple": true
+        },
+        "kind": {
+          "type": "string",
+          "summary": "Set the entity kind."
+        },
+        "source": {
+          "type": "string",
+          "summary": "Set the source."
+        },
+        "pin": {
+          "type": "boolean",
+          "summary": "Pin the note."
+        },
+        "valid-from": {
+          "type": "string",
+          "summary": "Set the first valid date."
+        },
+        "valid-until": {
+          "type": "string",
+          "summary": "Set the last valid date."
+        },
+        "superseded-by": {
+          "type": "string",
+          "summary": "Set the replacement reference."
+        },
+        "code": {
+          "type": "string",
+          "summary": "Set the wiki code."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "note update",
+      "summary": "Update a note.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "title": {
+          "type": "string",
+          "summary": "Set the title."
+        },
+        "body": {
+          "type": "string",
+          "summary": "Read body from stdin; accepts only -."
+        },
+        "body-file": {
+          "type": "string",
+          "summary": "Read body from a file relative to cwd."
+        },
+        "tag": {
+          "type": "string",
+          "summary": "Set tags; repeat for multiple tags.",
+          "multiple": true
+        },
+        "kind": {
+          "type": "string",
+          "summary": "Set the entity kind."
+        },
+        "source": {
+          "type": "string",
+          "summary": "Set the source."
+        },
+        "pin": {
+          "type": "boolean",
+          "summary": "Pin the note."
+        },
+        "valid-from": {
+          "type": "string",
+          "summary": "Set the first valid date."
+        },
+        "valid-until": {
+          "type": "string",
+          "summary": "Set the last valid date."
+        },
+        "superseded-by": {
+          "type": "string",
+          "summary": "Set the replacement reference."
+        },
+        "code": {
+          "type": "string",
+          "summary": "Set the wiki code."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "note rm",
+      "summary": "Move a note to trash.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "research add",
+      "summary": "Create a research.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "title": {
+          "type": "string",
+          "summary": "Set the title."
+        },
+        "body": {
+          "type": "string",
+          "summary": "Read body from stdin; accepts only -."
+        },
+        "body-file": {
+          "type": "string",
+          "summary": "Read body from a file relative to cwd."
+        },
+        "tag": {
+          "type": "string",
+          "summary": "Set tags; repeat for multiple tags.",
+          "multiple": true
+        },
+        "kind": {
+          "type": "string",
+          "summary": "Set the entity kind."
+        },
+        "source": {
+          "type": "string",
+          "summary": "Set the source."
+        },
+        "date": {
+          "type": "string",
+          "summary": "Set the research date."
+        },
+        "source-date": {
+          "type": "string",
+          "summary": "Set the source date."
+        },
+        "processed": {
+          "type": "boolean",
+          "summary": "Mark as processed."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "research update",
+      "summary": "Update a research.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "title": {
+          "type": "string",
+          "summary": "Set the title."
+        },
+        "body": {
+          "type": "string",
+          "summary": "Read body from stdin; accepts only -."
+        },
+        "body-file": {
+          "type": "string",
+          "summary": "Read body from a file relative to cwd."
+        },
+        "tag": {
+          "type": "string",
+          "summary": "Set tags; repeat for multiple tags.",
+          "multiple": true
+        },
+        "kind": {
+          "type": "string",
+          "summary": "Set the entity kind."
+        },
+        "source": {
+          "type": "string",
+          "summary": "Set the source."
+        },
+        "date": {
+          "type": "string",
+          "summary": "Set the research date."
+        },
+        "source-date": {
+          "type": "string",
+          "summary": "Set the source date."
+        },
+        "processed": {
+          "type": "boolean",
+          "summary": "Mark as processed."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "research rm",
+      "summary": "Move a research to trash.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "card move",
+      "summary": "Move a card to a column and position.",
+      "args": [
+        "<ref>",
+        "[column]"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "column": {
+          "type": "string",
+          "summary": "Set the target column key."
+        },
+        "before": {
+          "type": "string",
+          "summary": "Place before this card."
+        },
+        "after": {
+          "type": "string",
+          "summary": "Place after this card."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "card claim",
+      "summary": "Claim a card or renew its lease.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "renew": {
+          "type": "boolean",
+          "summary": "Renew your current lease."
+        },
+        "steal": {
+          "type": "boolean",
+          "summary": "Take an unexpired claim with confirmation."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": {
+        "option": "steal"
+      }
+    },
+    {
+      "name": "card release",
+      "summary": "Release a card.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "card done",
+      "summary": "Complete a card.",
+      "args": [
+        "<ref>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "card comment",
+      "summary": "Append a card comment.",
+      "args": [
+        "<ref>",
+        "[text]"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "body": {
+          "type": "string",
+          "summary": "Read body from stdin; accepts only -."
+        },
+        "body-file": {
+          "type": "string",
+          "summary": "Read body from a file relative to cwd."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "card check",
+      "summary": "Check or uncheck an acceptance item.",
+      "args": [
+        "<ref>",
+        "<n>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "uncheck": {
+          "type": "boolean",
+          "summary": "Uncheck the item."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "journal add",
+      "summary": "Append a journal job with ordered items.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "title": {
+          "type": "string",
+          "summary": "Set the job title."
+        },
+        "label": {
+          "type": "string",
+          "summary": "Set the job label."
+        },
+        "date": {
+          "type": "string",
+          "summary": "Use YYYY-MM-DD; defaults to today."
+        },
+        "decision": {
+          "type": "string",
+          "summary": "Append a decision; repeat as needed.",
+          "multiple": true
+        },
+        "discovery": {
+          "type": "string",
+          "summary": "Append a discovery; repeat as needed.",
+          "multiple": true
+        },
+        "pitfall": {
+          "type": "string",
+          "summary": "Append a pitfall; repeat as needed.",
+          "multiple": true
+        },
+        "lesson": {
+          "type": "string",
+          "summary": "Append a lesson; repeat as needed.",
+          "multiple": true
+        },
+        "item": {
+          "type": "string",
+          "summary": "Append a item; repeat as needed.",
+          "multiple": true
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "trash restore",
+      "summary": "Restore a trash item.",
+      "args": [
+        "<id>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "undo",
+      "summary": "Undo the latest operation.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
+      "name": "init",
+      "summary": "Initialize a data directory.",
+      "args": [
+        "[path]"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "language": {
+          "type": "string",
+          "summary": "Use tr or en (default: en)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Use default or tr-wiki (default: default)."
+        },
+        "set-default": {
+          "type": "boolean",
+          "summary": "Make this the default data directory, replacing an existing default."
+        }
+      },
+      "mode": "write",
+      "needsData": false,
+      "dangerous": {
+        "option": "set-default"
+      }
+    },
+    {
+      "name": "link",
+      "summary": "Link a git repository to a project.",
+      "args": [
+        "<project>"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "gitignore": {
+          "type": "boolean",
+          "summary": "Ignore the project link in git."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": true
+    },
+    {
+      "name": "export board",
+      "summary": "Export the derived Obsidian board; writing board.md needs an actor.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "stdout": {
+          "type": "boolean",
+          "summary": "Return board text instead of writing board.md."
+        }
+      },
+      "mode": "write",
+      "needsData": true,
+      "dangerous": false,
+      "actor": false
+    },
+    {
+      "name": "agent install",
+      "summary": "Install agent skills with confirmation.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "target": {
+          "type": "string",
+          "multiple": true,
+          "summary": "Select claude, agents or antigravity-cli; repeat as needed."
+        }
+      },
+      "mode": "write",
+      "needsData": false,
+      "dangerous": true,
+      "actor": false
+    },
+    {
+      "name": "agent check",
+      "summary": "Check installed agent skill versions and CLI paths.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        }
+      },
+      "mode": "read",
+      "needsData": false,
+      "dangerous": false
+    },
+    {
+      "name": "agent print",
+      "summary": "Print a short AGENTS.md fragment.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        }
+      },
+      "mode": "read",
+      "needsData": false,
+      "dangerous": false
+    },
+    {
+      "name": "doctor",
+      "summary": "Inspect data without migration or recovery.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": false,
+      "dangerous": false
+    },
+    {
+      "name": "schema",
+      "summary": "Describe commands, fields and error codes.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": false,
+      "dangerous": false
+    }
+  ],
+  "errors": [
+    {
+      "code": "internal",
+      "exit": 1
+    },
+    {
+      "code": "usage",
+      "exit": 2
+    },
+    {
+      "code": "actor_required",
+      "exit": 2
+    },
+    {
+      "code": "not_found",
+      "exit": 3
+    },
+    {
+      "code": "nothing_to_undo",
+      "exit": 3
+    },
+    {
+      "code": "conflict",
+      "exit": 4
+    },
+    {
+      "code": "claimed",
+      "exit": 4
+    },
+    {
+      "code": "validation",
+      "exit": 5
+    },
+    {
+      "code": "no_role_column",
+      "exit": 5
+    },
+    {
+      "code": "duplicate_id",
+      "exit": 5
+    },
+    {
+      "code": "format_too_new",
+      "exit": 5
+    },
+    {
+      "code": "unsafe_path",
+      "exit": 5
+    },
+    {
+      "code": "unsupported_frontmatter",
+      "exit": 5
+    },
+    {
+      "code": "runtime_unsupported",
+      "exit": 5
+    },
+    {
+      "code": "locked",
+      "exit": 6
+    },
+    {
+      "code": "confirmation_required",
+      "exit": 7
+    }
+  ],
+  "fields": {
+    "project": [
+      "id",
+      "title",
+      "created",
+      "updated",
+      "status",
+      "tone",
+      "aliases"
+    ],
+    "card": [
+      "id",
+      "title",
+      "created",
+      "updated",
+      "project",
+      "column",
+      "position",
+      "priority",
+      "tags",
+      "assignee",
+      "claimed",
+      "lease",
+      "done"
+    ],
+    "note": [
+      "id",
+      "title",
+      "created",
+      "updated",
+      "kind",
+      "project",
+      "tags",
+      "pinned",
+      "source",
+      "superseded_by",
+      "valid_from",
+      "valid_until",
+      "code"
+    ],
+    "research": [
+      "id",
+      "title",
+      "created",
+      "updated",
+      "project",
+      "kind",
+      "date",
+      "tags",
+      "source",
+      "raw",
+      "raw_sha256",
+      "sourceDate",
+      "processed"
+    ],
+    "journal": [
+      "date"
+    ]
+  },
+  "result": {
+    "exit": "Optional process exit code; doctor returns 5 with ok: true when a check fails."
+  }
+}

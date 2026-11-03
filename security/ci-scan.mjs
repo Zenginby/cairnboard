@@ -1,5 +1,6 @@
 import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import { annotatedTags, git } from './git.mjs';
+import { GITHUB_COMMITTER } from './rules.mjs';
 import { fixtureLines, scanLines, scanText, formatFindings } from './scan.mjs';
 
 try {
@@ -55,6 +56,8 @@ try {
   const emails = identities.split('\0').slice(0, -1).map((identity) => identity.replace(/^\n/, ''));
   for (const [index, email] of [...emails, ...tagEmails].entries()) {
     const value = email.toLowerCase();
+    const committer = index < emails.length && index % 2 === 1;
+    if (committer && value === GITHUB_COMMITTER) continue;
     if (!value.endsWith('@users.noreply.github.com') && value !== 'noreply@anthropic.com') {
       findings.push({ file: 'identities', line: index + 1, rule: 'identity' });
     }

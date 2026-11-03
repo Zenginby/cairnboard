@@ -9,7 +9,7 @@ import { classify, readCanonical, physicalPatch, destination, isRawPath } from '
 import { extract } from './extract.mjs';
 import { ensureFresh, rows, findById } from './index.mjs';
 import { readFile, revision, write } from './store.mjs';
-import { withLock } from './lock.mjs';
+import { retryWhileLocked, withLock } from './lock.mjs';
 import { keyBetween } from './position.mjs';
 
 /** @typedef {{ type: string, kind: string|null, id: string|null, ref: string, path: string,
@@ -32,6 +32,23 @@ export function localDate(ctx) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: process.env.TZ ?? undefined, year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(ctx.clock.now());
+}
+
+// Only a valid, unexpired lease protects a claim (5 minutes of clock tolerance). A finished card or a hand-typed
+// `assignee:` without a lease protects nothing, so it can never lock other actors out for good.
+export function liveClaim(ctx, data) {
+  const { assignee, lease } = data ?? {};
+  if (!assignee || typeof lease !== 'string' || !Number.isFinite(Date.parse(lease))) return null;
+  return ctx.clock.now().getTime() > Date.parse(lease) + 5 * 60 * 1000 ? null : { assignee, lease };
+}
+
+// Every card write by another actor must respect a live claim, whichever command it comes through.
+export function requireCardOwner(ctx, data) {
+  const claim = liveClaim(ctx, data);
+  const colon = typeof ctx.actor === 'string' ? ctx.actor.indexOf(':') : -1;
+  if (claim && claim.assignee !== ctx.actor?.slice(colon + 1)) {
+    throw new CairnError('claimed', 'Card is claimed by another actor.', { current: claim });
+  }
 }
 
 export function validatePriority(priority) {
@@ -127,16 +144,8 @@ function directoryLock(ctx, folder, opts, fn) {
   if (opts.dryRun === true || ctx.mode === 'dry-run') return fn();
   if (ctx.mode !== 'write') throw new CairnError('internal', 'Mutations require write mode.');
   const name = 'd-' + createHash('sha1').update(pathKey(folder)).digest('hex').slice(0, 16);
-  for (let attempt = 0; ; attempt++) {
-    let entered = false;
-    try {
-      return withLock(ctx, name, () => { entered = true; return fn(); });
-    } catch (error) {
-      if (entered || error.code !== 'locked' || attempt === 9) throw error;
-      // Contending creators must choose their names after the previous creator has committed.
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.min(200, 20 * (attempt + 1)));
-    }
-  }
+  // Contending creators must choose their names after the previous creator has committed.
+  return retryWhileLocked((state) => withLock(ctx, name, () => { state.entered = true; return fn(); }));
 }
 
 function names(ctx, folder) {
@@ -199,6 +208,7 @@ export function update(ctx, type, ref, patch, opts = {}) {
     if (text === null) throw missing();
     const current = fromText(ctx, type, entity.path, text);
     writable(ctx, current);
+    if (type === 'card') requireCardOwner(ctx, current.data);
     const file = parseFile(text);
     const data = readCanonical(ctx.schema, file.data);
     const changes = { ...patch, ...(current.id === null ? { id: freshId(ctx, type) } : {}), updated: ctx.clock.now().toISOString() };
@@ -218,7 +228,9 @@ export function remove(ctx, type, ref, opts = {}) {
   writable(ctx, entity);
   return write(ctx, { ...opts, path: entity.path, target: entity.ref, op: `${type}.delete`, apply: (text) => {
     if (text === null) throw missing();
-    writable(ctx, fromText(ctx, type, entity.path, text));
+    const current = fromText(ctx, type, entity.path, text);
+    writable(ctx, current);
+    if (type === 'card') requireCardOwner(ctx, current.data);
     physicalPatch(ctx.schema, parseFile(text).data, {});
     return null;
   } });

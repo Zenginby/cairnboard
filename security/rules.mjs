@@ -1,6 +1,8 @@
 const emailDomains = new Set(['example.com', 'users.noreply.github.com']);
 // Public bot identities that appear in commit trailers.
-const emailAddresses = new Set(['noreply@anthropic.com']);
+// GitHub's own committer identity on commits it creates (web merges); it never appears as an author.
+export const GITHUB_COMMITTER = 'noreply@github.com';
+const emailAddresses = new Set(['noreply@anthropic.com', GITHUB_COMMITTER]);
 // GitHub no-reply identity as it appears in folded (dot-free) form inside the interim hook script.
 const foldedNoreply = /^\d+\+[a-z0-9-]+@users$/i;
 const placeholderUsers = new Set(['user', 'you', 'example']);

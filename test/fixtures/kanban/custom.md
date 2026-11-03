@@ -1,5 +1,6 @@
 ---
 kanban-plugin: board
+cairnboard: export
 ---
 
 ## Queue
