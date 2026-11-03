@@ -32,18 +32,18 @@ colors:
   tone-4: "#4cc0f0"
   tone-4-text: "#8ad6f7"
   tone-4-bg: "#0d2a3a"
-  tone-5: "#f07ab2"
-  tone-5-text: "#f6a8cd"
-  tone-5-bg: "#3a1b2c"
-  tone-6: "#ff8a65"
-  tone-6-text: "#ffb39b"
-  tone-6-bg: "#3d1d12"
-  tone-7: "#6fcf7c"
-  tone-7-text: "#9be3a5"
-  tone-7-bg: "#13301a"
-  tone-8: "#a3a9ba"
-  tone-8-text: "#b9c1da"
-  tone-8-bg: "#252a38"
+  tone-5: "#e07fc8"
+  tone-5-text: "#f0a6dc"
+  tone-5-bg: "#3a1b33"
+  tone-6: "#ff7a88"
+  tone-6-text: "#ff9ea8"
+  tone-6-bg: "#3d1a1e"
+  tone-7: "#a3a9ba"
+  tone-7-text: "#b9c1da"
+  tone-7-bg: "#252a38"
+  tone-8: "#6fcf7c"
+  tone-8-text: "#9be3a5"
+  tone-8-bg: "#13301a"
   done: "#6fdc96"
   done-bg: "#133222"
   doing: "#6eb4ff"
@@ -59,22 +59,47 @@ colors:
   danger: "#ff8a80"
   danger-bg: "#3d1a1e"
 typography:
+  hero: { fontFamily: Inter Variable, fontSize: 72px, fontWeight: 700, lineHeight: 1, letterSpacing: -0.045em }
+  page-title: { fontFamily: Inter Variable, fontSize: 46.4px, fontWeight: 700, lineHeight: 1.06, letterSpacing: -0.03em }
   display: { fontFamily: Inter Variable, fontSize: 32px, fontWeight: 650, lineHeight: 1.15, letterSpacing: -0.02em }
+  stat: { fontFamily: Inter Variable, fontSize: 28px, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.02em }
+  project-title: { fontFamily: Inter Variable, fontSize: 24px, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.025em }
   title: { fontFamily: Inter Variable, fontSize: 20px, fontWeight: 600, lineHeight: 1.3, letterSpacing: -0.01em }
+  box-title: { fontFamily: Inter Variable, fontSize: 19px, fontWeight: 650, lineHeight: 1.25, letterSpacing: -0.015em }
+  lead: { fontFamily: Inter Variable, fontSize: 17px, fontWeight: 400, lineHeight: 1.6 }
   body: { fontFamily: Inter Variable, fontSize: 16px, fontWeight: 400, lineHeight: 1.7 }
+  row: { fontFamily: Inter Variable, fontSize: 15.5px, fontWeight: 400, lineHeight: 1.5 }
+  ui: { fontFamily: Inter Variable, fontSize: 15px, fontWeight: 500, lineHeight: 1.4 }
+  small: { fontFamily: Inter Variable, fontSize: 14px, fontWeight: 400, lineHeight: 1.45 }
   label: { fontFamily: Inter Variable, fontSize: 13px, fontWeight: 550, lineHeight: 1.3 }
+  caption: { fontFamily: Inter Variable, fontSize: 12px, fontWeight: 500, lineHeight: 1.3 }
   code: { fontFamily: ui-monospace, fontSize: 14px, fontWeight: 400, lineHeight: 1.6 }
 rounded:
+  xs: 6px
   sm: 12px
   md: 20px
   lg: 28px
   full: 999px
 spacing:
+  hairline: 1px
+  2xs: 2px
   xs: 4px
+  6: 6px
   sm: 8px
+  10: 10px
+  12: 12px
+  14: 14px
   md: 16px
+  18: 18px
   lg: 24px
+  28: 28px
   xl: 40px
+  content-max: 1080px
+  page-max: 1152px
+  header-height: 56px
+  header-height-wide: 68px
+  nav-height: 48px
+  search-width: 240px
 components:
   page:
     backgroundColor: "{colors.canvas}"
@@ -191,4 +216,5 @@ come from the root `DESIGN.md` and are the same in every theme. Token names matc
 ```yaml
 shadow-box: 0 0 0 1px rgba(255, 255, 255, 0.06)
 shadow-box-raised: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 18px 40px rgba(0, 0, 0, 0.6)
+shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.5)
 ```

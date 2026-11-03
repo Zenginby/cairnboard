@@ -32,18 +32,18 @@ colors:
   tone-4: "#1c9bd1"
   tone-4-text: "#0b5f86"
   tone-4-bg: "#e1f2fb"
-  tone-5: "#d4508f"
-  tone-5-text: "#9a2563"
-  tone-5-bg: "#fbe6f0"
-  tone-6: "#e5603a"
-  tone-6-text: "#a3341a"
-  tone-6-bg: "#fde9e2"
-  tone-7: "#3c9a4a"
-  tone-7-text: "#226b2e"
-  tone-7-bg: "#e4f3e6"
-  tone-8: "#7a7f8e"
-  tone-8-text: "#48506a"
-  tone-8-bg: "#e8ebf3"
+  tone-5: "#c45aa8"
+  tone-5-text: "#8a3a7a"
+  tone-5-bg: "#f8e7f3"
+  tone-6: "#d95060"
+  tone-6-text: "#a3343f"
+  tone-6-bg: "#fce8ea"
+  tone-7: "#7a7f8e"
+  tone-7-text: "#48506a"
+  tone-7-bg: "#e8ebf3"
+  tone-8: "#3c9a4a"
+  tone-8-text: "#226b2e"
+  tone-8-bg: "#e4f3e6"
   done: "#1a7340"
   done-bg: "#e3f4e9"
   doing: "#0060c0"
@@ -59,22 +59,47 @@ colors:
   danger: "#b3261e"
   danger-bg: "#fce8e6"
 typography:
+  hero: { fontFamily: Inter Variable, fontSize: 72px, fontWeight: 700, lineHeight: 1, letterSpacing: -0.045em }
+  page-title: { fontFamily: Inter Variable, fontSize: 46.4px, fontWeight: 700, lineHeight: 1.06, letterSpacing: -0.03em }
   display: { fontFamily: Inter Variable, fontSize: 32px, fontWeight: 650, lineHeight: 1.15, letterSpacing: -0.02em }
+  stat: { fontFamily: Inter Variable, fontSize: 28px, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.02em }
+  project-title: { fontFamily: Inter Variable, fontSize: 24px, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.025em }
   title: { fontFamily: Inter Variable, fontSize: 20px, fontWeight: 600, lineHeight: 1.3, letterSpacing: -0.01em }
+  box-title: { fontFamily: Inter Variable, fontSize: 19px, fontWeight: 650, lineHeight: 1.25, letterSpacing: -0.015em }
+  lead: { fontFamily: Inter Variable, fontSize: 17px, fontWeight: 400, lineHeight: 1.6 }
   body: { fontFamily: Inter Variable, fontSize: 16px, fontWeight: 400, lineHeight: 1.7 }
+  row: { fontFamily: Inter Variable, fontSize: 15.5px, fontWeight: 400, lineHeight: 1.5 }
+  ui: { fontFamily: Inter Variable, fontSize: 15px, fontWeight: 500, lineHeight: 1.4 }
+  small: { fontFamily: Inter Variable, fontSize: 14px, fontWeight: 400, lineHeight: 1.45 }
   label: { fontFamily: Inter Variable, fontSize: 13px, fontWeight: 550, lineHeight: 1.3 }
+  caption: { fontFamily: Inter Variable, fontSize: 12px, fontWeight: 500, lineHeight: 1.3 }
   code: { fontFamily: ui-monospace, fontSize: 14px, fontWeight: 400, lineHeight: 1.6 }
 rounded:
+  xs: 6px
   sm: 12px
   md: 20px
   lg: 28px
   full: 999px
 spacing:
+  hairline: 1px
+  2xs: 2px
   xs: 4px
+  6: 6px
   sm: 8px
+  10: 10px
+  12: 12px
+  14: 14px
   md: 16px
+  18: 18px
   lg: 24px
+  28: 28px
   xl: 40px
+  content-max: 1080px
+  page-max: 1152px
+  header-height: 56px
+  header-height-wide: 68px
+  nav-height: 48px
+  search-width: 240px
 components:
   page:
     backgroundColor: "{colors.canvas}"
@@ -224,6 +249,7 @@ themes the shadow becomes a 1px light outline.
 ```yaml
 shadow-box: 0 1px 2px rgba(16, 16, 30, 0.04), 0 8px 24px rgba(16, 16, 30, 0.06)
 shadow-box-raised: 0 2px 4px rgba(16, 16, 30, 0.05), 0 18px 40px rgba(16, 16, 30, 0.1)
+shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.12)
 ```
 
 ## Shapes
@@ -234,7 +260,10 @@ shadow-box-raised: 0 2px 4px rgba(16, 16, 30, 0.05), 0 18px 40px rgba(16, 16, 30
 ## Motion
 
 Motion explains where something came from or confirms that an action happened; it is never decoration. Only
-`transform` and `opacity` animate. Every animation can be interrupted (transitions, not keyframes, for state changes).
+`transform` and `opacity` animate, with three exceptions the Bento look depends on: a box's shadow changes with
+`ease-default` while it lifts on hover (`distance-lift`, `distance-lift-card`, `scale-hover`), a collapsing column
+animates `grid-template-rows` from `0fr` to `1fr` with a short `blur-small` fade, and the header material uses
+`blur-material` and `saturate-material` as a static backdrop filter. Every animation can be interrupted (transitions, not keyframes, for state changes).
 Closing is one step shorter than opening and uses `ease-out`. Things opened by keyboard shortcut appear without
 animation. Stagger is used only on first load, at most `stagger-max-items` items. With `prefers-reduced-motion:
 reduce` or the "Motion: less" setting, movement is removed and only short fades remain. `ease-spring` and `ease-spring-bouncy`
@@ -247,6 +276,7 @@ transition support, with reduced motion or with "Motion: less" the theme changes
 
 ```yaml
 duration-stagger: 40ms
+duration-press: 120ms
 duration-quick: 150ms
 duration-fast: 250ms
 duration-medium: 350ms
@@ -254,23 +284,31 @@ duration-slow: 400ms
 duration-very-slow: 500ms
 duration-highlight: 700ms
 duration-theme-reveal: 800ms
+duration-pulse: 2400ms
 stagger-max-items: 5
 ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1)
 ease-out: ease-out
 ease-in-out: ease-in-out
+ease-default: ease
 ease-settle: cubic-bezier(0.15, 1, 0.3, 1)
 ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1)
 ease-spring: linear(0, 0.038, 0.125, 0.233, 0.345, 0.451, 0.547, 0.63, 0.701, 0.76, 0.809, 0.849, 0.881, 0.906, 0.927, 0.943, 0.956, 0.966, 0.973, 0.979, 0.984, 0.988, 0.991, 0.993, 1)
 ease-spring-bouncy: linear(0, 0.051, 0.17, 0.319, 0.471, 0.611, 0.73, 0.826, 0.899, 0.952, 0.988, 1.01, 1.023, 1.028, 1.028, 1.026, 1.022, 1.018, 1.013, 1.01, 1.007, 1.004, 1.002, 1.001, 1)
 ease-spring-fallback: cubic-bezier(0.22, 1, 0.36, 1)
+distance-lift-card: 2px
+distance-lift: 3px
 distance-micro: 4px
 distance-base: 8px
 distance-medium: 12px
 scale-press: 0.97
+scale-press-box: 0.98
+scale-hover: 1.012
 scale-enter: 0.96
 blur-small: 2px
 blur-medium: 3px
 blur-large: 8px
+blur-material: 20px
+saturate-material: 180%
 ```
 
 Drag and drop on the board: the card's old place drops to 40% opacity, a 2px line marks the drop point, the dropped

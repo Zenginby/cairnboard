@@ -59,22 +59,47 @@ colors:
   danger: "#ff958b"
   danger-bg: "#432427"
 typography:
+  hero: { fontFamily: Inter Variable, fontSize: 72px, fontWeight: 700, lineHeight: 1, letterSpacing: -0.045em }
+  page-title: { fontFamily: Inter Variable, fontSize: 46.4px, fontWeight: 700, lineHeight: 1.06, letterSpacing: -0.03em }
   display: { fontFamily: Inter Variable, fontSize: 32px, fontWeight: 650, lineHeight: 1.15, letterSpacing: -0.02em }
+  stat: { fontFamily: Inter Variable, fontSize: 28px, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.02em }
+  project-title: { fontFamily: Inter Variable, fontSize: 24px, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.025em }
   title: { fontFamily: Inter Variable, fontSize: 20px, fontWeight: 600, lineHeight: 1.3, letterSpacing: -0.01em }
+  box-title: { fontFamily: Inter Variable, fontSize: 19px, fontWeight: 650, lineHeight: 1.25, letterSpacing: -0.015em }
+  lead: { fontFamily: Inter Variable, fontSize: 17px, fontWeight: 400, lineHeight: 1.6 }
   body: { fontFamily: Inter Variable, fontSize: 16px, fontWeight: 400, lineHeight: 1.7 }
+  row: { fontFamily: Inter Variable, fontSize: 15.5px, fontWeight: 400, lineHeight: 1.5 }
+  ui: { fontFamily: Inter Variable, fontSize: 15px, fontWeight: 500, lineHeight: 1.4 }
+  small: { fontFamily: Inter Variable, fontSize: 14px, fontWeight: 400, lineHeight: 1.45 }
   label: { fontFamily: Inter Variable, fontSize: 13px, fontWeight: 550, lineHeight: 1.3 }
+  caption: { fontFamily: Inter Variable, fontSize: 12px, fontWeight: 500, lineHeight: 1.3 }
   code: { fontFamily: ui-monospace, fontSize: 14px, fontWeight: 400, lineHeight: 1.6 }
 rounded:
+  xs: 6px
   sm: 12px
   md: 20px
   lg: 28px
   full: 999px
 spacing:
+  hairline: 1px
+  2xs: 2px
   xs: 4px
+  6: 6px
   sm: 8px
+  10: 10px
+  12: 12px
+  14: 14px
   md: 16px
+  18: 18px
   lg: 24px
+  28: 28px
   xl: 40px
+  content-max: 1080px
+  page-max: 1152px
+  header-height: 56px
+  header-height-wide: 68px
+  nav-height: 48px
+  search-width: 240px
 components:
   page:
     backgroundColor: "{colors.canvas}"
@@ -191,4 +216,5 @@ come from the root `DESIGN.md` and are the same in every theme. Token names matc
 ```yaml
 shadow-box: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.25)
 shadow-box-raised: 0 0 0 1px rgba(255, 255, 255, 0.09), 0 18px 40px rgba(0, 0, 0, 0.45)
+shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.5)
 ```

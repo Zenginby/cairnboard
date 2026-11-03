@@ -1,3 +1,4 @@
+@import '../../../src/styles/fonts.css';
 @import '../../../src/styles/tokens.css';
 
 *, *::before, *::after { box-sizing: border-box; }
