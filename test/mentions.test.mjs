@@ -44,6 +44,13 @@ test('Unicode letter/number boundaries reject Borealisler and embedded names', (
   assert.deepEqual(mentions(f.ctx, '@notes/target').map(({ line }) => line), [5, 6]);
 });
 
+// Owner rule (O plan, open question 1): a suffix after an apostrophe is a mention, a joined suffix is not.
+test('Turkish suffixes count after an apostrophe only', (t) => {
+  const f = fixture(t);
+  f.put('notes/a.md', "Borealis'te\nBorealis’ten\nBorealiste\nBOREALİS'İN");
+  assert.deepEqual(mentions(f.ctx, '@notes/target').map(({ line }) => line), [1, 2, 4]);
+});
+
 test('mentions excludes code, wiki links, linked pages and the target itself', (t) => {
   const f = fixture(t);
   f.put('notes/a.md', '```md\nBorealis\n```\n`Borealis`\n`😀\nBorealis`\n[[missing|Borealis]]\n[[Borealis]]\nBorealis');
