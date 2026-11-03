@@ -1,0 +1,3 @@
+# Fikir
+
+Ham fikir notu.
