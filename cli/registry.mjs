@@ -1,4 +1,3 @@
-import * as fs from '../core/fsx.mjs';
 import { CairnError, ERRORS } from '../core/errors.mjs';
 import * as entity from '../core/entity.mjs';
 import * as journal from '../core/journal.mjs';
@@ -8,12 +7,15 @@ import { listCards, effectiveColumn } from '../core/card.mjs';
 import { oneLine } from '../core/text.mjs';
 import { toJson, compact, clean } from './output.mjs';
 import { writeCommands } from './commands/write.mjs';
+import { agentCommands } from './commands/agent.mjs';
+import { packageVersion } from '../core/agent.mjs';
 import { checkData } from '../core/doctor.mjs';
 
 /** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
  * { type: 'string'|'boolean', multiple?: boolean, summary: string }>, mode: 'read'|'write',
- * needsData: boolean, dangerous: boolean|{ option: string }, run: (ctx: object|null, args: string[], opts: object, io: object) => Result|Promise<Result> }} Command */
+ * actor?: boolean, prepare?: (args: string[], opts: object, io: object) => unknown,
+ * needsData: boolean, dangerous: boolean|{ option: string }, run: (ctx: object|null, args: string[], opts: object, io: object, prepared?: unknown) => Result|Promise<Result> }} Command */
 
 const string = (summary) => ({ type: 'string', summary });
 const boolean = (summary) => ({ type: 'boolean', summary });
@@ -127,6 +129,7 @@ read('trash list', 'List recoverable trash items.', [], {}, (ctx, args, opts) =>
   .map((item) => opts.compact ? oneLine(clean(item.path, opts)) : clean(item, opts)) } }));
 
 commands.push(...writeCommands({ string, boolean }));
+commands.push(...agentCommands(commands));
 
 read('doctor', 'Inspect data without migration or recovery.', [], {}, (ctx, args, opts, io) => {
   const checks = checkData({ dataDir: opts.data, env: io.env, home: io.env.HOME ?? io.env.USERPROFILE,
@@ -135,9 +138,9 @@ read('doctor', 'Inspect data without migration or recovery.', [], {}, (ctx, args
 }, false);
 
 read('schema', 'Describe commands, fields and error codes.', [], {}, () => ({ data: {
-  cli: JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version,
-  commands: commands.map(({ name, summary, args, options, mode, needsData, dangerous }) => ({
-    name, summary, args, options: { ...commonOptions, ...options }, mode, needsData, dangerous,
+  cli: packageVersion,
+  commands: commands.map(({ name, summary, args, options, mode, actor, needsData, dangerous }) => ({
+    name, summary, args, options: { ...commonOptions, ...options }, mode, needsData, dangerous, ...(actor === false ? { actor } : {}),
   })),
   errors: Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })), fields,
   result: { exit: 'Optional process exit code; doctor returns 5 with ok: true when a check fails.' },

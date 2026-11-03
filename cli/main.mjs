@@ -17,11 +17,12 @@ export async function main(argv, io) {
     opts = parsed.opts;
     json = opts.json === true;
     const actor = opts.actor ?? io.env.CAIRN_ACTOR;
-    if (command.mode === 'write' || opts.assignee === 'me') {
+    if ((command.mode === 'write' && command.actor !== false) || opts.assignee === 'me') {
       if (!actor) throw new CairnError('actor_required', 'An actor is required.');
       if (!actorPattern.test(actor)) throw new CairnError('usage', 'Invalid actor name.');
     }
     if (opts.assignee === 'me') opts.assignee = actor;
+    const prepared = await command.prepare?.(args, opts, io);
     const dangerous = command.dangerous === true || (command.dangerous && opts[command.dangerous.option]);
     if (dangerous && !opts['dry-run'] && !await confirm(io, `Confirm ${command.name}?`)) {
       throw new CairnError('confirmation_required', 'Confirmation was declined.');
@@ -34,7 +35,7 @@ export async function main(argv, io) {
         actor: actor && actorPattern.test(actor) ? `cli:${actor}` : null });
       if (opts.project === undefined) opts.project = findProjectLink(io.cwd) ?? undefined;
     }
-    const result = await command.run(ctx, args, opts, io);
+    const result = await command.run(ctx, args, opts, io, prepared);
     const warnings = [...new Set([...(ctx?.warnings ?? []), ...(result.warnings ?? [])])];
     const envelope = clean({ v: 1, ok: true, data: result.data, warnings }, opts);
     const output = json ? JSON.stringify(envelope) : human(envelope.data);
