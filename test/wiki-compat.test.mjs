@@ -92,3 +92,39 @@ test('assertUnchanged detects edits, additions, removals and a .cairn folder', a
   mkdirSync(join(data, '.cairn'));
   assert.throws(() => assertUnchanged(before, data), /\.cairn/u);
 });
+
+test('wiki lint on the vault reports the expected findings and nothing it should not', async (t) => {
+  const { data, cli } = opened(t);
+  const before = snapshot(data);
+  const result = await cli(['wiki', 'lint']);
+  assert.equal(result.code, 0, result.stderr);
+  const findings = result.json.data.findings;
+  const at = (code) => findings.filter((finding) => finding.code === code);
+  const where = (code) => at(code).map((finding) => finding.path).sort();
+  assert.deepEqual(where('invalid_frontmatter'), ['wiki/kavramlar/bozuk-yaml.md']);
+  assert.deepEqual(at('unknown_kind').map((finding) => [finding.path, finding.content.excerpt]).sort(),
+    [['gorevler.md', 'gorevler'], ['pano.md', 'pano']]);
+  // `ham: incelemeler/…` is a valid source root, and `[[CLAUDE]]` / `[[log]]` resolve to files outside the pages.
+  assert.deepEqual(where('raw_missing'), []);
+  assert.deepEqual(where('raw_changed'), []);
+  assert.equal(at('broken_link').some((finding) => ['CLAUDE', 'log'].includes(finding.target)), false);
+  assert.ok(at('broken_link').some((finding) => finding.path === 'wiki/kavramlar/sistem-1-sistem-2.md' && finding.target === 'Acme Kavramı'));
+  // The journal has no date field and is not in the catalog, and is exempt from orphan and catalog checks.
+  for (const code of ['orphan', 'index_mismatch', 'missing_frontmatter']) {
+    assert.equal(at(code).some((finding) => finding.path.includes('gunluk-loglar')), false, code);
+  }
+  assert.ok(at('orphan').some((finding) => finding.path === 'wiki/kavramlar/bos-kaynak.md'));
+  assert.equal(at('orphan').some((finding) => ['pano.md', 'wiki/genel-bakis.md'].includes(finding.path)), false);
+  assert.deepEqual(where('unprocessed_lesson').length > 0, true);
+  // Only the kanban board lacks a title (no heading, no field); every other page carries what its kind needs.
+  assert.deepEqual(at('missing_frontmatter').map((finding) => [finding.path, finding.target]), [['pano.md', 'title']]);
+  assert.deepEqual(where('wakeup_budget'), []);
+  assert.ok(at('index_mismatch').some((finding) => finding.path === 'index.md' && finding.target === 'sistem 1 sistem 2'));
+  assert.ok(at('index_mismatch').some((finding) => finding.path === 'wiki/sorgular/acme-neden.md'));
+  const order = ['error', 'warn', 'info'];
+  assert.deepEqual(findings.map((finding) => order.indexOf(finding.severity)), findings.map((finding) => order.indexOf(finding.severity)).sort());
+  const strict = await cli(['wiki', 'lint', '--strict', '--only', 'unknown_kind']);
+  assert.equal(strict.code, 0);
+  assert.equal((await cli(['wiki', 'lint', '--strict', '--only', 'broken_link'])).code, 5);
+  assertUnchanged(before, data);
+});

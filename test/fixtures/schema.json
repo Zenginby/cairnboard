@@ -504,6 +504,76 @@
       "dangerous": false
     },
     {
+      "name": "wiki lint",
+      "summary": "Check wiki pages, links and sources.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "verify": {
+          "type": "boolean",
+          "summary": "Recompute every raw source digest."
+        },
+        "evidence": {
+          "type": "boolean",
+          "summary": "Also check quotes and numbers against raw sources."
+        },
+        "code": {
+          "type": "boolean",
+          "summary": "Also check referenced code files."
+        },
+        "only": {
+          "type": "string",
+          "summary": "Comma-separated lint codes to run."
+        },
+        "strict": {
+          "type": "boolean",
+          "summary": "Exit 5 when an error or warning is found."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
       "name": "journal list",
       "summary": "List journal days or filtered entries.",
       "args": [],
@@ -2520,6 +2590,10 @@
   "errors": [
     {
       "code": "internal",
+      "exit": 1
+    },
+    {
+      "code": "index_unavailable",
       "exit": 1
     },
     {

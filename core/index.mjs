@@ -8,12 +8,13 @@ import { classify, fingerprint } from './schema.mjs';
 import { foldTr, pathKey } from './text.mjs';
 import { revision } from './store.mjs';
 import { checkRuntime } from './runtime.mjs';
+import { CairnError } from './errors.mjs';
 import { extract } from './extract.mjs';
 import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 
 await checkRuntime();
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const MAX_SIZE = 5 * 1024 * 1024;
 const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
 const fresh = new WeakMap();
@@ -48,7 +49,7 @@ function transaction(db, fn) {
   }
 }
 
-const TABLES = ['meta', 'files', 'links', 'catalog', 'journal_entries', 'fts', 'targets'];
+const TABLES = ['meta', 'files', 'links', 'catalog', 'journal_entries', 'fts', 'targets', 'raw_digests'];
 
 function createSchema(db, schema) {
   transaction(db, () => createTables(db, schema));
@@ -69,7 +70,7 @@ function createTables(db, schema) {
       CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
       CREATE TABLE files(path TEXT PRIMARY KEY, type TEXT, kind TEXT, id TEXT,
         mtime_ms REAL, ctime_ms REAL, size INTEGER, ino TEXT, hash TEXT, title TEXT,
-        data_json TEXT, acc_done INTEGER, acc_total INTEGER, error TEXT);
+        data_json TEXT, acc_done INTEGER, acc_total INTEGER, error TEXT, untitled INTEGER, conflicts TEXT);
       CREATE TABLE links(src_path TEXT, field TEXT, expr TEXT, target_name TEXT,
         target_path TEXT, status TEXT, heading TEXT, line INTEGER);
       CREATE INDEX links_name ON links(target_name);
@@ -83,6 +84,7 @@ function createTables(db, schema) {
       CREATE TABLE targets(path TEXT PRIMARY KEY, name TEXT, mtime_ms REAL, ctime_ms REAL,
         size INTEGER, ino TEXT, hash TEXT);
       CREATE INDEX targets_name ON targets(name);
+      CREATE TABLE raw_digests(path TEXT PRIMARY KEY, mtime_ms REAL, ctime_ms REAL, size INTEGER, ino TEXT, sha256 TEXT);
     `);
     const insert = db.prepare('INSERT INTO meta VALUES (?, ?)');
     insert.run('schema_version', String(SCHEMA_VERSION));
@@ -334,9 +336,10 @@ function saveSource(db, ctx, item, hash, data) {
   }
   if (!data?.row) return;
   const row = data.row;
-  db.prepare('INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+  db.prepare('INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
     .run(row.path, row.type, row.kind, row.id, item.mtime_ms, item.ctime_ms, item.size, item.ino, hash,
-      row.title, JSON.stringify(row.data), row.acceptance.done, row.acceptance.total, row.error);
+      row.title, JSON.stringify(row.data), row.acceptance.done, row.acceptance.total, row.error,
+      Number(row.untitled), row.conflicts.length ? JSON.stringify(row.conflicts) : null);
   db.prepare('INSERT INTO fts VALUES (?, ?, ?)').run(row.path, foldTr(row.title), foldTr(row.body ?? ''));
   const linkInsert = db.prepare('INSERT INTO links VALUES (?, ?, ?, ?, NULL, ?, ?, ?)');
   for (const link of data.links) linkInsert.run(row.path, link.field, link.expr, nameKey(link.targetName), 'unresolved', link.heading, link.line);
@@ -346,7 +349,7 @@ function saveSource(db, ctx, item, hash, data) {
     entry.type, entry.line, entry.text, JSON.stringify(entry.links), Number(entry.processed));
 }
 
-function resolver(paths) {
+export function resolver(paths) {
   const names = new Map();
   const full = new Map();
   for (const path of paths) {
@@ -503,6 +506,33 @@ function query(ctx, indexed, fallback) {
     index?.close();
   }
   return fallback(snapshot(ctx));
+}
+
+// Strict access for commands that must not fall back to scanning files (`wiki lint`, `wiki index`): the cache is
+// refreshed first, and an unusable cache is an error instead of a warning.
+export function withIndex(ctx, fn) {
+  const unusable = () => new CairnError('index_unavailable', 'The index cache is unavailable.');
+  let index;
+  try {
+    if (!ensureFresh(ctx)) throw unusable();
+    index = openIndex(ctx);
+    // Another process may have rebuilt the cache since the freshness check.
+    if (fresh.get(ctx) !== stamp(ctx, index.db)) {
+      index.close();
+      index = undefined;
+      if (!ensureFresh(ctx)) throw unusable();
+      index = openIndex(ctx);
+    }
+    return fn(index.db);
+  } catch (error) {
+    fresh.delete(ctx);
+    if (error instanceof CairnError) throw error;
+    if (!unavailable(error)) throw error;
+    warn(ctx);
+    throw unusable();
+  } finally {
+    index?.close();
+  }
 }
 
 export function findById(ctx, id) {

@@ -11,6 +11,8 @@ import { agentCommands } from './commands/agent.mjs';
 import { packageVersion } from '../core/agent.mjs';
 import { checkData } from '../core/doctor.mjs';
 import { wikiIndex, formatCatalog } from '../core/wiki.mjs';
+import { lint } from '../core/lint.mjs';
+import { LINT_CODES } from '../core/rules.mjs';
 
 /** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
@@ -130,6 +132,19 @@ read('wiki index', 'List wiki pages with summaries and link counts.', [], {
   return { data: { items: entries.map((entry) => opts.compact ? oneLine(clean(`${entry.kind}\t${entry.title}\t${entry.path}`, opts))
     : clean({ path: entry.path, kind: entry.kind, out: entry.out, in: entry.in,
       content: { title: entry.title, summary: entry.summary } }, opts)) } };
+});
+
+read('wiki lint', 'Check wiki pages, links and sources.', [], {
+  verify: boolean('Recompute every raw source digest.'), evidence: boolean('Also check quotes and numbers against raw sources.'),
+  code: boolean('Also check referenced code files.'), only: string('Comma-separated lint codes to run.'),
+  strict: boolean('Exit 5 when an error or warning is found.'),
+}, (ctx, args, opts) => {
+  const only = opts.only === undefined ? undefined : opts.only.split(',').map((code) => code.trim()).filter(Boolean);
+  if (only && (!only.length || only.some((code) => !LINT_CODES.includes(code)))) throw new CairnError('validation', 'Invalid lint code.');
+  const { findings } = lint(ctx, { only, verify: opts.verify, evidence: opts.evidence, code: opts.code });
+  const counts = Object.fromEntries(['error', 'warn', 'info'].map((level) => [level, findings.filter((item) => item.severity === level).length]));
+  return { data: { findings: clean(findings, opts), counts },
+    exit: opts.strict && (counts.error || counts.warn) ? ERRORS.validation : 0 };
 });
 
 read('journal list', 'List journal days or filtered entries.', [], {

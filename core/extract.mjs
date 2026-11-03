@@ -45,7 +45,11 @@ export function extract(schema, path, text) {
     if (title) break;
   }
   const id = typeof data.id === 'string' ? data.id : null;
+  // Both the canonical and the physical name in one file (wiki spec §3); `lint` reports it.
+  const conflicts = Object.entries(schema.fields).filter(([field, name]) => field !== name && file.data
+    && Object.hasOwn(file.data, field) && Object.hasOwn(file.data, name)).map(([field]) => field);
   return {
+    untitled: title === null, conflicts,
     path, type: classification.entity, kind: classification.kind, id, ref: id ?? `@${path.replace(/\.md$/iu, '')}`,
     title: title ?? basename(path).replace(/\.md$/iu, ''), data, body: file.body,
     acceptance: acceptanceCounts(file.body), error: file.error ? 'invalid_frontmatter' : null,

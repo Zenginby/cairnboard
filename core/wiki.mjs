@@ -1,8 +1,8 @@
 import { basename } from 'node:path';
 import { parseFile } from './frontmatter.mjs';
 import { readFile } from './store.mjs';
-import { backlinks, outlinks, rows } from './index.mjs';
-import { oneLine, stripHidden } from './text.mjs';
+import { backlinks, outlinks, rows, withIndex } from './index.mjs';
+import { foldTr, oneLine, stripHidden } from './text.mjs';
 
 const SUMMARY_MAX = 200;
 const heading = (line) => /^ {0,3}#{1,6}(?:[ \t]|$)/u.test(line);
@@ -43,6 +43,8 @@ export function firstSentence(body) {
 
 /** Wiki pages (notes of a kind other than `note`): { path, kind, title, summary, out, in }. */
 export function wikiIndex(ctx, { kind } = {}) {
+  // The catalog never comes from a file scan: an unusable cache is an `index_unavailable` error.
+  withIndex(ctx, () => {});
   const language = ctx.config?.language ?? 'en';
   const entries = rows(ctx, 'note').filter((row) => row.kind !== 'note' && (kind === undefined || row.kind === kind))
     .map((row) => {
@@ -67,4 +69,41 @@ export function formatCatalog(entries, ctx) {
     const name = basename(entry.path).replace(/\.md$/iu, '');
     return `- [[${name}]]${entry.summary ? ` — ${oneLine(entry.summary)}` : ''}`;
   })].join('\n')).join('\n\n') + (groups.size ? '\n' : '');
+}
+
+const WAKEUP = /^(?:uyanis|wake-up)$/u;
+
+/**
+ * The first `## Uyanış` (`## Wake-up`) section of a page, optionally titled `(YYYY-MM-DD)`: { heading, line, text,
+ * words }, or null. It runs to the next heading of level one or two; `line` is the heading's line in the file.
+ */
+export function wakeupSection(text) {
+  const file = parseFile(text);
+  let line = text.slice(0, file.bodyStart).split('\n').length - 1;
+  let fence = null;
+  let found = null;
+  const body = [];
+  for (const content of file.body.split(/\r?\n/u)) {
+    line++;
+    const marker = content.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
+    if (fence) {
+      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+      if (found) body.push(content);
+      continue;
+    }
+    if (marker && (marker[1][0] === '~' || !marker[2].includes('`'))) fence = marker[1];
+    else {
+      const title = content.match(/^ {0,3}(#{1,2})[ \t]+(.*?)[ \t]*#*[ \t]*$/u);
+      if (found && title) break;
+      if (!found && title?.[1] === '##'
+        && WAKEUP.test(foldTr(title[2].replace(/\s*\(\d{4}-\d{2}-\d{2}\)\s*$/u, '').trim()))) {
+        found = { heading: title[2], line };
+        continue;
+      }
+    }
+    if (found) body.push(content);
+  }
+  if (!found) return null;
+  const section = body.join('\n');
+  return { ...found, text: section, words: section.split(/\s+/u).filter(Boolean).length };
 }

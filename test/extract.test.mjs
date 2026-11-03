@@ -10,9 +10,11 @@ test('extract uses visible headings and acceptance items, with stable references
   assert.deepEqual(row, {
     path: 'cards/acme.md', type: 'card', kind: null, id: null, ref: '@cards/acme', title: 'Visible',
     data: {}, body: '```md\n# Hidden\n```\n# Visible\n## Acceptance\n- [x] Done\n~~~\n- [ ] Hidden\n~~~\n- [ ] Open\n',
-    acceptance: { done: 1, total: 2 }, error: null,
+    acceptance: { done: 1, total: 2 }, error: null, untitled: false, conflicts: [],
   });
   assert.equal(extract(schema, 'notes/fallback.md', 'Text').title, 'fallback');
+  assert.equal(extract(schema, 'notes/fallback.md', 'Text').untitled, true);
+  assert.deepEqual(extract(PRESETS['tr-wiki'], 'wiki/kavramlar/a.md', '---\ntur: kavram\nkind: concept\n---\n').conflicts, ['kind']);
   assert.equal(extract(schema, 'notes/a.md', '---\nid: n-acme12\ntitle: Named\n---\n# Other').ref, 'n-acme12');
 });
 
