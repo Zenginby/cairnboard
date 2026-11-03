@@ -1,5 +1,5 @@
 import { CairnError } from './errors.mjs';
-import { openIndex, withIndex } from './index.mjs';
+import { openIndex, unavailable, withIndex } from './index.mjs';
 import { CHECKS, loadView } from './lint-checks.mjs';
 import { LINT_CODES } from './rules.mjs';
 
@@ -23,8 +23,9 @@ function saveDigests(ctx, digests) {
       index.db.exec('ROLLBACK');
       throw error;
     }
-  } catch {
-    // cache only
+  } catch (error) {
+    // Only a busy or unusable cache is ignored (it costs time, never correctness); anything else is a bug.
+    if (!unavailable(error)) throw error;
   } finally {
     index?.close();
   }

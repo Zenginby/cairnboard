@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { mkdirSync, writeFileSync, utimesSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { openContext } from '../core/context.mjs';
 import { defaultConfig } from '../core/config.mjs';
-import { refresh } from '../core/index.mjs';
+import { openIndex, refresh, search } from '../core/index.mjs';
 import { lint, CHECKS } from '../core/lint.mjs';
 import { wikiIndex } from '../core/wiki.mjs';
 import { filenameOk, requiredFields } from '../core/rules.mjs';
@@ -40,7 +41,7 @@ test('CHECKS lists every non-W8 spec code with its default severity', () => {
   const table = Object.fromEntries(CHECKS.map((check) => [check.code, check.defaultSeverity]));
   assert.deepEqual(table, {
     orphan: 'warn', broken_link: 'warn', ambiguous_link: 'warn', missing_page: 'info', missing_frontmatter: 'warn',
-    invalid_frontmatter: 'warn', unknown_kind: 'info', unclassified: 'info', alias_conflict: 'error', stale: 'info',
+    invalid_frontmatter: 'warn', unknown_kind: 'info', invalid_encoding: 'info', unclassified: 'info', alias_conflict: 'error', stale: 'info',
     unprocessed_lesson: 'info', unprocessed_source: 'info', raw_missing: 'error', raw_changed: 'error',
     wakeup_budget: 'warn', overview_multiple: 'warn', index_mismatch: 'info', filename: 'off',
   });
@@ -325,4 +326,36 @@ test('wiki lint and wiki index exit 1 with index_unavailable when the cache is l
     assert.equal(result.code, 1, command.join(' '));
     assert.equal(result.json.error.code, 'index_unavailable');
   }
+});
+
+test('wiki index reads only through the strict cache callback, never the fallback readers', () => {
+  const source = readFileSync(new URL('../core/wiki.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /\b(rows|outlinks|backlinks)\(/u);
+  assert.match(source, /withIndex\(ctx, \(db\)/u);
+});
+
+test('a second lint run reuses the cached raw digest; --verify recomputes it', (t) => {
+  const text = 'ham\n';
+  const { ctx } = make(t, { 'raw/a.md': text,
+    'research/a.md': `---\nkind: source\nraw: raw/a.md\nraw_sha256: ${sha(text)}\n---\n# A\n` });
+  assert.deepEqual(paths(lint(ctx), 'raw_changed'), []);
+  const index = openIndex(ctx);
+  try {
+    assert.equal(index.db.prepare('SELECT COUNT(*) AS n FROM raw_digests').get().n, 1);
+    index.db.prepare('UPDATE raw_digests SET sha256 = ?').run('f'.repeat(64));
+  } finally { index.close(); }
+  // The planted digest is served from the cache for the unchanged file, and replaced when verifying.
+  assert.deepEqual(paths(lint(ctx), 'raw_changed'), ['research/a.md']);
+  assert.deepEqual(paths(lint(ctx, { verify: true }), 'raw_changed'), []);
+  assert.deepEqual(paths(lint(ctx), 'raw_changed'), []);
+});
+
+test('a non-UTF-8 page gets invalid_encoding and stays out of search; nothing crashes', (t) => {
+  const { dir, ctx } = make(t, { 'notes/ok.md': '# Tamam\nkelime\n' });
+  writeFileSync(join(dir, 'notes/latin.md'), Buffer.concat([Buffer.from('# Latin kelime '), Buffer.from([0xE7, 0xFF]), Buffer.from('\n')]));
+  assert.doesNotThrow(() => refresh(ctx));
+  assert.deepEqual(paths(lint(ctx), 'invalid_encoding'), ['notes/latin.md']);
+  assert.equal(found(lint(ctx), 'invalid_encoding')[0].severity, 'info');
+  assert.deepEqual(search(ctx, 'kelime').map((hit) => hit.path), ['notes/ok.md']);
+  assert.deepEqual(paths(lint(make(t, { 'notes/a.md': '# A\n' }).ctx), 'invalid_encoding'), []);
 });

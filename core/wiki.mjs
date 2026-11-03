@@ -1,7 +1,7 @@
 import { basename } from 'node:path';
 import { parseFile } from './frontmatter.mjs';
 import { readFile } from './store.mjs';
-import { backlinks, outlinks, rows, withIndex } from './index.mjs';
+import { withIndex } from './index.mjs';
 import { foldTr, oneLine, stripHidden } from './text.mjs';
 
 const SUMMARY_MAX = 200;
@@ -43,16 +43,20 @@ export function firstSentence(body) {
 
 /** Wiki pages (notes of a kind other than `note`): { path, kind, title, summary, out, in }. */
 export function wikiIndex(ctx, { kind } = {}) {
-  // The catalog never comes from a file scan: an unusable cache is an `index_unavailable` error.
-  withIndex(ctx, () => {});
   const language = ctx.config?.language ?? 'en';
-  const entries = rows(ctx, 'note').filter((row) => row.kind !== 'note' && (kind === undefined || row.kind === kind))
-    .map((row) => {
-      const file = readFile(ctx, row.path);
-      return { path: row.path, kind: row.kind, title: row.title,
-        summary: file ? firstSentence(parseFile(file.text).body) : '',
-        out: outlinks(ctx, row.path).length, in: backlinks(ctx, row.path).length };
-    });
+  // Everything comes from one strict cache read: no per-row query can fall back to scanning files.
+  const pages = withIndex(ctx, (db) => {
+    const outs = db.prepare('SELECT COUNT(*) AS n FROM links WHERE src_path = ?');
+    const ins = db.prepare(`SELECT COUNT(*) AS n FROM (SELECT DISTINCT src_path, line, field FROM links WHERE target_path = ?)`);
+    return db.prepare("SELECT path, kind, title FROM files WHERE type = 'note' AND kind != 'note' ORDER BY path").all()
+      .filter((row) => kind === undefined || row.kind === kind)
+      .map((row) => ({ ...row, out: outs.get(row.path).n, in: ins.get(row.path).n }));
+  });
+  const entries = pages.map((row) => {
+    const file = readFile(ctx, row.path);
+    return { path: row.path, kind: row.kind, title: row.title, summary: file ? firstSentence(parseFile(file.text).body) : '',
+      out: row.out, in: row.in };
+  });
   return entries.sort((a, b) => a.kind.localeCompare(b.kind, language) || a.title.localeCompare(b.title, language)
     || a.path.localeCompare(b.path));
 }

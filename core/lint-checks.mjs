@@ -25,11 +25,11 @@ function finding(code, path, { line, target, candidates, excerpt } = {}) {
 
 /** Everything the checks read from the index, loaded in one pass: { files, links, catalog, entries, targets, digests }. */
 export function loadView(ctx, db) {
-  const files = db.prepare(`SELECT path, type, kind, title, data_json, error, untitled, conflicts FROM files ORDER BY path`).all()
+  const files = db.prepare(`SELECT path, type, kind, title, data_json, error, untitled, conflicts, bad_encoding FROM files ORDER BY path`).all()
     .map((row) => {
       const data = JSON.parse(row.data_json);
       return { path: row.path, type: row.type, kind: row.kind, title: row.title, data, error: row.error,
-        untitled: !!row.untitled, conflicts: row.conflicts ? JSON.parse(row.conflicts) : [],
+        badEncoding: !!row.bad_encoding, untitled: !!row.untitled, conflicts: row.conflicts ? JSON.parse(row.conflicts) : [],
         unknownKind: row.kind === 'note' && Object.hasOwn(data, 'kind') ? classify(ctx.schema, row.path, data).unknownKind : undefined };
     });
   const targets = db.prepare('SELECT path FROM targets ORDER BY path').all().map((row) => row.path);
@@ -128,6 +128,8 @@ export const CHECKS = [
     .map((file) => finding('invalid_frontmatter', file.path)) },
   { code: 'unknown_kind', defaultSeverity: 'info', run: (ctx, { view }) => view.files.filter((file) => file.unknownKind !== undefined)
     .map((file) => finding('unknown_kind', file.path, { excerpt: file.unknownKind })) },
+  { code: 'invalid_encoding', defaultSeverity: 'info', run: (ctx, { view }) => view.files.filter((file) => file.badEncoding)
+    .map((file) => finding('invalid_encoding', file.path)) },
   { code: 'unclassified', defaultSeverity: 'info', run: (ctx, { view }) => {
     const indexed = new Set(view.files.map((file) => file.path));
     return view.targets.filter((path) => !indexed.has(path) && !path.split('/').some((part) => part.startsWith('.'))

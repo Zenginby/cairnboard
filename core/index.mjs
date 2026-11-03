@@ -14,7 +14,7 @@ import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 
 await checkRuntime();
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 const MAX_SIZE = 5 * 1024 * 1024;
 const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
 const fresh = new WeakMap();
@@ -28,7 +28,7 @@ const emptyResult = () => ({ added: 0, updated: 0, removed: 0, skipped: [] });
 // bug and must surface instead of silently turning every query into a full scan.
 const UNAVAILABLE_SQLITE = new Set([5, 6, 8, 10, 11, 13, 14, 26]);
 const UNAVAILABLE_FS = new Set(['EACCES', 'EPERM', 'EROFS', 'ENOSPC', 'EBUSY', 'unsafe_path']);
-function unavailable(error) {
+export function unavailable(error) {
   return error?.indexUnavailable === true || UNAVAILABLE_SQLITE.has(error?.errcode & 255) || UNAVAILABLE_FS.has(error?.code);
 }
 
@@ -70,7 +70,7 @@ function createTables(db, schema) {
       CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
       CREATE TABLE files(path TEXT PRIMARY KEY, type TEXT, kind TEXT, id TEXT,
         mtime_ms REAL, ctime_ms REAL, size INTEGER, ino TEXT, hash TEXT, title TEXT,
-        data_json TEXT, acc_done INTEGER, acc_total INTEGER, error TEXT, untitled INTEGER, conflicts TEXT);
+        data_json TEXT, acc_done INTEGER, acc_total INTEGER, error TEXT, untitled INTEGER, conflicts TEXT, bad_encoding INTEGER);
       CREATE TABLE links(src_path TEXT, field TEXT, expr TEXT, target_name TEXT,
         target_path TEXT, status TEXT, heading TEXT, line INTEGER);
       CREATE INDEX links_name ON links(target_name);
@@ -238,7 +238,15 @@ function readSource(ctx, item) {
   const fd = openForRead(ctx.root, item.path);
   try {
     // The size that decides is the opened file's, not the inventory's: the file may have changed in between.
-    if (fs.fstatSync(fd).size <= MAX_SIZE) return { text: fs.readFileSync(fd, 'utf8'), large: false };
+    if (fs.fstatSync(fd).size <= MAX_SIZE) {
+      const bytes = fs.readFileSync(fd);
+      try {
+        return { text: new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes), large: false };
+      } catch {
+        // Not UTF-8: the page is still indexed (links, classification) but its text never enters the search index.
+        return { text: bytes.toString('utf8'), large: false, invalid: true };
+      }
+    }
     // Oversized pages contribute at most a bounded frontmatter block, never their body.
     const buffer = Buffer.alloc(64 * 1024);
     const length = fs.readSync(fd, buffer, 0, buffer.length, 0);
@@ -261,6 +269,10 @@ function readSource(ctx, item) {
 function sourceData(ctx, item, source) {
   const row = extract(ctx.schema, item.path, source.text);
   const file = parseFile(source.text);
+  if (row && source.invalid) {
+    row.body = null;
+    row.badEncoding = true;
+  }
   if (source.large && row) {
     row.body = null;
     row.error = 'too-large';
@@ -336,11 +348,11 @@ function saveSource(db, ctx, item, hash, data) {
   }
   if (!data?.row) return;
   const row = data.row;
-  db.prepare('INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+  db.prepare('INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
     .run(row.path, row.type, row.kind, row.id, item.mtime_ms, item.ctime_ms, item.size, item.ino, hash,
       row.title, JSON.stringify(row.data), row.acceptance.done, row.acceptance.total, row.error,
-      Number(row.untitled), row.conflicts.length ? JSON.stringify(row.conflicts) : null);
-  db.prepare('INSERT INTO fts VALUES (?, ?, ?)').run(row.path, foldTr(row.title), foldTr(row.body ?? ''));
+      Number(row.untitled), row.conflicts.length ? JSON.stringify(row.conflicts) : null, Number(!!row.badEncoding));
+  if (!row.badEncoding) db.prepare('INSERT INTO fts VALUES (?, ?, ?)').run(row.path, foldTr(row.title), foldTr(row.body ?? ''));
   const linkInsert = db.prepare('INSERT INTO links VALUES (?, ?, ?, ?, NULL, ?, ?, ?)');
   for (const link of data.links) linkInsert.run(row.path, link.field, link.expr, nameKey(link.targetName), 'unresolved', link.heading, link.line);
   const entryInsert = db.prepare('INSERT INTO journal_entries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');

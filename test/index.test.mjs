@@ -109,7 +109,7 @@ test('corruption, schema version and schema fingerprint rebuild the cache', (t) 
   assert.equal(refresh(ctx).added, 0);
   assert.deepEqual(rows(ctx), []);
   index = openIndex(ctx);
-  assert.equal(index.db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '4');
+  assert.equal(index.db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '5');
   index.close();
 });
 
