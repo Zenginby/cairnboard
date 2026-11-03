@@ -20,6 +20,7 @@
   "bin": { "cairn": "dist/cairn.mjs" },
   "scripts": {
     "build:cli": "node scripts/build-cli.mjs",
+    "bench:cli": "node scripts/bench-cli.mjs",
     "cairn": "node cli/cairn.mjs",
     "test": "node --test \"test/**/*.test.mjs\"",
     "hooks:install": "git config core.hooksPath security/hooks",

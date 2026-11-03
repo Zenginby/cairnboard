@@ -10,6 +10,8 @@ permissions:
 
 jobs:
   ubuntu:
+    env:
+      CAIRN_STRESS_ROUNDS: '200'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -19,7 +21,10 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci
+      - run: npm run build:cli
       - run: npm test
+      - run: npm run bench:cli
+        continue-on-error: true
       - run: node security/ci-scan.mjs
       - name: Scan secrets
         run: |
@@ -30,6 +35,8 @@ jobs:
       - run: node scripts/sqlite-smoke.mjs
 
   macos:
+    env:
+      CAIRN_STRESS_ROUNDS: '200'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,10 +46,15 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci
+      - run: npm run build:cli
       - run: npm test
+      - run: npm run bench:cli
+        continue-on-error: true
       - run: node scripts/sqlite-smoke.mjs
 
   windows:
+    env:
+      CAIRN_STRESS_ROUNDS: '200'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,5 +64,8 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci
+      - run: npm run build:cli
       - run: npm test
+      - run: npm run bench:cli
+        continue-on-error: true
       - run: node scripts/sqlite-smoke.mjs
