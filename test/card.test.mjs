@@ -276,3 +276,19 @@ test('two processes claiming simultaneously produce one winner and one claimed e
   assert.equal(readEvents(ctx).filter(({ op }) => op === 'card.claim').length, 1);
   assert.equal(revision(readFile(ctx, card.path).text), show(ctx, card.id).revision);
 });
+
+test('another actor cannot release, move, check or finish a live claim', (t) => {
+  const ctx = fixture(t);
+  const card = addCard(ctx, { title: 'Acme' }, '## Acceptance\n- [ ] One\n').entity;
+  claimCard(ctx, card.id);
+  const bob = { ...ctx, actor: 'cli:bob' };
+  for (const act of [() => releaseCard(bob, card.id), () => moveCard(bob, card.id, { column: 'review' }),
+    () => checkCard(bob, card.id, 1), () => doneCard(bob, card.id)]) {
+    assert.throws(act, (error) => error.code === 'claimed' && error.details.current.assignee === 'acme');
+  }
+  assert.equal(show(ctx, card.id).data.assignee, 'acme');
+  assert.doesNotThrow(() => commentCard(bob, card.id, 'looks good'));
+  const later = { ...bob, clock: fixedClock('2026-11-01T14:06:00Z') };
+  assert.doesNotThrow(() => releaseCard(later, card.id));
+  assert.equal(show(ctx, card.id).data.assignee, undefined);
+});

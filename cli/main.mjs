@@ -24,7 +24,8 @@ export async function main(argv, io) {
     if (opts.assignee === 'me') opts.assignee = actor;
     const prepared = await command.prepare?.(args, opts, io);
     const dangerous = command.dangerous === true || (command.dangerous && opts[command.dangerous.option]);
-    if (dangerous && !opts['dry-run'] && !await confirm(io, `Confirm ${command.name}?`)) {
+    const target = [command.name, ...args].map((part) => oneLine(clean(part))).join(' ');
+    if (dangerous && !opts['dry-run'] && !await confirm(io, `Confirm ${target}?`)) {
       throw new CairnError('confirmation_required', 'Confirmation was declined.');
     }
     if (command.needsData) {
@@ -33,7 +34,15 @@ export async function main(argv, io) {
         dataDir: opts.data, preset: opts.preset, env: io.env, home: io.env.HOME ?? io.env.USERPROFILE,
         platform: platform(), cwd: io.cwd, clock: io.clock,
         actor: actor && actorPattern.test(actor) ? `cli:${actor}` : null });
-      if (opts.project === undefined) opts.project = findProjectLink(io.cwd) ?? undefined;
+      // The repository link is only a default for new items and list filters; updates never inherit it.
+      if (opts.project === undefined) {
+        try {
+          opts.linkedProject = findProjectLink(io.cwd) ?? undefined;
+        } catch (error) {
+          if (command.mode === 'write') throw error;
+          ctx.warnings.push('invalid_project_link');
+        }
+      }
     }
     const result = await command.run(ctx, args, opts, io, prepared);
     const warnings = [...new Set([...(ctx?.warnings ?? []), ...(result.warnings ?? [])])];

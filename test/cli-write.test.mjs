@@ -178,7 +178,7 @@ test('link finds the git root, adds one ignore line, and dry-run writes nothing'
   assert.equal((await f.run([...args, '--dry-run'], { cwd: f.home })).code, 5);
 });
 
-test('init preserves existing content and export board is derived read output', async (t) => {
+test('init preserves existing content; export board needs an actor and replaces only its own board', async (t) => {
   const f = fixture(t, false);
   f.put('keep.md', '# Keep\n');
   const before = tree(f.data);
@@ -190,15 +190,22 @@ test('init preserves existing content and export board is derived read output', 
   assert.equal(fs.readFileSync(join(f.data, 'keep.md'), 'utf8'), '# Keep\n');
   const ctx = openContext({ mode: 'read', dataDir: f.data, home: f.home, env: {} });
   const expected = exportBoard(ctx);
-  const stdout = await runCli(['export', 'board', '--stdout', '--json'], f.opts);
+  assert.equal((await runCli(['export', 'board', '--json'], f.opts)).code, 2);
+  const stdout = await f.run(['export', 'board', '--stdout']);
   assert.equal(stdout.code, 0, stdout.stdout);
   assert.equal(stdout.json.data, expected);
-  assert.equal((await runCli(['export', 'board', '--stdout'], f.opts)).stdout, expected);
+  assert.equal((await runCli(['export', 'board', '--stdout', '--actor', 'acme'], f.opts)).stdout, expected);
   const beforeExport = tree(f.data);
   assert.equal((await f.run(['export', 'board', '--dry-run'])).code, 0);
   assert.deepEqual(tree(f.data), beforeExport);
-  assert.equal((await runCli(['export', 'board', '--json'], f.opts)).code, 0);
+  assert.equal((await f.run(['export', 'board'])).code, 0);
   assert.equal(fs.readFileSync(join(f.data, 'board.md'), 'utf8'), expected);
+  assert.equal((await f.run(['export', 'board'])).code, 0);
+  // A hand-written board is never replaced.
+  f.put('board.md', '---\nkanban-plugin: board\n---\n\n## Mine\n');
+  const refused = await f.run(['export', 'board']);
+  assert.equal(refused.code, 4);
+  assert.equal(fs.readFileSync(join(f.data, 'board.md'), 'utf8'), '---\nkanban-plugin: board\n---\n\n## Mine\n');
 });
 
 test('actual entity writes return updated summaries, preserve unknown fields and use trash', async (t) => {
@@ -266,4 +273,37 @@ test('init resolves a relative Unicode path and preserves the original config re
   const again = await f.run(['init', name, '--if-revision', dry.json.data.revision]);
   assert.equal(again.code, 0, again.stdout);
   assert.equal(again.json.data.revision, dry.json.data.revision);
+});
+
+test('undo reverts only the caller\'s own latest operation', async (t) => {
+  const f = fixture(t);
+  assert.equal((await f.run(['card', 'add', '--title', 'Acme'])).code, 0);
+  const other = await runCli(['undo', '--actor', 'bob', '--json'], f.opts);
+  assert.equal(other.code, 4);
+  assert.deepEqual(other.json.error.current, { actor: 'cli:acme', op: 'card.create' });
+  assert.equal(fs.existsSync(join(f.data, 'cards/acme.md')), true);
+  assert.equal((await f.run(['undo'])).code, 0);
+  assert.equal(fs.existsSync(join(f.data, 'cards/acme.md')), false);
+});
+
+test('init records only the first default unless --set-default is confirmed', async (t) => {
+  const f = fixture(t), second = join(f.cwd, 'second');
+  assert.equal((await f.run(['init', second])).code, 0);
+  const listed = await runCli(['status', '--json'], { ...f.opts, data: undefined });
+  assert.equal(listed.json.data.dataDir, fs.realpathSync(f.data));
+  assert.equal((await f.run(['init', second, '--set-default'])).code, 7);
+  assert.equal((await f.run(['init', second, '--set-default'], { isTTY: true, stdin: 'yes\n' })).code, 0);
+});
+
+test('dangerous commands refuse inside a coding agent even with a terminal and show their target', async (t) => {
+  const f = fixture(t);
+  const project = (await f.run(['project', 'add', '--title', 'Acme'])).json.data;
+  for (const marker of ['CLAUDECODE', 'CODEX_SANDBOX', 'GEMINI_CLI']) {
+    const refused = await f.run(['project', 'rm', project.id], { isTTY: true, stdin: 'yes\n', env: { [marker]: '1' } });
+    assert.equal(refused.code, 7);
+    assert.match(refused.json.error.message, /coding agent/);
+  }
+  const confirmed = await f.run(['project', 'rm', project.id], { isTTY: true, stdin: 'yes\n' });
+  assert.equal(confirmed.code, 0);
+  assert.match(confirmed.stderr, new RegExp(`Confirm project rm ${project.id}\\?`));
 });

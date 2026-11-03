@@ -2099,11 +2099,17 @@
         "preset": {
           "type": "string",
           "summary": "Use default or tr-wiki (default: default)."
+        },
+        "set-default": {
+          "type": "boolean",
+          "summary": "Make this the default data directory, replacing an existing default."
         }
       },
       "mode": "write",
       "needsData": false,
-      "dangerous": false
+      "dangerous": {
+        "option": "set-default"
+      }
     },
     {
       "name": "link",
@@ -2203,7 +2209,7 @@
           "summary": "Return board text instead of writing board.md."
         }
       },
-      "mode": "read",
+      "mode": "write",
       "needsData": true,
       "dangerous": false
     },

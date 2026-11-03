@@ -32,3 +32,20 @@ test('trash lists metadata and restores through a transaction with a unique dest
   assert.throws(() => restore(ctx, '../escape', {}), { code: 'unsafe_path' });
   assert.throws(() => restore(ctx, entry.trashId, {}), { code: 'not_found' });
 });
+
+test('a damaged trash sidecar is skipped with a warning instead of hiding the rest', (t) => {
+  const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
+  initDataDir(root, { home, env: {}, clock });
+  const ctx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'agent:acme' });
+  writeFileSync(join(root, 'note.md'), 'deleted');
+  write(ctx, { op: 'note.delete', path: 'note.md', apply: () => null });
+  const before = list(ctx);
+  assert.equal(before.length, 1);
+  const dir = join(root, '.cairn/trash');
+  writeFileSync(join(dir, 'zz-broken'), 'x');
+  writeFileSync(join(dir, 'zz-broken.json'), '{not json');
+  writeFileSync(join(dir, 'zz-number'), 'x');
+  writeFileSync(join(dir, 'zz-number.json'), JSON.stringify({ path: 'notes/a.md', deletedAt: 5 }));
+  assert.deepEqual(list(ctx), before);
+  assert.ok(ctx.warnings.includes('invalid_trash_item'));
+});

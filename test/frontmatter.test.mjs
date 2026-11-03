@@ -192,3 +192,13 @@ test('self-referencing aliases are reported as an error instead of a cyclic obje
   assert.equal(parsed.editable, false);
   assert.deepEqual(parseFile('---\na: &y [1]\nb: *y\n---\n').data, { a: [1], b: [1] });
 });
+
+test('aliases that expand exponentially are rejected quickly', () => {
+  const lines = ['a0: &a0 []'];
+  for (let i = 1; i <= 30; i++) lines.push(`a${i}: &a${i} [*a${i - 1}, *a${i - 1}]`);
+  const started = performance.now();
+  const parsed = parseFile(`---\n${lines.join('\n')}\n---\n`);
+  assert.ok(performance.now() - started < 2000);
+  assert.match(parsed.error, /expand too far/);
+  assert.deepEqual(parseFile('---\na: &y [1, 2]\nb: [*y, *y]\n---\n').data, { a: [1, 2], b: [[1, 2], [1, 2]] });
+});

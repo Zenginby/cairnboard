@@ -13,14 +13,23 @@ function* lines(text, start = 0) {
   }
 }
 
-// Self-referencing aliases (`&x [*x]`) yield a cyclic object that no caller can serialise.
-function cyclic(value, path = new Set()) {
-  if (value === null || typeof value !== 'object') return false;
-  if (path.has(value)) return true;
+// Aliases can make a cyclic object (`&x [*x]`) or one that expands exponentially when serialised
+// (`a1: [*a0, *a0]`, `a2: [*a1, *a1]`, …) while staying tiny in memory. Both are rejected by their expanded size.
+const MAX_EXPANDED = 10000;
+
+function expandedSize(value, path = new Set(), sizes = new Map()) {
+  if (value === null || typeof value !== 'object') return 1;
+  if (sizes.has(value)) return sizes.get(value);
+  if (path.has(value)) return Infinity;
   path.add(value);
-  const found = Object.values(value).some((item) => cyclic(item, path));
+  let size = 1;
+  for (const item of Object.values(value)) {
+    size += expandedSize(item, path, sizes);
+    if (size > MAX_EXPANDED) break;
+  }
   path.delete(value);
-  return found;
+  sizes.set(value, size);
+  return size;
 }
 
 function inspectFile(text) {
@@ -60,7 +69,7 @@ function inspectFile(text) {
     const errors = doc.errors.filter((error) => !multiple || error.code !== 'MULTIPLE_DOCS');
     if (errors.length) throw new Error(errors.map((error) => error.message).join('\n'));
     const data = doc.toJS();
-    if (cyclic(data)) throw new Error('Frontmatter aliases refer to themselves.');
+    if (expandedSize(data) > MAX_EXPANDED) throw new Error('Frontmatter aliases refer to themselves or expand too far.');
     file.data = doc.contents === null ? {} : data !== null && typeof data === 'object' ? data : null;
     file.editable = (doc.contents === null || (isMap(doc.contents) && !doc.contents.flow)) && !multiple;
     visit(doc, (_key, node) => {

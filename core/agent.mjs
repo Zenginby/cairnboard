@@ -2,6 +2,7 @@ import { dirname, join, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
+import { oneLine, stripHidden } from './text.mjs';
 
 export const repoRoot = fileURLToPath(new URL('../', import.meta.url));
 export const packageVersion = typeof __CAIRN_VERSION__ === 'undefined'
@@ -18,6 +19,10 @@ export const TARGETS = {
 };
 
 export function cliInvocation(root, platform = process.platform) {
+  // cmd and PowerShell still expand `%`, `!`, `$` and backticks inside double quotes; such a clone path is refused.
+  if (/[\r\n]/u.test(root) || (platform === 'win32' && /[%!$`^]/u.test(root))) {
+    throw new CairnError('validation', 'The repository path contains characters that cannot be quoted safely; move the clone.');
+  }
   const path = platform === 'win32' ? win32.join(root, 'dist', 'cairn.mjs') : join(root, 'dist', 'cairn.mjs');
   return `node "${platform === 'win32' ? path : path.replace(/["$`\\]/gu, '\\$&')}"`;
 }
@@ -32,16 +37,16 @@ function commandLine(command, invocation, actor) {
   const args = command.args.map((arg) => {
     if (arg === '<ref>') return ref;
     if (arg === '<date|ref>') return '<date>';
-    if (arg === '<q>') return '"<query>"';
+    if (arg === '<q>') return "'<query>'";
     if (arg === '<project>') return '<project-id>';
     if (arg === '<id>') return '<trash-id>';
     if (arg === '[column]') return '<column>';
-    if (arg === '[text]') return '"<text>"';
+    if (arg === '[text]') return "'<text>'";
     if (arg === '[path]') return '"<path>"';
     return arg;
   });
-  if (/ (?:add|update)$/u.test(command.name) && type !== 'journal') args.push('--title', '"<text>"');
-  if (command.name === 'journal add') args.push('--title', '"<text>"', '--label', '"<text>"', '--date', '<date>', '--item', '"<text>"');
+  if (/ (?:add|update)$/u.test(command.name) && type !== 'journal') args.push('--title', "'<text>'");
+  if (command.name === 'journal add') args.push('--title', "'<text>'", '--label', "'<text>'", '--date', '<date>', '--item', "'<text>'");
   if (command.name === 'card done') args.push('--if-revision', '<revision>');
   if (command.mode === 'write' && command.actor !== false) args.push('--actor', actor);
   if (command.name.endsWith(' list')) args.push('--compact');
@@ -55,7 +60,7 @@ export function renderSkill({ version, invocation, actor, commands }) {
     const line = commandLine(command, invocation, name);
     return command.dangerous === true
       ? `${command.summary} Human runs: ${line}\n`
-      : `${command.summary}${command.dangerous ? ' Human runs --steal; agents may claim without it.' : ''}\n\n\`\`\`sh\n${line}\n\`\`\`\n`;
+      : `${command.summary}${command.dangerous ? ` Only a human runs it with --${command.dangerous.option}; agents run it without.` : ''}\n\n\`\`\`sh\n${line}\n\`\`\`\n`;
   }).join('\n');
   return fill(skillTemplate, { version, invocation, actor: name, reference,
     actorGuide: actor ? `Use \`--actor ${actor}\` for every write.`
@@ -105,13 +110,15 @@ export function prepareInstall({ home, repoRoot: root = repoRoot, targets, comma
     const status = before === null ? 'new' : before === text ? 'unchanged' : 'changed';
     return { target, path, before, text, status };
   });
+  // A tampered SKILL.md must not drive the terminal (escape sequences) while a human reads the diff.
+  const safe = (line) => oneLine(stripHidden(line).text);
   for (const { target, path, before, text, status } of plans) {
-    stderr?.write(`${target}: ${path} (${status})\n`);
+    stderr?.write(`${target}: ${safe(path)} (${status})\n`);
     if (status === 'changed') {
       const old = before.split('\n'), next = text.split('\n');
       for (let i = 0; i < Math.max(old.length, next.length); i++) if (old[i] !== next[i]) {
-        if (old[i] !== undefined) stderr?.write(`-${old[i]}\n`);
-        if (next[i] !== undefined) stderr?.write(`+${next[i]}\n`);
+        if (old[i] !== undefined) stderr?.write(`-${safe(old[i])}\n`);
+        if (next[i] !== undefined) stderr?.write(`+${safe(next[i])}\n`);
       }
     }
   }

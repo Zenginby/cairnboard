@@ -46,8 +46,16 @@ export function list(ctx) {
     if (readChecked(ctx.root, payloadPath(trashId)) === null) return [];
     const text = readChecked(ctx.root, `.cairn/trash/${name}`, 'utf8');
     if (text === null) return [];
-    const data = JSON.parse(text);
-    safeRelative(data.path);
+    // One damaged sidecar must not hide every other recoverable item.
+    let data;
+    try {
+      data = JSON.parse(text);
+      if (typeof data?.path !== 'string' || typeof data.deletedAt !== 'string' || !Number.isFinite(Date.parse(data.deletedAt))) throw new Error();
+      safeRelative(data.path);
+    } catch {
+      ctx.warnings?.push('invalid_trash_item');
+      return [];
+    }
     return [{ trashId, path: data.path, deletedAt: data.deletedAt }];
   }).sort((a, b) => a.deletedAt.localeCompare(b.deletedAt) || a.trashId.localeCompare(b.trashId));
 }

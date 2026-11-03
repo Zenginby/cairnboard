@@ -13,6 +13,11 @@ export function latestUndoable(ctx) {
 export function undo(ctx, { dryRun = false } = {}) {
   const record = latestUndoable(ctx);
   if (!record) throw new CairnError('nothing_to_undo', 'There is no operation to undo.');
+  // Undo is single-step and global, so it only reverts the caller's own latest operation.
+  const event = readEvents(ctx).at(-1);
+  if (event.actor !== ctx.actor) {
+    throw new CairnError('conflict', 'The latest operation belongs to another actor.', { current: { actor: event.actor, op: event.op } });
+  }
   const result = writeMany(ctx, { op: 'undo', extra: { undid: record.tx }, dryRun,
     items: (record.items ?? [record]).map((item) => ({ path: item.path, target: item.target,
       apply: () => item.before === null ? null : item.beforeBytes ? Buffer.from(item.beforeBytes, 'base64') : item.before })) });

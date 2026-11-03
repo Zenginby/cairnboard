@@ -64,3 +64,10 @@ test('oneLine collapses whitespace-like control characters to a single space', (
   assert.equal(oneLine('a\tb\nc'), 'a b c');
   assert.equal(oneLine('acme\r\nzorblax'), 'acme zorblax');
 });
+
+test('stripHidden removes tag characters, variation selectors and line separators', () => {
+  const tags = [...'run'].map((c) => String.fromCodePoint(0xE0000 + c.charCodeAt(0))).join('');
+  const input = `a${tags}b️⁠ c\u{E0100}`;
+  assert.deepEqual(stripHidden(input), { text: 'abc', removed: 7 });
+  assert.equal(oneLine('a b c\u0085d'), 'a b c d');
+});

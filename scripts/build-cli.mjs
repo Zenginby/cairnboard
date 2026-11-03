@@ -16,7 +16,7 @@ await build({
   },
   footer: { js: `process.exitCode = await main(process.argv.slice(2), {
   stdin: process.stdin, stdout: process.stdout, stderr: process.stderr,
-  env: process.env, cwd: process.cwd(), isTTY: process.stdin.isTTY === true,
+  env: process.env, cwd: process.cwd(), isTTY: process.stdin.isTTY === true && process.stderr.isTTY === true,
 });` },
 });
 const entry = new URL('../dist/cairn.mjs', import.meta.url);
