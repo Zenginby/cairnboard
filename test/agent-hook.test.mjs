@@ -76,6 +76,20 @@ test('dry run writes nothing, shows the diff on stderr; invalid JSON is refused 
   }
 });
 
+test('two changed installs in the same second preserve both settings backups', (t) => {
+  const f = setup(t, { model: 'opus' });
+  const before = fs.readFileSync(settingsOf(f.home), 'utf8');
+  installHook({ home: f.home, invocation, io: f.io });
+  const first = fs.readFileSync(settingsOf(f.home), 'utf8');
+  const moved = 'node "/moved/cairnboard/dist/cairn.mjs"';
+  installHook({ home: f.home, invocation: moved, io: f.io });
+  const backups = fs.readdirSync(join(f.home, '.claude')).filter((name) => name.endsWith('.bak'));
+  assert.equal(backups.length, 2);
+  assert.deepEqual(backups.map((name) => fs.readFileSync(join(f.home, '.claude', name), 'utf8')).sort(), [before, first].sort());
+  assert.equal(fs.readFileSync(join(f.home, '.claude/settings.json.cairnboard-20261101123456.bak'), 'utf8'), before);
+  assert.deepEqual(hookStatus({ home: f.home, invocation: moved, env: {} }), { installed: true, current: true });
+});
+
 test('CLAUDE_CONFIG_DIR decides the settings file; a symlinked settings.json is refused', (t) => {
   const f = setup(t), config = tempDir(t);
   installHook({ home: f.home, invocation, io: { ...f.io, env: { CLAUDE_CONFIG_DIR: config } } });

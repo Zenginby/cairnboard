@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import * as fs from '../core/fsx.mjs';
 import { commands } from '../cli/registry.mjs';
-import { cliInvocation, renderSkill } from '../core/agent.mjs';
+import { cliInvocation, renderSkill, renderAgentsMd } from '../core/agent.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { runCli } from './support/cli.mjs';
 import { tempDir, fixedClock } from './support/env.mjs';
+import { snapshot } from './support/vault.mjs';
 
 // Parse only quoted arguments and escapes; no shell expansion or execution.
 function split(line) {
@@ -50,6 +51,8 @@ test('every fenced skill command succeeds with real fixtures and dry-run', async
   const invocation = cliInvocation(join(home, 'Proje Notları'));
   const prefix = split(invocation);
   const skill = renderSkill({ version: '1.2.3', invocation, actor: null, commands });
+  assert.ok(Buffer.byteLength(skill) <= 24 * 1024, 'rendered skill exceeds 24 KB');
+  const before = snapshot(data);
   const seen = new Set();
   let count = 0;
   for (const [, block] of skill.matchAll(/```[^\n]*\n([\s\S]*?)```/gu)) {
@@ -63,11 +66,35 @@ test('every fenced skill command succeeds with real fixtures and dry-run', async
       assert.ok(command.dangerous !== true, line);
       assert.ok(!filled.includes('--steal'), line);
       seen.add(command.name);
-      await run([...filled, '--dry-run']);
+      const result = await run([...filled, '--dry-run'], {
+        stdin: command.name === 'wiki check'
+          ? '---\nkind: concept\ntags: [acme]\nupdated: 2026-11-01\nsources: [acme]\n---\n# Draft\n'
+          : 'A fictional raw source.\n',
+      });
+      if (command.name === 'wiki check') assert.deepEqual(result, { errors: [], warnings: [] });
+      if (command.name === 'ingest') assert.ok(result.raw.path.startsWith('raw/'));
       count++;
     }
   }
   assert.ok(count >= commands.filter(({ hidden }) => !hidden).length - 3);
   for (const command of commands.filter(({ dangerous, hidden }) => dangerous !== true && !hidden)) assert.ok(seen.has(command.name), command.name);
+  const sources = (map) => [...map].filter(([path]) => !/^\.cairn\/index\.db/u.test(path)).sort();
+  assert.deepEqual(sources(snapshot(data)), sources(before), 'skill dry-runs changed source or state files');
   assert.deepEqual(fs.readdirSync(home).filter((name) => ['.claude', '.agents', '.gemini'].includes(name)), []);
+});
+
+test('wiki workflow gives runnable context, capture, draft check, index and lint commands for every agent', () => {
+  const invocation = cliInvocation(join('acme', 'Proje Notları'));
+  for (const actor of ['claude', 'antigravity', null]) {
+    const skill = renderSkill({ version: '1.2.3', invocation, actor, commands });
+    assert.ok(Buffer.byteLength(skill) <= 24 * 1024, `${actor}: rendered skill exceeds 24 KB`);
+    const wiki = skill.match(/^## Wiki\n([\s\S]*?)(?=^## |$(?![\s\S]))/mu)?.[1];
+    assert.ok(wiki, `${actor}: missing Wiki workflow`);
+    for (const command of ['context --json', 'ingest --title', 'wiki check - --path', 'wiki index --json', 'wiki lint --json']) {
+      assert.ok(wiki.includes(`${invocation} ${command}`), `${actor}: missing ${command}`);
+    }
+    const fragment = renderAgentsMd({ version: '1.2.3', invocation, commands });
+    assert.ok(fragment.includes(`${invocation} context --json`));
+    assert.match(fragment, /wiki check/u);
+  }
 });

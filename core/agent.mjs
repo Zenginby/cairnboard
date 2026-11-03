@@ -247,6 +247,28 @@ function withHook(settings, command) {
   return next;
 }
 
+// Reserve each backup exclusively: even two installs with the same clock must preserve the original bytes.
+function backupSettings(path, stamp, text) {
+  for (let n = 0; ; n++) {
+    const backup = join(dirname(path), `settings.json.cairnboard-${stamp}${n ? `-${n}` : ''}.bak`);
+    let fd;
+    try {
+      fd = fs.openSync(backup, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL, 0o600);
+    } catch (error) {
+      if (error.code === 'EEXIST') continue;
+      throw error;
+    }
+    try {
+      fs.writeFileSync(fd, text);
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.syncDirectory(dirname(path));
+    return;
+  }
+}
+
 export function prepareHook({ home, invocation, io = {}, dryRun = false }) {
   const env = io.env ?? {};
   const path = settingsPath(home, env);
@@ -266,7 +288,7 @@ export function prepareHook({ home, invocation, io = {}, dryRun = false }) {
     fs.mkdirSync(dirname(path), { recursive: true });
     if (before !== null) {
       const stamp = (io.clock ?? { now: () => new Date() }).now().toISOString().replace(/\D/gu, '').slice(0, 14);
-      fs.writeFileAtomic(join(dirname(path), `settings.json.cairnboard-${stamp}.bak`), before);
+      backupSettings(path, stamp, before);
     }
     fs.writeFileAtomic(path, text, () => {
       recheck();

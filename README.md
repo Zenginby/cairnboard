@@ -8,7 +8,7 @@ you can also open in Obsidian, and gives your agent a command-line tool so it ca
 progress and log what it did. Cairnboard never starts agents itself; your agent runs in its own terminal and
 uses the board as shared state.
 
-**Status:** under development. The milestone A CLI is available; the graphical interface is planned.
+**Status:** under development. The board and wiki CLI are available; the graphical interface is planned.
 
 ### CLI
 
@@ -147,6 +147,82 @@ data folder only once; `--set-default` replaces it. Reads do not modify Markdown
 External edits are checked immediately before rename; a very short race window remains between
 that check and rename.
 
+### Wiki
+
+Start board or wiki work with `context`; inspect page summaries and link counts with `wiki index`:
+
+```sh
+node dist/cairn.mjs context --data "./cairn-data" --budget 1200 --json
+node dist/cairn.mjs wiki index --data "./cairn-data" --json
+node dist/cairn.mjs wiki index --format markdown --data "./cairn-data"
+```
+
+`note list` lists quick notes by default; add `--all` to include wiki pages or `--kind concept` to
+select a kind. `note show` includes outgoing links and backlinks. Context includes the wake-up,
+active projects, cards, recent decisions, hubs and pending counts; `--project <ref>` narrows it.
+
+Read an existing Turkish Obsidian vault without initializing it or changing its files:
+
+```sh
+node dist/cairn.mjs context --data "./existing-vault" --preset tr-wiki --json
+node dist/cairn.mjs wiki lint --data "./existing-vault" --preset tr-wiki --json
+```
+
+`tr-wiki` maps Turkish folders and fields such as `tur`, `etiketler` and `guncelleme` to canonical
+JSON keys. It excludes raw material and support files from wiki pages. In this transient read mode
+the derived index lives in the platform's state directory; no `.cairn` folder appears in the vault.
+Writes require an initialized data folder. To create a new Turkish wiki, use
+`init "./new-wiki" --preset tr-wiki --language tr --actor owner` with the CLI invocation above.
+
+Capture first, compile later. In an initialized data folder, ingest a UTF-8 `.md` or `.txt` source:
+
+```sh
+node dist/cairn.mjs ingest --title 'acme source' --file source.md --url https://example.com/source --actor agent --data "./cairn-data" --json
+node dist/cairn.mjs ingest --title 'acme source' --body - --actor agent --data "./cairn-data" --dry-run --json
+node dist/cairn.mjs search 'acme' --type raw --data "./cairn-data" --json
+```
+
+`--body -` reads stdin: provide the source text through a pipe or your agent's stdin API. Input is
+limited to 5 MB; binary or invalid UTF-8 input is rejected. `--url` records a citation and never
+downloads content. Ingest saves the original input bytes behind source/date metadata and creates an
+unprocessed research record in one transaction. Identical input bytes return `duplicate: true`
+without new files. Write a short summary in the returned research record, update only directly
+affected pages, and defer deeper synthesis until needed. Keep raw sources unchanged; put corrections
+and dated updates in wiki pages. Cite sources for claims, preserve contradictions with `> [!WARNING]`,
+and retain former values using dated strike-through or `valid_from` / `valid_until` and `superseded_by`.
+
+Before saving a page, check its complete draft on stdin with a data-relative target path:
+
+```sh
+node dist/cairn.mjs wiki check - --path wiki/concepts/acme.md --data "./cairn-data" --json
+node dist/cairn.mjs wiki lint --verify --evidence --code --data "./cairn-data" --json
+```
+
+`wiki check` does not save the draft; errors return exit 5. The `required`, `sources`, `links` and
+`filename` checks use `config.rules` severities; required fields, sources and links warn by default.
+`wiki lint` reports without repairing files; `--strict` returns exit 5 for errors or warnings.
+`--verify` rehashes raw sources, `--evidence` compares quotes/numbers with local raw text, and `--code`
+checks referenced code for drift after a project has been linked. Evidence checks do not establish
+truth. Review findings and approve repairs before asking an agent to fix them. Journal entries can
+use `--decision`, `--discovery`, `--pitfall` and `--lesson` instead of an ordinary `--item`.
+
+To add the optional Claude Code Write/Edit hook, run these yourself from a terminal:
+
+```sh
+node dist/cairn.mjs agent install --target claude --hooks --dry-run --json
+node dist/cairn.mjs agent install --target claude --hooks
+node dist/cairn.mjs agent check --json
+node dist/cairn.mjs doctor --data "./cairn-data" --json
+```
+
+Installation previews the settings change, asks for confirmation, preserves other hooks and backs up
+existing settings before replacing them atomically. `CLAUDE_CONFIG_DIR` overrides `~/.claude`.
+The hook uses normal data discovery (`CAIRN_DATA` or the registered default); an uninitialized vault
+needs an explicit invocation with `--data` and `--preset`. It checks proposed page text against the
+configured rules, blocks errors and passes warnings as context. Missing data, ambiguous edits and
+unexpected input fail open, so explicit draft checks remain useful. It covers Claude Code Write/Edit;
+shell writes and other agents are outside its scope. See the [Claude Code hook protocol](https://code.claude.com/docs/en/hooks).
+
 License: MIT.
 
 ## Türkçe
@@ -157,7 +233,7 @@ dosyalarından oluşan tek bir klasörde tutar; ajanınıza bir komut satırı a
 ilerlemesini yazar ve yaptığını günlüğe kaydeder. Cairnboard ajan başlatmaz; ajanınız kendi terminalinde
 çalışır ve panoyu ortak durum olarak kullanır.
 
-**Durum:** geliştirme aşamasında. A aşamasının CLI aracı kullanılabilir; grafik arayüz planlanıyor.
+**Durum:** geliştirme aşamasında. Pano ve wiki komut satırı aracı kullanılabilir; grafik arayüz planlanıyor.
 
 ### CLI
 
@@ -298,5 +374,84 @@ terminalini süren bir ajan yine de yanıt verebilir; bu komutları kendiniz ça
 veri klasörünü yalnız bir kez kaydeder; `--set-default` onu değiştirir.
 Okumalar Markdown'ı değiştirmez. Dış düzenlemeler rename'den hemen önce yeniden denetlenir;
 bu denetim ile rename arasında çok kısa bir yarış penceresi kalır.
+
+### Wiki
+
+Pano ya da wiki işine `context` ile başlayın; sayfa özetleri ve bağlantı sayılarını `wiki index` ile okuyun:
+
+```sh
+node dist/cairn.mjs context --data "./cairn-data" --budget 1200 --json
+node dist/cairn.mjs wiki index --data "./cairn-data" --json
+node dist/cairn.mjs wiki index --format markdown --data "./cairn-data"
+```
+
+`note list` varsayılan olarak hızlı notları listeler; wiki sayfalarını katmak için `--all`, tür seçmek
+için `--kind concept` ekleyin. `note show` giden bağlantıları ve geri bağlantıları da verir. Bağlam
+paketinde uyanış, etkin projeler, kartlar, yakın tarihli kararlar, merkez sayfalar ve bekleyen iş
+sayıları bulunur; `--project <ref>` kapsamı daraltır.
+
+Mevcut Türkçe Obsidian kasasını başlatmadan ve dosyalarını değiştirmeden okuyabilirsiniz:
+
+```sh
+node dist/cairn.mjs context --data "./existing-vault" --preset tr-wiki --json
+node dist/cairn.mjs wiki lint --data "./existing-vault" --preset tr-wiki --json
+```
+
+`tr-wiki`, Türkçe klasörleri ve `tur`, `etiketler`, `guncelleme` gibi alanları kanonik JSON anahtarlarına
+eşler. Ham kaynakları ve yardımcı dosyaları wiki sayfalarına katmaz. Geçici okuma kipinde türetilen
+dizin işletim sisteminin durum klasöründe durur; kasada `.cairn` oluşmaz. Yazma için başlatılmış veri
+klasörü gerekir. Yeni bir Türkçe wiki oluşturmak için yukarıdaki CLI çağrısıyla
+`init "./new-wiki" --preset tr-wiki --language tr --actor owner` çalıştırın.
+
+Önce yakala, sonra derle. Başlatılmış veri klasöründe UTF-8 `.md` ya da `.txt` kaynağını içe aktarın:
+
+```sh
+node dist/cairn.mjs ingest --title 'acme source' --file source.md --url https://example.com/source --actor agent --data "./cairn-data" --json
+node dist/cairn.mjs ingest --title 'acme source' --body - --actor agent --data "./cairn-data" --dry-run --json
+node dist/cairn.mjs search 'acme' --type raw --data "./cairn-data" --json
+```
+
+`--body -` stdin okur; kaynak metnini bir pipe ya da ajanın stdin arayüzüyle verin. Girdi en fazla
+5 MB olabilir; ikili ya da geçersiz UTF-8 girdi reddedilir. `--url` yalnız kaynak adresini kaydeder,
+içerik indirmez. Ingest, kaynak/tarih künyesinin arkasına özgün girdi baytlarını saklar ve aynı işlemde
+işlenmemiş araştırma kaydı oluşturur. Aynı girdi baytları yeniden verilirse yeni dosya açmadan
+`duplicate: true` döner. Dönen araştırma kaydına kısa özet yazın, yalnız doğrudan etkilenen sayfaları
+güncelleyin; ayrıntılı sentezi ihtiyaç doğana bırakın. Ham kaynakları değiştirmeyin; düzeltmeleri ve
+tarihli güncellemeleri wiki sayfasına yazın. İddiaları kaynağa dayandırın, çelişkileri `> [!WARNING]`
+ile koruyun; değişen bilgide önceki değeri tarihli üstü çizili metinle ya da `valid_from` / `valid_until`
+ve `superseded_by` alanlarıyla saklayın.
+
+Sayfayı kaydetmeden önce tam taslağını stdin üzerinden, veri klasörüne göre hedef yoluyla denetleyin:
+
+```sh
+node dist/cairn.mjs wiki check - --path wiki/concepts/acme.md --data "./cairn-data" --json
+node dist/cairn.mjs wiki lint --verify --evidence --code --data "./cairn-data" --json
+```
+
+`wiki check` taslağı kaydetmez; hata varsa çıkış 5 döner. `required`, `sources`, `links`, `filename`
+kuralları `config.rules` ciddiyetlerini kullanır; zorunlu alanlar, kaynaklar ve bağlantılar varsayılan
+olarak uyarıdır. `wiki lint` dosyaları onarmadan raporlar; `--strict` hata ya da uyarıda çıkış 5 döndürür.
+`--verify` ham kaynak özetlerini yeniden hesaplar, `--evidence` alıntı ve sayıları yerel ham metinle
+karşılaştırır, `--code` bağlanmış projede referans verilen kodun değişmesini denetler. Kanıt denetimi
+bir iddianın doğru olduğunu kanıtlamaz. Bulguları inceleyip düzeltmeleri onayladıktan sonra ajana
+uygulatın. Günlükte sıradan `--item` yerine `--decision`, `--discovery`, `--pitfall`, `--lesson` ile
+karar, keşif, tuzak ve ders kaydedebilirsiniz.
+
+İsteğe bağlı Claude Code Write/Edit kancasını kendiniz bir terminalden kurabilirsiniz:
+
+```sh
+node dist/cairn.mjs agent install --target claude --hooks --dry-run --json
+node dist/cairn.mjs agent install --target claude --hooks
+node dist/cairn.mjs agent check --json
+node dist/cairn.mjs doctor --data "./cairn-data" --json
+```
+
+Kurulum ayar farkını gösterir, onay ister, başka kancaları korur ve mevcut ayarları atomik olarak
+değiştirmeden önce yedekler. `CLAUDE_CONFIG_DIR` varsa `~/.claude` yerine onu kullanır. Kanca normal
+veri keşfini (`CAIRN_DATA` ya da kayıtlı varsayılan) kullanır; başlatılmamış kasa için çağrıda açıkça
+`--data` ve `--preset` gerekir. Önerilen sayfa metnini ayarlı kurallarla denetler; hataları engeller,
+uyarıları ajanın bağlamına verir. Veri bulunamazsa, düzenleme belirsizse ya da beklenmedik girdi
+gelirse izin verir; bu yüzden taslak denetimini de kullanın. Kapsam Claude Code Write/Edit'tir;
+kabukla yazma ve diğer ajanlar kapsam dışındadır. Ayrıntı: [Claude Code kanca protokolü](https://code.claude.com/docs/en/hooks).
 
 Lisans: MIT.

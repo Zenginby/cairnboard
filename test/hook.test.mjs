@@ -7,7 +7,7 @@ import { openContext } from '../core/context.mjs';
 import { evaluateHook } from '../core/hook.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
-import { snapshot } from './support/vault.mjs';
+import { snapshot, copyVault, assertUnchanged } from './support/vault.mjs';
 
 const clock = fixedClock('2026-11-01T12:00:00Z');
 
@@ -130,4 +130,26 @@ test('wiki hook passes warnings to Claude as additionalContext without a permiss
   assert.equal(hookSpecificOutput.permissionDecision, undefined);
   assert.match(hookSpecificOutput.additionalContext, /required/u);
   assert.match(hookSpecificOutput.additionalContext, /sources/u);
+});
+
+test('wiki hook honors explicit --data over discovery and --preset for an uninitialized vault', async (t) => {
+  const f = make(t, {}, { required: 'error' });
+  const response = await runCli(['wiki', 'hook', '--data', f.dir], {
+    home: f.home, cwd: f.home, clock, env: { CAIRN_DATA: join(f.home, 'missing') },
+    stdin: JSON.stringify(write(f.dir, 'wiki/concepts/x.md', '---\nkind: concept\n---\nx\n')),
+  });
+  assert.equal(response.code, 0, response.stderr);
+  assert.equal(JSON.parse(response.stdout).hookSpecificOutput.permissionDecision, 'deny');
+
+  const vault = copyVault(t), before = snapshot(vault);
+  const draft = '---\ntur: kavram\netiketler: [acme]\nguncelleme: 2026-11-01\n---\nno heading\n';
+  const preset = await runCli(['wiki', 'hook', '--data', vault, '--preset', 'tr-wiki'], {
+    home: f.home, cwd: f.home, clock, stdin: JSON.stringify(write(vault, 'wiki/kavramlar/draft.md', draft)),
+  });
+  assert.equal(preset.code, 0, preset.stderr);
+  const output = JSON.parse(preset.stdout).hookSpecificOutput;
+  assert.equal(output.permissionDecision, undefined);
+  assert.match(output.additionalContext, /required/u);
+  assert.match(output.additionalContext, /Kaynaklar/u);
+  assertUnchanged(before, vault);
 });
