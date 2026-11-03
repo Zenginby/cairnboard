@@ -7,17 +7,37 @@
   <title>Pano · Cairnboard</title>
   <link rel="stylesheet" href="../_shared/base.css">
   <link rel="stylesheet" href="../_shared/components.css">
+  <link rel="stylesheet" href="shell.css">
   <link rel="stylesheet" href="app.css">
   <script type="module" src="app.js"></script>
 </head>
 <body>
   <a class="skip-link button" href="#main">İçeriğe geç</a>
-  <header class="topbar">
-    <div class="row"><a class="brand" href="../home-a/">Cairnboard<span class="badge">acme</span></a><nav class="row" aria-label="Ana gezinme"><a class="button button--quiet" href="../home-a/">Bugün</a><a class="button button--quiet" href="../board-a/" aria-current="page">Pano</a></nav></div>
-    <div class="row"><label class="row type-label">Tema <select data-theme-menu><option value="system">Sistem</option><option value="bento">Bento</option><option value="bento-dark">Bento Dark</option><option value="paper">Paper</option><option value="graphite">Graphite</option></select></label><label class="motion-toggle row type-label"><input type="checkbox" data-motion-toggle> Hareket: az</label></div>
+  <header class="topbar app-shell">
+    <a class="brand" href="../home-a/"><span class="logo-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span>Cairnboard</span></a>
+    <nav class="app-navigation" aria-label="Ana gezinme">
+      <div class="tabs app-tabs" data-app-tabs>
+        <span class="tab-indicator" aria-hidden="true"></span>
+        <a class="tab" href="../home-a/">Ana sayfa</a>
+        <a class="tab" href="../board-a/" aria-current="page">Pano</a>
+        <a class="tab" href="../home-a/#projects">Projeler</a>
+        <a class="tab" href="../home-a/#notes">Notlar</a>
+        <a class="tab" href="../home-a/#journal">Günlük</a>
+        <a class="tab" href="../home-a/#research">Araştırmalar</a>
+      </div>
+    </nav>
+    <div class="row shell-actions">
+      <button class="button shell-search" id="search-open" aria-label="Ara" aria-keyshortcuts="Meta+K Control+K /"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"></circle><path d="m15 15 5 5"></path></svg><span class="search-caption">Ara</span><kbd class="search-caption">⌘K</kbd></button>
+      <div class="dropdown theme-dropdown">
+        <button class="button theme-trigger" id="theme-open" aria-label="Tema ve hareket ayarları" aria-haspopup="dialog" aria-expanded="false" aria-controls="theme-panel"><svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"></path></svg><svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z"></path></svg></button>
+        <div class="menu theme-panel" id="theme-panel" role="dialog" aria-label="Görünüm ayarları" inert>
+          <label class="field type-label">Tema<select data-theme-menu><option value="system">Sistem</option><option value="bento">Bento</option><option value="bento-dark">Bento Dark</option><option value="paper">Paper</option><option value="graphite">Graphite</option></select></label>
+          <label class="motion-toggle row type-label"><input type="checkbox" data-motion-toggle> Hareket: az</label>
+        </div>
+      </div>
+    </div>
   </header>
   <main id="main" class="page-frame stack workspace" tabindex="-1">
-    <div class="toolbar row"><p class="type-label muted">Kendi alanın. Bir sonraki küçük adım.</p><div class="row"><button class="button" id="search-open">Ara <kbd>/</kbd></button><button class="button" id="note-open">Not ekle <kbd>N</kbd></button><button class="button button--primary" id="card-open">Kart ekle <kbd>C</kbd></button><button class="button" id="help-open" aria-label="Klavye kısayolları">?</button></div></div>
     <section id="conflict" class="toast is-open stack" aria-label="Dosya çakışması" hidden><div class="row"><span class="chip chip--warning">409 çakışma</span><h2 class="type-title">Bu dosya dışarıda değişti</h2></div><p>Son değişiklikleri inceleyip güncel dosyayı yükleyin.</p><div class="row"><button class="button" id="reload">Yeniden yükle</button><button class="button" id="diff-open">Farkı gör</button></div></section>
     <div id="screen-content" class="stack"><div class="section-heading row"><div><p class="type-label muted">acme / tüm projeler</p><h1>Pano</h1></div><p class="muted type-label" id="board-summary"></p></div>
       <section class="box stack" aria-label="Pano filtreleri"><div class="row" id="project-filters" aria-label="Proje filtresi"></div><label class="row type-label">Öncelik <select id="priority-filter"><option value="all">Tüm öncelikler</option><option value="urgent">Acil</option><option value="important">Önemli</option><option value="normal">Diğer</option><option value="low">Düşük</option></select></label></section>

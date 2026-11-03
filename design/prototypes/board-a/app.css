@@ -1,8 +1,5 @@
 .workspace { max-width: calc(var(--space-xl) * 35); margin-inline: auto; padding-bottom: calc(var(--space-xl) * 4); }
-.brand { gap: var(--space-sm); color: var(--color-text); font-weight: var(--font-title-weight); text-decoration: none; }
-.topbar [aria-current="page"] { background: var(--color-focus-bg); color: var(--color-text); }
-.toolbar, .section-heading, .card-footer { justify-content: space-between; }
-.motion-toggle { padding: var(--space-xs); min-height: calc(var(--space-md) * 2); }
+.section-heading, .card-footer { justify-content: space-between; }
 .skip-link { position: fixed; top: var(--space-sm); left: var(--space-md); z-index: 100; transform: translateY(-200%); }
 .skip-link:focus { transform: none; }
 .prototype-controls { position: fixed; bottom: var(--space-md); right: var(--space-md); z-index: 20; max-width: calc(100% - var(--space-md) * 2); padding: var(--space-sm) var(--space-md); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-box-raised); }

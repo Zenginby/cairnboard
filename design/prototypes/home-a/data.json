@@ -94,7 +94,7 @@
     {
       "id": "card-4",
       "title": "Arama sonuçlarında bağlamı göster",
-      "projectId": "ornek-proje",
+      "projectId": "ornek-proje-3",
       "column": "todo",
       "priority": "important",
       "assigneeId": "deniz",
@@ -251,6 +251,96 @@
         }
       ],
       "comments": 2
+    },
+    {
+      "id": "card-11",
+      "title": "Arama dizinini küçük bir örnekle dene",
+      "projectId": "ornek-proje-3",
+      "column": "doing",
+      "priority": "important",
+      "assigneeId": "codex",
+      "criteria": [
+        {
+          "text": "Örnekle doğrulandı",
+          "done": false
+        }
+      ],
+      "comments": 0
+    },
+    {
+      "id": "card-12",
+      "title": "İlk kullanım akışını birlikte gözden geçir",
+      "projectId": "ornek-proje-8",
+      "column": "doing",
+      "priority": "normal",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "Örnekle doğrulandı",
+          "done": false
+        }
+      ],
+      "comments": 0
+    },
+    {
+      "id": "card-13",
+      "title": "Gözlem notlarını bir araya getir",
+      "projectId": "ornek-proje-2",
+      "column": "todo",
+      "priority": "normal",
+      "assigneeId": "deniz",
+      "criteria": [
+        {
+          "text": "Örnekle doğrulandı",
+          "done": false
+        }
+      ],
+      "comments": 0
+    },
+    {
+      "id": "card-14",
+      "title": "Haftanın ilk adımını belirle",
+      "projectId": "ornek-proje-3",
+      "column": "todo",
+      "priority": "important",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "Örnekle doğrulandı",
+          "done": false
+        }
+      ],
+      "comments": 0
+    },
+    {
+      "id": "card-15",
+      "title": "Okuma kuyruğuna kısa açıklamalar ekle",
+      "projectId": "ornek-proje-4",
+      "column": "todo",
+      "priority": "low",
+      "assigneeId": "deniz",
+      "criteria": [
+        {
+          "text": "Örnekle doğrulandı",
+          "done": false
+        }
+      ],
+      "comments": 0
+    },
+    {
+      "id": "card-16",
+      "title": "Proje kapağındaki metni sadeleştir",
+      "projectId": "ornek-proje-8",
+      "column": "todo",
+      "priority": "normal",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "Örnekle doğrulandı",
+          "done": false
+        }
+      ],
+      "comments": 0
     }
   ],
   "notes": [
@@ -283,11 +373,257 @@
       "kind": "note",
       "pinned": false,
       "updated": "Dün"
+    },
+    {
+      "id": "research-1",
+      "projectId": "ornek-proje",
+      "title": "Yerel aramada bağlamı korumak",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": true,
+      "updated": "3 Kasım"
+    },
+    {
+      "id": "research-2",
+      "projectId": "ornek-proje-2",
+      "title": "Ajan devirlerinde küçük kontrol listeleri",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "3 Kasım"
+    },
+    {
+      "id": "research-3",
+      "projectId": "ornek-proje-3",
+      "title": "Klavye ile çalışan bir pano",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "3 Kasım"
+    },
+    {
+      "id": "research-4",
+      "projectId": "ornek-proje",
+      "title": "Markdown klasöründe bağlantı düzeni",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "2 Kasım"
+    },
+    {
+      "id": "research-5",
+      "projectId": "ornek-proje-2",
+      "title": "Dar ekranlarda okunabilir başlıklar",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "2 Kasım"
+    },
+    {
+      "id": "research-6",
+      "projectId": "ornek-proje-3",
+      "title": "Günlüklerden kararları bulmak",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "2 Kasım"
+    },
+    {
+      "id": "research-7",
+      "projectId": "ornek-proje",
+      "title": "Kabul ölçütlerini somutlaştırmak",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "2 Kasım"
+    },
+    {
+      "id": "research-8",
+      "projectId": "ornek-proje-2",
+      "title": "Kısa notları kalıcı bilgiye dönüştürmek",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "2 Kasım"
+    },
+    {
+      "id": "research-9",
+      "projectId": "ornek-proje-3",
+      "title": "Dosya değişikliklerini karşılaştırmak",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "2 Kasım"
+    },
+    {
+      "id": "research-10",
+      "projectId": "ornek-proje",
+      "title": "Bir proje için sakin bir başlangıç",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "2 Kasım"
+    },
+    {
+      "id": "research-11",
+      "projectId": "ornek-proje-2",
+      "title": "Geri bildirimi işe dönüştürmek",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "2 Kasım"
+    },
+    {
+      "id": "research-12",
+      "projectId": "ornek-proje-3",
+      "title": "Tamamlanan kartların izi",
+      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "kind": "research",
+      "pinned": false,
+      "updated": "2 Kasım"
     }
   ],
   "longText": {
     "projectName": "Örnek proje araştırma ve tasarım defteri",
     "title": "Kullanıcıların farklı ekran boyutlarında uzun Türkçe başlıkları, proje adlarını ve kabul ölçütlerini rahatça okuyabildiğini birlikte doğrulayalım",
     "english": "Verify together that developers can comfortably read lengthy project names, acceptance criteria and detailed task descriptions on smaller screens"
+  },
+  "projectSummaries": [
+    {
+      "projectId": "ornek-proje",
+      "description": "Yerel araçlar, küçük adımlar",
+      "noteCount": 30,
+      "completedArchive": 12
+    },
+    {
+      "projectId": "ornek-proje-2",
+      "description": "Gözlemler ve kararlar",
+      "noteCount": 24,
+      "completedArchive": 25
+    },
+    {
+      "projectId": "ornek-proje-3",
+      "description": "Bir haftaya sığan işler",
+      "noteCount": 18,
+      "completedArchive": 35
+    },
+    {
+      "projectId": "ornek-proje-4",
+      "description": "Sonraki okumalar",
+      "noteCount": 12,
+      "completedArchive": 20
+    },
+    {
+      "projectId": "ornek-proje-5",
+      "description": "Arayüz fikirleri",
+      "noteCount": 9,
+      "completedArchive": 20
+    },
+    {
+      "projectId": "ornek-proje-6",
+      "description": "Günlük küçük kolaylıklar",
+      "noteCount": 16,
+      "completedArchive": 15
+    },
+    {
+      "projectId": "ornek-proje-7",
+      "description": "Dışarıdan gözlemler",
+      "noteCount": 7,
+      "completedArchive": 14
+    },
+    {
+      "projectId": "ornek-proje-8",
+      "description": "Birlikte tasarlanan denemeler",
+      "noteCount": 22,
+      "completedArchive": 20
+    }
+  ],
+  "journal": [
+    {
+      "id": "journal-1",
+      "date": "2026-11-03",
+      "time": "09:00",
+      "authorId": "ada",
+      "body": "İlk taslak hazır; sırada birlikte inceleme var."
+    },
+    {
+      "id": "journal-2",
+      "date": "2026-11-03",
+      "time": "09:40",
+      "authorId": "deniz",
+      "body": "Kabul ölçütleri sadeleştirildi."
+    },
+    {
+      "id": "journal-3",
+      "date": "2026-11-03",
+      "time": "10:15",
+      "authorId": "ada",
+      "body": "Klavye ile kart taşıma akışı birlikte denendi."
+    },
+    {
+      "id": "journal-4",
+      "date": "2026-11-03",
+      "time": "11:30",
+      "authorId": "deniz",
+      "body": "Arama sonuçlarında proje adları görünür oldu."
+    },
+    {
+      "id": "journal-5",
+      "date": "2026-11-03",
+      "time": "13:10",
+      "authorId": "ada",
+      "body": "Not bağlantılarındaki eksikler tamamlandı."
+    },
+    {
+      "id": "journal-6",
+      "date": "2026-11-03",
+      "time": "14:25",
+      "authorId": "deniz",
+      "body": "İlk kullanım için kısa bir yol seçildi."
+    },
+    {
+      "id": "journal-7",
+      "date": "2026-11-03",
+      "time": "16:00",
+      "authorId": "ada",
+      "body": "Dar ekran gözlemleri araştırma defterine eklendi."
+    },
+    {
+      "id": "journal-8",
+      "date": "2026-11-03",
+      "time": "17:15",
+      "authorId": "deniz",
+      "body": "Bir sonraki adım yarının ilk kartına yazıldı."
+    }
+  ],
+  "dashboard": {
+    "date": "2026-11-03",
+    "updated": "17:15",
+    "defaultProjects": [
+      "ornek-proje",
+      "ornek-proje-2",
+      "ornek-proje-3"
+    ],
+    "journalDays": [
+      "2026-10-16",
+      "2026-10-17",
+      "2026-10-18",
+      "2026-10-19",
+      "2026-10-20",
+      "2026-10-21",
+      "2026-10-22",
+      "2026-10-23",
+      "2026-10-24",
+      "2026-10-25",
+      "2026-10-26",
+      "2026-10-27",
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30",
+      "2026-10-31",
+      "2026-11-01",
+      "2026-11-02",
+      "2026-11-03"
+    ]
   }
 }

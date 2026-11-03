@@ -1,35 +1,217 @@
-import { $, el, button, priorityChip, projectChip, metadata, lockMessage, field, loadData, setupUI, renderState } from './ui.js';
+import { lessMotion, tokenTime } from '../_shared/components.js';
+import { $, el, button, projectChip, lockMessage, field, loadData, setupUI, renderState } from './ui.js';
 
 let data;
 let fixtures;
 let ui;
 let state = 'full';
-let lowOpen = false;
-let journalDraft = '';
+let selectedProjects = new Set();
 let sequence = 0;
-const today = new Date();
-const entries = [];
+let journalDraft = '';
+const animations = new Set();
+const preferenceKey = 'home-a-projects';
+const kindNames = { note: 'Not', wiki: 'Wiki', research: 'Araştırma' };
+const titleFor = (record, index = 0) => state === 'long' ? `${record.title} — ${index % 2 ? data.longText.english : data.longText.title}` : record.title;
 const projectFor = (record) => {
   const project = data.projects.find((item) => item.id === record.projectId);
   return state === 'long' ? { ...project, name: data.longText.projectName } : project;
 };
-const titleFor = (record, index = 0) => state === 'long' ? `${record.title} — ${index % 2 ? data.longText.english : data.longText.title}` : record.title;
-const openCards = () => data.cards.filter((card) => data.columns.find((column) => column.id === card.column).role !== 'done');
-function section(title, className) {
-  const node = el('section', `box stack ${className}`);
+const roleFor = (record) => data.columns.find((column) => column.id === record.column).role;
+const date = () => new Date(`${data.dashboard.date}T12:00:00`);
+const dayLabel = () => new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long' }).format(date());
+const summaryFor = (project) => data.projectSummaries.find((item) => item.projectId === project.id);
+function animate(node, frames, options) {
+  const animation = node.animate(frames, options);
+  animations.add(animation);
+  animation.finished.catch(() => {}).finally(() => animations.delete(animation));
+}
+function stopAnimations() {
+  animations.forEach((animation) => animation.cancel());
+  animations.clear();
+}
+function box(title, className, href) {
+  const node = el(href ? 'a' : 'section', `box stack panel ${className}${href ? ' box--interactive' : ''}`);
+  if (href) node.href = href;
+  const header = el('div', 'row panel-header');
   const heading = el('h2', '', title);
-  heading.id = `section-${++sequence}`;
+  heading.id = `heading-${++sequence}`;
   node.setAttribute('aria-labelledby', heading.id);
-  node.append(heading);
+  header.append(heading);
+  node.append(header);
+  return { node, header };
+}
+function link(text, href, className = 'type-label') {
+  const node = el('a', className, text);
+  node.href = href;
   return node;
+}
+function dot(tone) {
+  const node = el('span', 'tone-dot');
+  node.setAttribute('aria-hidden', 'true');
+  node.style.setProperty('--dot-color', `var(--color-${tone})`);
+  return node;
+}
+function saveProjects() {
+  try { localStorage.setItem(preferenceKey, JSON.stringify([...selectedProjects])); } catch { /* The selection still works in memory. */ }
+}
+function readProjects() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(preferenceKey));
+    if (Array.isArray(saved)) return new Set(saved.filter((id) => data.projects.some((project) => project.id === id)));
+  } catch { /* Use the fixture defaults when storage is unavailable or malformed. */ }
+  return new Set(data.dashboard.defaultProjects);
+}
+function setPickerOpen(open, instant = false, restore = false) {
+  const panel = $('#project-menu');
+  panel.classList.toggle('is-instant', instant);
+  panel.classList.toggle('is-open', open);
+  panel.inert = !open;
+  $('#project-trigger').setAttribute('aria-expanded', String(open));
+  if (open) panel.querySelector('input').focus({ preventScroll: true });
+  else if (restore) $('#project-trigger').focus();
+}
+function projectPicker() {
+  const wrapper = el('div', 'dropdown project-picker');
+  const trigger = button('Projeleri seç', (event) => setPickerOpen($('#project-menu').inert, event.detail === 0), 'button');
+  trigger.id = 'project-trigger';
+  trigger.setAttribute('aria-haspopup', 'dialog');
+  trigger.setAttribute('aria-controls', 'project-menu');
+  trigger.setAttribute('aria-expanded', 'false');
+  const panel = el('div', 'menu project-menu');
+  panel.id = 'project-menu';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', 'Ana sayfada görünen projeler');
+  panel.inert = true;
+  const list = el('div', 'checklist');
+  data.projects.forEach((project) => {
+    const label = el('label', 'type-label');
+    const input = el('input');
+    input.type = 'checkbox';
+    input.value = project.id;
+    input.checked = selectedProjects.has(project.id);
+    input.addEventListener('change', () => {
+      if (input.checked) selectedProjects.add(project.id);
+      else selectedProjects.delete(project.id);
+      saveProjects();
+      renderProjects();
+      ui.announce(`${selectedProjects.size} proje gösteriliyor.`);
+    });
+    label.append(input, el('span', '', state === 'long' ? data.longText.projectName : project.name));
+    list.append(label);
+  });
+  const choose = (ids) => {
+    selectedProjects = new Set(ids);
+    panel.querySelectorAll('input').forEach((input) => { input.checked = selectedProjects.has(input.value); });
+    saveProjects();
+    renderProjects();
+    ui.announce(`${selectedProjects.size} proje gösteriliyor.`);
+  };
+  const actions = el('div', 'row');
+  actions.append(button('Varsayılana dön', () => choose(data.dashboard.defaultProjects)), button('Tüm projeler', () => choose(data.projects.map((project) => project.id))));
+  panel.append(list, actions);
+  panel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setPickerOpen(false, true, true); }
+  });
+  wrapper.append(trigger, panel);
+  return wrapper;
+}
+function hero() {
+  const node = el('section', 'box stack panel hero');
+  node.setAttribute('aria-labelledby', 'workspace-title');
+  const weekday = new Intl.DateTimeFormat('tr-TR', { weekday: 'long' }).format(date());
+  const title = el('h1', 'workspace-title', data.workspace);
+  title.id = 'workspace-title';
+  const counts = el('p', 'hero-summary');
+  counts.append('Bugün ', el('strong', '', `${data.cards.filter((record) => roleFor(record) === 'doing').length} iş sürüyor`), ', ', el('strong', '', `${data.cards.filter((record) => roleFor(record) === 'todo').length} iş sırada`), '. Küçük adımlarla devam.');
+  const pills = el('div', 'row hero-pills');
+  const lastEntry = link(`Son kayıt ${dayLabel()}: ${data.journal.length} iş`, '#journal', 'button journal-pill');
+  lastEntry.prepend(dot('done'));
+  pills.append(lastEntry, projectPicker());
+  node.append(el('p', 'type-label muted', `${dayLabel()}, ${weekday}`), title, counts, el('p', 'type-label muted', `Son güncelleme: ${dayLabel()} ${data.dashboard.updated}`), pills);
+  return node;
+}
+function calendar() {
+  const { node, header } = box('Günlük', 'calendar-box', '#journal');
+  header.append(el('span', 'type-label muted', `${new Set(data.dashboard.journalDays).size} gün`));
+  node.append(el('p', 'muted type-label', 'Hangi gün ne yapıldı'));
+  const grid = el('div', 'month-grid');
+  const month = data.dashboard.date.slice(0, 7);
+  const days = new Set(data.dashboard.journalDays.filter((value) => value.startsWith(month)));
+  const monthName = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(date());
+  grid.setAttribute('role', 'img');
+  grid.setAttribute('aria-label', `${monthName}: ${days.size} günde kayıt var`);
+  ['P', 'S', 'Ç', 'P', 'C', 'C', 'P'].forEach((text) => grid.append(el('span', 'weekday type-label muted', text)));
+  const first = new Date(date().getFullYear(), date().getMonth(), 1);
+  for (let index = 0; index < (first.getDay() + 6) % 7; index++) grid.append(el('span', 'calendar-blank'));
+  const total = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  for (let day = 1; day <= total; day++) {
+    const value = `${month}-${String(day).padStart(2, '0')}`;
+    const cell = el('span', `calendar-day${days.has(value) ? ' has-entry' : ''}${value === data.dashboard.date ? ' is-today' : ''}`);
+    cell.title = `${day} ${monthName}${days.has(value) ? ' · kayıt var' : ''}`;
+    grid.append(cell);
+  }
+  [...grid.children].forEach((child) => child.setAttribute('aria-hidden', 'true'));
+  node.append(grid);
+  return node;
+}
+function svgNode(tag, attributes = {}) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attributes).forEach(([name, value]) => node.setAttribute(name, String(value)));
+  return node;
+}
+function progressRing(done, total) {
+  const svg = svgNode('svg', { viewBox: '0 0 64 64', class: 'progress-ring', 'aria-hidden': 'true' });
+  const id = `ring-${++sequence}`;
+  const defs = svgNode('defs');
+  const mask = svgNode('mask', { id, class: 'ring-mask' });
+  for (const [half, clipX, revealX] of [['first', 32, 0], ['second', 0, 32]]) {
+    const clip = svgNode('clipPath', { id: `${id}-${half}` });
+    clip.append(svgNode('rect', { x: clipX, y: 0, width: 32, height: 64 }));
+    defs.append(clip);
+    const group = svgNode('g', { 'clip-path': `url(#${id}-${half})` });
+    group.append(svgNode('rect', { x: revealX, y: 0, width: 32, height: 64, class: `ring-reveal ring-reveal--${half}` }));
+    mask.append(group);
+  }
+  defs.append(mask);
+  const arc = svgNode('g', { mask: `url(#${id})` });
+  arc.append(svgNode('circle', { cx: 32, cy: 32, r: 27, pathLength: 100, class: 'ring-arc' }));
+  svg.append(defs, svgNode('circle', { cx: 32, cy: 32, r: 27, class: 'ring-track' }), arc);
+  svg.style.setProperty('--ring-progress', String(total ? done / total * 100 : 0));
+  return svg;
+}
+function renderProjects() {
+  const grid = $('#project-grid');
+  grid.replaceChildren();
+  data.projects.filter((project) => selectedProjects.has(project.id)).forEach((project) => {
+    const summary = summaryFor(project);
+    const records = data.cards.filter((record) => record.projectId === project.id);
+    const completed = records.filter((record) => roleFor(record) === 'done').length + summary.completedArchive;
+    const total = records.length + summary.completedArchive;
+    const { node, header } = box(state === 'long' ? data.longText.projectName : project.name, 'project-box', `../board-a/?project=${encodeURIComponent(project.id)}`);
+    node.style.setProperty('--project-wash', `var(--color-tone-${project.tone}-bg)`);
+    node.style.setProperty('--project-ink', `var(--color-tone-${project.tone}-text)`);
+    node.style.setProperty('--project-tone', `var(--color-tone-${project.tone})`);
+    if (!grid.children.length) node.id = 'projects';
+    const additionalNotes = data.notes.filter((note) => note.projectId === project.id && !fixtures.notes.some((item) => item.id === note.id)).length;
+    const subtitle = el('p', 'muted type-label project-subtitle', `${summary.description}, ${summary.noteCount + additionalNotes} not`);
+    const stat = el('div', 'stack project-stat');
+    stat.append(el('strong', 'counter', `${completed}/${total} kart`), el('span', 'muted type-label', 'panoda bitti'));
+    const focus = records.find((record) => roleFor(record) !== 'done');
+    const focusLine = el('p', 'muted type-label project-focus', focus ? titleFor(focus) : 'Açık kart yok. Yeni bir adıma yer var.');
+    header.append(progressRing(completed, total));
+    node.append(subtitle, stat, focusLine);
+    grid.append(node);
+  });
+  if (!grid.children.length) {
+    const empty = el('div', 'box stack panel project-empty');
+    empty.id = 'projects';
+    empty.append(el('p', 'muted', 'Proje kutuları gizli. Görmek istediklerini seçebilirsin.'), button('Projeleri seç', (event) => setPickerOpen(true, event.detail === 0)));
+    grid.append(empty);
+  }
 }
 function move(record, instant) {
   const target = field('Hedef sütun', 'select');
-  data.columns.forEach((column) => {
-    const option = el('option', '', column.label);
-    option.value = column.id;
-    target.control.append(option);
-  });
+  data.columns.forEach((column) => { const option = el('option', '', column.label); option.value = column.id; target.control.append(option); });
   target.control.value = record.column;
   ui.open('Kartı taşı', [el('p', '', record.title), target.wrapper], () => {
     const previous = data.columns.find((column) => column.id === record.column).label;
@@ -37,148 +219,172 @@ function move(record, instant) {
     render();
     const destination = data.columns.find((column) => column.id === record.column).label;
     ui.announce(`'${record.title}' kartı '${previous}' sütunundan '${destination}' sütununa taşındı.`);
-    requestAnimationFrame(() => (document.getElementById(record.id) || $('#card-open')).focus());
+    requestAnimationFrame(() => (document.getElementById(record.id) || $('#main')).focus());
   }, instant, 'Taşı');
 }
-function task(record, index) {
-  const item = el('li', 'task');
-  item.id = record.id;
-  item.tabIndex = 0;
-  const title = button(titleFor(record, index), (event) => ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0), 'card-title');
-  const tags = el('div', 'row');
-  tags.append(projectChip(projectFor(record)), priorityChip(record.priority));
-  const footer = el('div', 'row card-footer');
-  const locked = state === 'locked' && record.id === 'card-2';
-  const trigger = button('Taşı…', (event) => move(record, event.detail === 0), 'button button--quiet');
-  trigger.setAttribute('aria-label', `${record.title}: taşı`);
-  trigger.disabled = locked;
-  footer.append(metadata(locked ? { ...record, assigneeId: 'claude' } : record, data), trigger);
-  item.append(title, tags, footer);
-  if (locked) {
-    const message = lockMessage();
-    message.id = `${record.id}-lock`;
-    trigger.setAttribute('aria-describedby', message.id);
-    item.append(message);
-  }
-  item.addEventListener('keydown', (event) => {
-    if (event.key.toLowerCase() === 'm' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+function ongoing() {
+  const { node, header } = box('Sürüyor', 'ongoing');
+  header.append(link('Panoda gör', '../board-a/'));
+  const list = el('ul', 'summary-list');
+  data.cards.filter((record) => roleFor(record) === 'doing').forEach((record, index) => {
+    const row = el('li', 'summary-row ongoing-row');
+    row.id = record.id;
+    row.tabIndex = 0;
+    const text = el('div', 'row-copy stack');
+    const detail = el('p', 'muted type-label');
+    const review = record.column === 'review';
+    const agent = ['claude', 'codex'].includes(record.assigneeId);
+    detail.append(el('strong', '', review ? 'Senden: ' : agent ? 'Şimdi: ' : 'Sonra: '), review ? 'İncele ve kısa bir geri bildirim bırak.' : agent ? `${record.assigneeId} kabul ölçütlerini doğruluyor.` : 'Birlikte gözden geçirmek için hazırla.');
+    text.append(button(titleFor(record, index), (event) => ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0), 'text-button card-title'), detail);
+    const actions = el('div', 'row-actions stack');
+    const chip = projectChip(projectFor(record));
+    chip.prepend(dot(`tone-${projectFor(record).tone}`));
+    const locked = state === 'locked' && record.id === 'card-2';
+    const trigger = button('Taşı…', (event) => move(record, event.detail === 0), 'button button--quiet');
+    trigger.disabled = locked;
+    trigger.setAttribute('aria-label', `${record.title}: taşı`);
+    actions.append(chip, trigger);
+    row.append(text, actions);
+    if (locked) { const message = lockMessage(); message.id = `${record.id}-lock`; trigger.setAttribute('aria-describedby', message.id); row.setAttribute('aria-describedby', message.id); row.append(message); }
+    row.addEventListener('keydown', (event) => {
+      if (event.key.toLowerCase() !== 'm' || event.ctrlKey || event.metaKey || event.altKey) return;
       event.preventDefault();
       if (locked) ui.announce('claude üzerinde çalışıyor. Kilit kalkana kadar taşınamaz.');
       else move(record, true);
-    }
+    });
+    list.append(row);
   });
-  return item;
+  node.append(list);
+  if (!list.children.length) node.append(el('p', 'muted', 'Şu an süren bir iş yok. Panodan bir kart seçebilirsin.'));
+  return node;
 }
-function noteList(records) {
-  const list = el('ul', 'note-list');
-  records.forEach((record, index) => {
-    const item = el('li', 'note');
-    const tags = el('div', 'row');
-    tags.append(projectChip(projectFor(record)), el('span', 'type-label muted', record.kind === 'wiki' ? 'Wiki sayfası' : `Not · ${record.updated}`));
-    item.append(tags, button(titleFor(record, index), (event) => ui.inspect(record, event.detail === 0), 'note-title'), el('p', 'note-excerpt', record.body));
-    list.append(item);
+function boardSummary() {
+  const { node, header } = box('Pano', 'board-summary', '../board-a/');
+  const archive = data.projectSummaries.reduce((sum, project) => sum + project.completedArchive, 0);
+  header.append(el('span', 'type-label muted counter', `${data.cards.length + archive} kart`));
+  node.append(el('p', 'muted type-label', 'Bütün projelerin şu anki durumu'));
+  const bar = el('div', 'segmented-bar');
+  bar.setAttribute('aria-hidden', 'true');
+  const legend = el('dl', 'board-legend type-label');
+  data.columns.forEach((column) => {
+    const count = data.cards.filter((record) => record.column === column.id).length + (column.role === 'done' ? archive : 0);
+    const tone = column.id === 'review' ? 'tone-1' : { todo: 'planned', doing: 'doing', done: 'done' }[column.role];
+    const segment = el('span', 'bar-segment');
+    segment.style.setProperty('--segment-count', String(count));
+    segment.style.setProperty('--segment-color', `var(--color-${tone})`);
+    segment.hidden = count === 0;
+    bar.append(segment);
+    const label = el('dt');
+    label.append(dot(tone), document.createTextNode(column.label));
+    legend.append(label, el('dd', 'counter', String(count)));
   });
-  return list;
+  node.append(bar, legend);
+  return node;
 }
-function render() {
-  if (!data) return;
-  const dashboard = $('#dashboard');
-  dashboard.replaceChildren();
-  const hero = el('section', 'box box--hero hero');
-  hero.setAttribute('aria-labelledby', 'greeting');
-  const intro = el('div', 'stack hero-intro');
-  const greeting = el('h1', '', 'Merhaba, Ada.');
-  greeting.id = 'greeting';
-  intro.append(el('p', 'type-label muted', new Intl.DateTimeFormat('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(today)), greeting, el('p', 'muted', 'Düşüncelerine yer aç, bir sonraki adımı seç.'));
-  const stats = el('div', 'row');
-  stats.append(el('span', 'badge', `${openCards().length} açık iş`), el('span', 'badge', `${new Set(openCards().filter((card) => ['claude', 'codex'].includes(card.assigneeId)).map((card) => card.assigneeId)).size} ajanla birlikte`));
-  intro.append(stats);
-  const journal = el('div', 'stack journal');
-  journal.append(el('h2', '', 'Bugünün günlüğü'));
-  const list = el('ul', 'journal-list');
-  entries.forEach((entry) => {
-    const item = el('li', 'journal-entry');
-    item.append(el('span', 'type-label muted', entry.time), el('p', '', entry.body));
-    list.append(item);
+function journalPreview(event) {
+  event.preventDefault();
+  ui.open(`${dayLabel()} günü yapılanlar`, data.journal.length ? data.journal.map((entry) => el('p', '', `${entry.time} · ${entry.body}`)) : [el('p', 'muted', 'Henüz kayıt yok. Bugüne ekle alanından başlayabilirsin.')], null, event.detail === 0);
+}
+function today() {
+  const { node, header } = box(`${dayLabel()} günü yapılanlar`, 'today');
+  node.id = 'journal';
+  const open = link('Günü aç', '#journal');
+  open.addEventListener('click', journalPreview);
+  header.append(open);
+  const list = el('ol', 'numbered-list');
+  data.journal.forEach((entry) => {
+    const row = el('li', 'numbered-row');
+    row.dataset.entry = entry.id;
+    row.append(el('p', '', entry.body));
+    list.append(row);
   });
-  if (!entries.length) list.append(el('li', 'muted', 'Henüz bir kayıt yok. Bugünden küçük bir not bırakın.'));
+  if (!data.journal.length) node.append(el('p', 'muted', 'Henüz kayıt yok. Bugünden küçük bir not bırakın.'));
   const form = el('form', 'row journal-form');
   const input = field('Bugüne ekle');
-  input.control.placeholder = 'Aklında ne var?';
+  input.control.placeholder = 'Bugünden küçük bir not…';
   input.control.required = true;
   input.control.value = journalDraft;
-  input.control.addEventListener('input', () => { journalDraft = input.control.value; });
+  input.control.addEventListener('input', () => { journalDraft = input.control.value; input.control.setCustomValidity(''); });
   const save = el('button', 'button button--primary', 'Ekle');
   save.type = 'submit';
   form.append(input.wrapper, save);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     const value = input.control.value.trim();
-    if (!value) return;
-    entries.push({ time: new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit' }).format(new Date()), body: value });
+    if (!value) { input.control.setCustomValidity('Kısa bir not yazın.'); input.control.reportValidity(); return; }
+    const entry = { id: crypto.randomUUID(), date: data.dashboard.date, time: new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit' }).format(new Date()), authorId: 'ada', body: value };
+    data.journal.push(entry);
+    if (!data.dashboard.journalDays.includes(entry.date)) data.dashboard.journalDays.push(entry.date);
+    data.dashboard.updated = entry.time;
     journalDraft = '';
     render();
-    $('#dashboard .journal input').focus();
+    $('#journal input').focus({ preventScroll: true });
+    const row = [...document.querySelectorAll('[data-entry]')].find((item) => item.dataset.entry === entry.id);
+    animate(row, lessMotion() ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(var(--motion-distance-base))' }, { opacity: 1, transform: 'none' }], { duration: tokenTime(lessMotion() ? '--motion-duration-quick' : '--motion-duration-fast'), easing: getComputedStyle(document.documentElement).getPropertyValue('--motion-ease-smooth-out').trim() });
     ui.announce('Bugünün günlüğüne eklendi.');
   });
-  journal.append(list, form);
-  hero.append(intro, journal);
-  const priorities = section('Açık işler', 'priorities');
-  const heading = el('div', 'row section-heading');
-  heading.append(el('p', 'type-label muted', 'Önce önemli olanlar'), el('a', 'button button--quiet', 'Panoya git →'));
-  heading.lastChild.href = '../board-a/';
-  priorities.append(heading);
-  [['urgent', 'Acil'], ['important', 'Önemli'], ['normal', 'Diğer'], ['low', 'Düşük']].forEach(([priority, label]) => {
-    const records = openCards().filter((record) => record.priority === priority);
-    const group = el(priority === 'low' ? 'details' : 'div', priority === 'low' ? 'low-priority' : 'priority-group');
-    if (priority === 'low') {
-      group.open = lowOpen;
-      group.append(el('summary', 'type-label', `Düşük öncelikli ${records.length} iş`));
-      group.addEventListener('toggle', () => { lowOpen = group.open; });
-    } else group.append(el('h3', 'type-label', `${label} · ${records.length}`));
-    const list = el('ul', 'task-list');
-    records.forEach((record, index) => list.append(task(record, index)));
-    if (!records.length) group.append(el('p', 'type-label muted', 'Bu öncelikte açık iş yok.'));
-    group.append(list);
-    priorities.append(group);
+  node.append(list, form);
+  return node;
+}
+function noteBox(title, className, records, numbered = false) {
+  const { node, header } = box(title, className);
+  if (className === 'research') { node.id = 'research'; header.append(el('span', 'type-label muted', `${records.length} belge`)); }
+  if (className === 'recent') node.id = 'notes';
+  const list = el(numbered ? 'ol' : 'ul', numbered ? 'numbered-list' : 'summary-list');
+  records.slice(0, 3).forEach((record, index) => {
+    const row = el('li', numbered ? 'numbered-row' : 'summary-row note-row');
+    const copy = el('div', 'row-copy stack');
+    copy.append(button(titleFor(record, index), (event) => ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0), 'text-button note-title'), el('p', 'muted type-label excerpt', record.body));
+    row.append(copy);
+    if (!numbered) row.append(el('span', 'chip', kindNames[record.kind]));
+    list.append(row);
   });
-  const pinned = section('Sabitlenenler', 'pinned');
-  pinned.append(noteList(data.notes.filter((note) => note.pinned)));
-  if (!data.notes.some((note) => note.pinned)) pinned.append(el('p', 'muted', 'Sabitlenen bir not henüz yok.'));
-  const recent = section('Son hızlı notlar', 'recent');
-  recent.append(noteList(data.notes.filter((note) => note.kind === 'note').slice(0, 3)));
-  if (!data.notes.some((note) => note.kind === 'note')) recent.append(el('p', 'muted', 'Henüz hızlı not yok. Not ekle ile bir düşünce yakalayın.'));
-  const projects = section('Projeler', 'projects');
-  const strip = el('div', 'project-strip');
-  data.projects.forEach((project) => {
-    const link = el('a', 'inset project-link');
-    link.href = `../board-a/?project=${encodeURIComponent(project.id)}`;
-    link.append(projectChip(state === 'long' ? { ...project, name: data.longText.projectName } : project), el('span', 'type-label muted', `${openCards().filter((record) => record.projectId === project.id).length} açık iş`));
-    strip.append(link);
+  node.append(list);
+  if (!records.length) node.append(el('p', 'muted', 'Henüz bir kayıt yok. N ile bir not ekleyebilirsin.'));
+  return node;
+}
+function render() {
+  if (!data) return;
+  stopAnimations();
+  const projects = el('div', 'project-grid');
+  projects.id = 'project-grid';
+  $('#dashboard').replaceChildren(hero(), calendar(), projects, ongoing(), boardSummary(), today(), noteBox('Sabitlenenler', 'pinned', data.notes.filter((note) => note.pinned)), noteBox('Son notlar', 'recent', data.notes.filter((note) => note.kind === 'note')), noteBox('Araştırmalar', 'research', data.notes.filter((note) => note.kind === 'research'), true));
+  renderProjects();
+}
+function animateFirstLoad() {
+  const computed = getComputedStyle(document.documentElement);
+  const limit = Number(computed.getPropertyValue('--motion-stagger-max-items'));
+  document.querySelectorAll('#dashboard .panel').forEach((panel, index) => {
+    animate(panel, lessMotion() ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(var(--motion-distance-base))' }, { opacity: 1, transform: 'none' }], { duration: tokenTime(lessMotion() ? '--motion-duration-quick' : '--motion-duration-fast'), delay: lessMotion() || index >= limit ? 0 : index * tokenTime('--motion-duration-stagger'), easing: computed.getPropertyValue('--motion-ease-spring').trim(), fill: 'backwards' });
   });
-  projects.append(strip);
-  dashboard.append(hero, priorities, pinned, recent, projects);
+  if (lessMotion()) return;
+  document.querySelectorAll('.ring-reveal').forEach((rect) => animate(rect, [{ transform: 'rotate(0turn)' }, { transform: 'rotate(.5turn)' }], { duration: tokenTime('--motion-duration-fast'), delay: rect.classList.contains('ring-reveal--second') ? tokenTime('--motion-duration-fast') : 0, easing: computed.getPropertyValue('--motion-ease-in-out').trim(), fill: 'backwards' }));
 }
 function setState(value) {
   state = value;
-  if (value === 'empty') { data.cards = []; data.notes = []; entries.length = 0; }
+  if (value === 'empty') {
+    data.cards = []; data.notes = []; data.journal = []; data.dashboard.journalDays = [];
+    data.projectSummaries.forEach((project) => { project.completedArchive = 0; project.noteCount = 0; });
+  }
   $('#prototype-state').value = value;
   renderState(value, () => setState('full'), () => ui.create('card'));
   render();
 }
+document.addEventListener('pointerdown', (event) => { if ($('#project-menu') && !event.target.closest('.project-picker')) setPickerOpen(false); });
+document.addEventListener('focusin', (event) => { if ($('#project-menu') && !event.target.closest('.project-picker')) setPickerOpen(false); });
+document.documentElement.addEventListener('motionchange', () => { if (lessMotion()) stopAnimations(); });
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => { if (lessMotion()) stopAnimations(); });
 async function start() {
   try {
     data = await loadData();
     fixtures = structuredClone(data);
-    entries.push(...data.journal.map((entry, index) => ({ time: index ? '10.15 · Deniz' : '09.00 · Ada', body: entry.body })));
-    ui = setupUI(data, (kind) => { if (state === 'empty') setState('full'); else render(); if (kind === 'card') requestAnimationFrame(() => document.getElementById(data.cards[0].id)?.focus()); }, (instant) => ui.create('card', instant));
-    $('#prototype-state').addEventListener('change', (event) => {
-      Object.assign(data, structuredClone(fixtures));
-      entries.splice(0, entries.length, ...data.journal.map((entry, index) => ({ time: index ? '10.15 · Deniz' : '09.00 · Ada', body: entry.body })));
-      setState(event.target.value);
-    });
-    $('#reload').addEventListener('click', () => { data.cards[0].title += ' ve sonucu günlüğe yaz'; setState('full'); ui.announce('Dosyanın dışarıdaki sürümü yüklendi.'); });
+    selectedProjects = readProjects();
+    ui = setupUI(data, () => { if (state === 'empty') setState('full'); else render(); }, (instant) => ui.create('card', instant));
+    $('#prototype-state').addEventListener('change', (event) => { Object.assign(data, structuredClone(fixtures)); journalDraft = ''; setState(event.target.value); });
+    $('#reload').addEventListener('click', () => { data.cards[0].title += ' ve sonucu günlüğe yaz'; setState('full'); $('#main').focus(); ui.announce('Dosyanın dışarıdaki sürümü yüklendi.'); });
     setState('full');
+    animateFirstLoad();
+    if (location.hash) requestAnimationFrame(() => document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'instant', block: 'start' }));
   } catch {
     renderState('error', start, () => {});
   }

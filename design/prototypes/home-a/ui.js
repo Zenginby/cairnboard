@@ -1,4 +1,5 @@
 import '../_shared/theme.js';
+import { setupShell } from './shell.js';
 import { initComponents, showDialog } from '../_shared/components.js';
 
 export const $ = (selector) => document.querySelector(selector);
@@ -133,13 +134,15 @@ export function setupUI(data, onCreate, openCard) {
     open('Ara', [query.wrapper, results], null, instant);
     query.control.focus();
   };
-  const help = (instant = false) => open('Klavye kısayolları', [el('p', '', 'N — hızlı not · C — yeni kart · / — ara · ? — kısayollar'), el('p', '', 'M — odaktaki kartı taşı · Ok tuşları — menü veya sütun seçimi · Escape — kapat / sürüklemeyi iptal et'), el('p', 'muted', 'Girdi alanlarında yazarken kısayollar çalışmaz.')], null, instant);
-  $('#note-open').addEventListener('click', (event) => create('note', event.detail === 0));
-  $('#card-open').addEventListener('click', (event) => openCard(event.detail === 0));
-  $('#search-open').addEventListener('click', (event) => search(event.detail === 0));
-  $('#help-open').addEventListener('click', (event) => help(event.detail === 0));
+  const help = (instant = false) => open('Klavye kısayolları', [el('p', '', 'N — hızlı not · C — yeni kart · / veya ⌘K / Ctrl+K — ara · ? — kısayollar'), el('p', '', 'M — odaktaki kartı taşı · Ok tuşları — menü veya sütun seçimi · Escape — kapat / sürüklemeyi iptal et'), el('p', 'muted', 'Girdi alanlarında yazarken kısayollar çalışmaz.')], null, instant);
+  setupShell(search);
   document.addEventListener('keydown', (event) => {
-    if (event.ctrlKey || event.metaKey || event.altKey || dialog.open || event.target.closest('input, textarea, select, [contenteditable="true"], [role="menu"]')) return;
+    if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      if (!dialog.open) search(true);
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey || dialog.open || event.target.closest('input, textarea, select, [contenteditable="true"], [role="menu"], #theme-panel')) return;
     const actions = { n: () => create('note', true), c: () => openCard(true), '/': () => search(true), '?': () => help(true) };
     if (actions[event.key.toLowerCase()]) { event.preventDefault(); actions[event.key.toLowerCase()](); }
   });
