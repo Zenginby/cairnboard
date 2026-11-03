@@ -1,4 +1,4 @@
-.workspace { padding-top: var(--space-md); max-width: calc(var(--space-content-max) + var(--space-md) * 2); margin-inline: auto; padding-bottom: calc(var(--space-xl) * 4); }
+.workspace { padding-top: var(--space-md); --workspace-max: calc(var(--space-content-max) + var(--space-md) * 2); max-width: var(--workspace-max); margin-inline: auto; padding-bottom: calc(var(--space-xl) * 4); }
 .section-heading, .card-footer { justify-content: space-between; }
 .skip-link { position: fixed; top: var(--space-sm); left: var(--space-md); z-index: 100; transform: translateY(-200%); }
 .skip-link:focus { transform: none; }

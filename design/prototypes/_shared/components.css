@@ -327,7 +327,13 @@
     pointer-events: none;
     transition-duration: var(--motion-duration-quick);
   }
-  :root[data-pinned-rail="open"] main { margin-inline-end: calc(var(--pinned-rail-width) + var(--space-md) * 2); }
+  /* The content stays centred on the page, under the centred tabs, while that clears the rail; otherwise it moves left
+     just enough. Pages set --workspace-max on their <main>. */
+  :root[data-pinned-rail="open"] main {
+    --rail-space: calc(var(--pinned-rail-width) + var(--space-md) * 2);
+    --workspace-width: min(var(--workspace-max, 100%), 100% - var(--rail-space));
+    margin-inline: max(0px, min((100% - var(--workspace-width)) / 2, 100% - var(--rail-space) - var(--workspace-width))) var(--rail-space);
+  }
   :root[data-pinned-rail="open"] .prototype-controls { right: calc(var(--pinned-rail-width) + var(--space-md) * 2); }
   .pinned-rail-tab {
     position: fixed;
