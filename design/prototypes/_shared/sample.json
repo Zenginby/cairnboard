@@ -1,0 +1,120 @@
+{
+  "workspace": "acme",
+  "people": [
+    {
+      "id": "ada",
+      "name": "Ada",
+      "initials": "A"
+    },
+    {
+      "id": "deniz",
+      "name": "Deniz",
+      "initials": "D"
+    }
+  ],
+  "projects": [
+    {
+      "id": "ornek-proje",
+      "name": "Örnek proje",
+      "tone": 1
+    },
+    {
+      "id": "ornek-proje-2",
+      "name": "Araştırma defteri",
+      "tone": 2
+    },
+    {
+      "id": "ornek-proje-3",
+      "name": "Haftalık plan",
+      "tone": 3
+    },
+    {
+      "id": "ornek-proje-4",
+      "name": "Okuma listesi",
+      "tone": 4
+    },
+    {
+      "id": "ornek-proje-5",
+      "name": "Tasarım denemesi",
+      "tone": 5
+    },
+    {
+      "id": "ornek-proje-6",
+      "name": "Küçük araçlar",
+      "tone": 6
+    },
+    {
+      "id": "ornek-proje-7",
+      "name": "Bahçe notları",
+      "tone": 7
+    },
+    {
+      "id": "ornek-proje-8",
+      "name": "Örnek proje araştırma ve tasarım defteri",
+      "tone": 8
+    }
+  ],
+  "cards": [
+    {
+      "id": "card-1",
+      "projectId": "ornek-proje",
+      "title": "İlk taslağı birlikte gözden geçir",
+      "status": "planned",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "Başlıkları denetle",
+          "done": true
+        },
+        {
+          "text": "Geri bildirimi ekle",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "card-2",
+      "projectId": "ornek-proje-2",
+      "title": "Kullanıcıların farklı ekran boyutlarında uzun Türkçe başlıkları ve kabul ölçütlerini rahatça okuyabildiğini birlikte doğrulayalım",
+      "status": "doing",
+      "assigneeId": "deniz",
+      "criteria": []
+    },
+    {
+      "id": "card-3",
+      "projectId": "ornek-proje-8",
+      "title": "Örnek notları düzenle",
+      "status": "done",
+      "assigneeId": "ada",
+      "criteria": []
+    }
+  ],
+  "notes": [
+    {
+      "id": "note-1",
+      "projectId": "ornek-proje",
+      "title": "İlk fikirler",
+      "body": "Küçük adımlarla başlayalım; her kararın nedenini kısa bir notla saklayalım."
+    },
+    {
+      "id": "note-2",
+      "projectId": "ornek-proje-2",
+      "title": "Gözlem defteri",
+      "body": "Uzun metinler dar ekranda da okunabilmeli."
+    }
+  ],
+  "journal": [
+    {
+      "id": "journal-1",
+      "date": "2026-01-12",
+      "authorId": "ada",
+      "body": "İlk taslak hazır; sırada birlikte inceleme var."
+    },
+    {
+      "id": "journal-2",
+      "date": "2026-01-13",
+      "authorId": "deniz",
+      "body": "Kabul ölçütleri sadeleştirildi."
+    }
+  ]
+}

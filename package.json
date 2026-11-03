@@ -23,6 +23,7 @@
   "scripts": {
     "design:build": "node scripts/design-build.mjs",
     "design:lint": "node scripts/design-lint.mjs",
+    "design:serve": "node scripts/design-serve.mjs",
     "build:cli": "node scripts/build-cli.mjs",
     "bench:cli": "node scripts/bench-cli.mjs",
     "cairn": "node cli/cairn.mjs",

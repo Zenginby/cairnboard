@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+  <title>Stil rehberi · Prototipler</title>
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="../_shared/components.css">
+  <link rel="stylesheet" href="styleguide.css">
+  <script type="module" src="styleguide.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a href="../">Prototipler</a>
+    <div class="row">
+      <label class="row type-label">Tema
+        <select data-theme-menu aria-label="Tema">
+          <option value="system">Sistem</option><option value="bento">Bento</option>
+          <option value="bento-dark">Bento Dark</option><option value="paper">Paper</option><option value="graphite">Graphite</option>
+        </select>
+      </label>
+      <!-- Longer English equivalent: Motion: less. -->
+      <label class="motion-toggle row type-label"><input type="checkbox" data-motion-toggle> Hareket: az</label>
+    </div>
+  </header>
+  <main class="page-frame stack guide">
+    <section class="stack" aria-labelledby="guide-title">
+      <div class="box box--hero stack">
+        <p class="type-label muted">Tasarım dili / 01</p>
+        <h1 id="guide-title">Aynı parçalar, dört tema.</h1>
+        <p class="prose intro">Renkleri, biçimleri ve etkileşimleri birlikte inceleyin. Yukarıdaki tema seçimi bütün örnekleri değiştirir.</p>
+        <nav class="row" aria-label="Rehber bölümleri"><a class="button button--quiet" href="#colors">Renkler</a><a class="button button--quiet" href="#foundations">Ölçekler</a><a class="button button--quiet" href="#components">Bileşenler</a><a class="button button--quiet" href="#motion">Hareket</a></nav>
+      </div>
+      <div id="theme-strip" class="theme-strip" aria-label="Dört temada aynı pano"></div>
+    </section>
+    <section id="colors" class="stack" aria-labelledby="colors-title"><h2 id="colors-title">Renkler</h2><p class="muted">Adlar ve değerler etkin temadan okunur.</p><div id="color-groups" class="stack"></div></section>
+    <section id="foundations" class="stack" aria-labelledby="foundations-title"><h2 id="foundations-title">Ölçekler ve derinlik</h2><div id="type-scale" class="box stack"></div><div id="foundation-scales" class="grid"></div></section>
+    <section id="components" class="stack" aria-labelledby="components-title">
+      <h2 id="components-title">Bileşenler ve durumlar</h2>
+      <p class="muted">Üzerinde, odak ve basılı örnekleri sabit gösterilir; gerçek odak için Tab tuşunu kullanın.</p>
+      <div id="box-states" class="grid"></div>
+      <section class="box stack"><h3>Düğmeler</h3><div id="button-states" class="stack"></div></section>
+      <section class="box stack"><h3>Rozetler ve etiketler</h3><div id="chips" class="row"></div></section>
+      <section class="box stack"><h3>Girdiler ve kabul ölçütleri</h3><div id="input-states" class="grid"></div><ul class="checklist" id="criteria"></ul>
+        <div class="toast is-open"><span class="chip chip--danger">Kaydedilemedi</span> Bağlantıyı kontrol edip yeniden deneyin.</div></section>
+      <section class="box stack"><h3>Sekmeler</h3>
+        <div class="tabs" role="tablist" aria-label="Proje görünümü">
+          <span class="tab-indicator" aria-hidden="true"></span>
+          <button class="tab" id="tab-board" role="tab" aria-selected="true" aria-controls="panel-board">Pano</button>
+          <button class="tab is-focus" id="tab-notes" role="tab" aria-selected="false" aria-controls="panel-notes" tabindex="-1">Notlar</button>
+          <button class="tab" id="tab-journal" role="tab" aria-selected="false" aria-controls="panel-journal" tabindex="-1">Günlük</button>
+          <button class="tab" role="tab" aria-selected="false" tabindex="-1" disabled>Yakında</button>
+        </div>
+        <div id="panel-board" role="tabpanel" aria-labelledby="tab-board" tabindex="0">İşleri sütunlar arasında taşıyın.</div>
+        <div id="panel-notes" role="tabpanel" aria-labelledby="tab-notes" tabindex="0" hidden></div>
+        <div id="panel-journal" role="tabpanel" aria-labelledby="tab-journal" tabindex="0" hidden></div>
+      </section>
+      <section class="grid" aria-label="Boş, yükleniyor ve hata durumları">
+        <div class="box empty-state" id="empty-example">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM8 9h8M8 13h5" stroke-width="2"/></svg>
+          <h3>Henüz not yok</h3><p>İlk düşüncenizi buraya ekleyin.</p><button class="button button--primary" id="add-note">Not ekle</button>
+        </div>
+        <div class="box stack" role="status"><h3>Yükleniyor</h3><div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div><p class="muted">Örnek içerik hazırlanıyor.</p></div>
+        <div class="box stack"><h3>Bir sorun oluştu</h3><span class="chip chip--danger">Hata</span><p>Not kaydedilemedi; yeniden deneyin.</p><div><button class="button button--secondary" id="retry">Yeniden dene</button></div></div>
+      </section>
+      <section class="stack"><h3>Kartlar ve sütunlar</h3><p class="muted">Taşı… menüsü fare, dokunma ve klavyeyle çalışır.</p><div id="sample-board" class="board" data-board></div></section>
+    </section>
+    <section id="motion" class="box box--hero stack" aria-labelledby="motion-title">
+      <h2 id="motion-title">Hareketi dene</h2>
+      <p class="muted">Açılış yumuşak, kapanış bir adım kısa. Az hareket seçeneğinde konum değişmez; kısa geçiş korunur.</p>
+      <div class="row"><button class="button" id="toast-in">Bildirimi aç</button><button class="button" id="toast-out">Bildirimi kapat</button><button class="button" id="modal-open">Pencereyi aç</button><button class="button" id="drop-card">Kartı bırak</button><button class="button" id="slide-tab">Sekmeyi kaydır</button><button class="button" id="stagger-replay">Listeyi yeniden göster</button></div>
+      <div class="dropdown">
+        <button class="button" id="demo-menu-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="demo-menu">Menüyü aç / kapat</button>
+        <div class="menu" id="demo-menu" role="menu" aria-labelledby="demo-menu-trigger" inert>
+          <button role="menuitem" tabindex="-1" data-menu-action="edit">Düzenle</button><button role="menuitem" tabindex="-1" data-menu-action="copy">Kopyala</button><button role="menuitem" tabindex="-1" disabled>Kullanılamıyor</button>
+        </div>
+      </div>
+      <div class="toast" id="demo-toast" role="status"><div class="row"><span class="chip chip--done">Tamamlandı</span><span>Değişiklikler kaydedildi.</span></div></div>
+      <ul class="stagger-list" id="stagger-list" aria-label="Sekiz öğeli liste"></ul>
+      <h3>Hareket değerleri</h3><dl id="motion-tokens" class="motion-tokens"></dl>
+    </section>
+    <p id="load-error" class="field-error" role="alert" hidden>Örnek veriler yüklenemedi. Sayfayı yeniden açın.</p>
+    <p class="muted type-label">Tüm veriler kurgusaldır. Yazı tipi yerel sistemden alınır.</p>
+  </main>
+  <dialog class="modal" id="demo-modal" aria-labelledby="modal-title" aria-describedby="modal-description">
+    <form method="dialog" class="stack"><h2 id="modal-title">Birlikte inceleyelim</h2><p id="modal-description">Bu pencereyi düğmeyle veya Escape tuşuyla kapatabilirsiniz.</p><div class="row"><button class="button button--primary" autofocus>İncelemeyi bitir</button><button class="button" value="cancel">Kapat</button></div></form>
+  </dialog>
+  <div id="announcements" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>
