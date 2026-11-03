@@ -7,7 +7,7 @@ function environment({ home, data, env = {} }) {
   // The suite may itself run inside a coding agent; its markers would refuse every confirmation.
   return { ...process.env, CAIRN_DATA: undefined, CAIRN_ACTOR: undefined, CAIRN_DEBUG: undefined,
     CLAUDECODE: undefined, CLAUDE_CODE_ENTRYPOINT: undefined, CODEX_SANDBOX: undefined, CODEX_THREAD_ID: undefined,
-    GEMINI_CLI: undefined, CURSOR_AGENT: undefined,
+    GEMINI_CLI: undefined, CURSOR_AGENT: undefined, CLAUDE_CONFIG_DIR: undefined,
     ...(home ? { HOME: home, USERPROFILE: home, XDG_STATE_HOME: undefined, LOCALAPPDATA: undefined } : {}),
     ...(data ? { CAIRN_DATA: data } : {}), ...env };
 }

@@ -630,6 +630,56 @@
       "dangerous": false
     },
     {
+      "name": "wiki hook",
+      "summary": "Internal: Claude Code write hook; reads the hook input from stdin.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": false,
+      "dangerous": false
+    },
+    {
       "name": "context",
       "summary": "Print the session-start context pack.",
       "args": [],
@@ -2571,6 +2621,10 @@
           "type": "string",
           "multiple": true,
           "summary": "Select claude, agents or antigravity-cli; repeat as needed."
+        },
+        "hooks": {
+          "type": "boolean",
+          "summary": "Also add the Claude Code wiki write hook to its user settings."
         }
       },
       "mode": "write",

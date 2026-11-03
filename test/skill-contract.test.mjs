@@ -67,7 +67,7 @@ test('every fenced skill command succeeds with real fixtures and dry-run', async
       count++;
     }
   }
-  assert.ok(count >= commands.length - 3);
-  for (const command of commands.filter(({ dangerous }) => dangerous !== true)) assert.ok(seen.has(command.name), command.name);
+  assert.ok(count >= commands.filter(({ hidden }) => !hidden).length - 3);
+  for (const command of commands.filter(({ dangerous, hidden }) => dangerous !== true && !hidden)) assert.ok(seen.has(command.name), command.name);
   assert.deepEqual(fs.readdirSync(home).filter((name) => ['.claude', '.agents', '.gemini'].includes(name)), []);
 });

@@ -46,6 +46,11 @@ export async function main(argv, io) {
       }
     }
     const result = await command.run(ctx, args, opts, io, prepared);
+    // A command that speaks another protocol (the Claude Code hook) writes its own stdout, without the envelope.
+    if (typeof result.stdout === 'string') {
+      if (result.stdout) io.stdout.write(result.stdout);
+      return result.exit ?? 0;
+    }
     const warnings = [...new Set([...(ctx?.warnings ?? []), ...(result.warnings ?? [])])];
     const envelope = clean({ v: 1, ok: true, data: result.data, warnings }, opts);
     const output = json ? JSON.stringify(envelope) : human(envelope.data);

@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
+import { resolve } from 'node:path';
 import * as fs from './fsx.mjs';
-import { checkAgents } from './agent.mjs';
+import { checkAgents, cliInvocation, hookStatus, repoRoot } from './agent.mjs';
 import { openContext } from './context.mjs';
 import { defaultConfig } from './config.mjs';
 import { checkedPath, readChecked } from './paths.mjs';
@@ -110,6 +111,13 @@ export function checkData(options = {}) {
     const ok = agents.every((agent) => (!fs.existsSync(agent.path) && agent.installed === null) || agent.ok);
     return { ok, hint: ok ? 'Agent skills are optional and installed skills are current.'
       : 'npm run build:cli && cairn agent install' };
+  });
+  check('hook', () => {
+    const status = hookStatus({ home: options.home ?? options.env?.HOME ?? options.env?.USERPROFILE,
+      invocation: cliInvocation(resolve(repoRoot)), env: options.env ?? {} });
+    const ok = !status.installed || status.current;
+    return { ok, hint: !status.installed ? 'The Claude Code write hook is optional and not installed.'
+      : ok ? 'The Claude Code write hook is installed and current.' : 'npm run build:cli && cairn agent install --hooks' };
   });
   return checks;
 }

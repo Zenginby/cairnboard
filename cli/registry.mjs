@@ -1,3 +1,5 @@
+import { platform } from 'node:os';
+import { isAbsolute } from 'node:path';
 import { CairnError, ERRORS } from '../core/errors.mjs';
 import * as entity from '../core/entity.mjs';
 import * as journal from '../core/journal.mjs';
@@ -17,7 +19,8 @@ import { checkPage } from '../core/check.mjs';
 import { buildContext, formatContext } from '../core/context-pack.mjs';
 import { readFile } from '../core/store.mjs';
 import { safeRelative } from '../core/paths.mjs';
-import { readStdin } from './body.mjs';
+import { readStdin, readStdinBytes } from './body.mjs';
+import { evaluateHook, hookOutput } from '../core/hook.mjs';
 
 /** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
@@ -170,6 +173,33 @@ read('wiki check', 'Check a page or stdin draft against the write rules.', ['<pa
   const { errors, warnings } = checkPage(ctx, { path, text });
   return { data: clean({ errors, warnings }, opts), exit: errors.length ? ERRORS.validation : 0 };
 });
+
+// Internal: Claude Code calls this before Write and Edit. It answers in the hook format on stdout, not in the
+// envelope, and always exits 0: whatever it cannot read or judge is allowed (fail open).
+async function openHookContext(input, io) {
+  const { openContext } = await import('../core/context.mjs');
+  const cwd = typeof input.cwd === 'string' && isAbsolute(input.cwd) ? input.cwd : io.cwd;
+  try {
+    return openContext({ mode: 'read', env: io.env, home: io.env.HOME ?? io.env.USERPROFILE, platform: platform(), cwd, clock: io.clock });
+  } catch (error) {
+    // No data folder (yet): nothing to guard.
+    if (error.code === 'validation' && /Initialization is required/u.test(error.message)) return null;
+    throw error;
+  }
+}
+
+read('wiki hook', 'Internal: Claude Code write hook; reads the hook input from stdin.', [], {}, async (ctx, args, opts, io) => {
+  let verdict;
+  try {
+    const input = JSON.parse((await readStdinBytes(io, 2 * 1024 * 1024, 'Hook input')).toString('utf8'));
+    const tool = input !== null && typeof input === 'object' && ['Write', 'Edit'].includes(input.tool_name);
+    verdict = evaluateHook(tool ? await openHookContext(input, io) : null, input);
+  } catch {
+    verdict = { decision: 'allow', warnings: ['hook_error'] };
+  }
+  return { data: null, stdout: hookOutput(verdict), exit: 0 };
+}, false);
+commands.at(-1).hidden = true;
 
 read('context', 'Print the session-start context pack.', [], {
   budget: string('Token budget, characters / 4 (default: 1200).'),

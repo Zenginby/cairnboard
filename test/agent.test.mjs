@@ -36,7 +36,8 @@ test('skill has quoted YAML, a first body version marker and full invocations', 
     assert.ok(body.startsWith('<!-- cairnboard-skill 1.2.3 -->\n'));
     assert.ok(Buffer.byteLength(body) <= 24 * 1024);
     assert.doesNotMatch(skill, /^cairn /mu);
-    for (const command of commands) assert.ok(skill.includes(`${invocation} ${command.name}`), command.name);
+    for (const command of commands.filter(({ hidden }) => !hidden)) assert.ok(skill.includes(`${invocation} ${command.name}`), command.name);
+    assert.ok(!skill.includes('wiki hook'));
     assert.ok(skill.includes('--if-revision'));
     if (actor === null) assert.match(skill, /codex, gemini, cursor, antigravity/u);
   }

@@ -1,4 +1,4 @@
-import { dirname, join, posix, resolve, win32 } from 'node:path';
+import { dirname, isAbsolute, join, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
@@ -60,7 +60,7 @@ function commandLine(command, invocation, actor) {
 
 export function renderSkill({ version, invocation, actor, commands }) {
   const name = actor ?? '<actor>';
-  const reference = commands.map((command) => {
+  const reference = commands.filter((command) => !command.hidden).map((command) => {
     const line = commandLine(command, invocation, name);
     return command.dangerous === true
       ? `${command.summary} Human runs: ${line}\n`
@@ -108,6 +108,19 @@ function readSkill(path) {
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
 }
 
+function diffLines(before, text, safe) {
+  const old = before.split('\n'), next = text.split('\n'), out = [];
+  for (let i = 0; i < Math.max(old.length, next.length); i++) if (old[i] !== next[i]) {
+    if (old[i] !== undefined) out.push(`-${safe(old[i])}\n`);
+    if (next[i] !== undefined) out.push(`+${safe(next[i])}\n`);
+  }
+  return out.join('');
+}
+
+function writeDiff(stderr, before, text, safe) {
+  stderr?.write(diffLines(before, text, safe));
+}
+
 export function prepareInstall({ home, repoRoot: root = repoRoot, targets, commands, stderr }) {
   const names = selected(targets);
   if (!fs.statSync(join(root, 'dist/cairn.mjs'), { throwIfNoEntry: false })?.isFile()) {
@@ -124,13 +137,7 @@ export function prepareInstall({ home, repoRoot: root = repoRoot, targets, comma
   const safe = (line) => oneLine(stripHidden(line).text);
   for (const { target, path, before, text, status } of plans) {
     stderr?.write(`${target}: ${safe(path)} (${status})\n`);
-    if (status === 'changed') {
-      const old = before.split('\n'), next = text.split('\n');
-      for (let i = 0; i < Math.max(old.length, next.length); i++) if (old[i] !== next[i]) {
-        if (old[i] !== undefined) stderr?.write(`-${safe(old[i])}\n`);
-        if (next[i] !== undefined) stderr?.write(`+${safe(next[i])}\n`);
-      }
-    }
+    if (status === 'changed') writeDiff(stderr, before, text, safe);
   }
   const apply = () => {
     for (const { target, path, before, text, status } of plans) {
@@ -166,4 +173,111 @@ export function checkAgents({ home = process.env.HOME ?? process.env.USERPROFILE
     const invocationOk = !!invocationPath && fs.statSync(invocationPath, { throwIfNoEntry: false })?.isFile() === true;
     return { target, path, installed, current: packageVersion, invocationOk, ok: installed === packageVersion && invocationOk };
   });
+}
+
+// Claude Code's PreToolUse write hook (wiki spec §10) lives in the user's settings.json, which belongs to the user:
+// only the one cairnboard entry is added or replaced, the old file is backed up first, and anything unexpected is refused.
+const HOOK_MATCHER = 'Write|Edit';
+const HOOK_SUFFIX = ' wiki hook';
+const plain = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const safeLine = (line) => oneLine(stripHidden(line).text);
+const ours = (hook) => plain(hook) && typeof hook.command === 'string' && hook.command.startsWith('node "') && hook.command.endsWith(HOOK_SUFFIX);
+
+// `CLAUDE_CONFIG_DIR` wins; otherwise `~/.claude`, which may be a symlink to a directory the user owns (as for skills).
+function settingsPath(home, env = {}) {
+  let dir;
+  if (env.CLAUDE_CONFIG_DIR) {
+    if (!isAbsolute(env.CLAUDE_CONFIG_DIR)) throw new CairnError('validation', 'CLAUDE_CONFIG_DIR must be an absolute path.');
+    dir = resolve(env.CLAUDE_CONFIG_DIR);
+  } else {
+    if (!home) throw new CairnError('usage', 'HOME or USERPROFILE is required.');
+    if (fs.lstatSync(home).isSymbolicLink()) throw new CairnError('unsafe_path', 'Agent home is a symlink.');
+    dir = join(fs.realpathSync(home), '.claude');
+  }
+  if (fs.lstatSync(dir, { throwIfNoEntry: false })?.isSymbolicLink()) {
+    const real = fs.statSync(dir, { throwIfNoEntry: false });
+    const owned = process.platform === 'win32' || real?.uid === process.getuid();
+    if (!real?.isDirectory() || !owned) throw new CairnError('unsafe_path', 'Agent root symlink does not lead to your own directory.');
+    dir = fs.realpathSync(dir);
+  }
+  const path = join(dir, 'settings.json');
+  if (fs.lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink()) throw new CairnError('unsafe_path', 'Claude settings.json is a symlink.');
+  return path;
+}
+
+function readSettings(path) {
+  const text = readSkill(path);
+  if (text === null) return { text: null, settings: {} };
+  let settings;
+  try { settings = JSON.parse(text.replace(/^﻿/u, '')); } catch { settings = undefined; }
+  if (!plain(settings)) throw new CairnError('validation', 'Claude settings.json is not a valid JSON object; fix it first.');
+  const { hooks } = settings;
+  if (hooks !== undefined && (!plain(hooks) || (hooks.PreToolUse !== undefined && !Array.isArray(hooks.PreToolUse)))) {
+    throw new CairnError('validation', 'Claude settings.json has an unexpected hooks section; fix it first.');
+  }
+  if (hooks?.PreToolUse?.some((group) => !plain(group) || (group.hooks !== undefined && !Array.isArray(group.hooks)))) {
+    throw new CairnError('validation', 'Claude settings.json has an unexpected hooks section; fix it first.');
+  }
+  return { text, settings };
+}
+
+const groupHooks = (group) => group.hooks ?? [];
+
+export function hookStatus({ home = process.env.HOME ?? process.env.USERPROFILE, invocation = cliInvocation(repoRoot), env = process.env } = {}) {
+  const { settings } = readSettings(settingsPath(home, env));
+  const found = (settings.hooks?.PreToolUse ?? []).flatMap((group) => groupHooks(group).filter(ours).map((hook) => ({ group, hook })));
+  const command = `${invocation}${HOOK_SUFFIX}`;
+  return { installed: found.length > 0,
+    current: found.length === 1 && found[0].hook.command === command && found[0].group.matcher === HOOK_MATCHER };
+}
+
+function withHook(settings, command) {
+  const next = structuredClone(settings);
+  const groups = next.hooks?.PreToolUse ?? [];
+  let at = -1;
+  const rest = [];
+  for (const [index, group] of groups.entries()) {
+    const kept = groupHooks(group).filter((hook) => !ours(hook));
+    if (kept.length === groupHooks(group).length) { rest.push(group); continue; }
+    if (at === -1) at = rest.length;
+    if (kept.length) rest.push({ ...group, hooks: kept });
+  }
+  rest.splice(at === -1 ? rest.length : at, 0, { matcher: HOOK_MATCHER, hooks: [{ type: 'command', command }] });
+  next.hooks = { ...next.hooks, PreToolUse: rest };
+  return next;
+}
+
+export function prepareHook({ home, invocation, io = {}, dryRun = false }) {
+  const env = io.env ?? {};
+  const path = settingsPath(home, env);
+  const { text: before, settings } = readSettings(path);
+  const text = `${JSON.stringify(withHook(settings, `${invocation}${HOOK_SUFFIX}`), null, 2)}\n`;
+  let unchanged = false;
+  try { unchanged = before !== null && JSON.stringify(JSON.parse(before.replace(/^﻿/u, ''))) === JSON.stringify(JSON.parse(text)); } catch {}
+  const status = before === null ? 'new' : unchanged ? 'unchanged' : 'changed';
+  const diff = status === 'unchanged' ? '' : diffLines(before ?? '', text, safeLine);
+  io.stderr?.write(`claude-hook: ${safeLine(path)} (${status})\n${diff}`);
+  const apply = () => {
+    if (status === 'unchanged' || dryRun) return;
+    const recheck = () => {
+      if (settingsPath(home, env) !== path) throw new CairnError('conflict', 'Claude settings moved during installation.');
+    };
+    recheck();
+    fs.mkdirSync(dirname(path), { recursive: true });
+    if (before !== null) {
+      const stamp = (io.clock ?? { now: () => new Date() }).now().toISOString().replace(/\D/gu, '').slice(0, 14);
+      fs.writeFileAtomic(join(dirname(path), `settings.json.cairnboard-${stamp}.bak`), before);
+    }
+    fs.writeFileAtomic(path, text, () => {
+      recheck();
+      if (readSkill(path) !== before) throw new CairnError('conflict', 'Claude settings changed during installation.');
+    });
+  };
+  return { path, diff, status, data: { target: 'claude-hook', path, status }, apply };
+}
+
+export function installHook(options) {
+  const plan = prepareHook(options);
+  plan.apply();
+  return { path: plan.path, diff: plan.diff, status: plan.status };
 }
