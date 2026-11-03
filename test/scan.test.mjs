@@ -126,6 +126,11 @@ test('package registry paths with platform names are not tokens', () => {
   }
 });
 
+test('nested node_modules paths are not tokens', () => {
+  const line = '"node_modules/parse-entities/node_modules/@types/unist": {';
+  assert.deepEqual(scanText(line, { file: 'x' }), [], line);
+});
+
 test('quoted allowed addresses stay allowed', () => {
   for (const line of ["'noreply@anthropic.com'", '"x@example.com"', '`1+zorblax@users.noreply.github.com`']) {
     assert.deepEqual(scanText(line, { file: 'x' }), [], line);
