@@ -42,13 +42,14 @@
       <div id="box-states" class="grid"></div>
       <section class="box stack"><h3>Düğmeler</h3><div id="button-states" class="stack"></div></section>
       <section class="box stack"><h3>Rozetler ve etiketler</h3><div id="chips" class="row"></div></section>
-      <section class="box stack"><h3>Girdiler ve kabul ölçütleri</h3><div id="input-states" class="grid"></div><ul class="checklist" id="criteria"></ul>
+      <section class="box stack"><h3>Girdiler ve kabul ölçütleri</h3><div id="input-states" class="grid"></div>
+        <div class="stack"><h3 class="type-label" id="criteria-title">Kabul ölçütleri</h3><ul class="checklist" id="criteria" aria-labelledby="criteria-title"></ul></div>
         <div class="toast is-open"><span class="chip chip--danger">Kaydedilemedi</span> Bağlantıyı kontrol edip yeniden deneyin.</div></section>
       <section class="box stack"><h3>Sekmeler</h3>
         <div class="tabs" role="tablist" aria-label="Proje görünümü">
           <span class="tab-indicator" aria-hidden="true"></span>
           <button class="tab" id="tab-board" role="tab" aria-selected="true" aria-controls="panel-board">Pano</button>
-          <button class="tab is-focus" id="tab-notes" role="tab" aria-selected="false" aria-controls="panel-notes" tabindex="-1">Notlar</button>
+          <button class="tab" id="tab-notes" role="tab" aria-selected="false" aria-controls="panel-notes" tabindex="-1">Notlar</button>
           <button class="tab" id="tab-journal" role="tab" aria-selected="false" aria-controls="panel-journal" tabindex="-1">Günlük</button>
           <button class="tab" role="tab" aria-selected="false" tabindex="-1" disabled>Yakında</button>
         </div>

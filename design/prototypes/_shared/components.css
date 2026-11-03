@@ -2,6 +2,7 @@
   position: relative;
   min-width: 0;
   padding: var(--space-md);
+  border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
@@ -24,6 +25,17 @@
   font-weight: var(--font-label-weight);
   line-height: var(--font-label-line-height);
   overflow-wrap: anywhere;
+}
+.chip, .badge {
+  display: inline-block;
+  align-self: flex-start;
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 .chip--tone-1 { background: var(--color-tone-1-bg); color: var(--color-tone-1-text); }
 .chip--tone-2 { background: var(--color-tone-2-bg); color: var(--color-tone-2-text); }
@@ -105,7 +117,7 @@
   transition: transform var(--motion-duration-fast) var(--motion-ease-spring);
   pointer-events: none;
 }
-.field { display: grid; gap: var(--space-sm); min-width: 0; }
+.field { display: grid; align-self: start; align-content: start; gap: var(--space-sm); min-width: 0; }
 .input, .textarea {
   width: 100%;
   min-width: 0;
@@ -116,6 +128,7 @@
   background: var(--color-surface);
   color: var(--color-text);
 }
+.input { height: var(--space-xl); padding-block: var(--space-xs); }
 .input::placeholder, .textarea::placeholder { color: var(--color-text-3); opacity: 1; }
 .textarea { resize: vertical; min-height: calc(var(--space-xl) * 3); }
 .input:disabled, .textarea:disabled { background: var(--color-surface-inset-2); color: var(--color-text-3); }
@@ -127,6 +140,7 @@
 .checklist input:checked + span { color: var(--color-text-3); text-decoration: line-through; }
 .toast {
   padding: var(--space-md);
+  border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);

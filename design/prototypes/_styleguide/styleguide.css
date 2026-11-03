@@ -2,6 +2,9 @@
 .guide section { scroll-margin-block-start: var(--space-md); }
 .intro { margin-inline: 0; color: var(--color-text-2); }
 .theme-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
+@media (width < 640px) {
+  .theme-strip { grid-template-columns: minmax(0, 1fr); }
+}
 .theme-preview { min-width: 0; padding: var(--space-md); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-canvas); color: var(--color-text); }
 .mini-board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
 .mini-board .kanban-card { padding: var(--space-sm); }

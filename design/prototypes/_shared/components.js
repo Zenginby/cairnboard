@@ -8,6 +8,7 @@ export function tokenTime(name, element = document.documentElement) {
 }
 
 export function initComponents(scope = document) {
+  scope.querySelectorAll('.chip, .badge').forEach((chip) => { chip.title = chip.textContent.trim(); });
   // A sticky bar can wrap; keep focus and anchor clearance equal to its actual height.
   const header = scope.querySelector('.topbar');
   if (header) new ResizeObserver(() => document.documentElement.style.setProperty('--header-height', `${header.offsetHeight}px`)).observe(header);
@@ -110,6 +111,7 @@ export function moveCard(card, destination, liveRegion) {
   cards.forEach((item) => item.classList.add('is-instant'));
   destination.append(card);
   card.querySelector('[data-card-status]').textContent = destination.dataset.label;
+  card.querySelector('[data-card-status]').title = destination.dataset.label;
   card.querySelector('[data-card-status]').className = `chip chip--${destination.dataset.status}`;
   cards.forEach((item) => {
     item.style.transform = 'none';
