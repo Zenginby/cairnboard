@@ -184,3 +184,11 @@ test('acceptance items have body line numbers and exclude fences and other secti
   ]);
   assert.deepEqual(acceptanceCounts('---\n## Acceptance\n- [ ] item\n---'), { done: 0, total: 1 });
 });
+
+test('self-referencing aliases are reported as an error instead of a cyclic object', () => {
+  const parsed = parseFile('---\nloop: &x [*x]\nok: &y [1]\nagain: *y\n---\n# Cycle\n');
+  assert.equal(parsed.data, null);
+  assert.match(parsed.error, /refer to themselves/);
+  assert.equal(parsed.editable, false);
+  assert.deepEqual(parseFile('---\na: &y [1]\nb: *y\n---\n').data, { a: [1], b: [1] });
+});
