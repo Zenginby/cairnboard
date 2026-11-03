@@ -155,7 +155,7 @@ export function buildTokens(sources) {
   const output = [
     `/* Generated; do not edit. Sources: ${sources.map(({ file }) => file).join(', ')} */`,
     block(':root', rootLines),
-    block(':root[data-theme="bento"]', themeDeclarations(root, 'light')),
+    block('[data-theme="bento"]', themeDeclarations(root, 'light')),
   ];
   let dark;
   for (const theme of themes) {
@@ -171,7 +171,8 @@ export function buildTokens(sources) {
     }
     if (theme.hasMotion) fail(theme.file, 'Motion', 'themes cannot define motion');
     const lines = themeDeclarations(theme, colorScheme(theme.colors.canvas, theme.file));
-    output.push(block(`:root[data-theme="${id}"]`, lines));
+    // Plain attribute selectors so a theme also applies to any element (side-by-side previews).
+    output.push(block(`[data-theme="${id}"]`, lines));
     if (id === 'bento-dark') dark = theme;
   }
   if (dark) output.push(nested('@media (prefers-color-scheme: dark)', ':root:not([data-theme])', themeDeclarations(dark, 'dark')));

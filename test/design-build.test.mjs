@@ -84,13 +84,13 @@ test('theme blocks change only colors and shadows, including a full bento reset'
   const dark = theme(front.replace('#ffffff', '#111111'), elevation.replace('2px black', '2px white'));
   const paper = theme(front, elevation, 'design/themes/paper.md');
   const css = buildTokens([source(), dark, paper]);
-  assert.match(css, /:root\[data-theme="bento"\] \{\n  color-scheme: light;[\s\S]*?--shadow-box-raised: 0 2px 4px black;/u);
-  const darkBlock = css.match(/:root\[data-theme="bento-dark"\] \{([^}]+)\}/u)[1];
+  assert.match(css, /\n\[data-theme="bento"\] \{\n  color-scheme: light;[\s\S]*?--shadow-box-raised: 0 2px 4px black;/u);
+  const darkBlock = css.match(/\n\[data-theme="bento-dark"\] \{([^}]+)\}/u)[1];
   assert.ok(darkBlock.includes('color-scheme: dark;'));
   assert.ok(darkBlock.includes('--color-canvas: #111111;'));
   assert.ok(darkBlock.includes('--shadow-box: 0 1px 2px white;'));
   assert.ok(!/--(?:font|space|radius|motion)-/u.test(darkBlock));
-  assert.match(css, /:root\[data-theme="paper"\] \{\n  color-scheme: light;/u);
+  assert.match(css, /\n\[data-theme="paper"\] \{\n  color-scheme: light;/u);
   assert.ok(css.includes(`@media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
