@@ -190,9 +190,12 @@ project and Inter for all text. Chrome around the content is quiet (low-contrast
 high-contrast and easy to read. Boxes are used on overview screens (home, projects, project cover); document pages
 are plain surfaces with no box inside a box.
 
-Themes: this file is the default light theme. Every other theme lives in `design/themes/<name>.md` with exactly the
-same color token names and is linted on its own: `bento-dark`, `paper` (warm light) and `graphite` (soft dark).
-A theme changes colors and shadows only. Shape, spacing, typography and motion are defined here and nowhere else.
+Themes: a theme is a family with a light and a dark palette. This file is the light palette of the default family,
+Bento. Every other palette lives in `design/themes/<family>.md` (light) or `design/themes/<family>-dark.md` (dark)
+with exactly the same color token names and is linted on its own. Families: `bento`, `paper` (warm) and `graphite`
+(cool grey). The page picks a family with `data-theme` and a mode with `data-mode` (`light`, `dark`, or absent to
+follow the system). A theme changes colors and shadows only. Shape, spacing, typography and motion are defined here
+and nowhere else.
 
 ## Colors
 

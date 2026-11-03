@@ -43,11 +43,14 @@ ease-spring-fallback: ease-out
 `;
 const source = (file = 'DESIGN.md', metadata = front, body = elevation + motion) =>
   ({ file, text: `---\n${metadata}---\n${body}` });
-const theme = (metadata = front, body = elevation, file = 'design/themes/bento-dark.md') => source(file, metadata, body);
+const darkFront = front.replace('#ffffff', '#111111');
+const theme = (metadata = darkFront, body = elevation, file = 'design/themes/bento-dark.md') => source(file, metadata, body);
+// The smallest valid set: the root (bento light) plus its dark palette.
+const minimal = () => [source(), theme()];
 
 test('emits root tokens in source order with font fallbacks and LF output', () => {
-  const css = buildTokens([source()]);
-  assert.ok(css.startsWith('/* Generated; do not edit. Sources: DESIGN.md */\n'));
+  const css = buildTokens(minimal());
+  assert.ok(css.startsWith('/* Generated; do not edit. Sources: DESIGN.md, design/themes/bento-dark.md */\n'));
   assert.match(css, /:root \{\n  color-scheme: light;\n  --color-canvas: #ffffff;\n  --color-text: #123456;/u);
   for (const declaration of [
     '--space-sm: 8px;', '--radius-sm: 12px;', '--shadow-box: 0 1px 2px black;',
@@ -61,11 +64,11 @@ test('emits root tokens in source order with font fallbacks and LF output', () =
   assert.ok(!css.includes('--font-code-size'));
   assert.ok(!css.includes('\r'));
   assert.ok(css.endsWith('\n'));
-  assert.equal(buildTokens([{ file: 'DESIGN.md', text: source().text.replaceAll('\n', '\r\n') }]), css);
+  assert.equal(buildTokens([{ file: 'DESIGN.md', text: source().text.replaceAll('\n', '\r\n') }, theme()]), css);
 });
 
 test('emits spring fallbacks, feature overrides and reduced motion exceptions', () => {
-  const css = buildTokens([source()]);
+  const css = buildTokens(minimal());
   const base = css.slice(0, css.indexOf('@supports'));
   assert.ok(base.includes('--motion-ease-spring: ease-out;'));
   assert.ok(base.includes('--motion-ease-spring-bouncy: ease-out;'));
@@ -80,26 +83,39 @@ test('emits spring fallbacks, feature overrides and reduced motion exceptions', 
 `);
 });
 
-test('theme blocks change only colors and shadows, including a full bento reset', () => {
-  const dark = theme(front.replace('#ffffff', '#111111'), elevation.replace('2px black', '2px white'));
+test('each family gets a light block, a forced dark block and a system dark block', () => {
+  const dark = theme(darkFront, elevation.replace('2px black', '2px white'));
   const paper = theme(front, elevation, 'design/themes/paper.md');
-  const css = buildTokens([source(), dark, paper]);
+  const paperDark = theme(darkFront.replace('#123456', '#abcdef'), elevation, 'design/themes/paper-dark.md');
+  const css = buildTokens([source(), dark, paper, paperDark]);
   assert.match(css, /\n\[data-theme="bento"\] \{\n  color-scheme: light;[\s\S]*?--shadow-box-raised: 0 2px 4px black;/u);
-  const darkBlock = css.match(/\n\[data-theme="bento-dark"\] \{([^}]+)\}/u)[1];
+  const darkBlock = css.match(/\n:root:not\(\[data-theme\]\)\[data-mode="dark"\],\n\[data-theme="bento"\]\[data-mode="dark"\] \{([^}]+)\}/u)[1];
   assert.ok(darkBlock.includes('color-scheme: dark;'));
   assert.ok(darkBlock.includes('--color-canvas: #111111;'));
   assert.ok(darkBlock.includes('--shadow-box: 0 1px 2px white;'));
   assert.ok(!/--(?:font|space|radius|motion)-/u.test(darkBlock));
   assert.match(css, /\n\[data-theme="paper"\] \{\n  color-scheme: light;/u);
-  assert.ok(css.includes(`@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
+  assert.match(css, /\n\[data-theme="paper"\]\[data-mode="dark"\] \{\n  color-scheme: dark;\n  --color-canvas: #111111;\n  --color-text: #abcdef;/u);
+  const media = css.slice(css.indexOf('@media (prefers-color-scheme: dark)'), css.indexOf('@supports'));
+  assert.ok(media.includes(`  :root:not([data-theme]):not([data-mode="light"]),
+  [data-theme="bento"]:not([data-mode="light"]) {
     color-scheme: dark;
-    --color-canvas: #111111;
-    --color-text: #123456;
-    --shadow-box: 0 1px 2px white;
-    --shadow-box-raised: 0 2px 4px black;
-  }
-}`));
+    --color-canvas: #111111;`));
+  assert.ok(media.includes('  [data-theme="paper"]:not([data-mode="light"]) {'));
+  assert.ok(!/\[data-theme="paper-dark"\]/u.test(css));
+});
+
+test('rejects a family without both palettes and a palette in the wrong mode', () => {
+  assert.throws(() => buildTokens([source()]), /bento-dark\.md: theme: family bento needs a light and a dark palette/u);
+  assert.throws(() => buildTokens([...minimal(), theme(front, elevation, 'design/themes/paper.md')]),
+    /paper-dark\.md: theme: family paper needs a light and a dark palette/u);
+  assert.throws(() => buildTokens([...minimal(), theme(darkFront, elevation, 'design/themes/paper-dark.md')]),
+    /paper\.md: theme: family paper needs a light and a dark palette/u);
+  assert.throws(() => buildTokens([source(), theme(front)]), /bento-dark\.md: colors\.canvas: canvas is not dark/u);
+  assert.throws(() => buildTokens([...minimal(), theme(darkFront, elevation, 'design/themes/paper.md'), theme()]),
+    /paper\.md: colors\.canvas: canvas is not light/u);
+  assert.throws(() => buildTokens([...minimal(), theme(darkFront, elevation, 'design/themes/Paper_x.md')]),
+    /Paper_x\.md: theme: expected <family>\.md or <family>-dark\.md/u);
 });
 
 test('mode uses linearized relative luminance, not the hex midpoint', () => {
@@ -158,7 +174,7 @@ for (const section of ['Motion', 'Elevation & Depth']) {
 
 test('allows omitted shared groups and reordered identical copies in themes', () => {
   const reordered = front.replace('fontFamily: Inter Variable, fontSize: 16px', 'fontSize: 16px, fontFamily: Inter Variable');
-  assert.doesNotThrow(() => buildTokens([source(), theme(reordered)]));
+  assert.doesNotThrow(() => buildTokens([source(), theme(reordered.replace('#ffffff', '#111111'))]));
   assert.doesNotThrow(() => buildTokens([source(), theme('colors:\n  canvas: "#000"\n  text: white\n')]));
 });
 
@@ -166,6 +182,7 @@ test('--check rejects missing and stale output without writing, and accepts curr
   const cwd = tempDir(t);
   mkdirSync(join(cwd, 'design/themes'), { recursive: true });
   writeFileSync(join(cwd, 'DESIGN.md'), source().text);
+  writeFileSync(join(cwd, 'design/themes/bento-dark.md'), theme().text);
   const cli = join(root, 'scripts/design-build.mjs');
   const run = (...args) => spawnSync(process.execPath, [cli, ...args], { cwd, encoding: 'utf8' });
   let result = run('--check');
