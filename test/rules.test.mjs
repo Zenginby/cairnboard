@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { refresh } from '../core/index.mjs';
 import { defaultConfig, loadConfig } from '../core/config.mjs';
 import { openContext } from '../core/context.mjs';
 import { checkPage } from '../core/check.mjs';
@@ -177,4 +179,34 @@ test('wiki check classifies a tr-wiki draft by --path and leaves the vault untou
   const real = await run(['wiki', 'check', 'wiki/kavramlar/acme-kavrami.md']);
   assert.deepEqual(real.json.data, { errors: [], warnings: [] });
   assertUnchanged(before, data);
+});
+
+test('links: findings are clipped, stripped of hidden characters and capped with a truncation warning', (t) => {
+  const f = make(t);
+  const long = `${'x'.repeat(5000)}\u202eend`;
+  const many = Array.from({ length: 150 }, (_, i) => `[[ghost-${i}]]`).join(' ');
+  const { warnings } = check(f, 'notes/a.md', `# A\n[[${long}]]\n${many}\n`);
+  const links = warnings.filter((item) => item.rule === 'links');
+  assert.equal(links.length, 100);
+  assert.ok(links[0].content.target.length <= 200);
+  assert.ok(!links[0].content.target.includes('\u202e'));
+  assert.deepEqual(names(warnings.filter((item) => item.rule !== 'links')), ['links_truncated']);
+});
+
+test('links: an unusable index skips a warn rule but fails closed for an error rule', (t) => {
+  for (const severity of ['warn', 'error']) {
+    const f = make(t, { 'notes/a.md': '# A\n' }, { rules: { links: severity } });
+    f.ctx.indexTimeoutMs = 10;
+    refresh(f.ctx);
+    const blocker = new DatabaseSync(join(f.dir, '.cairn/index.db'));
+    t.after(() => { if (blocker.isOpen) blocker.close(); });
+    blocker.exec('BEGIN IMMEDIATE');
+    writeFileSync(join(f.dir, 'notes/b.md'), '# B\n');
+    const stale = openContext({ mode: 'read', dataDir: f.dir, home: tempDir(t), env: {}, clock, platform: process.platform });
+    stale.indexTimeoutMs = 10;
+    const draft = { path: 'notes/c.md', text: '# C\n[[ghost]]\n', lenient: true };
+    if (severity === 'warn') assert.deepEqual(names(checkPage(stale, draft).warnings), ['links_skipped']);
+    else assert.throws(() => checkPage(stale, draft), (error) => error.code === 'index_unavailable' && error.exit === 1);
+    blocker.exec('ROLLBACK');
+  }
 });

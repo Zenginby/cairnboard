@@ -15,7 +15,7 @@ const DAY = 86_400_000;
 const LESSONS = ['discovery', 'pitfall', 'lesson'];
 
 // Page text in a finding is cleaned of hidden characters and bounded; it only ever lands in `target` and `content`.
-const clip = (value, max = EXCERPT_MAX) => stripHidden(String(value)).text.replace(/\s+/gu, ' ').trim().slice(0, max);
+export const clip = (value, max = EXCERPT_MAX) => stripHidden(String(value)).text.replace(/\s+/gu, ' ').trim().slice(0, max);
 
 function finding(code, path, { line, target, candidates, excerpt } = {}) {
   return { code, path: clip(path, 1024), ...(line === undefined ? {} : { line }),

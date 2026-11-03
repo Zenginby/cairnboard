@@ -2,6 +2,7 @@ import { CairnError } from './errors.mjs';
 import { extract } from './extract.mjs';
 import { parseLinks } from './links.mjs';
 import { resolver, withIndex } from './index.mjs';
+import { clip } from './lint-checks.mjs';
 import { empty, filenameOk, hasSourcesSection, missingRequired, ruleSeverity, turkish } from './rules.mjs';
 
 // The page-level half of wiki spec §10. It reads the index, so unlike `rules.mjs` (which config validation imports
@@ -9,6 +10,8 @@ import { empty, filenameOk, hasSourcesSection, missingRequired, ruleSeverity, tu
 
 // Names the page's links cannot reach, resolved against the current index (plus the page itself); the index is the
 // only source, so an unusable cache is an error unless the caller can live without the rule.
+const MAX_LINK_FINDINGS = 100;
+
 function brokenLinks(ctx, path, text, lenient, found) {
   const links = parseLinks(text);
   if (!links.length) return [];
@@ -16,6 +19,7 @@ function brokenLinks(ctx, path, text, lenient, found) {
   try {
     targets = withIndex(ctx, (db) => db.prepare('SELECT path FROM targets').all().map((row) => row.path));
   } catch (error) {
+    // Only a `warn` links rule may be skipped; an `error` rule fails closed with `index_unavailable` (exit 1).
     if (!lenient || error.code !== 'index_unavailable') throw error;
     found.skipped = true;
     return [];
@@ -52,9 +56,11 @@ export function checkPage(ctx, { path, text, lenient = false }) {
   if (page.type !== 'card' && !filenameOk(path)) add('filename', { detail: 'File name must be lowercase letters, digits and hyphens.' });
   if (ruleSeverity(ctx, 'links') !== 'off') {
     const found = { skipped: false };
-    for (const link of brokenLinks(ctx, path, text, lenient, found)) {
-      add('links', { detail: 'Link target not found.', line: link.line, content: { target: link.targetName } });
+    const broken = brokenLinks(ctx, path, text, lenient && ruleSeverity(ctx, 'links') === 'warn', found);
+    for (const link of broken.slice(0, MAX_LINK_FINDINGS)) {
+      add('links', { detail: 'Link target not found.', line: link.line, content: { target: clip(link.targetName) } });
     }
+    if (broken.length > MAX_LINK_FINDINGS) warnings.push({ rule: 'links_truncated', detail: `Only the first ${MAX_LINK_FINDINGS} broken links are listed.` });
     if (found.skipped) warnings.push({ rule: 'links_skipped', detail: 'Links were not checked: the index is unavailable.' });
   }
   return { errors, warnings };
