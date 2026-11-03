@@ -17,6 +17,7 @@
     "LICENSE"
   ],
   "scripts": {
+    "cairn": "node cli/cairn.mjs",
     "test": "node --test \"test/**/*.test.mjs\"",
     "hooks:install": "git config core.hooksPath security/hooks",
     "dev:doctor": "node security/doctor.mjs",
