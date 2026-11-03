@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Add `mentions`: pages that name a note without linking to it (Turkish folding, word boundaries,
+  code and existing links skipped), and `--link path:line` to convert one mention with confirmation and undo.
+  The skill lists mentions after saving a note. 5,000 pages: ~30 ms of its own on top of the shared index freshness check.
 - Reject generated skills larger than 24 KB before installation, including long or Unicode clone paths.
   Document and exercise marking summarized sources as processed so completed work leaves pending counts.
 - Add wiki indexing, lint, draft checks, session context, source ingestion and raw-source search,

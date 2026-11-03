@@ -66,6 +66,12 @@ Before writing any page, send the complete proposed text on stdin to the check c
 {{invocation}} wiki check - --path <target-path> --json
 ```
 
+After saving a note, list pages that name it without linking to it. Add a link where the mention means that page, through a normal checked update; `mentions --link` needs a human's confirmation.
+
+```sh
+{{invocation}} mentions <note-id> --json
+```
+
 Keep conflicting claims with their sources and dates and flag them with `> [!WARNING] Conflict`; never silently erase one side. For information that changes over time, retain the former value with a struck-through date range or use `valid_from` / `valid_until` on the applicable pages; use `superseded_by` when a page replaces another. Journal items use `--decision`, `--discovery`, `--pitfall` or `--lesson` for reusable findings, and `--item` for ordinary progress. Link a processed lesson to the page that now explains it.
 
 Report wiki health findings before making repairs; fix them only after the user approves the proposed corrections. `wiki lint` reports without changing Markdown; add `--strict` to return exit 5 for errors or warnings, `--verify` to recompute raw digests, `--evidence` to compare claims with local raw sources and `--code` to check linked code for drift. These checks assist review; they do not prove a claim is true.

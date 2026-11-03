@@ -241,7 +241,7 @@ read('search', 'Search titles and bodies.', ['<q>'], {
   return result(ctx, matches.map((item) => ({ ...summaries.get(item.path), ...item })), opts);
 });
 
-read('mentions', 'Find unlinked mentions of a wiki page.', ['<ref>'], {
+read('mentions', 'Find unlinked mentions of a note.', ['<note>'], {
   limit: string('Maximum results, 0 to 500 (default: 50).'),
   link: string('Link the single mention at path:line; requires confirmation.'),
 }, (ctx, [ref], opts) => {
@@ -254,8 +254,6 @@ read('mentions', 'Find unlinked mentions of a wiki page.', ['<ref>'], {
 });
 commands.at(-1).writeOption = 'link';
 commands.at(-1).dangerous = { option: 'link' };
-// Skill documentation is integrated separately; this flag only omits the generated skill reference.
-commands.at(-1).hidden = true;
 
 read('status', 'Show data directory and entity counts.', [], {}, (ctx) => {
   const items = index.rows(ctx);

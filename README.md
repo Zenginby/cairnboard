@@ -219,6 +219,16 @@ checks referenced code for drift after a project has been linked. Evidence check
 truth. Review findings and approve repairs before asking an agent to fix them. Journal entries can
 use `--decision`, `--discovery`, `--pitfall` and `--lesson` instead of an ordinary `--item`.
 
+`mentions` lists pages that name a note (title, file name or alias, with Turkish case folding) but do
+not link to it; code, existing wiki links and pages that already link to it are skipped. A suffix after an
+apostrophe still counts (`Acme'de`), a joined suffix does not. `--link <path>:<line>` turns the single
+mention on that line into a wiki link after your confirmation; `undo` reverts it.
+
+```sh
+node dist/cairn.mjs mentions @notes/acme --data "./cairn-data" --json
+node dist/cairn.mjs mentions @notes/acme --link notes/board.md:12 --actor owner --data "./cairn-data"
+```
+
 To add the optional Claude Code Write/Edit hook, run these yourself from a terminal:
 
 ```sh
@@ -462,6 +472,16 @@ karşılaştırır, `--code` bağlanmış projede referans verilen kodun değiş
 bir iddianın doğru olduğunu kanıtlamaz. Bulguları inceleyip düzeltmeleri onayladıktan sonra ajana
 uygulatın. Günlükte sıradan `--item` yerine `--decision`, `--discovery`, `--pitfall`, `--lesson` ile
 karar, keşif, tuzak ve ders kaydedebilirsiniz.
+
+`mentions`, bir notun adını (başlık, dosya adı ya da takma ad; Türkçe büyük/küçük harf katlamasıyla)
+geçirip ona bağlantı vermeyen sayfaları listeler; kod, var olan wiki bağlantıları ve nota zaten bağlantı
+veren sayfalar atlanır. Kesme işaretinden sonraki ek anma sayılır (`Acme'de`), bitişik ek sayılmaz.
+`--link <yol>:<satır>` o satırdaki tek anmayı onayınızdan sonra wiki bağlantısına çevirir; `undo` geri alır.
+
+```sh
+node dist/cairn.mjs mentions @notes/acme --data "./cairn-data" --json
+node dist/cairn.mjs mentions @notes/acme --link notes/board.md:12 --actor owner --data "./cairn-data"
+```
 
 İsteğe bağlı Claude Code Write/Edit kancasını kendiniz bir terminalden kurabilirsiniz:
 

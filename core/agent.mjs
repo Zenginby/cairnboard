@@ -36,6 +36,7 @@ function commandLine(command, invocation, actor) {
   const ref = `<${type}-id>`;
   const args = command.args.map((arg) => {
     if (arg === '<ref>') return ref;
+    if (arg === '<note>') return '<note-id>';
     if (arg === '<date|ref>') return '<date>';
     if (arg === '<q>') return "'<query>'";
     if (arg === '<project>') return '<project-id>';

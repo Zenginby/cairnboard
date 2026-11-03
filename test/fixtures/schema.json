@@ -909,9 +909,9 @@
     },
     {
       "name": "mentions",
-      "summary": "Find unlinked mentions of a wiki page.",
+      "summary": "Find unlinked mentions of a note.",
       "args": [
-        "<ref>"
+        "<note>"
       ],
       "options": {
         "json": {
