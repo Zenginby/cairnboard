@@ -99,9 +99,17 @@ function selectColumn(id) {
   collapsed.delete(id);
   const column = document.getElementById(`column-${id}`);
   if (!column) return;
+  const opening = column.dataset.open !== 'true';
+  if (opening) column.classList.add('is-instant');
   column.dataset.open = 'true';
   column.querySelector('.column-toggle').setAttribute('aria-expanded', 'true');
-  column.querySelector('.column-content').hidden = false;
+  const content = column.querySelector('.column-content');
+  content.inert = false;
+  content.setAttribute('aria-hidden', 'false');
+  if (opening) {
+    void column.offsetHeight;
+    requestAnimationFrame(() => column.classList.remove('is-instant'));
+  }
 }
 function arrangeGroups(list) {
   list.querySelectorAll(':scope > .priority-heading-item').forEach((node) => node.remove());
@@ -201,7 +209,9 @@ function buildBoard() {
       const open = section.dataset.open !== 'true';
       section.dataset.open = String(open);
       heading.setAttribute('aria-expanded', String(open));
-      content.hidden = !open;
+      if (!open && content.contains(document.activeElement)) heading.focus({ preventScroll: true });
+      content.inert = !open;
+      content.setAttribute('aria-hidden', String(!open));
       if (open) collapsed.delete(column.id); else collapsed.add(column.id);
     }, 'column-toggle');
     heading.id = `heading-${column.id}`;
@@ -257,8 +267,11 @@ function buildBoard() {
     arrangeGroups(list);
     const content = el('div', 'column-content');
     content.id = `content-${column.id}`;
-    content.hidden = collapsed.has(column.id);
-    content.append(list, empty);
+    content.inert = collapsed.has(column.id);
+    content.setAttribute('aria-hidden', String(content.inert));
+    const inner = el('div', 'column-content-inner');
+    inner.append(list, empty);
+    content.append(inner);
     section.append(header, content);
     $('#board').append(section);
   });

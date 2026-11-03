@@ -249,7 +249,8 @@ function ongoing() {
     detail.append(el('b', '', review ? 'Senden: ' : agent ? 'Şimdi: ' : 'Sonra: '), review ? 'İncele ve kısa bir geri bildirim bırak.' : agent ? `${record.assigneeId} kabul ölçütlerini doğruluyor.` : 'Birlikte gözden geçirmek için hazırla.');
     text.append(el('span', 'row-title', titleFor(record, index)), detail);
     const chip = projectChip(projectFor(record));
-    chip.prepend(dot(`tone-${projectFor(record).tone}`));
+    const projectName = el('span', 'project-chip-name', chip.textContent);
+    chip.replaceChildren(dot(`tone-${projectFor(record).tone}-text`), projectName);
     row.append(text, chip);
     item.append(row);
     const locked = state === 'locked' && record.id === 'card-2';

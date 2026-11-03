@@ -27,7 +27,9 @@ export function setupShell(search) {
     if ((changed || origin) && !lessMotion() && Number.isFinite(before.left) && Number.isFinite(before.top)) {
       slide?.cancel();
       const after = indicator.getBoundingClientRect();
-      slide = indicator.animate([{ transform: `translate(${before.left - after.left}px, ${before.top - after.top}px)` }, { transform: 'none' }], { duration: tokenTime('--motion-duration-fast'), easing: getComputedStyle(document.documentElement).getPropertyValue('--motion-ease-smooth-out').trim() });
+      const scaleX = before.width > 0 && after.width > 0 ? before.width / after.width : 1;
+      const scaleY = before.height > 0 && after.height > 0 ? before.height / after.height : 1;
+      slide = indicator.animate([{ transform: `translate(${before.left - after.left}px, ${before.top - after.top}px) scale(${scaleX}, ${scaleY})` }, { transform: 'none' }], { duration: tokenTime('--motion-duration-fast'), easing: getComputedStyle(document.documentElement).getPropertyValue('--motion-ease-smooth-out').trim() });
       slide.finished.catch(() => {});
     }
     origin = null;
@@ -35,7 +37,7 @@ export function setupShell(search) {
   links.forEach((link) => link.addEventListener('click', (event) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0 || new URL(link.href).pathname === location.pathname) return;
     const rect = indicator.getBoundingClientRect();
-    try { sessionStorage.setItem('prototype-tab-origin', JSON.stringify({ left: rect.left, top: rect.top })); } catch { /* Optional continuity across a full page load. */ }
+    try { sessionStorage.setItem('prototype-tab-origin', JSON.stringify({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })); } catch { /* Optional continuity across a full page load. */ }
   }));
   document.documentElement.addEventListener('motionchange', () => { if (lessMotion()) slide?.cancel(); });
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => { if (lessMotion()) slide?.cancel(); });
