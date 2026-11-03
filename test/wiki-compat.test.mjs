@@ -128,3 +128,19 @@ test('wiki lint on the vault reports the expected findings and nothing it should
   assert.equal((await cli(['wiki', 'lint', '--strict', '--only', 'broken_link'])).code, 5);
   assertUnchanged(before, data);
 });
+
+test('context on the vault gives the wake-up, hubs and pending counts without touching files', async (t) => {
+  const { data, cli } = opened(t);
+  const before = snapshot(data);
+  const result = await cli(['context']);
+  assert.equal(result.code, 0, result.stderr);
+  const sections = new Map(result.json.data.sections.map((section) => [section.name, section]));
+  assert.equal(sections.get('wakeup').source.path, 'wiki/genel-bakis.md');
+  assert.ok(sections.get('wakeup').content.text.length > 0);
+  assert.match(sections.get('pending').content.text, /unprocessed_lessons: [1-9]/u);
+  assert.ok(sections.has('hubs'));
+  assert.deepEqual(result.json.warnings, []);
+  const human = await runCli(['context', '--data', data, '--preset', 'tr-wiki'], { home: tempDir(t), clock: fixedClock('2026-11-01T12:00:00Z') });
+  assert.match(human.stdout, /^# wakeup \(wiki\/genel-bakis\.md\)\n/u);
+  assertUnchanged(before, data);
+});

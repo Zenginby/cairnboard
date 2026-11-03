@@ -14,6 +14,7 @@ import { wikiIndex, formatCatalog } from '../core/wiki.mjs';
 import { lint } from '../core/lint.mjs';
 import { LINT_CODES } from '../core/rules.mjs';
 import { checkPage } from '../core/check.mjs';
+import { buildContext, formatContext } from '../core/context-pack.mjs';
 import { readFile } from '../core/store.mjs';
 import { safeRelative } from '../core/paths.mjs';
 import { readStdin } from './body.mjs';
@@ -168,6 +169,15 @@ read('wiki check', 'Check a page or stdin draft against the write rules.', ['<pa
   }
   const { errors, warnings } = checkPage(ctx, { path, text });
   return { data: clean({ errors, warnings }, opts), exit: errors.length ? ERRORS.validation : 0 };
+});
+
+read('context', 'Print the session-start context pack.', [], {
+  budget: string('Token budget, characters / 4 (default: 1200).'),
+}, (ctx, args, opts) => {
+  if (opts.budget !== undefined && !/^\d+$/u.test(opts.budget)) throw new CairnError('validation', 'Invalid budget.');
+  const pack = buildContext(ctx, { budget: opts.budget === undefined ? undefined : Number(opts.budget), project: opts.project });
+  const data = clean({ sections: pack.sections }, opts);
+  return { data: opts.json ? data : formatContext(data), warnings: pack.warnings };
 });
 
 read('journal list', 'List journal days or filtered entries.', [], {

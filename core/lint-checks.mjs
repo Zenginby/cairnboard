@@ -12,7 +12,10 @@ import { wakeupSection } from './wiki.mjs';
 const EXCERPT_MAX = 200;
 const PAGE_TYPES = ['note', 'research', 'project'];
 const DAY = 86_400_000;
-const LESSONS = ['discovery', 'pitfall', 'lesson'];
+export const LESSONS = ['discovery', 'pitfall', 'lesson'];
+export const LESSON_DAYS = 30;
+// A source page that still waits to be read into the wiki (`processed: false`).
+export const isUnprocessedSource = (data) => data?.processed === false || data?.processed === 'false';
 
 // Page text in a finding is cleaned of hidden characters and bounded; it only ever lands in `target` and `content`.
 export const clip = (value, max = EXCERPT_MAX) => stripHidden(String(value)).text.replace(/\s+/gu, ' ').trim().slice(0, max);
@@ -140,12 +143,12 @@ export const CHECKS = [
   { code: 'stale', defaultSeverity: 'info', run: (ctx, { view, now, staleDays }) => staleDays <= 0 ? [] : pages(view)
     .filter((file) => (now - dateOf(file.data.updated)) / DAY > staleDays).map((file) => finding('stale', file.path, { excerpt: file.data.updated })) },
   { code: 'unprocessed_lesson', defaultSeverity: 'info', run: (ctx, { view, now }) => {
-    const since = new Date(now - 30 * DAY).toISOString().slice(0, 10);
+    const since = new Date(now - LESSON_DAYS * DAY).toISOString().slice(0, 10);
     return view.entries.filter((entry) => LESSONS.includes(entry.type) && !entry.processed && /^\d{4}-\d{2}-\d{2}$/u.test(entry.date) && entry.date >= since)
       .map((entry) => finding('unprocessed_lesson', entry.path, { line: entry.line, excerpt: entry.text }));
   } },
   { code: 'unprocessed_source', defaultSeverity: 'info', run: (ctx, { view }) => view.files
-    .filter((file) => file.type === 'research' && (file.data.processed === false || file.data.processed === 'false'))
+    .filter((file) => file.type === 'research' && isUnprocessedSource(file.data))
     .map((file) => finding('unprocessed_source', file.path)) },
   { code: 'raw_missing', defaultSeverity: 'error', run: (ctx, { view }) => rawPages(view)
     .filter((file) => rawFile(ctx, view, file.data.raw, { hash: false }).missing)
