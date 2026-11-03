@@ -66,25 +66,28 @@ function setPickerOpen(open, instant = false, restore = false) {
   panel.classList.toggle('is-instant', instant);
   panel.classList.toggle('is-open', open);
   panel.inert = !open;
+  panel.hidden = !open;
   $('#project-trigger').setAttribute('aria-expanded', String(open));
   if (open) panel.querySelector('input').focus({ preventScroll: true });
   else if (restore) $('#project-trigger').focus();
 }
 function projectPicker() {
-  const wrapper = el('div', 'dropdown project-picker');
+  const wrapper = el('div', 'project-picker');
   const trigger = button('Projeleri seç', (event) => setPickerOpen($('#project-menu').inert, event.detail === 0), 'button');
   trigger.id = 'project-trigger';
   trigger.setAttribute('aria-haspopup', 'dialog');
   trigger.setAttribute('aria-controls', 'project-menu');
   trigger.setAttribute('aria-expanded', 'false');
-  const panel = el('div', 'menu project-menu');
+  const panel = el('div', 'project-menu');
   panel.id = 'project-menu';
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', 'Ana sayfada görünen projeler');
   panel.inert = true;
-  const list = el('div', 'checklist');
+  panel.hidden = true;
+  const list = el('fieldset', 'project-checks');
+  list.append(el('legend', '', 'Ana sayfada görünen projeler'));
   data.projects.forEach((project) => {
-    const label = el('label', 'type-label');
+    const label = el('label');
     const input = el('input');
     input.type = 'checkbox';
     input.value = project.id;
@@ -107,7 +110,9 @@ function projectPicker() {
     ui.announce(`${selectedProjects.size} proje gösteriliyor.`);
   };
   const actions = el('div', 'row');
-  actions.append(button('Varsayılana dön', () => choose(data.dashboard.defaultProjects)), button('Tüm projeler', () => choose(data.projects.map((project) => project.id))));
+  const all = link('Tüm projeler', '#projects');
+  all.addEventListener('click', (event) => { event.preventDefault(); choose(data.projects.map((project) => project.id)); });
+  actions.append(button('Varsayılana dön', () => choose(data.dashboard.defaultProjects)), all);
   panel.append(list, actions);
   panel.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setPickerOpen(false, true, true); }
@@ -122,12 +127,14 @@ function hero() {
   const title = el('h1', 'workspace-title', data.workspace);
   title.id = 'workspace-title';
   const counts = el('p', 'hero-summary');
-  counts.append('Bugün ', el('strong', '', `${data.cards.filter((record) => roleFor(record) === 'doing').length} iş sürüyor`), ', ', el('strong', '', `${data.cards.filter((record) => roleFor(record) === 'todo').length} iş sırada`), '. Küçük adımlarla devam.');
+  counts.append('Bugün ', el('strong', '', `${data.cards.filter((record) => roleFor(record) === 'doing').length} iş sürüyor`), ', ', el('strong', '', `${data.cards.filter((record) => roleFor(record) === 'todo').length} iş sırada`), '. Bu alan sen ve ajanların için; notlar ve işler aynı yerde.');
   const pills = el('div', 'row hero-pills');
   const lastEntry = link(`Son kayıt ${dayLabel()}: ${data.journal.length} iş`, '#journal', 'button journal-pill');
   lastEntry.prepend(dot('done'));
   pills.append(lastEntry, projectPicker());
-  node.append(el('p', 'type-label muted', `${dayLabel()}, ${weekday}`), title, counts, el('p', 'type-label muted', `Son güncelleme: ${dayLabel()} ${data.dashboard.updated}`), pills);
+  const content = el('div', 'hero-copy');
+  content.append(el('p', 'hero-date', `${dayLabel()}, ${weekday}`), title, counts, el('p', 'hero-date', `Son güncelleme: ${dayLabel()} ${data.dashboard.updated}`));
+  node.append(content, pills);
   return node;
 }
 function calendar() {
@@ -140,7 +147,6 @@ function calendar() {
   const monthName = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(date());
   grid.setAttribute('role', 'img');
   grid.setAttribute('aria-label', `${monthName}: ${days.size} günde kayıt var`);
-  ['P', 'S', 'Ç', 'P', 'C', 'C', 'P'].forEach((text) => grid.append(el('span', 'weekday type-label muted', text)));
   const first = new Date(date().getFullYear(), date().getMonth(), 1);
   for (let index = 0; index < (first.getDay() + 6) % 7; index++) grid.append(el('span', 'calendar-blank'));
   const total = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
@@ -174,8 +180,8 @@ function progressRing(done, total) {
   }
   defs.append(mask);
   const arc = svgNode('g', { mask: `url(#${id})` });
-  arc.append(svgNode('circle', { cx: 32, cy: 32, r: 27, pathLength: 100, class: 'ring-arc' }));
-  svg.append(defs, svgNode('circle', { cx: 32, cy: 32, r: 27, class: 'ring-track' }), arc);
+  arc.append(svgNode('circle', { cx: 32, cy: 32, r: 26, pathLength: 100, class: 'ring-arc' }));
+  svg.append(defs, svgNode('circle', { cx: 32, cy: 32, r: 26, class: 'ring-track' }), arc);
   svg.style.setProperty('--ring-progress', String(total ? done / total * 100 : 0));
   return svg;
 }
@@ -193,17 +199,21 @@ function renderProjects() {
     node.style.setProperty('--project-tone', `var(--color-tone-${project.tone})`);
     if (!grid.children.length) node.id = 'projects';
     const additionalNotes = data.notes.filter((note) => note.projectId === project.id && !fixtures.notes.some((item) => item.id === note.id)).length;
-    const subtitle = el('p', 'muted type-label project-subtitle', `${summary.description}, ${summary.noteCount + additionalNotes} not`);
-    const stat = el('div', 'stack project-stat');
-    stat.append(el('strong', 'counter', `${completed}/${total} kart`), el('span', 'muted type-label', 'panoda bitti'));
+    const subtitle = el('p', 'project-subtitle', `${summary.description}, ${summary.noteCount + additionalNotes} not`);
+    const heading = header.firstElementChild;
+    const copy = el('div', 'project-heading');
+    copy.append(heading, subtitle);
+    header.className = 'project-top';
+    header.replaceChildren(copy, progressRing(completed, total));
+    const stat = el('p', 'project-stat');
+    stat.append(el('strong', 'counter', `${completed}/${total} kart`), document.createTextNode('panoda bitti'));
     const focus = records.find((record) => roleFor(record) !== 'done');
-    const focusLine = el('p', 'muted type-label project-focus', focus ? titleFor(focus) : 'Açık kart yok. Yeni bir adıma yer var.');
-    header.append(progressRing(completed, total));
-    node.append(subtitle, stat, focusLine);
+    const focusLine = el('p', 'project-focus', focus ? titleFor(focus) : 'Açık kart yok. Yeni bir adıma yer var.');
+    node.append(stat, focusLine);
     grid.append(node);
   });
   if (!grid.children.length) {
-    const empty = el('div', 'box stack panel project-empty');
+    const empty = el('div', 'project-empty');
     empty.id = 'projects';
     empty.append(el('p', 'muted', 'Proje kutuları gizli. Görmek istediklerini seçebilirsin.'), button('Projeleri seç', (event) => setPickerOpen(true, event.detail === 0)));
     grid.append(empty);
@@ -227,32 +237,38 @@ function ongoing() {
   header.append(link('Panoda gör', '../board-a/'));
   const list = el('ul', 'summary-list');
   data.cards.filter((record) => roleFor(record) === 'doing').forEach((record, index) => {
-    const row = el('li', 'summary-row ongoing-row');
-    row.id = record.id;
-    row.tabIndex = 0;
-    const text = el('div', 'row-copy stack');
-    const detail = el('p', 'muted type-label');
+    const item = el('li', 'ongoing-item');
+    item.id = record.id;
+    item.tabIndex = 0;
+    const row = link('', '../board-a/', 'summary-row');
+    row.addEventListener('click', (event) => { event.preventDefault(); ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0); });
+    const text = el('span', 'row-copy');
+    const detail = el('span', 'row-detail');
     const review = record.column === 'review';
     const agent = ['claude', 'codex'].includes(record.assigneeId);
-    detail.append(el('strong', '', review ? 'Senden: ' : agent ? 'Şimdi: ' : 'Sonra: '), review ? 'İncele ve kısa bir geri bildirim bırak.' : agent ? `${record.assigneeId} kabul ölçütlerini doğruluyor.` : 'Birlikte gözden geçirmek için hazırla.');
-    text.append(button(titleFor(record, index), (event) => ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0), 'text-button card-title'), detail);
-    const actions = el('div', 'row-actions stack');
+    detail.append(el('b', '', review ? 'Senden: ' : agent ? 'Şimdi: ' : 'Sonra: '), review ? 'İncele ve kısa bir geri bildirim bırak.' : agent ? `${record.assigneeId} kabul ölçütlerini doğruluyor.` : 'Birlikte gözden geçirmek için hazırla.');
+    text.append(el('span', 'row-title', titleFor(record, index)), detail);
     const chip = projectChip(projectFor(record));
     chip.prepend(dot(`tone-${projectFor(record).tone}`));
+    row.append(text, chip);
+    item.append(row);
     const locked = state === 'locked' && record.id === 'card-2';
-    const trigger = button('Taşı…', (event) => move(record, event.detail === 0), 'button button--quiet');
-    trigger.disabled = locked;
-    trigger.setAttribute('aria-label', `${record.title}: taşı`);
-    actions.append(chip, trigger);
-    row.append(text, actions);
-    if (locked) { const message = lockMessage(); message.id = `${record.id}-lock`; trigger.setAttribute('aria-describedby', message.id); row.setAttribute('aria-describedby', message.id); row.append(message); }
-    row.addEventListener('keydown', (event) => {
+    if (locked) {
+      const trigger = button('Taşı…', () => {}, 'button button--quiet');
+      trigger.disabled = true;
+      const message = lockMessage();
+      message.id = `${record.id}-lock`;
+      trigger.setAttribute('aria-describedby', message.id);
+      item.setAttribute('aria-describedby', message.id);
+      item.append(message, trigger);
+    }
+    item.addEventListener('keydown', (event) => {
       if (event.key.toLowerCase() !== 'm' || event.ctrlKey || event.metaKey || event.altKey) return;
       event.preventDefault();
       if (locked) ui.announce('claude üzerinde çalışıyor. Kilit kalkana kadar taşınamaz.');
       else move(record, true);
     });
-    list.append(row);
+    list.append(item);
   });
   node.append(list);
   if (!list.children.length) node.append(el('p', 'muted', 'Şu an süren bir iş yok. Panodan bir kart seçebilirsin.'));
@@ -265,7 +281,7 @@ function boardSummary() {
   node.append(el('p', 'muted type-label', 'Bütün projelerin şu anki durumu'));
   const bar = el('div', 'segmented-bar');
   bar.setAttribute('aria-hidden', 'true');
-  const legend = el('dl', 'board-legend type-label');
+  const legend = el('ul', 'board-legend');
   data.columns.forEach((column) => {
     const count = data.cards.filter((record) => record.column === column.id).length + (column.role === 'done' ? archive : 0);
     const tone = column.id === 'review' ? 'tone-1' : { todo: 'planned', doing: 'doing', done: 'done' }[column.role];
@@ -274,9 +290,9 @@ function boardSummary() {
     segment.style.setProperty('--segment-color', `var(--color-${tone})`);
     segment.hidden = count === 0;
     bar.append(segment);
-    const label = el('dt');
-    label.append(dot(tone), document.createTextNode(column.label));
-    legend.append(label, el('dd', 'counter', String(count)));
+    const label = el('li');
+    label.append(dot(tone), document.createTextNode(column.label), el('b', 'counter', String(count)));
+    legend.append(label);
   });
   node.append(bar, legend);
   return node;
@@ -295,7 +311,7 @@ function today() {
   data.journal.forEach((entry) => {
     const row = el('li', 'numbered-row');
     row.dataset.entry = entry.id;
-    row.append(el('p', '', entry.body));
+    row.append(el('span', '', entry.body));
     list.append(row);
   });
   if (!data.journal.length) node.append(el('p', 'muted', 'Henüz kayıt yok. Bugünden küçük bir not bırakın.'));
@@ -328,13 +344,17 @@ function today() {
 }
 function noteBox(title, className, records, numbered = false) {
   const { node, header } = box(title, className);
-  if (className === 'research') { node.id = 'research'; header.append(el('span', 'type-label muted', `${records.length} belge`)); }
+  header.append(el('span', 'panel-count', `${records.length} ${className === 'research' ? 'belge' : 'kayıt'}`));
+  if (className === 'research') node.id = 'research';
   if (className === 'recent') node.id = 'notes';
+  if (!numbered) node.append(el('p', 'panel-subtitle', className === 'pinned' ? 'Elinin altında tuttuğun notlar ve sayfalar' : 'Fikirler ve küçük kararlar, her biri bir not'));
   const list = el(numbered ? 'ol' : 'ul', numbered ? 'numbered-list' : 'summary-list');
   records.slice(0, 3).forEach((record, index) => {
     const row = el('li', numbered ? 'numbered-row' : 'summary-row note-row');
     const copy = el('div', 'row-copy stack');
-    copy.append(button(titleFor(record, index), (event) => ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0), 'text-button note-title'), el('p', 'muted type-label excerpt', record.body));
+    copy.append(button(titleFor(record, index), (event) => ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0), 'text-button note-title'));
+    if (!numbered) copy.append(el('p', 'row-detail excerpt', record.body));
+    else copy.append(el('time', 'research-date', record.updated));
     row.append(copy);
     if (!numbered) row.append(el('span', 'chip', kindNames[record.kind]));
     list.append(row);
@@ -348,7 +368,7 @@ function render() {
   stopAnimations();
   const projects = el('div', 'project-grid');
   projects.id = 'project-grid';
-  $('#dashboard').replaceChildren(hero(), calendar(), projects, ongoing(), boardSummary(), today(), noteBox('Sabitlenenler', 'pinned', data.notes.filter((note) => note.pinned)), noteBox('Son notlar', 'recent', data.notes.filter((note) => note.kind === 'note')), noteBox('Araştırmalar', 'research', data.notes.filter((note) => note.kind === 'research'), true));
+  $('#dashboard').replaceChildren(hero(), calendar(), projects, ongoing(), boardSummary(), noteBox('Sabitlenenler', 'pinned', data.notes.filter((note) => note.pinned)), noteBox('Son notlar', 'recent', data.notes.filter((note) => note.kind === 'note')), noteBox('Araştırmalar', 'research', data.notes.filter((note) => note.kind === 'research'), true), today());
   renderProjects();
 }
 function animateFirstLoad() {

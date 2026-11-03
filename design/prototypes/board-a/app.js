@@ -1,5 +1,5 @@
 import { lessMotion, tokenTime } from '../_shared/components.js';
-import { $, el, button, priorityChip, projectChip, metadata, lockMessage, field, loadData, setupUI, renderState } from './ui.js';
+import { $, el, button, priorities, projectChip, lockMessage, field, loadData, setupUI, renderState } from './ui.js';
 
 let data;
 let fixtures;
@@ -12,7 +12,10 @@ let cards = [];
 let drag = null;
 let menuCard = null;
 let lastMoved = null;
-const mobile = matchMedia('(max-width: 46rem)');
+const mobile = matchMedia('(max-width: 50rem)');
+const collapsed = new Set();
+const cardsIn = (list) => [...list.children].filter((node) => node.classList.contains('kanban-card'));
+const nextCard = (card) => cardsIn(card.parentElement)[cardsIn(card.parentElement).indexOf(card) + 1] || null;
 const visible = new Set();
 const observer = new IntersectionObserver((entries) => entries.forEach((entry) => {
   if (entry.isIntersecting) visible.add(entry.target);
@@ -59,11 +62,15 @@ function openMenu(card, instant = false) {
     item.tabIndex = -1;
     menu.append(item);
   };
-  add('Bir sıra yukarı', current, card.previousElementSibling || card);
-  add('Bir sıra aşağı', current, card.nextElementSibling?.nextElementSibling || null);
+  const siblings = cardsIn(current).filter((item) => recordFor(item).priority === record.priority);
+  const position = siblings.indexOf(card);
+  add('Bir sıra yukarı', current, siblings[position - 1] || card);
+  add('Bir sıra aşağı', current, siblings[position + 2] || null);
+  menu.children[0].disabled = position === 0;
+  menu.children[1].disabled = position === siblings.length - 1;
   lists().forEach((list) => {
-    add(`${list.dataset.label}, en üste`, list, list.firstElementChild);
-    add(`${list.dataset.label}, en alta`, list, null);
+    add(`${list.dataset.label}, ${priorities[record.priority]} en üste`, list, cardsIn(list).find((item) => recordFor(item).priority === record.priority) || null);
+    add(`${list.dataset.label}, ${priorities[record.priority]} en alta`, list, null);
   });
   card.querySelector('[data-move]').setAttribute('aria-expanded', 'true');
   menu.classList.toggle('is-instant', instant);
@@ -71,12 +78,12 @@ function openMenu(card, instant = false) {
   menu.inert = false;
   const rect = card.querySelector('[data-move]').getBoundingClientRect();
   const gutter = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-md'));
-  menu.style.left = `${Math.max(gutter, Math.min(rect.right - menu.offsetWidth, innerWidth - menu.offsetWidth - gutter))}px`;
-  menu.style.top = `${Math.max(gutter, Math.min(rect.bottom, innerHeight - menu.offsetHeight - gutter))}px`;
-  menu.querySelector('button').focus();
+  menu.style.setProperty('--menu-left', `${Math.max(gutter, Math.min(rect.right - menu.offsetWidth, innerWidth - menu.offsetWidth - gutter))}px`);
+  menu.style.setProperty('--menu-top', `${Math.max(gutter, Math.min(rect.bottom, innerHeight - menu.offsetHeight - gutter))}px`);
+  menu.querySelector('button:not(:disabled)').focus();
 }
 menu.addEventListener('keydown', (event) => {
-  const items = [...menu.querySelectorAll('button')];
+  const items = [...menu.querySelectorAll('button:not(:disabled)')];
   const index = items.indexOf(document.activeElement);
   const positions = { ArrowDown: (index + 1) % items.length, ArrowUp: (index - 1 + items.length) % items.length, Home: 0, End: items.length - 1 };
   if (event.key in positions) { event.preventDefault(); items[positions[event.key]].focus(); }
@@ -87,65 +94,79 @@ document.addEventListener('pointerdown', (event) => {
   if (!menu.contains(event.target) && !event.target.closest('[data-move]')) closeMenu();
 });
 menu.addEventListener('focusout', (event) => { if (!menu.contains(event.relatedTarget)) closeMenu(); });
-function positionIndicator() {
-  const tab = $(`#tab-${activeColumn}`);
-  if (!tab || !mobile.matches) return;
-  const indicator = $('#column-tabs .tab-indicator');
-  for (const [name, value] of Object.entries({ width: tab.offsetWidth, height: tab.offsetHeight, x: tab.offsetLeft, y: tab.offsetTop })) indicator.style.setProperty(`--indicator-${name}`, `${value}px`);
-}
 function selectColumn(id) {
   activeColumn = id;
-  document.querySelectorAll('.kanban-column').forEach((column) => {
-    column.classList.toggle('is-active', column.dataset.column === id);
-    column.setAttribute('role', mobile.matches ? 'tabpanel' : 'region');
-    column.setAttribute('aria-labelledby', mobile.matches ? `tab-${column.dataset.column}` : `heading-${column.dataset.column}`);
-  });
-  document.querySelectorAll('#column-tabs .tab').forEach((tab) => {
-    const selected = tab.dataset.column === id;
-    tab.setAttribute('aria-selected', String(selected));
-    tab.tabIndex = selected ? 0 : -1;
-  });
-  positionIndicator();
+  collapsed.delete(id);
+  const column = document.getElementById(`column-${id}`);
+  if (!column) return;
+  column.dataset.open = 'true';
+  column.querySelector('.column-toggle').setAttribute('aria-expanded', 'true');
+  column.querySelector('.column-content').hidden = false;
 }
-mobile.addEventListener('change', () => selectColumn(activeColumn));
-new ResizeObserver(positionIndicator).observe($('#column-tabs'));
-$('#column-tabs').addEventListener('keydown', (event) => {
-  const tabs = [...document.querySelectorAll('#column-tabs .tab')];
-  const index = tabs.indexOf(document.activeElement);
-  const positions = { ArrowRight: (index + 1) % tabs.length, ArrowLeft: (index - 1 + tabs.length) % tabs.length, Home: 0, End: tabs.length - 1 };
-  if (event.key in positions) { event.preventDefault(); const tab = tabs[positions[event.key]]; selectColumn(tab.dataset.column); tab.focus(); }
-});
+function arrangeGroups(list) {
+  list.querySelectorAll(':scope > .priority-heading-item').forEach((node) => node.remove());
+  const items = cardsIn(list);
+  Object.entries(priorities).forEach(([priority, label]) => {
+    const group = items.filter((card) => recordFor(card).priority === priority);
+    if (!group.length) return;
+    const heading = el('li', 'priority-heading-item');
+    heading.setAttribute('role', 'presentation');
+    heading.append(el('h3', `priority-heading priority-${priority}`, label));
+    list.append(heading, ...group);
+  });
+}
 function updateCounts() {
   data.columns.forEach((column) => {
     const count = cards.filter((record) => record.column === column.id && passes(record)).length;
     $(`#count-${column.id}`).textContent = count;
-    $(`#tab-${column.id}`).textContent = `${column.label} ${count}`;
     $(`#empty-${column.id}`).hidden = count > 0;
   });
   $('#board-summary').textContent = `${cards.filter(passes).length} kart · ${data.columns.length} sütun`;
-  positionIndicator();
+}
+function fillCardCopy(copy, record, title) {
+  const line = el('p');
+  const lead = record.column === 'review' ? 'Senden: ' : record.column === 'doing' ? 'Şimdi: ' : record.column === 'done' ? 'Sonuç: ' : 'Sonra: ';
+  line.append(el('b', '', lead), document.createTextNode(title));
+  copy.replaceChildren(line);
+  if (record.column === 'doing') {
+    const next = el('p');
+    next.append(el('b', '', 'Sonra: '), document.createTextNode('Kabul ölçütlerini birlikte denetle.'));
+    copy.append(next);
+  }
 }
 function makeCard(record, index) {
   const card = el('li', 'kanban-card');
+  card.classList.toggle('is-done', data.columns.find((column) => column.id === record.column).role === 'done');
   card.id = record.id;
   card.dataset.id = record.id;
   card.tabIndex = 0;
-  const top = el('div', 'card-top');
+  const title = button(projectFor(record).name, (event) => ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0), 'card-title');
+  title.setAttribute('aria-label', `${titleFor(record, index)}: ayrıntıları aç`);
+  const copy = el('div', 'card-copy');
+  fillCardCopy(copy, record, titleFor(record, index));
+  const footer = el('div', 'card-footer');
+  const chip = projectChip(projectFor(record));
+  chip.classList.add('card-project-chip');
+  footer.append(chip);
+  const meta = el('div', 'card-metadata');
+  const person = data.people.find((item) => item.id === record.assigneeId);
+  const owner = el('span', person ? '' : 'badge', person?.initials || record.assigneeId || 'Atanmamış');
+  owner.setAttribute('aria-label', person?.name || record.assigneeId || 'Atanmamış');
+  const progress = `${record.criteria.filter((criterion) => criterion.done).length}/${record.criteria.length}`;
+  const criteria = el('span', 'counter', progress);
+  criteria.setAttribute('aria-label', `Kabul ölçütleri: ${progress}`);
   const handle = el('span', 'drag-handle', '⠿');
   handle.title = 'Sürüklemek için tutun. Taşımak için Taşı… düğmesini de kullanabilirsiniz.';
   handle.setAttribute('aria-hidden', 'true');
-  top.append(projectChip(projectFor(record)), handle);
-  const title = button(titleFor(record, index), (event) => ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0), 'card-title');
-  const footer = el('div', 'row card-footer');
-  const move = button('Taşı…', (event) => openMenu(card, event.detail === 0), 'button button--quiet');
+  meta.append(owner, criteria, el('span', 'counter', `${record.comments} yorum`), handle);
+  const move = button('Taşı…', (event) => openMenu(card, event.detail === 0), 'move-trigger');
   move.dataset.move = '';
   move.setAttribute('aria-haspopup', 'menu');
   move.setAttribute('aria-expanded', 'false');
   move.setAttribute('aria-controls', menu.id);
   move.setAttribute('aria-label', `${record.title}: taşı`);
   move.disabled = isLocked(record);
-  footer.append(metadata(record, data), move);
-  card.append(top, title, priorityChip(record.priority), footer);
+  card.append(title, move, copy, footer, meta);
   if (isLocked(record)) {
     const message = lockMessage();
     message.id = `${record.id}-lock`;
@@ -168,25 +189,35 @@ function buildBoard() {
   observer.disconnect();
   visible.clear();
   $('#board').replaceChildren();
-  $('#column-tabs').replaceChildren(el('span', 'tab-indicator'));
-  $('#column-tabs .tab-indicator').setAttribute('aria-hidden', 'true');
   data.columns.forEach((column) => {
-    const tab = button(column.label, () => selectColumn(column.id), 'tab');
-    tab.id = `tab-${column.id}`;
-    tab.dataset.column = column.id;
-    tab.setAttribute('role', 'tab');
-    tab.setAttribute('aria-controls', `column-${column.id}`);
-    $('#column-tabs').append(tab);
     const section = el('section', 'kanban-column');
     section.id = `column-${column.id}`;
     section.dataset.column = column.id;
+    section.dataset.open = String(!collapsed.has(column.id));
+    section.setAttribute('role', 'region');
+    section.setAttribute('aria-labelledby', `heading-${column.id}`);
     const header = el('div', 'column-header');
-    const headingRow = el('div', 'column-heading');
-    const heading = el('h2', '', column.label);
+    const heading = button('', () => {
+      const open = section.dataset.open !== 'true';
+      section.dataset.open = String(open);
+      heading.setAttribute('aria-expanded', String(open));
+      content.hidden = !open;
+      if (open) collapsed.delete(column.id); else collapsed.add(column.id);
+    }, 'column-toggle');
     heading.id = `heading-${column.id}`;
-    const count = el('span', 'counter type-label');
+    heading.setAttribute('aria-expanded', section.dataset.open);
+    heading.setAttribute('aria-controls', `content-${column.id}`);
+    const count = el('span', 'counter column-count');
     count.id = `count-${column.id}`;
-    headingRow.append(heading, count);
+    const chevron = el('span', 'column-chevron');
+    chevron.setAttribute('aria-hidden', 'true');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    const path = document.createElementNS(svg.namespaceURI, 'path');
+    path.setAttribute('d', 'm4 6 4 4 4-4');
+    svg.append(path);
+    chevron.append(svg);
+    heading.append(el('span', '', column.label), count, chevron);
     const form = el('form', 'inline-add');
     form.hidden = true;
     const title = field('Kart başlığı');
@@ -197,7 +228,7 @@ function buildBoard() {
     save.type = 'submit';
     actions.append(save, button('Vazgeç', () => { form.hidden = true; add.focus(); }));
     form.append(title.wrapper, actions);
-    const add = button('Kart ekle', (event) => inlineAdd(column, form, event.detail === 0), 'button');
+    const add = button('Kart ekle', (event) => inlineAdd(column, form, event.detail === 0), 'button column-add');
     add.dataset.add = column.id;
     form.addEventListener('keydown', (event) => { if (event.key === 'Escape') { form.hidden = true; add.focus(); } });
     form.addEventListener('submit', (event) => {
@@ -208,13 +239,14 @@ function buildBoard() {
       data.cards.unshift(record);
       if (cards !== data.cards) cards.unshift(record);
       list.prepend(makeCard(record, 0));
+      arrangeGroups(list);
       title.control.value = '';
       form.hidden = true;
       updateCounts();
       document.getElementById(record.id).focus();
       ui.announce(`'${value}' kartı '${column.label}' sütununa eklendi.`);
     });
-    header.append(headingRow, add, form);
+    header.append(heading, add, form);
     const list = el('ul', 'kanban-list');
     list.dataset.column = column.id;
     list.dataset.label = column.label;
@@ -222,7 +254,12 @@ function buildBoard() {
     cards.filter((record) => record.column === column.id && passes(record)).forEach((record, index) => list.append(makeCard(record, index)));
     const empty = el('p', 'muted type-label column-empty', 'Burada henüz kart yok. Kart ekle ile başlayın veya buraya bir kart taşıyın.');
     empty.id = `empty-${column.id}`;
-    section.append(header, list, empty);
+    arrangeGroups(list);
+    const content = el('div', 'column-content');
+    content.id = `content-${column.id}`;
+    content.hidden = collapsed.has(column.id);
+    content.append(list, empty);
+    section.append(header, content);
     $('#board').append(section);
   });
   selectColumn(activeColumn);
@@ -247,31 +284,46 @@ function buildFilters() {
 function visibleRects() {
   return new Map([...visible].filter((card) => card.isConnected).map((card) => [card, card.getBoundingClientRect()]));
 }
+function insertionReference(card, list, ref) {
+  if (ref === card) ref = nextCard(card);
+  const priority = recordFor(card).priority;
+  if (!ref || recordFor(ref).priority === priority) return ref;
+  const siblings = cardsIn(list);
+  const position = siblings.indexOf(ref);
+  return siblings.find((item, index) => index >= position && item !== card && recordFor(item).priority === priority) || null;
+}
 function commitMove(card, list, ref = null, ghostRect = null) {
   const record = recordFor(card);
   if (isLocked(record)) return;
-  if (ref === card) ref = card.nextElementSibling;
+  ref = insertionReference(card, list, ref);
   const before = visibleRects();
   if (ghostRect) before.set(card, ghostRect);
-  const from = card.parentElement.dataset.label;
+  const source = card.parentElement;
+  const from = source.dataset.label;
   card.getAnimations().forEach((animation) => animation.cancel());
   list.insertBefore(card, ref);
   record.column = list.dataset.column;
+  card.classList.toggle('is-done', data.columns.find((column) => column.id === record.column).role === 'done');
+  fillCardCopy(card.querySelector('.card-copy'), record, titleFor(record));
+  arrangeGroups(source);
+  if (source !== list) arrangeGroups(list);
   // Keep the backing order in sync so a subsequent filter never undoes a move.
+  const group = cardsIn(list).filter((item) => recordFor(item).priority === record.priority);
+  const following = group[group.indexOf(card) + 1];
+  const next = following ? recordFor(following) : null;
   const index = cards.indexOf(record);
   cards.splice(index, 1);
-  const next = card.nextElementSibling ? recordFor(card.nextElementSibling) : null;
   if (next) cards.splice(cards.indexOf(next), 0, record);
   else {
-    const last = cards.findLastIndex((item) => item.column === record.column);
+    const last = cards.findLastIndex((item) => item.column === record.column && item.priority === record.priority);
     cards.splice(last + 1, 0, record);
   }
   selectColumn(record.column);
   updateCounts();
   card.focus({ preventScroll: true });
   card.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
-  const position = [...list.children].indexOf(card) + 1;
-  ui.announce(`'${record.title}' kartı '${from}' sütunundan '${list.dataset.label}' sütununa taşındı, ${position}/${list.children.length}.`);
+  const position = cardsIn(list).indexOf(card) + 1;
+  ui.announce(`'${record.title}' kartı '${from}' sütunundan '${list.dataset.label}' sütununa taşındı, ${position}/${cardsIn(list).length}.`);
   const settles = [];
   if (!lessMotion()) {
     const computed = getComputedStyle(document.documentElement);
@@ -296,9 +348,11 @@ function commitMove(card, list, ref = null, ghostRect = null) {
     requestAnimationFrame(() => card.classList.remove('is-highlighted'));
   });
 }
+$('#board').addEventListener('focusin', (event) => { const column = event.target.closest('.kanban-column'); if (column) activeColumn = column.dataset.column; });
 $('#board').addEventListener('keydown', (event) => {
   if (event.target.closest('input, textarea, select') || event.ctrlKey || event.metaKey || event.altKey) return;
   const card = event.target.closest('.kanban-card');
+  if (card && event.target === card && event.key === 'Enter') { event.preventDefault(); ui.inspect(recordFor(card), true); }
   if (card && event.key.toLowerCase() === 'm') { event.preventDefault(); openMenu(card, true); }
 });
 // Pointer dragging uses a touch handle so vertical card-list scrolling remains native.
@@ -326,7 +380,7 @@ $('#board').addEventListener('pointermove', (event) => {
     drag.ghost.classList.add('drag-ghost');
     drag.ghost.inert = true;
     drag.ghost.setAttribute('aria-hidden', 'true');
-    drag.ghost.style.width = `${rect.width}px`;
+    drag.ghost.style.setProperty('--ghost-width', `${rect.width}px`);
     document.body.append(drag.ghost);
     drag.card.classList.add('is-dragging');
     drag.started = true;
@@ -338,19 +392,21 @@ function dragFrame() {
   const { x, y } = drag;
   // Direct manipulation still follows the pointer when shared reduced-motion CSS removes transforms.
   if (lessMotion()) {
-    drag.ghost.style.transform = '';
-    drag.ghost.style.left = `${x - drag.offsetX}px`;
-    drag.ghost.style.top = `${y - drag.offsetY}px`;
+    drag.ghost.style.setProperty('--ghost-transform', 'none');
+    drag.ghost.style.setProperty('--ghost-left', `${x - drag.offsetX}px`);
+    drag.ghost.style.setProperty('--ghost-top', `${y - drag.offsetY}px`);
   } else {
-    drag.ghost.style.left = '0px';
-    drag.ghost.style.top = '0px';
-    drag.ghost.style.transform = `translate(${x - drag.offsetX}px, ${y - drag.offsetY}px)`;
+    drag.ghost.style.setProperty('--ghost-left', '0px');
+    drag.ghost.style.setProperty('--ghost-top', '0px');
+    drag.ghost.style.setProperty('--ghost-transform', `translate(${x - drag.offsetX}px, ${y - drag.offsetY}px)`);
   }
   const target = document.elementFromPoint(x, y);
   const list = target?.closest('.kanban-list') || target?.closest('.kanban-column')?.querySelector('.kanban-list');
   const board = $('#board');
   const edge = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-xl'));
   const speed = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-md'));
+  if (y < edge) scrollBy(0, -speed);
+  else if (y > innerHeight - edge) scrollBy(0, speed);
   const bounds = board.getBoundingClientRect();
   if (!mobile.matches && y > bounds.top && y < bounds.bottom) {
     if (x < bounds.left + edge) board.scrollLeft -= speed;
@@ -361,19 +417,19 @@ function dragFrame() {
   if (list) {
     const column = list.closest('.kanban-column');
     const rect = column.getBoundingClientRect();
-    if (y < rect.top + edge) column.scrollTop -= speed;
-    else if (y > rect.bottom - edge) column.scrollTop += speed;
+    if (column.dataset.open !== 'true') selectColumn(column.dataset.column);
     // Hit testing and the observer avoid measuring all 300 cards on every frame.
     const candidates = [...visible].filter((card) => card.parentElement === list && card !== drag.card)
       .map((card) => [card, card.getBoundingClientRect()]).sort((a, b) => a[1].top - b[1].top);
     let ref = candidates.find(([, rect]) => y < rect.top + rect.height / 2)?.[0]
-      || candidates.at(-1)?.[0].nextElementSibling || null;
-    if (ref === drag.card) ref = ref.nextElementSibling;
+      || (candidates.length ? nextCard(candidates.at(-1)[0]) : null);
+    if (ref === drag.card) ref = nextCard(ref);
+    ref = insertionReference(drag.card, list, ref);
     drag.ref = ref;
     const listRect = list.getBoundingClientRect();
-    const lineY = ref ? ref.getBoundingClientRect().top : list.lastElementChild?.getBoundingClientRect().bottom || listRect.top;
-    marker.style.width = `${listRect.width}px`;
-    marker.style.transform = `translate(${listRect.left}px, ${Math.max(rect.top, Math.min(lineY, rect.bottom))}px)`;
+    const lineY = ref ? ref.getBoundingClientRect().top : cardsIn(list).at(-1)?.getBoundingClientRect().bottom || listRect.top;
+    marker.style.setProperty('--marker-width', `${listRect.width}px`);
+    marker.style.setProperty('--marker-transform', `translate(${listRect.left}px, ${Math.max(rect.top, 0, Math.min(lineY, rect.bottom, innerHeight))}px)`);
   }
   drag.frame = requestAnimationFrame(dragFrame);
 }

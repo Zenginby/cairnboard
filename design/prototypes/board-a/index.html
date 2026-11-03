@@ -14,34 +14,39 @@
 <body>
   <a class="skip-link button" href="#main">İçeriğe geç</a>
   <header class="topbar app-shell">
-    <a class="brand" href="../home-a/"><span class="logo-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span>Cairnboard</span></a>
-    <nav class="app-navigation" aria-label="Ana gezinme">
-      <div class="tabs app-tabs" data-app-tabs>
-        <span class="tab-indicator" aria-hidden="true"></span>
-        <a class="tab" href="../home-a/">Ana sayfa</a>
-        <a class="tab" href="../board-a/" aria-current="page">Pano</a>
-        <a class="tab" href="../home-a/#projects">Projeler</a>
-        <a class="tab" href="../home-a/#notes">Notlar</a>
-        <a class="tab" href="../home-a/#journal">Günlük</a>
-        <a class="tab" href="../home-a/#research">Araştırmalar</a>
-      </div>
-    </nav>
-    <div class="row shell-actions">
-      <button class="button shell-search" id="search-open" aria-label="Ara" aria-keyshortcuts="Meta+K Control+K /"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"></circle><path d="m15 15 5 5"></path></svg><span class="search-caption">Ara</span><kbd class="search-caption">⌘K</kbd></button>
-      <div class="dropdown theme-dropdown">
-        <button class="button theme-trigger" id="theme-open" aria-label="Tema ve hareket ayarları" aria-haspopup="dialog" aria-expanded="false" aria-controls="theme-panel"><svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"></path></svg><svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z"></path></svg></button>
-        <div class="menu theme-panel" id="theme-panel" role="dialog" aria-label="Görünüm ayarları" inert>
-          <label class="field type-label">Tema<select data-theme-menu><option value="system">Sistem</option><option value="bento">Bento</option><option value="bento-dark">Bento Dark</option><option value="paper">Paper</option><option value="graphite">Graphite</option></select></label>
-          <label class="motion-toggle row type-label"><input type="checkbox" data-motion-toggle> Hareket: az</label>
+    <div class="shell-top-row">
+      <a class="brand" href="../home-a/"><span>Cairnboard</span></a>
+      <div class="shell-actions">
+        <button class="shell-search" id="search-open" aria-label="Ara" aria-keyshortcuts="Meta+K Control+K /"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"></circle><path d="m15 15 5 5"></path></svg><span class="search-caption">Ara</span><kbd class="search-caption">⌘K</kbd></button>
+        <button type="button" class="theme-toggle" data-theme-toggle aria-label="Koyu görünüme geç">
+          <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+          <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg>
+        </button>
+        <div class="dropdown theme-dropdown">
+          <button class="appearance-trigger" id="theme-open" aria-label="Görünüm ayarları" aria-haspopup="dialog" aria-expanded="false" aria-controls="theme-panel"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></button>
+          <div class="menu theme-panel" id="theme-panel" role="dialog" aria-label="Görünüm ayarları" inert>
+            <label class="field type-label">Tema<select data-theme-menu><option value="bento">Bento</option><option value="paper">Kâğıt</option><option value="graphite">Grafit</option></select></label>
+            <label class="field type-label">Görünüm<select data-mode-menu><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label>
+            <label class="motion-toggle row type-label"><input type="checkbox" data-motion-toggle> Hareket: az</label>
+          </div>
         </div>
       </div>
     </div>
+    <nav class="app-navigation" aria-label="Ana gezinme">
+      <div class="app-tabs" data-app-tabs>
+        <a href="../home-a/"><span class="tab-name">Ana sayfa</span></a>
+        <a href="../board-a/" aria-current="page"><span class="tab-indicator" aria-hidden="true"></span><span class="tab-name">Pano</span></a>
+        <a href="../home-a/#projects"><span class="tab-name">Projeler</span></a>
+        <a href="../home-a/#notes"><span class="tab-name">Notlar</span></a>
+        <a href="../home-a/#journal"><span class="tab-name">Günlük</span></a>
+        <a href="../home-a/#research"><span class="tab-name">Araştırmalar</span></a>
+      </div>
+    </nav>
   </header>
   <main id="main" class="page-frame stack workspace" tabindex="-1">
     <section id="conflict" class="toast is-open stack" aria-label="Dosya çakışması" hidden><div class="row"><span class="chip chip--warning">409 çakışma</span><h2 class="type-title">Bu dosya dışarıda değişti</h2></div><p>Son değişiklikleri inceleyip güncel dosyayı yükleyin.</p><div class="row"><button class="button" id="reload">Yeniden yükle</button><button class="button" id="diff-open">Farkı gör</button></div></section>
-    <div id="screen-content" class="stack"><div class="section-heading row"><div><p class="type-label muted">acme / tüm projeler</p><h1>Pano</h1></div><p class="muted type-label" id="board-summary"></p></div>
-      <section class="box stack" aria-label="Pano filtreleri"><div class="row" id="project-filters" aria-label="Proje filtresi"></div><label class="row type-label">Öncelik <select id="priority-filter"><option value="all">Tüm öncelikler</option><option value="urgent">Acil</option><option value="important">Önemli</option><option value="normal">Diğer</option><option value="low">Düşük</option></select></label></section>
-      <div id="column-tabs" class="tabs mobile-tabs" role="tablist" aria-label="Sütun seçimi"><span class="tab-indicator" aria-hidden="true"></span></div>
+    <div id="screen-content" class="stack"><div class="page-title"><h1>Pano</h1><p class="muted" id="board-summary"></p></div>
+      <section class="board-filters" aria-label="Pano filtreleri"><div class="row" id="project-filters" aria-label="Proje filtresi"></div><label class="row type-label">Öncelik <select id="priority-filter"><option value="all">Tüm öncelikler</option><option value="urgent">Acil</option><option value="important">Önemli</option><option value="normal">Diğer</option><option value="low">Düşük</option></select></label></section>
       <div id="board" class="board" data-board></div></div>
     <section id="state-content" class="box empty-state" aria-labelledby="state-title" hidden></section>
     <p class="type-label muted">Yerel çalışma alanı · Kurgusal örnek veriler</p>
