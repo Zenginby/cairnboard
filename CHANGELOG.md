@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Reject generated skills larger than 24 KB before installation, including long or Unicode clone paths.
+  Document and exercise marking summarized sources as processed so completed work leaves pending counts.
 - Add wiki indexing, lint, draft checks, session context, source ingestion and raw-source search,
   with evidence, code drift and validity checks and transient reads of existing Turkish wikis.
 - Add the optional Claude Code Write/Edit hook with settings previews, backups and fail-open handling.

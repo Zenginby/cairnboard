@@ -63,6 +63,9 @@ test('every fenced skill command succeeds with real fixtures and dry-run', async
       assert.ok(filled.every((arg) => typeof arg === 'string' && !/<[^>]+>/u.test(arg)), line);
       const command = [...commands].reverse().find(({ name }) => name.split(' ').every((word, i) => filled[i] === word));
       assert.ok(command, line);
+      if (command.name === 'research update' && filled.includes('--if-revision')) {
+        filled[filled.indexOf('--if-revision') + 1] = (await run(['research', 'show', ids['<research-id>'], '--json'])).revision;
+      }
       assert.ok(command.dangerous !== true, line);
       assert.ok(!filled.includes('--steal'), line);
       seen.add(command.name);
@@ -96,5 +99,38 @@ test('wiki workflow gives runnable context, capture, draft check, index and lint
     const fragment = renderAgentsMd({ version: '1.2.3', invocation, commands });
     assert.ok(fragment.includes(`${invocation} context --json`));
     assert.match(fragment, /wiki check/u);
+    assert.match(wiki, /research update <research-id> --processed --if-revision <revision>/u);
+    assert.match(fragment, /--processed/u);
   }
+});
+
+test('the documented source completion command clears lint and pending counts without changing raw bytes', async (t) => {
+  const home = tempDir(t), data = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
+  initDataDir(data, { home, env: {}, clock });
+  const run = async (args, stdin = '') => {
+    const response = await runCli([...args, '--json'], { home, data, clock, stdin });
+    assert.equal(response.code, 0, response.stdout + response.stderr);
+    return response.json.data;
+  };
+  const captured = await run(['ingest', '--title', 'acme source', '--body', '-', '--actor', 'codex'], 'A fictional source.\n');
+  const ref = `@${captured.research.path.slice(0, -3)}`;
+  const raw = fs.readFileSync(join(data, captured.raw.path));
+  const summary = await run(['research', 'update', ref, '--body', '-', '--if-revision', captured.research.revision, '--actor', 'codex'],
+    '# Acme summary\nA short source summary.\n');
+  const pending = async () => (await run(['context'])).sections.find((section) => section.name === 'pending').content.text;
+  assert.match(await pending(), /unprocessed_sources: 1/u);
+  assert.equal((await run(['wiki', 'lint', '--only', 'unprocessed_source'])).findings.length, 1);
+  const invocation = cliInvocation(join(home, 'acme'));
+  const skill = renderSkill({ version: '1.2.3', invocation, actor: 'codex', commands });
+  const line = skill.split('\n').find((text) => text.startsWith(`${invocation} research update <research-id> --processed`));
+  assert.ok(line, 'missing runnable source completion command');
+  const args = split(line).slice(split(invocation).length).map((arg) => ({ '<research-id>': ref, '<revision>': summary.revision })[arg] ?? arg);
+  const before = snapshot(data);
+  await run([...args, '--dry-run']);
+  const sources = (map) => [...map].filter(([path]) => !/^\.cairn\/index\.db/u.test(path)).sort();
+  assert.deepEqual(sources(snapshot(data)), sources(before));
+  await run(args);
+  assert.equal((await run(['wiki', 'lint', '--only', 'unprocessed_source'])).findings.length, 0);
+  assert.match(await pending(), /unprocessed_sources: 0/u);
+  assert.deepEqual(fs.readFileSync(join(data, captured.raw.path)), raw);
 });

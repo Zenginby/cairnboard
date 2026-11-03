@@ -94,6 +94,32 @@ test('invalid targets and missing bundle fail before any write', (t) => {
   assert.throws(() => installAgent(f), (error) => error.code === 'validation' && error.message.includes('npm run build:cli'));
 });
 
+test('oversized skills fail before installation and preserve existing skills for every target', (t) => {
+  const f = fixture(t);
+  installAgent({ ...f, targets: Object.keys(TARGETS) });
+  const before = new Map(files(f.home).map((path) => [path, fs.readFileSync(join(f.home, path), 'utf8')]));
+  // Exceed the skill limit even with a short /tmp root, while keeping the test file below Windows MAX_PATH.
+  let repoRoot = f.repoRoot;
+  while (repoRoot.length < 230) repoRoot = join(repoRoot, 'a'.repeat(Math.max(1, Math.min(70, 230 - repoRoot.length - 1))));
+  fs.mkdirSync(join(repoRoot, 'dist'), { recursive: true });
+  fs.writeFileSync(join(repoRoot, 'dist/cairn.mjs'), '');
+  for (const target of Object.keys(TARGETS)) {
+    for (const dryRun of [false, true]) {
+      assert.throws(() => installAgent({ ...f, repoRoot, targets: [target], dryRun }),
+        (error) => error.code === 'validation' && /24 KB/u.test(error.message) && /shorter/u.test(error.message));
+    }
+  }
+  assert.deepEqual(new Map(files(f.home).map((path) => [path, fs.readFileSync(join(f.home, path), 'utf8')])), before);
+  const home = tempDir(t);
+  assert.throws(() => installAgent({ ...f, home, repoRoot }), { code: 'validation' });
+  assert.deepEqual(files(home), []);
+});
+
+test('skill size enforcement counts UTF-8 bytes including a Unicode invocation', () => {
+  const invocation = cliInvocation(join('acme', ...Array(3).fill('界'.repeat(40))));
+  assert.throws(() => renderSkill({ version: '1.2.3', invocation, actor: 'claude', commands }), { code: 'validation' });
+});
+
 function dirLink(t, from, to) {
   try { fs.symlinkSync(from, to, process.platform === 'win32' ? 'junction' : 'dir'); return true; }
   catch (error) {

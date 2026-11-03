@@ -66,9 +66,13 @@ export function renderSkill({ version, invocation, actor, commands }) {
       ? `${command.summary} Human runs: ${line}\n`
       : `${command.summary}${command.dangerous ? ` Only a human runs it with --${command.dangerous.option}; agents run it without.` : ''}\n\n\`\`\`sh\n${line}\n\`\`\`\n`;
   }).join('\n');
-  return fill(skillTemplate, { version, invocation, actor: name, reference,
+  const text = fill(skillTemplate, { version, invocation, actor: name, reference,
     actorGuide: actor ? `Use \`--actor ${actor}\` for every write.`
       : 'Replace `<actor>` with your own tool name: codex, gemini, cursor, antigravity. Pass it as `--actor` on every write.' });
+  if (Buffer.byteLength(text, 'utf8') > 24 * 1024) {
+    throw new CairnError('validation', 'The generated skill exceeds 24 KB; move the clone to a shorter path and rebuild before installing.');
+  }
+  return text;
 }
 
 export function renderAgentsMd({ version, invocation, commands }) {

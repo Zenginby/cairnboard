@@ -93,6 +93,8 @@ Cursor and Antigravity desktop). `--target antigravity-cli` selects
 The generated skill contains the quoted full CLI path. Reinstall after moving the clone or updating it;
 `agent check` reports installed versions and path validity. `agent print` prints a fragment you can
 copy into a project's `AGENTS.md`; it does not edit that file.
+Generated skills must fit within 24 KB of UTF-8 text. If a long clone path makes them exceed that
+limit, installation and dry-run fail before changing any skill files; move the clone to a shorter path and rebuild.
 
 After optional `npm link`, run this from a separate project's Git repository, replacing `<project-id>`
 with the ID returned by `project add` and setting `CAIRN_DATA` to the data folder if needed:
@@ -190,6 +192,17 @@ without new files. Write a short summary in the returned research record, update
 affected pages, and defer deeper synthesis until needed. Keep raw sources unchanged; put corrections
 and dated updates in wiki pages. Cite sources for claims, preserve contradictions with `> [!WARNING]`,
 and retain former values using dated strike-through or `valid_from` / `valid_until` and `superseded_by`.
+
+Once the summary and directly affected pages are saved, read the research record's latest revision
+with `research show <research-id>` and mark it processed. Replace the placeholders with that record's
+ID (or path selector) and revision; the summary update changes the revision returned by ingest.
+
+```sh
+node dist/cairn.mjs research update <research-id> --processed --if-revision <revision> --actor agent --data "./cairn-data" --json
+```
+
+Incomplete sources stay unprocessed. This step removes a completed source from lint's
+`unprocessed_source` findings and the context pack's pending count; deeper synthesis can still wait.
 
 Before saving a page, check its complete draft on stdin with a data-relative target path:
 
@@ -319,6 +332,8 @@ Birden çok hedef için `--target` tekrarlanabilir. Üretilen skill, CLI'nin tı
 Klon taşınınca veya güncellenince yeniden kurun; `agent check` kurulu sürümleri ve yol geçerliliğini
 bildirir. `agent print`, projenin `AGENTS.md` dosyasına kopyalayabileceğiniz bir parça basar;
 dosyayı kendisi değiştirmez.
+Üretilen skill UTF-8 olarak en fazla 24 KB olabilir. Uzun klon yolu sınırı aştırırsa kurulum ve
+önizleme hiçbir skill dosyasını değiştirmeden hata verir; klonu daha kısa bir yola taşıyıp yeniden derleyin.
 
 İsteğe bağlı `npm link` sonrasında ayrı bir projenin Git deposunda aşağıdakini çalıştırın.
 `<project-id>` yerine `project add` sonucundaki kimliği yazın; gerekirse `CAIRN_DATA` değişkenini
@@ -420,6 +435,17 @@ güncelleyin; ayrıntılı sentezi ihtiyaç doğana bırakın. Ham kaynakları d
 tarihli güncellemeleri wiki sayfasına yazın. İddiaları kaynağa dayandırın, çelişkileri `> [!WARNING]`
 ile koruyun; değişen bilgide önceki değeri tarihli üstü çizili metinle ya da `valid_from` / `valid_until`
 ve `superseded_by` alanlarıyla saklayın.
+
+Özet ve doğrudan etkilenen sayfalar kaydedilince `research show <research-id>` ile araştırmanın güncel
+revision değerini okuyup işlenmiş olarak işaretleyin. Yer tutucular yerine kaydın kimliğini (ya da yol
+seçicisini) ve revision değerini yazın; özet güncellemesi ingest sonucundaki revision değerini değiştirir.
+
+```sh
+node dist/cairn.mjs research update <research-id> --processed --if-revision <revision> --actor agent --data "./cairn-data" --json
+```
+
+Eksik kalan kaynakları işlenmemiş bırakın. Bu adım tamamlanan kaynağı lint'in `unprocessed_source`
+bulgularından ve bağlam paketinin bekleyen sayısından çıkarır; ayrıntılı sentez yine sonraya kalabilir.
 
 Sayfayı kaydetmeden önce tam taslağını stdin üzerinden, veri klasörüne göre hedef yoluyla denetleyin:
 
