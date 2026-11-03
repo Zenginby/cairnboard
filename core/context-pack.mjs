@@ -63,7 +63,7 @@ export function buildContext(ctx, { budget = 1200, project } = {}) {
   const first = wakeup(ctx, warnings);
   if (first) add('wakeup', first.text, first.source);
 
-  const projects = selected ? [selected] : entity.list(ctx, 'project').filter((item) => item.data.status === 'active');
+  const projects = selected ? [selected] : entity.list(ctx, 'project').filter((item) => (item.data.status ?? 'active') === 'active');
   add('projects', bullets(projects.map((item) => `${line(item.title)} (${item.data.status ?? 'active'}) ${item.id ?? item.path}`)));
 
   const cards = listCards(ctx, { project: selected ? selected.id ?? selected.path : undefined });

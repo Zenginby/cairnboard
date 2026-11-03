@@ -139,6 +139,7 @@ test('context on the vault gives the wake-up, hubs and pending counts without to
   assert.ok(sections.get('wakeup').content.text.length > 0);
   assert.match(sections.get('pending').content.text, /unprocessed_lessons: [1-9]/u);
   assert.ok(sections.has('hubs'));
+  assert.match(sections.get('projects').content.text, /ornek-proje|Örnek/iu);
   assert.deepEqual(result.json.warnings, []);
   const human = await runCli(['context', '--data', data, '--preset', 'tr-wiki'], { home: tempDir(t), clock: fixedClock('2026-11-01T12:00:00Z') });
   assert.match(human.stdout, /^# wakeup \(wiki\/genel-bakis\.md\)\n/u);

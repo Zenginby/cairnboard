@@ -12,14 +12,14 @@ const clock = () => fixedClock('2026-11-01T12:00:00Z');
 const names = (pack) => pack.sections.map((section) => section.name);
 const text = (pack, name) => pack.sections.find((section) => section.name === name)?.content.text;
 
-function make(t, entries, { actor = null } = {}) {
+function make(t, entries, { actor = null, preset = 'default' } = {}) {
   const dir = tempDir(t);
   for (const [path, body] of Object.entries(entries)) {
     mkdirSync(dirname(join(dir, path)), { recursive: true });
     writeFileSync(join(dir, path), body);
   }
   const ctx = openContext({ mode: 'read', dataDir: dir, home: tempDir(t), env: {}, clock: clock(),
-    platform: process.platform, preset: 'default', actor });
+    platform: process.platform, preset, actor });
   return { dir, ctx };
 }
 
@@ -136,4 +136,10 @@ test('invalid budget is a validation error', async (t) => {
   const dir = tempDir(t);
   const cli = await runCli(['context', '--budget', 'x', '--data', dir, '--preset', 'default', '--json'], { home: dir, clock: clock() });
   assert.equal(cli.code, 5);
+});
+
+test('a project without a status field counts as active', (t) => {
+  const { ctx } = make(t, { 'wiki/projeler/yeni.md': '---\ntur: proje\n---\n# Yeni\n' }, { preset: 'tr-wiki' });
+  const pack = buildContext(ctx, {});
+  assert.match(text(pack, 'projects') ?? '', /Yeni/u);
 });
