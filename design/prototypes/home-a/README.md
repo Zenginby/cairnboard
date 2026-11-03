@@ -2,8 +2,6 @@
 
 The six-track dashboard follows the supplied reference's box structure, order and proportions, with Cairnboard's workspace, journal, project and note content. The grid is centered at `--space-content-max` (1080px), becomes two tracks at 64rem and one at 40rem.
 
-Owner change (2026-11-03): pinned notes are more prominent than in the reference. "Sabitlenenler" is a full-width box right under the hero and calendar row, one tile per pinned note (kind, project tone and name, date, title, three-line excerpt; the project tone draws the tile's top edge). On one column it comes straight after the hero.
-
 - Preview: `npm run design:serve`, then `http://127.0.0.1:4391/prototypes/home-a/`.
 - Precision: the former type, spacing, radius, material, shadow and timing approximations are replaced by the dedicated tokens and exact token arithmetic. Hero type reaches 72px/700, project titles 24px/700, statistics 28px/700 and panel titles 19px/650. Fractional values, calendar geometry and the seven-unit ring stroke retain the reference's values. Inter comes from the existing shared base import; no font files, declarations or links were added here.
 - Shell: identical local shell files to Board A, with 56px/68px upper rows, a 48px navigation row, 240px full search, exact indicator shadow and a 20px/180% material filter. Search contracts before it could cover tabs. The provided family/mode controls, sun/moon button and circular theme reveal remain unchanged.
