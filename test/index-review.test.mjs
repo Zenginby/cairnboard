@@ -60,12 +60,13 @@ test('one note with cyclic YAML does not break refresh or queries', (t) => {
   put(ctx, 'notes/a.md', '# A');
   put(ctx, 'notes/cycle.md', '---\nkind: &x [*x]\n---\n# Cycle');
   const result = refresh(ctx);
-  assert.ok(result.skipped.some((item) => item.path === 'notes/cycle.md'));
-  assert.deepEqual(rows(ctx).map((row) => row.path), ['notes/a.md']);
+  assert.deepEqual(result.skipped, []);
+  const indexed = () => rows({ ...ctx, warnings: [] }).map((row) => [row.path, row.error]);
+  assert.deepEqual(indexed(), [['notes/a.md', null], ['notes/cycle.md', 'invalid_frontmatter']]);
   fs.writeFileSync(ctx.indexPath, 'broken database');
   fs.__setFsHooks({ rename: () => { throw new Error('no replacement'); } });
   t.after(() => fs.__setFsHooks());
-  assert.deepEqual(rows({ ...ctx, warnings: [] }).map((row) => row.path), ['notes/a.md']);
+  assert.deepEqual(indexed(), [['notes/a.md', null], ['notes/cycle.md', 'invalid_frontmatter']]);
 });
 
 test('a context that was fresh notices a rebuilt cache', (t) => {
