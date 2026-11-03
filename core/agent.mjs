@@ -1,4 +1,4 @@
-import { dirname, join, resolve, win32 } from 'node:path';
+import { dirname, join, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
@@ -23,7 +23,7 @@ export function cliInvocation(root, platform = process.platform) {
   if (/[\r\n]/u.test(root) || (platform === 'win32' && /[%!$`^]/u.test(root))) {
     throw new CairnError('validation', 'The repository path contains characters that cannot be quoted safely; move the clone.');
   }
-  const path = platform === 'win32' ? win32.join(root, 'dist', 'cairn.mjs') : join(root, 'dist', 'cairn.mjs');
+  const path = (platform === 'win32' ? win32 : posix).join(root, 'dist', 'cairn.mjs');
   return `node "${platform === 'win32' ? path : path.replace(/["$`\\]/gu, '\\$&')}"`;
 }
 

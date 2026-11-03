@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadDenylist } from './denylist.mjs';
 import { annotatedTags, git, gitBuffer } from './git.mjs';
+import { GITHUB_COMMITTER } from './rules.mjs';
 import { fixtureLines, formatFindings, scanLines, scanText } from './scan.mjs';
 
 const allowlistPath = 'security/binary-allowlist.txt';
@@ -82,6 +83,7 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
       findings.push(...scanLines(text, fixtureLines(text), { file, terms, allowIdentities }));
       for (const line of [2, 4]) {
         const email = rest[line - 1]?.trim();
+        if (line === 4 && email === GITHUB_COMMITTER) continue;
         if (email !== undefined && !allowIdentities.includes(email)) findings.push({ file, line, rule: 'identity' });
       }
     }

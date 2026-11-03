@@ -156,6 +156,17 @@ test('ci-scan allows both public noreply identities and ignores structural hashe
   check(repo.scan(), 0);
 });
 
+test('ci-scan allows GitHub as committer of its web merges but never as author', (t) => {
+  const merged = repository(t);
+  merged.env.GIT_COMMITTER_EMAIL = 'noreply@github.com';
+  merged.commit();
+  check(merged.scan(), 0);
+  const authored = repository(t);
+  authored.env.GIT_AUTHOR_EMAIL = 'noreply@github.com';
+  authored.commit();
+  check(authored.scan(), 1, 'identity', []);
+});
+
 test('ci-scan does not follow tracked symlinks', { skip: process.platform === 'win32' }, (t) => {
   const repo = repository(t);
   symlinkSync('missing', join(repo.cwd, 'fixture.txt'));

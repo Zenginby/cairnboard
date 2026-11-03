@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { loadDenylist } from './denylist.mjs';
 import { annotatedTags, git, gitBuffer } from './git.mjs';
+import { GITHUB_COMMITTER } from './rules.mjs';
 import { fixtureLines, scanLines, scanText, formatFindings } from './scan.mjs';
 
 const ZERO = /^0+$/;
@@ -66,8 +67,10 @@ function outgoing(ctx, refLines, remote) {
     // Messages are indented (%w) so a message line can never pass for a diff header and unlock the fixture marker.
     findings.push(...scanLines(log, fixtureLines(log), { ...ctx, file }));
     const identities = git(['log', '--format=%ae%x00%ce%x00', '--no-patch', ...range]);
-    for (const [index, email] of identities.split('\0').slice(0, -1).entries()) {
-      if (!ctx.allowIdentities.includes(email.replace(/^\n/, ''))) findings.push({ file, line: index + 1, rule: 'identity' });
+    for (const [index, raw] of identities.split('\0').slice(0, -1).entries()) {
+      const email = raw.replace(/^\n/, '');
+      if (index % 2 === 1 && email === GITHUB_COMMITTER) continue;
+      if (!ctx.allowIdentities.includes(email)) findings.push({ file, line: index + 1, rule: 'identity' });
     }
     findings.push(...scanText(remoteRef, { ...ctx, file }));
     const names = git(['log', '--format=', '--name-only', '-z', '--diff-merges=first-parent', ...range]);

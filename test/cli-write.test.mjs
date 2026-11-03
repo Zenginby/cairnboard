@@ -316,7 +316,8 @@ test('body input is capped at 1 MB and bad body paths are validation errors', as
   fs.writeFileSync(join(f.cwd, 'big.md'), 'x'.repeat(1024 * 1024 + 1));
   fs.writeFileSync(join(f.cwd, 'file'), 'x');
   assert.equal((await f.run(['card', 'add', '--title', 'Acme', '--body-file', 'big.md'])).code, 5);
-  assert.equal((await f.run(['card', 'add', '--title', 'Acme', '--body-file', 'file/sub'])).code, 5);
+  // Windows reports a path under a regular file as missing (ENOENT), POSIX as not a directory.
+  assert.equal((await f.run(['card', 'add', '--title', 'Acme', '--body-file', 'file/sub'])).code, process.platform === 'win32' ? 3 : 5);
   assert.equal((await f.run(['card', 'add', '--title', 'Acme', '--body', '-'], { stdin: 'y'.repeat(1024 * 1024 + 1) })).code, 5);
   assert.equal((await f.run(['card', 'add', '--title=-1 bug'])).code, 0);
 });
