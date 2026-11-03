@@ -31,6 +31,11 @@ export async function readBody(opts, io) {
     }
   }
   if (opts.body === undefined) return undefined;
+  return readStdin(io);
+}
+
+// Standard input as text, at most 1 MB.
+export async function readStdin(io) {
   const chunks = [];
   let size = 0;
   for await (const chunk of io.stdin) {

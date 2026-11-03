@@ -24,7 +24,7 @@ export function requiredFields(schema, type, kind) {
   return fields;
 }
 
-const empty = (value) => value === undefined || value === null || value === '' || (Array.isArray(value) && !value.length);
+export const empty = (value) => value === undefined || value === null || value === '' || (Array.isArray(value) && !value.length);
 
 /**
  * Required fields a page lacks. `data` is canonical frontmatter; the title also counts when the body has a heading
@@ -43,4 +43,35 @@ export const filenameOk = (path) => FILENAME.test(basename(path));
 // `filename` is a house rule of the owner's template: informational there, off everywhere else.
 export function filenameDefault(schema) {
   return fingerprint(schema) === fingerprint(PRESETS['tr-wiki']) ? 'info' : 'off';
+}
+
+// The write rules of wiki spec §10 and the severities `config.rules` may set for them.
+export const RULE_NAMES = Object.freeze(['required', 'sources', 'links', 'filename']);
+export const RULE_SEVERITIES = Object.freeze(['error', 'warn', 'off']);
+
+export const SOURCE_HEADING = /^ {0,3}##[ \t]+(?:sources|kaynaklar)[ \t]*#*[ \t]*$/u;
+
+// A `## Sources` (`## Kaynaklar`) heading outside code fences.
+export function hasSourcesSection(body) {
+  let fence = null;
+  for (const line of body.split(/\r?\n/u)) {
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
+    if (fence) {
+      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+      continue;
+    }
+    if (marker && (marker[1][0] === '~' || !marker[2].includes('`'))) {
+      fence = marker[1];
+      continue;
+    }
+    if (SOURCE_HEADING.test(line.toLocaleLowerCase('tr'))) return true;
+  }
+  return false;
+}
+
+export const turkish = (ctx) => ctx.config?.language === 'tr' || fingerprint(ctx.schema) === fingerprint(PRESETS['tr-wiki']);
+
+/** Severity of one rule: `config.rules[name]`, else its default (§10). */
+export function ruleSeverity(ctx, name) {
+  return ctx.config?.rules?.[name] ?? (name === 'filename' ? filenameDefault(ctx.schema) : 'warn');
 }

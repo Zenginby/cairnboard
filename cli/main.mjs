@@ -57,8 +57,10 @@ export async function main(argv, io) {
     const code = known ? error.code : 'internal';
     const message = oneLine(clean(known ? error.message : 'An internal error occurred.'));
     const current = known ? error.details.current : undefined;
+    const rules = known ? error.details.rules : undefined;
     const envelope = { v: 1, ok: false, error: { code, message,
-      ...(current === undefined ? {} : { current: clean(current, opts) }) }, warnings: [...new Set(ctx?.warnings ?? [])] };
+      ...(current === undefined ? {} : { current: clean(current, opts) }),
+      ...(rules === undefined ? {} : { rules: clean(rules, opts) }) }, warnings: [...new Set(ctx?.warnings ?? [])] };
     if (json) io.stdout.write(`${JSON.stringify(envelope)}\n`);
     else io.stderr.write(`${code}: ${message}\n`);
     if (!known && io.env.CAIRN_DEBUG === '1') io.stderr.write(`${error?.stack ?? error}\n`);

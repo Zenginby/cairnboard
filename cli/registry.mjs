@@ -13,6 +13,10 @@ import { checkData } from '../core/doctor.mjs';
 import { wikiIndex, formatCatalog } from '../core/wiki.mjs';
 import { lint } from '../core/lint.mjs';
 import { LINT_CODES } from '../core/rules.mjs';
+import { checkPage } from '../core/check.mjs';
+import { readFile } from '../core/store.mjs';
+import { safeRelative } from '../core/paths.mjs';
+import { readStdin } from './body.mjs';
 
 /** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
@@ -145,6 +149,25 @@ read('wiki lint', 'Check wiki pages, links and sources.', [], {
   const counts = Object.fromEntries(['error', 'warn', 'info'].map((level) => [level, findings.filter((item) => item.severity === level).length]));
   return { data: { findings: clean(findings, opts), counts },
     exit: opts.strict && (counts.error || counts.warn) ? ERRORS.validation : 0 };
+});
+
+read('wiki check', 'Check a page or stdin draft against the write rules.', ['<path|->'], {
+  path: string('Target path of a draft read from stdin (decides classification and file name rule).'),
+}, async (ctx, [target], opts, io) => {
+  let path, text;
+  if (target === '-') {
+    if (opts.path === undefined) throw new CairnError('usage', 'A stdin draft needs --path.');
+    path = safeRelative(opts.path).replace(/\\/gu, '/');
+    text = await readStdin(io);
+  } else {
+    if (opts.path !== undefined) throw new CairnError('usage', '--path is only for a stdin draft.');
+    path = safeRelative(target).replace(/\\/gu, '/');
+    const file = readFile(ctx, path);
+    if (!file) throw new CairnError('not_found', 'Page was not found.');
+    text = file.text;
+  }
+  const { errors, warnings } = checkPage(ctx, { path, text });
+  return { data: clean({ errors, warnings }, opts), exit: errors.length ? ERRORS.validation : 0 };
 });
 
 read('journal list', 'List journal days or filtered entries.', [], {

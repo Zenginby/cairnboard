@@ -45,7 +45,7 @@ test('every fenced skill command succeeds with real fixtures and dry-run', async
   await run(['note', 'rm', note.id, '--actor', 'codex', '--json']);
   const trash = await run(['trash', 'list', '--json']);
   const values = { ...ids, '<date>': '2026-11-01', '<text>': 'x', '<query>': 'x', '<column>': 'doing', '<n>': '1',
-    '<path>': tempDir(t), '<actor>': 'codex', '<revision>': (await run(['card', 'show', ids['<card-id>'], '--json'])).revision,
+    '<path>': tempDir(t), '<target-path>': 'wiki/concepts/draft.md', '<actor>': 'codex', '<revision>': (await run(['card', 'show', ids['<card-id>'], '--json'])).revision,
     '<trash-id>': trash.items[0].trashId };
   const invocation = cliInvocation(join(home, 'Proje Notları'));
   const prefix = split(invocation);

@@ -3,7 +3,7 @@ import * as fs from './fsx.mjs';
 import { checkedPath, readChecked, realRoot } from './paths.mjs';
 import { CairnError } from './errors.mjs';
 import { resolveSchema } from './schema.mjs';
-import { LINT_CODES, SEVERITIES } from './rules.mjs';
+import { LINT_CODES, RULE_NAMES, RULE_SEVERITIES, SEVERITIES } from './rules.mjs';
 
 const version = 1;
 const invalid = () => new CairnError('validation', 'Invalid configuration.');
@@ -30,6 +30,13 @@ function validateLint(lint) {
   }
 }
 
+// `rules`: a severity (`error|warn|off`) per write rule (wiki spec §10).
+function validateRules(rules) {
+  if (rules === undefined) return;
+  if (!rules || typeof rules !== 'object' || Array.isArray(rules)) throw invalid();
+  for (const [key, value] of Object.entries(rules)) if (!RULE_NAMES.includes(key) || !RULE_SEVERITIES.includes(value)) throw invalid();
+}
+
 function validate(config) {
   if (!config || Array.isArray(config) || !Number.isInteger(config.formatVersion) || config.formatVersion < 0) throw invalid();
   if (config.formatVersion > version) throw new CairnError('format_too_new', 'Configuration requires a newer format.');
@@ -44,6 +51,7 @@ function validate(config) {
   }
   resolveSchema(config);
   validateLint(config.lint);
+  validateRules(config.rules);
   return config;
 }
 

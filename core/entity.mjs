@@ -11,6 +11,7 @@ import { ensureFresh, rows, findById } from './index.mjs';
 import { readFile, revision, write } from './store.mjs';
 import { retryWhileLocked, withLock } from './lock.mjs';
 import { keyBetween } from './position.mjs';
+import { assertRules, checkPage, ruleWarnings } from './check.mjs';
 
 /** @typedef {{ type: string, kind: string|null, id: string|null, ref: string, path: string,
  * revision: string, title: string, data: object, acceptance: { done: number, total: number }, warnings: string[] }} Summary */
@@ -181,9 +182,18 @@ export function create(ctx, type, fields, body = '', opts = {}) {
     if (fixed && readFile(ctx, path)) throw invalid('The page already exists.');
     const text = replaceBody(setFields('', physicalPatch(ctx.schema, {}, data)), body);
     const { body: ignored, ...entity } = fromText(ctx, type, path, text);
+    const warnings = enforce(ctx, type, path, text);
     const result = write(ctx, { ...opts, path, target: data.id, op: `${type}.create`, expectAbsent: true, apply: () => text });
-    return { ...result, entity };
+    return { ...result, warnings: [...result.warnings, ...warnings], entity };
   });
+}
+
+// Notes and research obey the write rules (wiki spec §10): an `error` rule refuses the write, a `warn` rule is reported.
+function enforce(ctx, type, path, text) {
+  if (type !== 'note' && type !== 'research') return [];
+  const { errors, warnings } = checkPage(ctx, { path, text, lenient: true });
+  assertRules(errors);
+  return ruleWarnings(warnings);
 }
 
 function writable(ctx, entity) {
@@ -204,7 +214,8 @@ export function update(ctx, type, ref, patch, opts = {}) {
   writable(ctx, entity);
   const { body, ...options } = opts;
   if (body !== undefined && typeof body !== 'string') throw invalid('Body must be text.');
-  return write(ctx, { ...options, path: entity.path, target: entity.ref, op: `${type}.update`, apply: (text) => {
+  let warnings = [];
+  const result = write(ctx, { ...options, path: entity.path, target: entity.ref, op: `${type}.update`, apply: (text) => {
     if (text === null) throw missing();
     const current = fromText(ctx, type, entity.path, text);
     writable(ctx, current);
@@ -218,8 +229,10 @@ export function update(ctx, type, ref, patch, opts = {}) {
     checkOverview(ctx, type, merged.kind, entity.path);
     let updated = setFields(text, physicalPatch(ctx.schema, file.data, changes));
     if (body !== undefined) updated = replaceBody(updated, body);
+    warnings = enforce(ctx, type, entity.path, updated);
     return updated;
   } });
+  return { ...result, warnings: [...result.warnings, ...warnings] };
 }
 
 export function remove(ctx, type, ref, opts = {}) {

@@ -574,6 +574,62 @@
       "dangerous": false
     },
     {
+      "name": "wiki check",
+      "summary": "Check a page or stdin draft against the write rules.",
+      "args": [
+        "<path|->"
+      ],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        },
+        "path": {
+          "type": "string",
+          "summary": "Target path of a draft read from stdin (decides classification and file name rule)."
+        }
+      },
+      "mode": "read",
+      "needsData": true,
+      "dangerous": false
+    },
+    {
       "name": "journal list",
       "summary": "List journal days or filtered entries.",
       "args": [],
