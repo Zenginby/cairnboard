@@ -1,0 +1,213 @@
+import { platform } from 'node:os';
+import { resolve } from 'node:path';
+import * as fs from '../../core/fsx.mjs';
+import * as entity from '../../core/entity.mjs';
+import * as card from '../../core/card.mjs';
+import * as journal from '../../core/journal.mjs';
+import * as trash from '../../core/trash.mjs';
+import { latestUndoable, undo } from '../../core/history.mjs';
+import { extract } from '../../core/extract.mjs';
+import { revision } from '../../core/store.mjs';
+import { acceptanceCounts } from '../../core/frontmatter.mjs';
+import { checkedPath, readChecked, realRoot } from '../../core/paths.mjs';
+import { findDataDir, initDataDir, findRepoRoot, writeProjectLink } from '../../core/roots.mjs';
+import { defaultConfig, loadConfig } from '../../core/config.mjs';
+import { PRESETS } from '../../core/presets.mjs';
+import { exportBoard } from '../../core/export.mjs';
+import { CairnError } from '../../core/errors.mjs';
+import { toJson } from '../output.mjs';
+import { readBody } from '../body.mjs';
+
+const mutationOptions = (opts) => ({ ifRevision: opts['if-revision'], dryRun: opts['dry-run'] === true });
+const environment = (io) => ({ home: io.env.HOME ?? io.env.USERPROFILE, env: io.env,
+  platform: platform(), clock: io.clock });
+
+function summary(ctx, item, opts, warnings) {
+  return toJson(item, { raw: opts.raw, maxBytes: opts['max-bytes'], columns: ctx.config.columns, warnings });
+}
+
+function mutation(ctx, changed, opts, preview) {
+  const warnings = [...(changed.warnings ?? [])];
+  let item = changed.entity ?? preview;
+  if (!changed.entity && !changed.dryRun && changed.revision !== null) {
+    const text = readChecked(ctx.root, changed.path, 'utf8');
+    if (text !== null) item = extract(ctx.schema, changed.path, text);
+  }
+  if (item?.type === 'card') warnings.push(...card.effectiveColumn(ctx.config, item).warnings);
+  const data = item ? summary(ctx, { ...item, revision: changed.revision }, opts, warnings)
+    : { path: changed.path, revision: changed.revision };
+  if (changed.items?.length > 1) data.items = changed.items;
+  return { data, warnings };
+}
+
+function patchFields(ctx, type, opts) {
+  const patch = {};
+  const names = {
+    title: 'title', project: 'project', status: 'status', tone: 'tone', alias: 'aliases', tag: 'tags',
+    column: 'column', priority: 'priority', kind: 'kind', pin: 'pinned', source: 'source',
+    'valid-from': 'valid_from', 'valid-until': 'valid_until', 'superseded-by': 'superseded_by', code: 'code',
+    date: 'date', 'source-date': 'sourceDate', processed: 'processed',
+  };
+  for (const [option, field] of Object.entries(names)) if (opts[option] !== undefined) patch[field] = opts[option];
+  if (patch.tone !== undefined) {
+    if (!/^[1-8]$/u.test(patch.tone)) throw new CairnError('validation', 'Invalid project tone.');
+    patch.tone = Number(patch.tone);
+  }
+  if (type === 'project') delete patch.project;
+  else if (patch.project !== undefined) {
+    const project = entity.resolve(ctx, 'project', patch.project);
+    patch.project = project.id ?? project.ref;
+  }
+  if (type === 'card' && patch.column !== undefined && !ctx.config.columns.some(({ key }) => key === patch.column)) {
+    throw new CairnError('validation', 'Unknown card column.');
+  }
+  return patch;
+}
+
+export function writeCommands({ string, boolean }) {
+  const commands = [];
+  const add = (name, summary, args, options, run, { mode = 'write', needsData = true, dangerous = false } = {}) => {
+    commands.push({ name, summary, args, options, mode, needsData, dangerous, run });
+  };
+  const bodyOptions = { body: string('Read body from stdin; accepts only -.'), 'body-file': string('Read body from a file relative to cwd.') };
+  const multiple = (summary) => ({ ...string(summary), multiple: true });
+  for (const type of ['project', 'card', 'note', 'research']) {
+    const options = { title: string('Set the title.'), ...bodyOptions,
+      ...(type === 'project' ? { status: string('Set active, paused or archived.'), tone: string('Set tone from 1 to 8.'),
+        alias: multiple('Add an alias; repeat for multiple aliases.') } : { tag: multiple('Set tags; repeat for multiple tags.') }),
+      ...(type === 'card' ? { column: string('Set the column key.'), priority: string('Set urgent, important or low.') } : {}),
+      ...(['note', 'research'].includes(type) ? { kind: string('Set the entity kind.'), source: string('Set the source.') } : {}),
+      ...(type === 'note' ? { pin: boolean('Pin the note.'), 'valid-from': string('Set the first valid date.'),
+        'valid-until': string('Set the last valid date.'), 'superseded-by': string('Set the replacement reference.'), code: string('Set the wiki code.') } : {}),
+      ...(type === 'research' ? { date: string('Set the research date.'), 'source-date': string('Set the source date.'),
+        processed: boolean('Mark as processed.') } : {}),
+    };
+    add(`${type} add`, `Create a ${type}.`, [], options, async (ctx, args, opts, io) => {
+      const body = await readBody(opts, io);
+      const fields = patchFields(ctx, type, opts);
+      const changed = type === 'card' ? card.addCard(ctx, fields, body ?? '', mutationOptions(opts))
+        : entity.create(ctx, type, fields, body ?? '', mutationOptions(opts));
+      return mutation(ctx, changed, opts);
+    });
+    add(`${type} update`, `Update a ${type}.`, ['<ref>'], options, async (ctx, [ref], opts, io) => {
+      const body = await readBody(opts, io), patch = patchFields(ctx, type, opts);
+      const before = entity.resolve(ctx, type, ref);
+      const changed = entity.update(ctx, type, ref, patch, { ...mutationOptions(opts), body });
+      return mutation(ctx, changed, opts, { ...before, title: patch.title ?? before.title,
+        data: { ...before.data, ...patch, updated: ctx.clock.now().toISOString() },
+        ...(body === undefined ? {} : { body, acceptance: acceptanceCounts(body) }) });
+    });
+    add(`${type} rm`, `Move a ${type} to trash.`, ['<ref>'], {}, (ctx, [ref], opts) => {
+      const before = entity.resolve(ctx, type, ref);
+      return mutation(ctx, entity.remove(ctx, type, ref, mutationOptions(opts)), opts, before);
+    }, { dangerous: type === 'project' });
+  }
+
+  add('card move', 'Move a card to a column and position.', ['<ref>', '[column]'], {
+    column: string('Set the target column key.'), before: string('Place before this card.'), after: string('Place after this card.'),
+  }, (ctx, [ref, column], opts) => {
+    if (column !== undefined && opts.column !== undefined) throw new CairnError('usage', 'Specify the column once.');
+    return mutation(ctx, card.moveCard(ctx, ref, { column: column ?? opts.column, before: opts.before, after: opts.after }, mutationOptions(opts)), opts);
+  });
+  add('card claim', 'Claim a card or renew its lease.', ['<ref>'], {
+    renew: boolean('Renew your current lease.'), steal: boolean('Take an unexpired claim with confirmation.'),
+  }, (ctx, [ref], opts) => mutation(ctx, card.claimCard(ctx, ref, { renew: opts.renew, steal: opts.steal }, mutationOptions(opts)), opts),
+  { dangerous: { option: 'steal' } });
+  for (const [name, fn] of [['release', card.releaseCard], ['done', card.doneCard]]) {
+    add(`card ${name}`, `${name === 'release' ? 'Release' : 'Complete'} a card.`, ['<ref>'], {},
+      (ctx, [ref], opts) => mutation(ctx, fn(ctx, ref, mutationOptions(opts)), opts));
+  }
+  add('card comment', 'Append a card comment.', ['<ref>', '[text]'], bodyOptions, async (ctx, [ref, text], opts, io) => {
+    if (text !== undefined && (opts.body !== undefined || opts['body-file'] !== undefined)) throw new CairnError('usage', 'Specify comment text once.');
+    return mutation(ctx, card.commentCard(ctx, ref, (await readBody(opts, io)) ?? text, mutationOptions(opts)), opts);
+  });
+  add('card check', 'Check or uncheck an acceptance item.', ['<ref>', '<n>'], { uncheck: boolean('Uncheck the item.') }, (ctx, [ref, n], opts) => {
+    if (!/^[1-9]\d*$/u.test(n) || !Number.isSafeInteger(Number(n))) throw new CairnError('usage', 'Acceptance item must be a positive integer.');
+    return mutation(ctx, card.checkCard(ctx, ref, Number(n), { uncheck: opts.uncheck }, mutationOptions(opts)), opts);
+  });
+  add('journal add', 'Append a journal job with ordered items.', [], {
+    title: string('Set the job title.'), label: string('Set the job label.'), date: string('Use YYYY-MM-DD; defaults to today.'),
+    ...Object.fromEntries(['decision', 'discovery', 'pitfall', 'lesson', 'item'].map((type) => [type, multiple(`Append a ${type}; repeat as needed.`)])),
+  }, (ctx, args, opts) => {
+    const date = opts.date ?? entity.localDate(ctx);
+    const changed = journal.addEntry(ctx, { title: opts.title, label: opts.label, date, entries: opts.entries }, mutationOptions(opts));
+    return mutation(ctx, changed, opts, { type: 'journal', path: changed.path,
+      ref: `@${changed.path.slice(0, -3)}`, title: date, data: { date } });
+  });
+
+  add('trash restore', 'Restore a trash item.', ['<id>'], {}, (ctx, [id], opts) => {
+    const changed = trash.restore(ctx, id, mutationOptions(opts));
+    const text = readChecked(ctx.root, `.cairn/trash/${id}`, 'utf8');
+    return mutation(ctx, changed, opts, text === null ? undefined : extract(ctx.schema, changed.path, text));
+  });
+  add('undo', 'Undo the latest operation.', [], {}, (ctx, args, opts) => {
+    const record = latestUndoable(ctx);
+    const before = record && readChecked(ctx.root, record.path, 'utf8');
+    const changed = undo(ctx, { dryRun: opts['dry-run'] === true });
+    const items = (record.items ?? [record]).map((item) => {
+      const text = item.before === null ? null : item.beforeBytes ? Buffer.from(item.beforeBytes, 'base64').toString('utf8') : item.before;
+      return { path: item.path, revision: item.before === null ? null : revision(item.beforeBytes ? Buffer.from(item.beforeBytes, 'base64') : item.before), text };
+    });
+    const first = items[0];
+    return mutation(ctx, { ...changed, items: items.map(({ text, ...item }) => item) }, opts,
+      (first.text ?? before) === null ? undefined : extract(ctx.schema, first.path, first.text ?? before));
+  });
+  add('init', 'Initialize a data directory.', ['[path]'], {
+    language: string('Use tr or en (default: en).'), preset: string('Use default or tr-wiki (default: default).'),
+  }, (ctx, [path], opts, io) => {
+    const settings = environment(io);
+    const root = resolve(io.cwd, path ?? findDataDir({ ...settings,
+      flag: opts.data && resolve(io.cwd, opts.data), env: { ...io.env,
+        ...(io.env.CAIRN_DATA ? { CAIRN_DATA: resolve(io.cwd, io.env.CAIRN_DATA) } : {}) } }).path);
+    const config = defaultConfig(opts.language ?? 'en');
+    if (!Object.hasOwn(PRESETS, opts.preset ?? 'default')) throw new CairnError('validation', 'Invalid preset.');
+    if (opts.preset === 'tr-wiki') config.schema = structuredClone(PRESETS['tr-wiki']);
+    let loaded, current = null;
+    try {
+      if (fs.existsSync(root)) current = readChecked(realRoot(root), '.cairn/config.json');
+    } catch (error) {
+      if (error instanceof CairnError) throw error;
+      throw new CairnError('validation', 'Invalid data directory.');
+    }
+    if (opts['if-revision'] !== undefined && opts['if-revision'] !== (current === null ? null : revision(current))) {
+      throw new CairnError('conflict', 'Configuration has changed.', { current: { revision: current === null ? null : revision(current) } });
+    }
+    if (opts['dry-run']) {
+      // Validate existing config without running initialization or writing discovery state.
+      loaded = current === null ? config : loadConfig(realRoot(root));
+    } else loaded = initDataDir(root, { ...settings, language: opts.language, preset: opts.preset });
+    return { data: { path: root, config: loaded, revision: revision(current ?? JSON.stringify(loaded, null, 2) + '\n') } };
+  }, { needsData: false });
+  add('link', 'Link a git repository to a project.', ['<project>'], { gitignore: boolean('Ignore the project link in git.') }, (ctx, [ref], opts, io) => {
+    const root = findRepoRoot(io.cwd);
+    if (!root || !fs.lstatSync(checkedPath(realRoot(root), '.git'), { throwIfNoEntry: false })) throw new CairnError('validation', 'A git repository is required.');
+    const project = entity.resolve(ctx, 'project', ref);
+    if (project.id === null) throw new CairnError('validation', 'The project needs an id before linking.');
+    const text = `project = ${project.id}\n`;
+    if (fs.lstatSync(checkedPath(realRoot(root), '.cairn'), { throwIfNoEntry: false })?.isDirectory()) {
+      throw new CairnError('validation', 'A data directory cannot be a project link.');
+    }
+    const before = readChecked(realRoot(root), '.cairn', 'utf8');
+    if (opts['if-revision'] !== undefined && opts['if-revision'] !== (before === null ? null : revision(before))) {
+      throw new CairnError('conflict', 'Project link has changed.', { current: { revision: before === null ? null : revision(before) } });
+    }
+    const ignore = opts.gitignore ? readChecked(realRoot(root), '.gitignore', 'utf8') ?? '' : null;
+    if (!opts['dry-run']) {
+      writeProjectLink(root, project.id);
+      if (ignore !== null && !ignore.split(/\r?\n/u).includes('.cairn')) {
+        fs.writeFileAtomic(checkedPath(realRoot(root), '.gitignore'), `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}.cairn\n`, () => {
+          if ((readChecked(realRoot(root), '.gitignore', 'utf8') ?? '') !== ignore) throw new CairnError('conflict', 'Git ignore file has changed.');
+        });
+      }
+    }
+    return { data: { ...summary(ctx, project, opts, []), revision: revision(text) } };
+  }, { dangerous: true });
+  add('export board', 'Export the derived Obsidian board.', [], { stdout: boolean('Return board text instead of writing board.md.') }, (ctx, args, opts) => {
+    const text = exportBoard(ctx);
+    if (opts.stdout) return { data: text };
+    const path = checkedPath(ctx.root, 'board.md');
+    if (!opts['dry-run']) fs.writeFileAtomic(path, text);
+    return { data: { path: 'board.md', revision: revision(text) } };
+  }, { mode: 'read' });
+  return commands;
+}
