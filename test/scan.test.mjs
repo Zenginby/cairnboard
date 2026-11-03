@@ -143,6 +143,15 @@ test('a diff marker before a repository path is not part of a token', () => {
   assert.deepEqual(scanText('+AbCdEf0123_GhIjKl4567-MnOpQr89StUvWx', { file: 'x' }).map((f) => f.rule), ['token']); // gitleaks:allow (fake test token) cairn-scan:allow-fixture
 });
 
+test('home paths count only from the root, not as a relative segment', () => {
+  for (const line of ['design/prototypes/home/README.md', 'arrow/Home/End keys', 'docs/users/guide.md']) {
+    assert.deepEqual(scanText(line, { file: 'x' }), [], line);
+  }
+  for (const line of ['/home/acme/x', 'file:///home/acme/x', "cd '/Users/acme'", 'x=/Volumes/acme/y', '(/home/acme)']) { // cairn-scan:allow-fixture
+    assert.deepEqual(scanText(line, { file: 'x' }).map((f) => f.rule), ['home-path'], line);
+  }
+});
+
 test('quoted allowed addresses stay allowed', () => {
   for (const line of ["'noreply@anthropic.com'", '"x@example.com"', '`1+zorblax@users.noreply.github.com`']) {
     assert.deepEqual(scanText(line, { file: 'x' }), [], line);

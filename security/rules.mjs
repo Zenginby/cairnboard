@@ -25,7 +25,9 @@ export const RULES = {
       && address !== '127.0.0.1' && address !== '0.0.0.0');
   },
   'home-path'(line) {
-    const paths = line.matchAll(/(?:\/(?:users|home|volumes)\/+|[a-z]:(?:\\+|\/)users(?:\\+|\/))([^/\\\s"'<>:]+)/gi);
+    // Only a path that starts at the root counts: a relative segment such as design/home/ or the key list
+    // "arrow/Home/End" is not a home folder.
+    const paths = line.matchAll(/(?:(?<![\w.-])\/(?:users|home|volumes)\/+|[a-z]:(?:\\+|\/)users(?:\\+|\/))([^/\\\s"'<>:]+)/gi);
     return [...paths].some(([, user]) => !placeholderUsers.has(user.toLowerCase()));
   },
   // Long base64/base64url/hex runs. Integrity hashes (sha1-/sha256-/sha384-/sha512-) are skipped per match,
