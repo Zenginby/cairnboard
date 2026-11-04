@@ -1,0 +1,37 @@
+{
+  "now": "2026-11-04T10:30:00",
+  "machines": [
+    { "id": "desktop", "name": "Masaüstü", "tone": 4, "lastScan": "2026-11-04T09:40:00" },
+    { "id": "laptop", "name": "Dizüstü", "tone": 5, "lastScan": "2026-11-02T18:15:00" }
+  ],
+  "partial": { "machine": "laptop", "reason": "Skill klasörü açılamadı: izin verilmedi." },
+  "kinds": [
+    { "id": "agent", "label": "Ajan", "tone": 1 },
+    { "id": "skill", "label": "Skill", "tone": 2 },
+    { "id": "plugin", "label": "Eklenti", "tone": 3 },
+    { "id": "mcp", "label": "MCP sunucusu", "tone": 4 }
+  ],
+  "tools": [
+    { "id": "claude", "kind": "agent", "name": "claude", "description": "Kod yazan ve not tutan komut satırı ajanı.", "machines": ["desktop", "laptop"], "usage": { "lastUsed": "2026-11-04T08:50:00", "count": 318 }, "skill": { "desktop": "current", "laptop": "outdated" } },
+    { "id": "codex", "kind": "agent", "name": "codex", "description": "Kod incelemesi ve test yazımı için ikinci ajan.", "machines": ["desktop", "laptop"], "usage": { "lastUsed": "2026-11-01T14:05:00", "count": 42 }, "skill": { "desktop": "current", "laptop": "missing" } },
+    { "id": "gemini", "kind": "agent", "name": "gemini", "description": "Uzun belgeleri özetleyen ajan.", "machines": ["desktop"], "usage": null, "skill": { "desktop": "missing" } },
+    { "id": "ruzgar", "kind": "agent", "name": "ruzgar", "description": "Toplu dosya işleri için hafif ajan.", "machines": ["laptop"], "usage": { "lastUsed": "2026-09-20T17:30:00", "count": 6 }, "skill": { "laptop": "outdated" } },
+    { "id": "kaynakca-denetle", "kind": "skill", "name": "kaynakca-denetle", "description": "Alıntı ve kaynakça biçimini kontrol eder.", "machines": ["desktop", "laptop"], "usage": { "lastUsed": "2026-11-01T11:20:00", "count": 27 } },
+    { "id": "toplanti-ozeti", "kind": "skill", "name": "toplanti-ozeti", "description": "Toplantı notlarından karar ve görev çıkarır.", "machines": ["desktop"], "usage": { "lastUsed": "2026-11-03T16:45:00", "count": 64 } },
+    { "id": "tablo-temizle", "kind": "skill", "name": "tablo-temizle", "description": "CSV dosyalarındaki boş ve yinelenen satırları ayıklar.", "machines": ["desktop", "laptop"], "usage": { "lastUsed": "2026-10-12T09:10:00", "count": 9 } },
+    { "id": "sunum-duzenle", "kind": "skill", "name": "sunum-duzenle", "description": "Slayt taslaklarını başlık yapısına göre düzenler.", "machines": ["laptop"], "usage": null },
+    { "id": "ceviri-kontrol", "kind": "skill", "name": "ceviri-kontrol", "description": "Türkçe-İngilizce çevirilerde terim tutarlılığına bakar.", "machines": ["desktop"], "usage": { "lastUsed": "2026-10-30T13:00:00", "count": 15 } },
+    { "id": "surum-notu-yaz", "kind": "skill", "name": "surum-notu-yaz", "description": "Değişiklik listesinden sürüm notu taslağı üretir.", "machines": ["desktop", "laptop"], "usage": null },
+    { "id": "tema-gozlemci", "kind": "plugin", "name": "tema-gozlemci", "description": "Açık ve koyu görünüm arasındaki geçişi izler.", "machines": ["desktop"], "usage": { "lastUsed": "2026-11-04T09:05:00", "count": 112 } },
+    { "id": "sozluk-eklentisi", "kind": "plugin", "name": "sozluk-eklentisi", "description": "Seçili sözcüğün anlamını yan panelde gösterir.", "machines": ["desktop", "laptop"], "usage": { "lastUsed": "2026-10-27T19:40:00", "count": 31 } },
+    { "id": "takvim-koprusu", "kind": "plugin", "name": "takvim-koprusu", "description": "Günlük kayıtlarını takvim etkinliklerine bağlar.", "machines": ["laptop"], "usage": null },
+    { "id": "dosya-sunucusu", "kind": "mcp", "name": "dosya-sunucusu", "description": "Proje klasöründeki dosyaları ajanlara salt okunur açar.", "machines": ["desktop", "laptop"], "usage": { "lastUsed": "2026-11-03T10:15:00", "count": 203 } },
+    { "id": "arama-mcp", "kind": "mcp", "name": "arama-mcp", "description": "Yerel notlarda tam metin arama yapar.", "machines": ["desktop"], "usage": { "lastUsed": "2026-11-02T21:30:00", "count": 58 } },
+    { "id": "veritabani-mcp", "kind": "mcp", "name": "veritabani-mcp", "description": "Yerel SQLite dosyalarını sorgular.", "machines": ["desktop", "laptop"], "usage": null },
+    { "id": "takvim-mcp", "kind": "mcp", "name": "takvim-mcp", "description": "Takvim etkinliklerini okur.", "machines": ["laptop"], "usage": { "lastUsed": "2026-08-15T12:00:00", "count": 3 } }
+  ],
+  "longText": {
+    "name": "uzun-adli-bir-skill-icin-cok-uzun-bir-klasor-adi-ve-surum-etiketi-2026-11",
+    "description": "Bu açıklama, satır sonlarının ve taşmanın nasıl davrandığını görmek için bilerek çok uzun tutuldu: iki makinedeki skill klasörlerini, oturum kayıtlarını ve kurulu sürümleri tek tek karşılaştırır."
+  }
+}
