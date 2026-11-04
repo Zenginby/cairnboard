@@ -9,3 +9,6 @@ coverage/
 test-results/
 playwright-report/
 design/check-report.json
+
+# Private reference notes derived from the owner's own UI; never published.
+.ref/
