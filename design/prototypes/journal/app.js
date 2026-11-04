@@ -1,4 +1,4 @@
-import { startDocument, el, button, field, link, projectChip } from '../_shared/doc-frame.js';
+import { startDocument, el, button, field, link, projectChip, journalGroups } from '../_shared/doc-frame.js';
 
 let month = new Date(2026, 10, 1);
 let selected = '';
@@ -31,8 +31,7 @@ startDocument({
   reset() { selected = ''; },
   reload(ctx) { ctx.data.journal[0].body += ' Tarihi takvimden doğruladım.'; },
   sidebar(ctx) {
-    const dates = [...new Set([...ctx.data.dashboard.journalDays, ...ctx.data.journal.map((entry) => entry.date)])].sort().reverse();
-    return { groups: [...new Set(dates.map((value) => value.slice(0, 7)))].map((value) => ({ title: new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(new Date(`${value}-01T12:00:00`)), entries: [{ title: 'Ay görünümü', href: `../journal/?month=${value}`, current: dateKey(1).startsWith(value) }, ...dates.filter((date) => date.startsWith(value)).map((date) => ({ title: date, href: `../journal-day/?date=${date}` }))] })) };
+    return { groups: journalGroups(ctx, { month: dateKey(1).slice(0, 7) }) };
   },
   prepare(ctx) {
     const query = new URLSearchParams(location.search).get('month');

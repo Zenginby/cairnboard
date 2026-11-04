@@ -1,1 +1,3 @@
 .workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--space-xl) + var(--space-md) * 2); }
+/* "Notu ekle" stays in reach: the toolbar sticks under the top bar while the list scrolls beneath it. */
+.notes-toolbar { position: sticky; top: var(--header-height); z-index: 5; margin-inline: calc(-1 * var(--space-sm)); padding: var(--space-sm); border-bottom: var(--space-hairline) solid var(--color-line); background: var(--color-surface); }

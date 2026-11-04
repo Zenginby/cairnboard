@@ -99,6 +99,21 @@ export function renderMarkdown(text, notes = []) {
   }
   return root;
 }
+// The journal sidebar lists only days that really have entries, newest first, grouped by month, named the way
+// people say them ("3 Kasım, Salı"). `day` marks the open day page; `month` marks the month view (YYYY-MM).
+export function journalGroups(ctx, { day = '', month = '' } = {}) {
+  const dates = [...new Set(ctx.data.journal.filter((entry) => entry.body?.trim()).map((entry) => entry.date))].sort().reverse();
+  const name = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
+  const monthName = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' });
+  const viewMonth = month || (day || dates[0] || '').slice(0, 7);
+  return [
+    { title: 'Günlük', entries: [{ title: 'Ay görünümü', href: `../journal/${viewMonth ? `?month=${viewMonth}` : ''}`, current: Boolean(month) && !day }] },
+    ...[...new Set(dates.map((value) => value.slice(0, 7)))].map((value) => ({
+      title: monthName.format(new Date(`${value}-01T12:00:00`)),
+      entries: dates.filter((date) => date.startsWith(value)).map((date) => ({ title: name.format(new Date(`${date}T12:00:00`)), href: `../journal-day/?date=${date}`, current: date === day })),
+    })),
+  ];
+}
 export function noteGroups(ctx, research = false) {
   const notes = ctx.data.notes.filter((record) => !record.trashed && (research ? record.kind === 'research' : record.kind !== 'research'));
   const entries = (records) => records.map((record) => ({ title: ctx.text(record.title), href: recordHref(record), current: record.id === ctx.record?.id }));

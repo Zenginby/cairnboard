@@ -12,7 +12,7 @@ startDocument({
   created: (ctx, kind) => { if (kind === 'note') ctx.toast('Not eklendi. Bu oturumdaki listede görünüyor.'); },
   render(ctx) {
     ctx.header('Notlar', 'notes/', () => ctx.data.notes.filter((record) => record.kind !== 'research').map((record) => `## ${record.title}\n\n${record.body}`).join('\n\n'));
-    const toolbar = el('div', 'row doc-toolbar');
+    const toolbar = el('div', 'row doc-toolbar notes-toolbar');
     const create = button('Notu ekle', () => add(ctx), 'button button--primary');
     create.disabled = ctx.state === 'locked';
     toolbar.append(create);
