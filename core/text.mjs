@@ -75,3 +75,40 @@ export function oneLine(s) {
   if (typeof s !== 'string') return '';
   return s.replace(/\r\n|[\t\r\n\u0085\u2028\u2029]/g, ' ');
 }
+
+const SUMMARY_MAX = 200;
+const heading = (line) => /^ {0,3}#{1,6}(?:[ \t]|$)/u.test(line);
+
+// `[[name|label]]` reads as its label (or name) so a catalog line never turns into a link of its own.
+function plain(text) {
+  return text.replace(/\[\[([^[\]\n]+)\]\]/gu, (match, inner) => {
+    const [target, ...label] = inner.split('|');
+    return label.length ? label.join('|').trim() : target.split('#')[0].trim().replace(/\.md$/iu, '');
+  });
+}
+
+// First sentence of the first paragraph after the title: headings, code fences and blank lines are skipped.
+export function firstSentence(body) {
+  let fence = null;
+  const paragraph = [];
+  for (const line of body.split(/\r?\n/u)) {
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
+    if (fence) {
+      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+      continue;
+    }
+    if (marker && (marker[1][0] === '~' || !marker[2].includes('`'))) {
+      if (paragraph.length) break;
+      fence = marker[1];
+      continue;
+    }
+    if (!line.trim() || heading(line)) {
+      if (paragraph.length) break;
+      continue;
+    }
+    paragraph.push(line.trim());
+  }
+  const text = stripHidden(plain(paragraph.join(' '))).text.replace(/\s+/gu, ' ').trim();
+  const end = text.search(/[.!?](?:\s|$)/u);
+  return (end < 0 ? text : text.slice(0, end + 1)).slice(0, SUMMARY_MAX).trim();
+}

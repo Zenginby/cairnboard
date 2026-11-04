@@ -193,6 +193,10 @@ affected pages, and defer deeper synthesis until needed. Keep raw sources unchan
 and dated updates in wiki pages. Cite sources for claims, preserve contradictions with `> [!WARNING]`,
 and retain former values using dated strike-through or `valid_from` / `valid_until` and `superseded_by`.
 
+`note add` and `note update` accept `--pin` or `--unpin` (mutually exclusive). Both note and
+research add/update accept `--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` and
+`--superseded-by <ref>` for validity and replacement metadata.
+
 Once the summary and directly affected pages are saved, read the research record's latest revision
 with `research show <research-id>` and mark it processed. Replace the placeholders with that record's
 ID (or path selector) and revision; the summary update changes the revision returned by ingest.
@@ -445,6 +449,10 @@ güncelleyin; ayrıntılı sentezi ihtiyaç doğana bırakın. Ham kaynakları d
 tarihli güncellemeleri wiki sayfasına yazın. İddiaları kaynağa dayandırın, çelişkileri `> [!WARNING]`
 ile koruyun; değişen bilgide önceki değeri tarihli üstü çizili metinle ya da `valid_from` / `valid_until`
 ve `superseded_by` alanlarıyla saklayın.
+
+`note add` ve `note update`, birlikte kullanılamayan `--pin` ve `--unpin` seçeneklerini destekler.
+Not ve araştırma ekleme/güncelleme komutları geçerlilik ve yerine geçen kayıt için
+`--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` ve `--superseded-by <ref>` kabul eder.
 
 Özet ve doğrudan etkilenen sayfalar kaydedilince `research show <research-id>` ile araştırmanın güncel
 revision değerini okuyup işlenmiş olarak işaretleyin. Yer tutucular yerine kaydın kimliğini (ya da yol

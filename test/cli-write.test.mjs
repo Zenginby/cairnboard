@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import * as fs from '../core/fsx.mjs';
@@ -352,4 +353,74 @@ test('review focus 4: hostile card titles stay inside the card folder and never 
     assert.ok(fs.existsSync(join(f.data, path)));
   }
   assert.equal(paths[0], 'cards/untitled.md');
+});
+
+test('card and note metadata updates reject invalid UTF-8 without changing bytes', async (t) => {
+  const f = fixture(t);
+  for (const type of ['card', 'note']) {
+    const path = `${type}s/acme.md`, absolute = join(f.data, path);
+    f.put(path, Buffer.concat([Buffer.from('# Acme\n'), Buffer.from([0xff, 0xff]), Buffer.from('\n')]));
+    const sha = () => createHash('sha256').update(fs.readFileSync(absolute)).digest('hex');
+    const before = sha();
+    for (const flags of [[], ['--dry-run']]) {
+      const response = await f.run([type, 'update', `@${type}s/acme`, '--title', 'Changed', ...flags]);
+      assert.equal(response.code, 5, response.stdout);
+      assert.equal(response.json.error.code, 'bad_encoding');
+      assert.match(response.json.error.message, /convert.*UTF-8/iu);
+      assert.equal(sha(), before);
+    }
+  }
+  assert.deepEqual(fs.readdirSync(join(f.data, '.cairn/history')), []);
+  assert.deepEqual(fs.readdirSync(join(f.data, '.cairn/pending')), []);
+});
+
+test('notes can be pinned and unpinned, but conflicting flags are usage errors', async (t) => {
+  const f = fixture(t);
+  const added = await f.run(['note', 'add', '--title', 'Acme', '--pin']);
+  assert.equal(added.code, 0, added.stdout);
+  assert.equal(added.json.data.meta.pinned, true);
+  const ref = added.json.data.ref;
+  const unpinned = await f.run(['note', 'update', ref, '--unpin']);
+  assert.equal(unpinned.code, 0, unpinned.stdout);
+  assert.equal(unpinned.json.data.meta.pinned, false);
+  assert.equal((await f.run(['note', 'update', ref, '--pin'])).json.data.meta.pinned, true);
+  assert.equal((await f.run(['note', 'add', '--title', 'Other', '--unpin'])).json.data.meta.pinned, false);
+  for (const args of [['add', '--title', 'Other'], ['update', ref]]) {
+    const before = tree(f.data);
+    const bad = await f.run(['note', ...args, '--pin', '--unpin']);
+    assert.equal(bad.code, 2, bad.stdout);
+    assert.equal(bad.json.error.code, 'usage');
+    assert.deepEqual(tree(f.data), before);
+  }
+});
+
+test('research validity fields survive add and update and are used by lint', async (t) => {
+  const f = fixture(t);
+  const fields = ['--valid-from', '2026-01-01', '--valid-until', '2026-10-01', '--superseded-by', '[[missing]]'];
+  const added = await f.run(['research', 'add', '--title', 'Acme', ...fields]);
+  assert.equal(added.code, 0, added.stdout);
+  const ref = added.json.data.ref, path = added.json.data.path;
+  const lint = async () => {
+    const response = await f.run(['wiki', 'lint', '--only', 'expired,superseded_missing,invalid_validity']);
+    assert.equal(response.code, 0, response.stdout);
+    return response.json.data.findings.filter((item) => item.path === path).map((item) => item.code).sort();
+  };
+  assert.equal(added.json.data.meta.valid_from, '2026-01-01');
+  assert.equal(added.json.data.meta.valid_until, '2026-10-01');
+  assert.equal(added.json.data.content.superseded_by, '[[missing]]');
+  assert.deepEqual(await lint(), ['expired', 'superseded_missing']);
+  const updated = await f.run(['research', 'update', ref, '--valid-from', '2027-01-01',
+    '--valid-until', '2026-12-01', '--superseded-by', '[[acme]]']);
+  assert.equal(updated.code, 0, updated.stdout);
+  assert.equal(updated.json.data.meta.valid_from, '2027-01-01');
+  assert.equal(updated.json.data.meta.valid_until, '2026-12-01');
+  assert.equal(updated.json.data.content.superseded_by, '[[acme]]');
+  assert.deepEqual(await lint(), ['invalid_validity']);
+  for (const command of [['research', 'add', '--title', 'Other'], ['research', 'update', ref]]) {
+    for (const option of ['--valid-from', '--valid-until']) {
+      const bad = await f.run([...command, option, '2026-02-30']);
+      assert.equal(bad.code, 5, bad.stdout);
+      assert.equal(bad.json.error.code, 'validation');
+    }
+  }
 });

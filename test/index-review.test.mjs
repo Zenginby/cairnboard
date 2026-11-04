@@ -91,3 +91,50 @@ test('broken frontmatter links survive indexing, and outlinks keep the exact tar
   assert.equal(link.targetName, 'a`x`');
   assert.equal(link.target_path, 'notes/a`x`.md');
 });
+
+test('unreadable pages and raw sources are skipped on refresh and fallback', {
+  skip: process.platform === 'win32' || process.getuid?.() === 0,
+}, (t) => {
+  const ctx = setup(t);
+  put(ctx, 'notes/acme.md', '# Acme\nsearchable');
+  put(ctx, 'notes/good.md', '# Good');
+  put(ctx, 'raw/acme.txt', 'searchable');
+  refresh(ctx);
+  const paths = ['notes/acme.md', 'raw/acme.txt'];
+  for (const path of paths) fs.chmodSync(join(ctx.root, path), 0);
+  t.after(() => { for (const path of paths) if (fs.existsSync(join(ctx.root, path))) fs.chmodSync(join(ctx.root, path), 0o600); });
+  const result = refresh(ctx);
+  assert.deepEqual(result.skipped, paths.map((path) => ({ path, reason: 'unreadable' })));
+  assert.ok(ctx.warnings.includes('unreadable'));
+  assert.deepEqual(rows(ctx).map((item) => item.path), ['notes/good.md']);
+  assert.deepEqual(search(ctx, 'searchable'), []);
+  assert.deepEqual(search(ctx, 'searchable', { type: 'raw' }), []);
+  const blocker = new DatabaseSync(ctx.indexPath);
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
+  blocker.exec('BEGIN IMMEDIATE');
+  const fallback = { ...ctx, warnings: [] };
+  assert.deepEqual(rows(fallback).map((item) => item.path), ['notes/good.md']);
+  assert.deepEqual(search(fallback, 'searchable', { type: 'raw' }), []);
+  assert.ok(fallback.warnings.includes('unreadable'));
+  assert.ok(fallback.warnings.includes('index_unavailable'));
+  blocker.exec('ROLLBACK');
+  blocker.close();
+});
+
+test('per-file read errors do not hide healthy pages or unexpected failures', (t) => {
+  const ctx = setup(t);
+  put(ctx, 'notes/acme.md', '# Acme');
+  put(ctx, 'notes/good.md', '# Good');
+  t.after(() => fs.__setFsHooks());
+  for (const code of ['EACCES', 'EPERM', 'EISDIR', 'ELOOP']) {
+    fs.__setFsHooks({ afterCheck: (path) => {
+      if (path === join(ctx.root, 'notes/acme.md')) throw Object.assign(new Error('Unreadable file.'), { code });
+    } });
+    assert.deepEqual(refresh(ctx, { verify: true }).skipped, [{ path: 'notes/acme.md', reason: 'unreadable' }]);
+    assert.deepEqual(rows(ctx).map((item) => item.path), ['notes/good.md']);
+  }
+  fs.__setFsHooks({ afterCheck: (path) => {
+    if (path === join(ctx.root, 'notes/acme.md')) throw Object.assign(new Error('Unexpected failure.'), { code: 'EIO' });
+  } });
+  assert.throws(() => refresh(ctx, { verify: true }), { code: 'EIO' });
+});

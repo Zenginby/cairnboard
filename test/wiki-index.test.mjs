@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { openContext } from '../core/context.mjs';
+import { __setFsHooks } from '../core/fsx.mjs';
 import { outlinks } from '../core/index.mjs';
 import { wikiIndex, formatCatalog } from '../core/wiki.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
@@ -159,4 +160,18 @@ test('link resolution matches file names only (NFC, case-insensitive) and never 
     ['[[yok]]', 'unresolved', null],
   ]);
   assert.deepEqual(links.find((link) => link.status === 'ambiguous').candidates, ['wiki/a/Dup.md', 'wiki/b/dup.md']);
+});
+
+test('warm wiki index commands keep their output without reading page files', async (t) => {
+  const data = copyVault(t), home = tempDir(t);
+  const json = await cli(data, home, ['wiki', 'index', '--json']);
+  const markdown = await cli(data, home, ['wiki', 'index', '--format', 'markdown']);
+  assert.equal(json.code, 0, json.stderr);
+  assert.equal(markdown.code, 0, markdown.stderr);
+  const reads = [];
+  __setFsHooks({ afterCheck: (path) => { if (path.endsWith('.md')) reads.push(path); } });
+  t.after(() => __setFsHooks());
+  assert.deepEqual(await cli(data, home, ['wiki', 'index', '--json']), json);
+  assert.deepEqual(await cli(data, home, ['wiki', 'index', '--format', 'markdown']), markdown);
+  assert.deepEqual(reads, []);
 });

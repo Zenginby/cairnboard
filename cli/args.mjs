@@ -23,6 +23,7 @@ export function parse(argv) {
     if (!/^\d+$/u.test(maxBytes) || !Number.isSafeInteger(Number(maxBytes))) throw usage('Invalid --max-bytes.');
     if (values.body !== undefined && values.body !== '-') throw usage('--body accepts only -.');
     if (values.body !== undefined && values['body-file'] !== undefined) throw usage('Choose --body or --body-file.');
+    if (values.pin && values.unpin) throw usage('Choose --pin or --unpin.');
     if (values.renew && values.steal) throw usage('Choose --renew or --steal.');
     if (command.name === 'journal add') values.entries = tokens
       .filter((token) => token.kind === 'option' && ['decision', 'discovery', 'pitfall', 'lesson', 'item'].includes(token.name))

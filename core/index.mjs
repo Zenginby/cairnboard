@@ -5,7 +5,7 @@ import * as fs from './fsx.mjs';
 import { checkedPath, openForRead, readChecked } from './paths.mjs';
 import { parseFile } from './frontmatter.mjs';
 import { classify, fingerprint, isRawPath } from './schema.mjs';
-import { foldTr, pathKey } from './text.mjs';
+import { firstSentence, foldTr, pathKey } from './text.mjs';
 import { revision } from './store.mjs';
 import { checkRuntime } from './runtime.mjs';
 import { CairnError } from './errors.mjs';
@@ -14,7 +14,8 @@ import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 
 await checkRuntime();
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
+const UNREADABLE_FS = new Set(['EACCES', 'EPERM', 'EISDIR', 'ELOOP']);
 const MAX_SIZE = 5 * 1024 * 1024;
 const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
 const fresh = new WeakMap();
@@ -35,6 +36,14 @@ export function unavailable(error) {
 function warn(ctx, warning = 'index_unavailable') {
   ctx.warnings ??= [];
   if (!ctx.warnings.includes(warning)) ctx.warnings.push(warning);
+}
+
+function skipRead(ctx, path, error, skipped) {
+  const unreadable = UNREADABLE_FS.has(error.code);
+  if (!unreadable && !['ENOENT', 'unsafe_path', 'not_found'].includes(error.code)) throw error;
+  skipped.push({ path, reason: unreadable ? 'unreadable' : 'changed' });
+  if (unreadable) warn(ctx, 'unreadable');
+  return unreadable;
 }
 
 function transaction(db, fn) {
@@ -70,7 +79,7 @@ function createTables(db, schema) {
       CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
       CREATE TABLE files(path TEXT PRIMARY KEY, type TEXT, kind TEXT, id TEXT,
         mtime_ms REAL, ctime_ms REAL, size INTEGER, ino TEXT, hash TEXT, title TEXT,
-        data_json TEXT, acc_done INTEGER, acc_total INTEGER, error TEXT, untitled INTEGER, conflicts TEXT, bad_encoding INTEGER);
+        data_json TEXT, acc_done INTEGER, acc_total INTEGER, error TEXT, untitled INTEGER, conflicts TEXT, bad_encoding INTEGER, summary TEXT);
       CREATE TABLE links(src_path TEXT, field TEXT, expr TEXT, target_name TEXT,
         target_path TEXT, status TEXT, heading TEXT, line INTEGER);
       CREATE INDEX links_name ON links(target_name);
@@ -264,8 +273,7 @@ function collectRaw(ctx, items, previous, verify, skipped) {
       const stat = fs.fstatSync(fd);
       bytes = stat.size <= MAX_SIZE ? fs.readFileSync(fd) : null;
     } catch (error) {
-      if (!['ENOENT', 'unsafe_path', 'not_found'].includes(error.code)) throw error;
-      skipped.push({ path: item.path, reason: 'changed' });
+      if (skipRead(ctx, item.path, error, skipped)) changes.push({ ...item, sha256: null, text: null });
       continue;
     } finally {
       if (fd !== undefined) fs.closeSync(fd);
@@ -330,7 +338,8 @@ function sourceData(ctx, item, source) {
     row.body = null;
     row.error = 'too-large';
   }
-  return { row, links: parseLinks(source.text, { frontmatter: file.error ? null : row?.data ?? file.data,
+  return { row, summary: row?.type === 'note' && row.kind !== 'note' && !source.invalid && !source.large
+    ? firstSentence(file.body) : '', links: parseLinks(source.text, { frontmatter: file.error ? null : row?.data ?? file.data,
     frontmatterText: file.error ? source.text.slice(file.yamlStart, file.yamlEnd) : null }),
   entries: row?.type === 'journal' ? parseJournal(source.text, ctx.schema.entryTypes) : [] };
 }
@@ -358,8 +367,7 @@ function collect(ctx, previous = new Map(), verify = false, { raw = true, previo
       source = readSource(ctx, item);
     } catch (error) {
       // Removed or replaced since the inventory: the next refresh sees its new state.
-      if (!['ENOENT', 'unsafe_path', 'not_found'].includes(error.code)) throw error;
-      skipped.push({ path: item.path, reason: 'changed' });
+      if (skipRead(ctx, item.path, error, skipped)) changes.push({ item, hash: null, data: null });
       continue;
     }
     const hash = source.hash ?? revision(source.text);
@@ -403,10 +411,10 @@ function saveSource(db, ctx, item, hash, data) {
   }
   if (!data?.row) return;
   const row = data.row;
-  db.prepare('INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+  db.prepare('INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
     .run(row.path, row.type, row.kind, row.id, item.mtime_ms, item.ctime_ms, item.size, item.ino, hash,
       row.title, JSON.stringify(row.data), row.acceptance.done, row.acceptance.total, row.error,
-      Number(row.untitled), row.conflicts.length ? JSON.stringify(row.conflicts) : null, Number(!!row.badEncoding));
+      Number(row.untitled), row.conflicts.length ? JSON.stringify(row.conflicts) : null, Number(!!row.badEncoding), data.summary);
   if (!row.badEncoding) db.prepare('INSERT INTO fts VALUES (?, ?, ?, ?)').run(row.path, row.type, foldTr(row.title), foldTr(row.body ?? ''));
   const linkInsert = db.prepare('INSERT INTO links VALUES (?, ?, ?, ?, NULL, ?, ?, ?)');
   for (const link of data.links) linkInsert.run(row.path, link.field, link.expr, nameKey(link.targetName), 'unresolved', link.heading, link.line);

@@ -45,7 +45,7 @@ const fields = {
   project: ['id', 'title', 'created', 'updated', 'status', 'tone', 'aliases'],
   card: ['id', 'title', 'created', 'updated', 'project', 'column', 'position', 'priority', 'tags', 'assignee', 'claimed', 'lease', 'done'],
   note: ['id', 'title', 'created', 'updated', 'kind', 'project', 'tags', 'pinned', 'source', 'superseded_by', 'valid_from', 'valid_until', 'code'],
-  research: ['id', 'title', 'created', 'updated', 'project', 'kind', 'date', 'tags', 'source', 'raw', 'raw_sha256', 'input_sha256', 'sourceDate', 'processed'],
+  research: ['id', 'title', 'created', 'updated', 'project', 'kind', 'date', 'tags', 'source', 'raw', 'raw_sha256', 'input_sha256', 'sourceDate', 'processed', 'superseded_by', 'valid_from', 'valid_until'],
   journal: ['date'],
 };
 

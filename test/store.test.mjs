@@ -178,3 +178,13 @@ test('multi-target file locks are acquired in pathKey order regardless of item o
   ] });
   assert.deepEqual(observed, [lockName('a.md'), lockName('z.md')].map((name) => `${name}.lock`));
 });
+
+test('byte mutations receive invalid UTF-8 bytes and keep buffer writes working', (t) => {
+  const ctx = fixture(t), before = Buffer.from([0xff, 0xfe, 0x0a]);
+  writeFileSync(join(ctx.root, 'note.md'), before);
+  write(ctx, { op: 'note.write', path: 'note.md', apply: (bytes) => {
+    assert.deepEqual(bytes, before);
+    return Buffer.concat([bytes, Buffer.from([0xff])]);
+  } });
+  assert.deepEqual(readFileSync(join(ctx.root, 'note.md')), Buffer.concat([before, Buffer.from([0xff])]));
+});

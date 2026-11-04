@@ -14,6 +14,7 @@ export const ERRORS = Object.freeze({
   format_too_new: 5,
   unsafe_path: 5,
   unsupported_frontmatter: 5,
+  bad_encoding: 5,
   runtime_unsupported: 5,
   locked: 6,
   confirmation_required: 7,
