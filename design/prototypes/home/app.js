@@ -15,6 +15,7 @@ let sequence = 0;
 let journalDraft = '';
 const animations = new Set();
 const preferenceKey = 'home-projects';
+const featuredKey = 'home-featured';
 const kindNames = { note: 'Not', wiki: 'Wiki', research: 'Araştırma' };
 const titleFor = (record, index = 0) => state === 'long' ? `${record.title} — ${index % 2 ? data.longText.english : data.longText.title}` : record.title;
 const projectFor = (record) => {
@@ -55,6 +56,12 @@ function dot(tone) {
   node.setAttribute('aria-hidden', 'true');
   node.style.setProperty('--dot-color', `var(--color-${tone})`);
   return node;
+}
+function readFeatured() {
+  try { return localStorage.getItem(featuredKey); } catch { return null; }
+}
+function saveFeatured(value) {
+  try { localStorage.setItem(featuredKey, value); } catch { /* The choice still holds until the page reloads. */ }
 }
 function saveProjects() {
   try { localStorage.setItem(preferenceKey, JSON.stringify([...selectedProjects])); } catch { /* The selection still works in memory. */ }
@@ -265,10 +272,12 @@ function renderProjects() {
   const grid = $('#project-grid');
   grid.replaceChildren();
   const shown = data.projects.filter((project) => selectedProjects.has(project.id));
-  // One project leads: the one with the most open cards gets the wide box, the colour wash and the progress ring;
-  // the others are plain and compact, so the row reads as "this is where the work is" rather than a grid of equals.
+  // You choose which project leads (the star on each box); until you do, the one with the most open cards leads.
+  // The lead box is wider and lists what comes after the next card; every box keeps its colour and progress ring.
   const openCount = (project) => data.cards.filter((record) => record.projectId === project.id && roleFor(record) !== 'done').length;
-  const featured = shown.length > 1 ? shown.reduce((best, project) => (openCount(project) > openCount(best) ? project : best), shown[0]) : null;
+  const chosen = readFeatured();
+  const featured = chosen === 'none' || shown.length < 2 ? null
+    : shown.find((project) => project.id === chosen) || shown.reduce((best, project) => (openCount(project) > openCount(best) ? project : best), shown[0]);
   shown.sort((a, b) => (b === featured) - (a === featured)).forEach((project) => {
     const summary = summaryFor(project);
     const records = data.cards.filter((record) => record.projectId === project.id);
@@ -292,7 +301,7 @@ function renderProjects() {
     const copy = el('div', 'project-heading');
     copy.append(heading, subtitle);
     header.className = 'project-top';
-    header.replaceChildren(copy, ...(lead || !featured ? [progressRing(completed, total)] : []));
+    header.replaceChildren(copy, progressRing(completed, total));
     const stat = el('p', 'project-stat');
     stat.append(el('strong', 'counter', `${completed}/${total} kart`), document.createTextNode('panoda bitti'));
     const open = records.filter((record) => roleFor(record) !== 'done');
@@ -304,7 +313,24 @@ function renderProjects() {
       open.slice(1, 3).forEach((record) => next.append(el('li', '', titleFor(record))));
       node.append(next);
     }
-    grid.append(node);
+    // The box is a link, so the star sits beside it in a shared cell rather than inside it.
+    const cell = el('div', `project-cell${lead ? ' project-cell--featured' : ''}`);
+    const star = button('', () => {
+      saveFeatured(lead ? 'none' : project.id);
+      renderProjects();
+      const again = document.querySelector(`.project-star[data-project="${project.id}"]`);
+      again?.focus({ preventScroll: true });
+      ui.announce(lead ? `${project.name} artık öne çıkmıyor.` : `${project.name} öne çıkarıldı.`);
+    }, `project-star${lead ? ' is-on' : ''}`);
+    star.dataset.project = project.id;
+    star.setAttribute('aria-pressed', String(lead));
+    star.setAttribute('aria-label', `Öne çıkar: ${project.name}`);
+    star.title = lead ? 'Öne çıkarmayı kaldır' : 'Bu projeyi öne çıkar';
+    const icon = svgNode('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+    icon.append(svgNode('path', { d: 'm12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9Z' }));
+    star.append(icon);
+    cell.append(node, star);
+    grid.append(cell);
   });
   if (!grid.children.length) {
     const empty = el('div', 'project-empty');
@@ -469,8 +495,9 @@ function render() {
 function animateFirstLoad() {
   const computed = getComputedStyle(document.documentElement);
   const limit = Number(computed.getPropertyValue('--motion-stagger-max-items'));
+  // A project box enters together with its star, so the star never shows before its box.
   document.querySelectorAll('#dashboard .panel').forEach((panel, index) => {
-    animate(panel, lessMotion() ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(var(--motion-distance-base))' }, { opacity: 1, transform: 'none' }], { duration: tokenTime(lessMotion() ? '--motion-duration-quick' : '--motion-duration-fast'), delay: lessMotion() || index >= limit ? 0 : index * tokenTime('--motion-duration-stagger'), easing: computed.getPropertyValue('--motion-ease-spring').trim(), fill: 'backwards' });
+    animate(panel.closest('.project-cell') || panel, lessMotion() ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(var(--motion-distance-base))' }, { opacity: 1, transform: 'none' }], { duration: tokenTime(lessMotion() ? '--motion-duration-quick' : '--motion-duration-fast'), delay: lessMotion() || index >= limit ? 0 : index * tokenTime('--motion-duration-stagger'), easing: computed.getPropertyValue('--motion-ease-spring').trim(), fill: 'backwards' });
   });
   if (lessMotion()) return;
   document.querySelectorAll('.ring-reveal').forEach((rect) => animate(rect, [{ transform: 'rotate(0turn)' }, { transform: 'rotate(.5turn)' }], { duration: tokenTime('--motion-duration-fast'), delay: rect.classList.contains('ring-reveal--second') ? tokenTime('--motion-duration-fast') : 0, easing: computed.getPropertyValue('--motion-ease-in-out').trim(), fill: 'backwards' }));
