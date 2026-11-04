@@ -8,3 +8,4 @@ dist/
 coverage/
 test-results/
 playwright-report/
+design/check-report.json
