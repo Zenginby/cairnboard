@@ -166,7 +166,7 @@ function createBoard(container, data, mini = false) {
     const trigger = element('button', 'button button--quiet', 'Kartı taşı…');
     trigger.type = 'button';
     trigger.dataset.moveTrigger = '';
-    trigger.setAttribute('aria-label', `${mini ? 'İlk taslağı incele' : record.title}: taşı`);
+    trigger.setAttribute('aria-label', `Kartı taşı… ${mini ? 'İlk taslağı incele' : record.title}`);
     trigger.setAttribute('aria-haspopup', 'menu');
     trigger.setAttribute('aria-expanded', 'false');
     const menu = element('div', 'menu');

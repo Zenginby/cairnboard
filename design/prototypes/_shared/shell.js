@@ -34,6 +34,12 @@ export function setupShell(search) {
     }
     origin = null;
   };
+  // On narrow screens the tab row scrolls sideways; Chrome does not scroll it for a tab that keyboard focus leaves half
+  // outside, so the focused tab is brought into view here, and the current tab is shown on load.
+  const reveal = (link, smooth) => link.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: smooth && !lessMotion() ? 'smooth' : 'auto' });
+  bar.addEventListener('focusin', (event) => { if (event.target.matches('a')) reveal(event.target, true); });
+  const shown = links.find((link) => link.getAttribute('aria-current'));
+  if (shown && bar.closest('.app-navigation')?.scrollWidth > bar.closest('.app-navigation')?.clientWidth) reveal(shown, false);
   links.forEach((link) => link.addEventListener('click', (event) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0 || new URL(link.href).pathname === location.pathname) return;
     const rect = indicator.getBoundingClientRect();

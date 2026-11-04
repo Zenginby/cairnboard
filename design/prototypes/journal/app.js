@@ -109,10 +109,10 @@ startDocument({
       let cell;
       if (count) {
         cell = button('', (event) => show(date, event.detail === 0), 'calendar-day'); cell.dataset.date = date; cell.id = `day-${date}`;
-        cell.setAttribute('aria-pressed', String(selected === date)); cell.setAttribute('aria-label', `${day} ${monthLabel()}, ${count} iş`);
-        cell.append(el('span', '', String(day)), el('i', 'calendar-count', String(count)));
+        cell.setAttribute('aria-pressed', String(selected === date)); cell.setAttribute('aria-label', `${day} ${count} iş · ${monthLabel()}`);
+        cell.append(el('span', '', String(day)), document.createTextNode(' '), el('i', 'calendar-count', String(count)));
       } else cell = el('span', 'calendar-day', String(day));
-      if (date === ctx.data.dashboard.date) { cell.classList.add('is-today'); cell.setAttribute('aria-current', 'date'); cell.setAttribute('aria-label', `${day} ${monthLabel()}, bugün, ${count} iş`); }
+      if (date === ctx.data.dashboard.date) { cell.classList.add('is-today'); cell.setAttribute('aria-current', 'date'); cell.setAttribute('aria-label', count ? `${day} ${count} iş · ${monthLabel()}, bugün` : `${day} ${monthLabel()}, bugün, ${count} iş`); }
       td.append(cell);
     }
     grid.append(body); calendar.append(grid, panel);

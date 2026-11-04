@@ -300,8 +300,9 @@
   filter: blur(var(--motion-blur-small));
 }
 .theme-toggle.is-dark .moon { opacity: 1; transform: none; filter: none; }
-:root[data-motion="less"] .theme-toggle svg { transform: none; filter: none; }
-@media (prefers-reduced-motion: reduce) { .theme-toggle svg { transform: none; filter: none; } }
+/* Reduced motion: sun and moon only cross-fade. The selectors must outweigh `.theme-toggle.is-dark .sun`. */
+:root[data-motion="less"] .theme-toggle svg { transform: none; filter: none; transition-property: opacity; }
+@media (prefers-reduced-motion: reduce) { :root .theme-toggle :is(svg.sun, svg.moon) { transform: none; filter: none; transition-property: opacity; } }
 /* The press scale is spatial movement: no scale with reduced motion (tokens.css only covers the OS setting). */
 :root[data-motion="less"] .theme-toggle:active { transform: none; }
 @media (prefers-reduced-motion: reduce) { .theme-toggle:active { transform: none; } }

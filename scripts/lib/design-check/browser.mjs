@@ -69,8 +69,22 @@ export function rememberFocusStyles() {
   // Record the unfocused style even on pages with autofocus controls.
   document.activeElement?.blur();
   window.__unfocusedShadows = new WeakMap();
+  window.__focusCandidates = (element) => {
+    const candidates = [element];
+    // A hidden native choice often draws its focus ring on the next sibling (`input:focus-visible + .switch-track`).
+    if (element.matches('input[type="radio"], input[type="checkbox"]')) {
+      for (let node = element.nextElementSibling; node; node = node.nextElementSibling) candidates.push(node);
+    }
+    for (let node = element.parentElement, depth = 0; node && depth < 3; node = node.parentElement, depth++) {
+      candidates.push(node);
+      if (node.tagName === 'LABEL') break;
+    }
+    return candidates;
+  };
   for (const element of document.querySelectorAll('a[href], button, input, select, textarea, [tabindex], [contenteditable]')) {
-    if (element !== document.activeElement) window.__unfocusedShadows.set(element, getComputedStyle(element).boxShadow);
+    for (const candidate of window.__focusCandidates(element)) {
+      window.__unfocusedShadows.set(candidate, getComputedStyle(candidate).boxShadow);
+    }
   }
 }
 
@@ -78,32 +92,53 @@ export async function inspectFocus() {
   const element = document.activeElement;
   // Browsers pass through the document between the last and first Tab stops.
   if (!element || element === document.body || element === document.documentElement) return [];
-  // Allow native focus scrolling (including smooth scroll) to finish, bounded to half a second.
+  const candidates = window.__focusCandidates(element);
+  const nativeChoice = element.matches('input[type="radio"], input[type="checkbox"]');
+  const visible = (node) => {
+    const rect = node.getBoundingClientRect();
+    const style = getComputedStyle(node);
+    if (!rect.width || !rect.height || rect.left < -1 || rect.top < -1 || rect.right > innerWidth + 1 || rect.bottom > innerHeight + 1 || ['hidden', 'collapse'].includes(style.visibility)) return false;
+    for (let parent = node; parent; parent = parent.parentElement) {
+      if (Number(getComputedStyle(parent).opacity) === 0) return false;
+    }
+    return true;
+  };
+  const indicator = (node) => {
+    const style = getComputedStyle(node);
+    const transparent = (color) => color === 'transparent' || /(?:^rgba\([^)]*,|\/)\s*0(?:\.0+)?%?\s*\)$/.test(color);
+    const outline = !['none', 'hidden'].includes(style.outlineStyle) && parseFloat(style.outlineWidth) > 0 && !transparent(style.outlineColor);
+    const baseline = window.__unfocusedShadows.get(node);
+    const shadow = baseline !== undefined && style.boxShadow !== 'none' && style.boxShadow !== baseline;
+    return outline || shadow;
+  };
+  // Focus can start a skip-link transition; sampling a few stable frames can stop during its delay.
+  await new Promise(requestAnimationFrame);
+  let timer;
+  try {
+    await Promise.race([
+      Promise.allSettled(candidates.flatMap((node) => node.getAnimations()).map((animation) => animation.finished)),
+      new Promise((resolve) => { timer = setTimeout(resolve, 1000); }),
+    ]);
+  } finally { clearTimeout(timer); }
+  // A long style-guide page can need more than half a second of native smooth focus scrolling.
   const start = performance.now();
   let previous;
   let stable = 0;
   do {
     await new Promise(requestAnimationFrame);
-    const rect = element.getBoundingClientRect();
+    const target = nativeChoice && !visible(element) ? candidates.slice(1).find(visible) || element : element;
+    const rect = target.getBoundingClientRect();
     const position = `${rect.x},${rect.y}`;
-    stable = position === previous ? stable + 1 : 0;
+    stable = position === previous && visible(target) ? stable + 1 : 0;
     previous = position;
-  } while (stable < 2 && performance.now() - start < 500);
-  const rect = element.getBoundingClientRect();
-  const style = getComputedStyle(element);
+  } while (stable < 2 && performance.now() - start < 1500);
   const label = [element.tagName.toLowerCase(), ...element.classList].join('.');
   const failures = [];
-  let hidden = false;
-  for (let node = element; node; node = node.parentElement) {
-    if (Number(getComputedStyle(node).opacity) === 0) hidden = true;
+  if (!visible(element)) {
+    if (nativeChoice && candidates.slice(1).some((node) => visible(node) && indicator(node))) return [];
+    const rect = element.getBoundingClientRect();
+    failures.push({ message: `${label}: focused element is hidden or outside the viewport (x=${Math.round(rect.x)}, y=${Math.round(rect.y)}, ${Math.round(rect.width)}×${Math.round(rect.height)}; viewport ${innerWidth}×${innerHeight})` });
   }
-  if (!rect.width || !rect.height || rect.left < -1 || rect.top < -1 || rect.right > innerWidth + 1 || rect.bottom > innerHeight + 1 || style.visibility === 'hidden' || hidden) {
-    failures.push({ message: `${label}: focused element is hidden or outside the viewport` });
-  }
-  const transparent = (color) => color === 'transparent' || /[,/]\s*0\s*\)$/.test(color);
-  const outline = !['none', 'hidden'].includes(style.outlineStyle) && parseFloat(style.outlineWidth) > 0 && !transparent(style.outlineColor);
-  const baseline = window.__unfocusedShadows.get(element);
-  const shadow = baseline !== undefined && style.boxShadow !== 'none' && style.boxShadow !== baseline;
-  if (!outline && !shadow) failures.push({ message: `${label}: no visible focus outline or changed box-shadow` });
+  if (!indicator(element)) failures.push({ message: `${label}: no visible focus outline or changed box-shadow` });
   return failures;
 }

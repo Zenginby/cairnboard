@@ -202,7 +202,7 @@ function columnRow(column, index, total) {
   down.dataset.dir = 'down';
   down.disabled = locked() || index === total - 1;
   const remove = button('Sütunu kaldır', (event) => removeColumn(column, event.detail === 0), 'button button--quiet column-remove');
-  remove.setAttribute('aria-label', `${column.label}: kaldır`);
+  remove.setAttribute('aria-label', `Sütunu kaldır: ${column.label}`);
   remove.disabled = locked() || total === 1;
   actions.append(up, down, remove);
   item.append(number, name, role, actions);

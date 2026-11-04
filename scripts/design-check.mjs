@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium, webkit, firefox } from 'playwright-core';
 import { createDesignServer } from './design-serve.mjs';
 import { CHECKS, parseArgs, discoverPages, buildMatrix, resolveBrowser, aggregateResults, exitCode } from './lib/design-check/config.mjs';
@@ -10,16 +11,19 @@ const engines = { chromium, webkit, firefox };
 const reportPath = new URL('../design/check-report.json', import.meta.url);
 const usage = 'Usage: npm run design:check -- [--browser chrome|brave|chromium|webkit|firefox] [--only <screen>] [--quick] [--workers 4]';
 
-async function checkCase(browser, baseURL, entry, axeSource, discoverStates) {
+export async function checkCase(browser, baseURL, entry, axeSource, discoverStates) {
   const context = await browser.newContext({ viewport: { width: entry.width, height: 900 }, colorScheme: entry.mode, reducedMotion: 'no-preference' });
   const checks = { console: [], csp: [] };
   let states = [];
   let timedOut = false;
+  let runtimeFrozen = false;
   // evaluate() has no Playwright timeout; closing the context also interrupts a stuck axe run.
-  const timer = setTimeout(() => { timedOut = true; context.close().catch(() => {}); }, 20000);
+  // Pages with many prototype states (settings: 8) need more than a plain page.
+  const timer = setTimeout(() => { timedOut = true; context.close().catch(() => {}); }, 60000);
   const add = (check, message) => checks[check].push({ message });
   let page;
   const drainCsp = async () => {
+    if (runtimeFrozen) return;
     for (const message of await page.evaluate(() => window.__cspViolations.splice(0))) add('csp', message);
   };
   try {
@@ -28,13 +32,13 @@ async function checkCase(browser, baseURL, entry, axeSource, discoverStates) {
     page.setDefaultTimeout(5000);
     page.setDefaultNavigationTimeout(8000);
     page.on('console', (message) => {
-      if (message.type() !== 'error') return;
+      if (runtimeFrozen || message.type() !== 'error') return;
       const location = message.location().url || '';
       // Do not suppress other 404s or errors that merely mention a favicon.
       if (/^https?:\/\/[^/]+\/favicon\.ico(?:[?#]|$)/.test(location) && /\b404\b/.test(message.text())) return;
       add('console', message.text());
     });
-    page.on('pageerror', (error) => add('console', error.message));
+    page.on('pageerror', (error) => { if (!runtimeFrozen) add('console', error.message); });
     const load = async () => {
       const response = await page.goto(`${baseURL}${entry.path}`, { waitUntil: 'load' });
       if (!response?.ok()) throw new Error(`Page load returned HTTP ${response?.status() ?? 'no response'}`);
@@ -55,17 +59,6 @@ async function checkCase(browser, baseURL, entry, axeSource, discoverStates) {
     const layout = await page.evaluate(inspectLayout);
     checks.overflow = layout.overflow;
     checks.overlap = layout.overlap;
-    await run('axe', async () => {
-      // evaluate bypasses script-src for this audit; addScriptTag would cause a CSP violation.
-      await page.evaluate(axeSource);
-      const violations = await page.evaluate(async () => {
-        const result = await window.axe.run(document, { resultTypes: ['violations'] });
-        return result.violations.map(({ id, impact, nodes }) => ({ id, impact, targets: nodes.length }));
-      });
-      for (const { id, impact, targets } of violations) {
-        checks.axe.push({ level: ['serious', 'critical'].includes(impact) ? 'error' : 'warning', message: `${id}: ${impact}, ${targets} target(s)` });
-      }
-    });
     await run('keyboard', async () => {
       await page.evaluate(rememberFocusStyles);
       for (let i = 0; i < 15; i++) {
@@ -89,7 +82,8 @@ async function checkCase(browser, baseURL, entry, axeSource, discoverStates) {
             && rect.right > 0 && rect.left < innerWidth && rect.bottom > 0 && rect.top < innerHeight;
         });
         if (!hoverable) continue;
-        await element.hover();
+        // Something else on top (a sticky bar, the quick-note button on a phone) is a layout fact, not a motion failure.
+        if (!await element.hover({ timeout: 1000 }).then(() => true, () => false)) continue;
         // Observe multiple frames immediately, while even short transitions are still running.
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         hovered++;
@@ -99,6 +93,19 @@ async function checkCase(browser, baseURL, entry, axeSource, discoverStates) {
         return [...window.__motionViolations];
       });
       for (const message of messages) add('reduced-motion', message);
+    });
+    // Axe inserts inline styles. Freeze real page findings after keyboard/hover and before any audit code runs.
+    await drainCsp();
+    runtimeFrozen = true;
+    await run('axe', async () => {
+      await page.evaluate(axeSource);
+      const violations = await page.evaluate(async () => {
+        const result = await window.axe.run(document, { resultTypes: ['violations'] });
+        return result.violations.map(({ id, impact, nodes }) => ({ id, impact, targets: nodes.length }));
+      });
+      for (const { id, impact, targets } of violations) {
+        checks.axe.push({ level: ['serious', 'critical'].includes(impact) ? 'error' : 'warning', message: `${id}: ${impact}, ${targets} target(s)` });
+      }
     });
   } catch (error) {
     checks.runner = [{ message: error.message }];
@@ -155,7 +162,8 @@ async function main() {
     const results = [];
     let expired = false;
     // Bound the entire run as well as individual cases, including on a broken page/browser.
-    deadline = setTimeout(() => { expired = true; browser.close().catch(() => {}); }, 210000);
+    // About 2.5 s per case on four workers; the full matrix is ~180 cases (measured 3.5 min on Chrome).
+    deadline = setTimeout(() => { expired = true; browser.close().catch(() => {}); }, Math.max(240000, queue.length * 4000));
     await Promise.all(Array.from({ length: options.workers }, async () => {
       while (queue.length && !expired) {
         const entry = queue.shift();
@@ -191,4 +199,4 @@ async function main() {
   }
 }
 
-await main();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();

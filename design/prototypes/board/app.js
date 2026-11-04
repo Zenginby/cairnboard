@@ -124,7 +124,6 @@ function arrangeGroups(list) {
     const group = items.filter((card) => priorityOf(recordFor(card)) === priority);
     if (!group.length) return;
     const heading = el('li', 'priority-heading-item');
-    heading.setAttribute('role', 'presentation');
     heading.append(el('h3', `priority-heading priority-${priority || 'none'}`, label));
     list.append(heading, ...group);
   });
@@ -182,7 +181,7 @@ function makeCard(record, index) {
   move.setAttribute('aria-haspopup', 'menu');
   move.setAttribute('aria-expanded', 'false');
   move.setAttribute('aria-controls', menu.id);
-  move.setAttribute('aria-label', `${record.title}: taşı`);
+  move.setAttribute('aria-label', `Kartı taşı… ${record.title}`);
   move.disabled = isLocked(record);
   card.append(move, copy, project, meta);
   if (isLocked(record)) {

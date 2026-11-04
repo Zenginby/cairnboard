@@ -44,7 +44,9 @@ function box(title, className, href) {
   const header = el('div', 'row panel-header');
   const heading = el('h2', '', title);
   heading.id = `heading-${++sequence}`;
-  node.setAttribute('aria-labelledby', heading.id);
+  // A whole-box link takes its name from its content (WCAG 2.5.3: the name contains the visible text); a section box
+  // is labelled by its heading.
+  if (!href) node.setAttribute('aria-labelledby', heading.id);
   header.append(heading);
   node.append(header);
   return { node, header };
@@ -105,8 +107,10 @@ function pickerSummary() {
   stack.setAttribute('aria-hidden', 'true');
   chosen.slice(0, 4).forEach((project) => { const swatch = el('span', 'picker-swatch'); swatch.style.setProperty('--swatch', `var(--color-tone-${project.tone})`); stack.append(swatch); });
   if (!chosen.length) stack.append(el('span', 'picker-swatch is-empty'));
-  trigger.replaceChildren(stack, el('span', '', 'Projeler'), el('span', 'picker-count counter', `${chosen.length}/${data.projects.length}`));
-  trigger.setAttribute('aria-label', `Projeleri seç, ${chosen.length} / ${data.projects.length} gösteriliyor`);
+  // The name comes from the visible text ("Projeler 3/8", WCAG 2.5.3) plus a hidden hint of what the button does.
+  trigger.replaceChildren(stack, el('span', '', 'Projeler'), ' ', el('span', 'picker-count counter', `${chosen.length}/${data.projects.length}`),
+    el('span', 'sr-only', ', gösterilecek projeleri seç'));
+  trigger.removeAttribute('aria-label');
   const meter = $('#picker-meter');
   if (meter) meter.textContent = `${chosen.length} / ${data.projects.length} gösteriliyor`;
 }

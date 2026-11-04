@@ -45,7 +45,6 @@ function projectBox(project) {
   node.style.setProperty('--project-tone', `var(--color-tone-${project.tone})`);
   const heading = el('h3', 'project-name', nameFor(project));
   heading.id = `project-${project.id}`;
-  node.setAttribute('aria-labelledby', heading.id);
   const headingCopy = el('div', 'project-heading');
   const notes = summary.noteCount + data.notes.filter((note) => note.projectId === project.id && !fixtures.notes.some((item) => item.id === note.id)).length;
   headingCopy.append(heading, el('p', 'project-subtitle', [summary.description, `${notes} not`].filter(Boolean).join(', ')));

@@ -35,7 +35,6 @@ function buildFilters(counts) {
     }, 'button filter-chip');
     pill.setAttribute('aria-pressed', String(id === kind));
     pill.append(el('span', '', label), el('span', 'filter-count counter', String(counts[id] ?? 0)));
-    pill.setAttribute('aria-label', `${label}, ${counts[id] ?? 0} sonuç`);
     return pill;
   }));
 }
