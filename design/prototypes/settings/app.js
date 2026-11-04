@@ -202,7 +202,7 @@ function columnRow(column, index, total) {
   down.setAttribute('aria-label', `${column.label}: aşağı taşı`);
   down.dataset.dir = 'down';
   down.disabled = locked() || index === total - 1;
-  const remove = button('Kaldır', (event) => removeColumn(column, event.detail === 0), 'button button--quiet column-remove');
+  const remove = button('Sütunu kaldır', (event) => removeColumn(column, event.detail === 0), 'button button--quiet column-remove');
   remove.setAttribute('aria-label', `${column.label}: kaldır`);
   remove.disabled = locked() || total === 1;
   actions.append(up, down, remove);
@@ -270,7 +270,7 @@ function removeColumn(column, instant) {
     };
     const fade = row.animate([{ opacity: 1 }, { opacity: 0 }], { duration: tokenTime('--motion-duration-quick'), easing: easing('--motion-ease-out'), fill: 'forwards' });
     fade.finished.catch(() => {}).then(commit);
-  }, instant, 'Kaldır');
+  }, instant, 'Sütunu kaldır');
   $('#editor-save').classList.add('button--danger');
   $('#editor-save').classList.remove('button--primary');
   $('#editor').addEventListener('close', () => { $('#editor-save').classList.add('button--primary'); $('#editor-save').classList.remove('button--danger'); }, { once: true });
@@ -309,7 +309,7 @@ function boardColumns() {
   const warning = el('p', 'chip chip--warning column-warning');
   warning.id = 'column-warning';
   warning.hidden = true;
-  const add = button('Sütun ekle', addColumn, 'button column-add');
+  const add = button('Sütunu ekle', addColumn, 'button column-add');
   add.disabled = locked();
   node.append(head, list, warning, add);
   return node;

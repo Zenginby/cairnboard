@@ -93,7 +93,7 @@ const computed = getComputedStyle(document.documentElement);
   group.append(element('h3', 'type-label', label));
   const row = element('div', 'state-row');
   [['Normal', ''], ['Üzerinde', 'is-hover'], ['Odak', 'is-focus'], ['Basılı', 'is-pressed'], ['Devre dışı', 'disabled'], ['Yükleniyor', 'loading']].forEach(([stateLabel, state]) => {
-    const button = element('button', `button button--${variant} ${state.startsWith('is-') ? state : ''}`, state === 'loading' ? 'Kaydediliyor' : 'Kaydet');
+    const button = element('button', `button button--${variant} ${state.startsWith('is-') ? state : ''}`, state === 'loading' ? 'Not kaydediliyor' : 'Notu kaydet');
     button.type = 'button';
     button.disabled = state === 'disabled' || state === 'loading';
     if (state === 'loading') {
@@ -120,8 +120,8 @@ Object.entries(statuses).forEach(([status, label]) => $('#chips').append(element
     label.append(element('span', 'type-label', `${tag === 'input' ? 'Başlık' : 'Açıklama'} · ${state}`));
     const input = element(tag, tag === 'input' ? 'input' : 'textarea');
     input.id = id;
-    input.value = state === 'Boş' ? '' : tag === 'input' ? 'İlk taslak' : 'Bir sonraki adımı birlikte seçelim.';
-    input.placeholder = tag === 'input' ? 'Proje adı' : 'Kısa bir not yazın';
+    input.value = state === 'Boş' ? '' : tag === 'input' ? 'Mutfak defteri' : 'Nohudu perşembe akşamı suya koyacağım.';
+    input.placeholder = tag === 'input' ? 'Proje adı' : 'Kısa bir not yaz';
     if (state === 'Odak' || state === 'Etkin') input.classList.add('is-focus');
     if (state === 'Üzerinde') input.classList.add('is-hover');
     input.disabled = state === 'Devre dışı';
@@ -163,7 +163,7 @@ function createBoard(container, data, mini = false) {
     const avatar = element('span', 'avatar', person.initials);
     avatar.setAttribute('aria-label', person.name);
     const dropdown = element('div', 'dropdown');
-    const trigger = element('button', 'button button--quiet', 'Taşı…');
+    const trigger = element('button', 'button button--quiet', 'Kartı taşı…');
     trigger.type = 'button';
     trigger.dataset.moveTrigger = '';
     trigger.setAttribute('aria-label', `${mini ? 'İlk taslağı incele' : record.title}: taşı`);
@@ -207,7 +207,7 @@ renderMotionTokens();
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', renderMotionTokens);
 const maxDelayed = Number(computed.getPropertyValue('--motion-stagger-max-items'));
 for (let index = 0; index < 8; index++) {
-  const item = element('li', 'stagger-item', `${index + 1}. Küçük bir adım`);
+  const item = element('li', 'stagger-item', ['Mercimeği tart', 'Soğanı doğra', 'Yağı ölç', 'Mercimeği kavur', 'Suyu ekle', 'Kapağı kapat', 'Tuzu ekle', 'Kıvamı kontrol et'][index]);
   // Only the first token-limited items receive a delay; remaining items appear immediately.
   item.style.setProperty('--item-delay', `calc(var(--motion-duration-stagger) * ${index < maxDelayed ? index : 0})`);
   $('#stagger-list').append(item);
@@ -232,7 +232,7 @@ $('#add-note').addEventListener('click', () => {
   $('#empty-example p').textContent = 'Yeni bir düşünce için yer hazır.';
   live.textContent = 'İlk not eklendi.';
 });
-$('#retry').addEventListener('click', () => { $('#demo-toast').classList.add('is-open'); live.textContent = 'Örnek not kaydedildi.'; });
+$('#retry').addEventListener('click', () => { $('#demo-toast').classList.add('is-open'); live.textContent = 'Not kaydedildi.'; });
 document.querySelectorAll('[data-menu-action]').forEach((button) => button.addEventListener('click', () => { live.textContent = `${button.textContent}: örnek işlem tamamlandı.`; }));
 
 try {

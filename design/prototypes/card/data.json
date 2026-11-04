@@ -1,22 +1,185 @@
 {
-  "cards": [],
+  "cards": [
+    {
+      "id": "card-2",
+      "body": "Yöntem taslağındaki son iki soru aynı cevabı çağırıyor. Soruları birleştirip güncel formu danışmana gönder; eski sürümü karşılaştırma için sakla.",
+      "commentThread": [
+        {
+          "authorId": "ada",
+          "time": "2 Kasım · 11:42",
+          "body": "Son iki soruyu birleştirdim. Danışmana göndermeden önce yöntem taslağındaki numaraları düzelteceğim."
+        },
+        {
+          "authorId": "claude",
+          "time": "2 Kasım · 14:08",
+          "body": "Soru numaraları taslakla aynı. Gönderilecek metin hazır."
+        }
+      ]
+    },
+    {
+      "id": "card-3",
+      "body": "Yağmurlu yürüyüşün kareleri iki ayrı klasöre dağılmış. Dosyaları çekim tarihine göre ayır, aynı karenin kopyalarını silmeden ayrı tut.",
+      "commentThread": []
+    },
+    {
+      "id": "card-4",
+      "body": "Altı kişilik cuma yemeği için nohut, pilav ve salata yapacağım. Listeyi çıkarmadan önce dolaptaki malzemelere bak; pirinç zaten var.",
+      "commentThread": [
+        {
+          "authorId": "deniz",
+          "time": "3 Kasım · 11:09",
+          "body": "Limon kalmamış. Pirinç ve zeytinyağı almana gerek yok."
+        }
+      ]
+    },
+    {
+      "id": "card-5",
+      "body": "Fişler çekmecede. Market, ulaşım ve ev masraflarını ayrı toplayıp haftalık nota yazacağım.",
+      "commentThread": []
+    },
+    {
+      "id": "card-6",
+      "body": "Nohudu aynı paketten iki porsiyon ayırarak deneyeceğim. Contayı değiştirmeden süre tutma; basınç kaçırdığı için önceki ölçüm geçersiz.",
+      "commentThread": [
+        {
+          "authorId": "ada",
+          "time": "1 Kasım · 18:43",
+          "body": "Nohut sekiz saattir suda."
+        },
+        {
+          "authorId": "codex",
+          "time": "1 Kasım · 19:16",
+          "body": "Süre çizelgesinde başlangıcı basıncın oluştuğu an olarak ayırdım."
+        },
+        {
+          "authorId": "ada",
+          "time": "1 Kasım · 19:38",
+          "body": "Kapaktan buhar kaçıyor; süreyi kullanmayacağım."
+        },
+        {
+          "authorId": "deniz",
+          "time": "2 Kasım · 09:27",
+          "body": "Yedek conta mutfak çekmecesinde."
+        },
+        {
+          "authorId": "ada",
+          "time": "3 Kasım · 13:18",
+          "body": "Conta değişince aynı miktarla yeniden deneyeceğim."
+        }
+      ]
+    },
+    {
+      "id": "card-7",
+      "body": "Üçüncü dökümde iki satır eksik. Ses kaydında 14:32 ve 27:08 noktalarını yeniden dinle; anlaşılmayan sözcükleri tahmin etmeden işaretle.",
+      "commentThread": [
+        {
+          "authorId": "deniz",
+          "time": "2 Kasım · 16:21",
+          "body": "İşaretlediğim iki boşluk üçüncü görüşmede."
+        },
+        {
+          "authorId": "ada",
+          "time": "3 Kasım · 10:36",
+          "body": "İlkini kulaklıkla dinleyince anladım. İkincisi hâlâ belirsiz."
+        }
+      ]
+    },
+    {
+      "id": "card-8",
+      "body": "Giriş yazısı fotoğrafları fazla açıklıyor. Yürüyüşün tarihini ve hava durumunu bırakıp karelerde zaten görünen ayrıntıları çıkaracağım.",
+      "commentThread": []
+    },
+    {
+      "id": "card-9",
+      "body": "Ekim faturalarını ayraçlı dosyaya koyacağım. Ödenenlerin yanına ödeme tarihini yaz, bekleyenleri ayrı tut.",
+      "commentThread": []
+    },
+    {
+      "id": "card-10",
+      "body": "Fırın sebzeyi fansız ayarda 200 derecede 35 dakika pişirdim. Tepsiyi orta rafa koyunca patatesler kurumadı; süreyi tarife ekledim.",
+      "commentThread": [
+        {
+          "authorId": "ada",
+          "time": "31 Ekim · 20:14",
+          "body": "35 dakika yeterli oldu. Patatesi iri doğrarsam beş dakika daha gerekebilir."
+        }
+      ]
+    },
+    {
+      "id": "card-11",
+      "body": "Montun iç cebini kontrol edip temizlemeye bırakacağım. Fişin fotoğrafını çek; teslim alma gününü takvime ekle.",
+      "commentThread": []
+    },
+    {
+      "id": "card-12",
+      "body": "Albümün ilk baskısı on iki kare olacak. Aynı manzaranın tekrarlarını eleyip hem yatay hem dikey fotoğraf seç; kırpma payını baskıda kontrol edeceğim.",
+      "commentThread": [
+        {
+          "authorId": "ada",
+          "time": "30 Ekim · 21:06",
+          "body": "İlk seçimde yirmi kare var."
+        },
+        {
+          "authorId": "deniz",
+          "time": "31 Ekim · 08:53",
+          "body": "İki sisli kare birbirine çok benziyor. Yatay olanı tutalım."
+        },
+        {
+          "authorId": "ada",
+          "time": "2 Kasım · 18:17",
+          "body": "On iki kareye indirdim; ikisinin çözünürlüğü düşük."
+        },
+        {
+          "authorId": "deniz",
+          "time": "3 Kasım · 12:44",
+          "body": "Onları daha küçük bastırıp aynı sayfaya koyabiliriz."
+        }
+      ]
+    },
+    {
+      "id": "card-13",
+      "body": "İlk iki görüşmede ulaşım ve zaman başlıkları sık geçiyor. Alıntıları ayrı başlıklara taşı, hangi görüşmeden geldiğini satırın yanında tut.",
+      "commentThread": [
+        {
+          "authorId": "deniz",
+          "time": "3 Kasım · 15:29",
+          "body": "Bekleme süresi ile saat belirsizliğini ayrı başlıkta tutalım."
+        }
+      ]
+    },
+    {
+      "id": "card-14",
+      "body": "Sabahki randevudan sonra merkeze gitmek gerekiyor. Takvime yalnız başlangıç saatini değil yol için gereken boşluğu da koyacağım.",
+      "commentThread": []
+    },
+    {
+      "id": "card-15",
+      "body": "Uzun kitapları arka arkaya koyunca liste ilerlemiyor. Sıradaki kitapların sayfa sayılarını yazıp araya kısa bir kitap seçeceğim.",
+      "commentThread": []
+    },
+    {
+      "id": "card-16",
+      "body": "Kapakta yer adı yerine tarih aralığı olacak. Fotoğrafların çekim bilgilerinden ilk ve son günü kontrol et; dosya değiştirme tarihini kullanma.",
+      "commentThread": []
+    }
+  ],
   "notes": [],
-  "body": "## Amaç\n\nİlk taslağı küçük bir örnek üzerinde birlikte gözden geçirelim. Sonucu [[İlk fikirler]] notuna bağlayalım.\n\n## Uygulama notları\n\n- Başlıkların dar ekranda okunabildiğini doğrula.\n- Kabul ölçütlerini tek tek denetle.\n- Kararı günlüğe kısa bir notla ekle.",
+  "body": "## Amaç\n\nMercimek çorbasını dört kişilik sabit ölçüyle kaydet. Önceki denemenin ayrıntıları [[Çorbanın kıvamı]] notunda.\n\n## Pişirirken\n\n- Mercimeği ve tuzu tart.\n- Blender sonrası kıvamı kontrol et.\n- Tarife kullandığın tencerenin hacmini ekle.",
   "commentThread": [
     {
       "authorId": "ada",
-      "time": "09:10",
-      "body": "İlk taslak hazır. Dar ekran gözlemlerini de ekledim."
+      "time": "09:16",
+      "body": "Dört bardak suyla kıvamı iyi oldu. Tuz miktarını henüz tartmadım."
     },
     {
       "authorId": "claude",
-      "time": "09:25",
-      "body": "Kabul ölçütlerini denetledim. Son gözden geçirme için hazır."
+      "time": "09:38",
+      "body": "İki ve dört porsiyon için ölçüleri tarifin altına ekledim."
     },
     {
       "authorId": "deniz",
-      "time": "10:00",
-      "body": "Birlikte inceleyip sonucu günlüğe bağlayalım."
+      "time": "10:04",
+      "body": "Yarım tatlı kaşığı tuz kullandım; bir dahaki pişirmede tartıya koyacağım."
     }
   ]
 }

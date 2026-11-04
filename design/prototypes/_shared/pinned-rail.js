@@ -119,7 +119,7 @@ async function start() {
     const response = await fetch(new URL('./pinned.json', import.meta.url));
     if (!response.ok) throw new Error('pinned notes unavailable');
     const { projects, pinned } = await response.json();
-    const empty = el('p', 'pinned-rail-empty', 'Henüz sabitlenen bir not yok.');
+    const empty = el('p', 'pinned-rail-empty', 'Elinin altında tutacağın notu sayfasından sabitle.');
     const status = el('div', 'pinned-rail-status');
     status.setAttribute('role', 'status');
     rail.insertBefore(status, rail.querySelector('.pinned-rail-hint'));
@@ -164,7 +164,7 @@ async function start() {
     // Pinning on the page redraws the rail; the rail's own remove/undo animate in place instead.
     document.addEventListener('pinchange', (event) => { if (event.detail?.source !== 'rail') { status.replaceChildren(); render(); } });
   } catch {
-    list.replaceWith(el('p', 'pinned-rail-empty', 'Sabitlenen notlar yüklenemedi.'));
+    list.replaceWith(el('p', 'pinned-rail-empty', 'Sabitlenen notlar okunamadı. Listeyi almak için sayfayı yenile.'));
   }
   // Keyboard: Escape on the rail hides it only on wide screens, where it is visible.
   rail.addEventListener('keydown', (event) => { if (event.key === 'Escape' && wide.matches) setOpen(false, { focus: true }); });

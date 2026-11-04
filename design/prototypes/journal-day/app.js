@@ -12,11 +12,14 @@ const title = (value) => {
 const records = (ctx) => ctx.data.journal.filter((entry) => entry.date === date);
 const bodyFor = (ctx) => records(ctx).map((entry) => `## ${entry.time} · ${ctx.data.people.find((person) => person.id === entry.authorId)?.name || entry.authorId}\n\n- ${entry.body}`).join('\n\n');
 startDocument({
+  copy: {
+    empty: ['Bu günün günlüğü boş', 'Bugüne bir kayıt yazmak için günlük formunu aç.', 'Günlük formunu aç'],
+    loading: ['Günün kayıtları açılıyor', 'Seçilen tarihte yazılan kayıtlar saat sırasına alınıyor.'],
+    error: ['Günün kayıtları okunamadı', 'Seçilen tarihin günlük dosyasına erişimi kontrol et, sonra günü yeniden yükle.'],
+  },
   markdown: bodyFor,
   firstStep(ctx) { ctx.setState('full'); ctx.focus('#journal-input'); },
-  emptyLabel: 'Bugüne ekle',
-  emptyMessage: 'Bu gün için henüz kayıt yok. Bugüne kısa bir not ekleyin.',
-  reload(ctx) { if (records(ctx)[0]) records(ctx)[0].body += ' Birlikte yeniden gözden geçirilecek.'; },
+  reload(ctx) { if (records(ctx)[0]) records(ctx)[0].body += ' Tarihi takvimden doğruladım.'; },
   sidebar(ctx) {
     const dates = [...new Set([...ctx.data.dashboard.journalDays, ...ctx.data.journal.map((entry) => entry.date), date])].sort().reverse();
     return { groups: [{ title: 'Günlük', entries: [{ title: 'Ay görünümü', href: `../journal/?month=${date.slice(0, 7)}` }] }, ...[...new Set(dates.map((date) => date.slice(0, 7)))].map((month) => ({ title: new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(new Date(`${month}-01T12:00:00`)), entries: dates.filter((day) => day.startsWith(month)).map((day) => ({ title: day, href: `../journal-day/?date=${day}`, current: date === day })) }))] };
@@ -24,7 +27,7 @@ startDocument({
   render(ctx) {
     ctx.header(title(dateValue), `journal/${date}.md`, () => `# ${title(dateValue)}\n\n${bodyFor(ctx)}`);
     ctx.body.replaceChildren();
-    if (!records(ctx).length) ctx.body.append(el('p', 'muted', 'Bu gün için henüz kayıt yok. Ay görünümünden kayıtlı bir gün seçebilirsiniz.'));
+    if (!records(ctx).length) ctx.body.append(el('p', 'muted', 'Bu gün için henüz kayıt yok. Ay görünümünden kayıtlı bir gün seçebilirsin.'));
     records(ctx).forEach((entry) => {
       const person = ctx.data.people.find((person) => person.id === entry.authorId);
       const block = section(ctx.text(`${entry.time} · ${person?.name || entry.authorId}`), entry.id); block.classList.add('journal-entry');
@@ -42,14 +45,14 @@ startDocument({
     });
     const form = el('form', 'stack journal-add');
     const input = field('Bugüne ekle', 'textarea'); input.control.id = 'journal-input'; input.control.required = true; input.control.disabled = ctx.state === 'locked';
-    const save = el('button', 'button button--primary', 'Bugüne ekle'); save.type = 'submit'; save.disabled = ctx.state === 'locked';
+    const save = el('button', 'button button--primary', 'Bugüne kayıt ekle'); save.type = 'submit'; save.disabled = ctx.state === 'locked';
     const today = title(new Date(`${ctx.data.dashboard.date}T12:00:00`));
     form.append(el('p', 'type-label muted', `Yeni kayıt ${today} gününe eklenecek.`), input.wrapper, save);
     if (ctx.state === 'locked') form.append(el('p', 'type-label muted', 'claude üzerinde çalışıyor. Kilit kalkana kadar kayıt eklenemez.'));
     form.addEventListener('submit', (event) => {
       event.preventDefault(); if (!ctx.canWrite()) return;
       const value = input.control.value.trim();
-      if (!value) { input.control.setCustomValidity('Kısa bir not yazın.'); input.control.reportValidity(); return; }
+      if (!value) { input.control.setCustomValidity('Kısa bir not yaz.'); input.control.reportValidity(); return; }
       ctx.data.journal.push({ id: crypto.randomUUID(), date: ctx.data.dashboard.date, time: 'Şimdi', authorId: 'ada', projectId: ctx.data.projects[0].id, body: value });
       ctx.refresh(); ctx.focus('#journal-input'); ctx.toast('Bugünün günlüğüne eklendi.');
     });

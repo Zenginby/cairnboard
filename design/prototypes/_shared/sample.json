@@ -1,5 +1,5 @@
 {
-  "workspace": "acme",
+  "workspace": "Kuzey masası",
   "people": [
     {
       "id": "ada",
@@ -14,107 +14,125 @@
   ],
   "projects": [
     {
-      "id": "ornek-proje",
-      "name": "Örnek proje",
+      "id": "mutfak-defteri",
+      "name": "Mutfak defteri",
       "tone": 1
     },
     {
-      "id": "ornek-proje-2",
-      "name": "Araştırma defteri",
+      "id": "tez-taslagi",
+      "name": "Tez taslağı",
       "tone": 2
     },
     {
-      "id": "ornek-proje-3",
+      "id": "haftalik-plan",
       "name": "Haftalık plan",
       "tone": 3
     },
     {
-      "id": "ornek-proje-4",
+      "id": "okuma-listesi",
       "name": "Okuma listesi",
       "tone": 4
     },
     {
-      "id": "ornek-proje-5",
+      "id": "tasarim-denemesi",
       "name": "Tasarım denemesi",
       "tone": 5
     },
     {
-      "id": "ornek-proje-6",
+      "id": "kucuk-araclar",
       "name": "Küçük araçlar",
       "tone": 6
     },
     {
-      "id": "ornek-proje-7",
+      "id": "bahce-notlari",
       "name": "Bahçe notları",
       "tone": 7
     },
     {
-      "id": "ornek-proje-8",
-      "name": "Örnek proje araştırma ve tasarım defteri",
+      "id": "sonbahar-albumu",
+      "name": "Sonbahar yürüyüşlerinden kalan fotoğrafları ayıklama ve albüm hazırlığı",
       "tone": 8
     }
   ],
   "cards": [
     {
       "id": "card-1",
-      "projectId": "ornek-proje",
-      "title": "İlk taslağı birlikte gözden geçir",
+      "projectId": "mutfak-defteri",
+      "title": "Mercimek çorbasının ölçülerini netleştir",
       "status": "planned",
       "assigneeId": "ada",
       "criteria": [
         {
-          "text": "Başlıkları denetle",
+          "text": "Mercimek ve su miktarı yazıldı",
           "done": true
         },
         {
-          "text": "Geri bildirimi ekle",
+          "text": "İki porsiyonla denendi",
+          "done": true
+        },
+        {
+          "text": "Tuz miktarı tartıldı",
           "done": false
         }
       ]
     },
     {
       "id": "card-2",
-      "projectId": "ornek-proje-2",
-      "title": "Kullanıcıların farklı ekran boyutlarında uzun Türkçe başlıkları ve kabul ölçütlerini rahatça okuyabildiğini birlikte doğrulayalım",
+      "projectId": "tez-taslagi",
+      "title": "Görüşme sorularını danışmana gönder",
       "status": "doing",
       "assigneeId": "deniz",
-      "criteria": []
+      "criteria": [
+        {
+          "text": "Sorular yöntem taslağına eklendi",
+          "done": true
+        },
+        {
+          "text": "Danışmana e-posta gönderildi",
+          "done": false
+        }
+      ]
     },
     {
       "id": "card-3",
-      "projectId": "ornek-proje-8",
-      "title": "Örnek notları düzenle",
+      "projectId": "sonbahar-albumu",
+      "title": "Yürüyüş fotoğraflarını tarihe göre ayır",
       "status": "done",
       "assigneeId": "ada",
-      "criteria": []
+      "criteria": [
+        {
+          "text": "Dosyalar çekim gününe göre ayrıldı",
+          "done": true
+        }
+      ]
     }
   ],
   "notes": [
     {
       "id": "note-1",
-      "projectId": "ornek-proje",
-      "title": "İlk fikirler",
-      "body": "Küçük adımlarla başlayalım; her kararın nedenini kısa bir notla saklayalım."
+      "projectId": "mutfak-defteri",
+      "title": "Çorbanın kıvamı",
+      "body": "Bir su bardağı mercimeğe beş bardak su fazla geldi. Bir sonraki pişirmede dört bardakla başlayacağım; blender sonrası gerekirse sıcak su eklerim."
     },
     {
       "id": "note-2",
-      "projectId": "ornek-proje-2",
-      "title": "Gözlem defteri",
-      "body": "Uzun metinler dar ekranda da okunabilmeli."
+      "projectId": "tez-taslagi",
+      "title": "Görüşme sonrası notlar",
+      "body": "İkinci görüşmede soruların sırasını değiştirdim. Ulaşım sorusunu başa alınca cevaplar daha ayrıntılı oldu; bu değişikliği yöntem bölümünde açıklamam gerekiyor."
     }
   ],
   "journal": [
     {
       "id": "journal-1",
-      "date": "2026-01-12",
+      "date": "2026-11-03",
       "authorId": "ada",
-      "body": "İlk taslak hazır; sırada birlikte inceleme var."
+      "body": "Çorbanın su ölçüsünü düzelttim. Kıvamı bu kez tam oldu."
     },
     {
       "id": "journal-2",
-      "date": "2026-01-13",
+      "date": "2026-11-03",
       "authorId": "deniz",
-      "body": "Kabul ölçütleri sadeleştirildi."
+      "body": "Danışmandan dönüş geldi; son iki soruyu birleştirmemi öneriyor."
     }
   ]
 }

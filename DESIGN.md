@@ -231,6 +231,14 @@ each with a drawing color, a text color (`-text`) and a soft fill (`-bg`); tones
 never carry meaning on their own. Status colors (`done`, `doing`, `planned`, `urgent`, `important`, `warning`,
 `danger`) are always shown with a word, never by color alone.
 
+## Copy
+
+- Address the reader as "sen" in Turkish, including accessible labels.
+- Use a verb and an explicit object for action buttons ("Kartı ekle", "Notu kaydet").
+- Write empty, loading and error messages for the specific screen; give one clear next action.
+- State what the screen knows; avoid slogans and promotional copy.
+- Use varied, plausible fictional data; never use "örnek", "demo" or "acme" as sample content.
+
 ## Typography
 
 Inter Variable for everything except code. Body text is 16px with a 1.7 line height; labels are 13px and slightly

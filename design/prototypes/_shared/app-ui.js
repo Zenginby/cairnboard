@@ -65,7 +65,7 @@ export function setupUI(data, onCreate, openCard) {
   let submit = null;
   const announce = (text) => { $('#announcements').textContent = text; };
   const close = () => dialog.close();
-  const open = (title, content, save, instant = false, saveLabel = 'Ekle') => {
+  const open = (title, content, save, instant = false, saveLabel = 'Değişiklikleri kaydet') => {
     $('#editor-title').textContent = title;
     $('#editor-body').replaceChildren(...content);
     $('#editor-save').hidden = !save;
@@ -117,13 +117,13 @@ export function setupUI(data, onCreate, openCard) {
     priority.control.value = 'normal';
     open(kind === 'note' ? 'Hızlı not' : 'Yeni kart', [title.wrapper, project.wrapper, kind === 'note' ? body.wrapper : priority.wrapper], () => {
       const value = title.control.value.trim();
-      if (!value) { title.control.setCustomValidity('Bir başlık yazın.'); title.control.reportValidity(); return false; }
+      if (!value) { title.control.setCustomValidity('Bir başlık yaz.'); title.control.reportValidity(); return false; }
       const record = { id: crypto.randomUUID(), title: value, projectId: project.control.value };
       if (kind === 'note') data.notes.unshift({ ...record, body: body.control.value.trim(), kind: 'note', pinned: false, updated: 'Şimdi' });
       else data.cards.unshift({ ...record, column, priority: priority.control.value, assigneeId: 'ada', criteria: [], comments: 0 });
       onCreate(kind);
       announce(kind === 'note' ? 'Not eklendi.' : 'Kart eklendi.');
-    }, instant);
+    }, instant, kind === 'note' ? 'Notu ekle' : 'Kartı ekle');
     title.control.addEventListener('input', () => title.control.setCustomValidity(''));
     title.control.focus();
   };
@@ -138,7 +138,7 @@ export function setupUI(data, onCreate, openCard) {
       const { total, shown } = results.render();
       const value = query.control.value.trim();
       all.href = `../search/${value ? `?q=${encodeURIComponent(value)}` : ''}`;
-      status.textContent = !value ? 'Aramak için yazmaya başlayın. Ok tuşlarıyla seçin, Enter ile açın.' : total ? `${total} sonuç${total > shown ? `, ilk ${shown} gösteriliyor` : ''}.` : 'Sonuç yok. Başka bir sözcük deneyin.';
+      status.textContent = !value ? 'Aramak için yazmaya başla. Ok tuşlarıyla seç, Enter ile aç.' : total ? `${total} sonuç${total > shown ? `, ilk ${shown} gösteriliyor` : ''}.` : 'Sonuç yok. Başka bir sözcük dene.';
     };
     query.control.addEventListener('input', render);
     render();
@@ -157,7 +157,7 @@ export function setupUI(data, onCreate, openCard) {
     const actions = { n: () => create('note', true), c: () => openCard(true), '/': () => search(true), '?': () => help(true) };
     if (actions[event.key.toLowerCase()]) { event.preventDefault(); actions[event.key.toLowerCase()](); }
   });
-  $('#diff-open')?.addEventListener('click', (event) => open('Dosyadaki fark', [el('p', 'muted', 'Örnek kart · dışarıdaki değişiklik'), el('p', 'type-code', `− ${data.cards[0].title}`), el('p', 'type-code', `+ ${data.cards[0].title} ve sonucu günlüğe yaz`), el('p', '', 'Yeniden yükle seçeneği dışarıdaki sürümü bu oturumda uygular.')], null, event.detail === 0));
+  $('#diff-open')?.addEventListener('click', (event) => open('Dosyadaki fark', [el('p', 'muted', 'Kart · dışarıdaki değişiklik'), el('p', 'type-code', `− ${data.cards[0].title}`), el('p', 'type-code', `+ ${data.cards[0].title} ve sonucu günlüğe yaz`), el('p', '', 'Yeniden yükle seçeneği dışarıdaki sürümü bu oturumda uygular.')], null, event.detail === 0));
   initComponents();
   return { open, close, inspect, create, announce };
 }
@@ -172,9 +172,9 @@ export function renderState(state, retry, firstStep, copy = {}) {
   panel.setAttribute('aria-busy', String(state === 'loading'));
   if (!special) return;
   const texts = {
-    empty: ['Yeni bir başlangıca yer var', 'İlk kartınızı ekleyerek bir sonraki adımı belirleyin.', 'İlk kartı ekle'],
+    empty: ['Panoda kart yok', 'Yapacağın işi bir karta yaz.', 'Kartı ekle'],
     loading: ['Çalışma alanı yükleniyor', 'Notlar ve kartlar hazırlanıyor.'],
-    error: ['Çalışma alanı yüklenemedi', 'Dosyalar okunamadı. Yeniden yüklemeyi deneyin.'],
+    error: ['Çalışma alanı yüklenemedi', 'Çalışma alanı dosyaları okunamadı. Veri klasörüne erişimi kontrol et.'],
     ...copy,
   }[state];
   const title = el('h2', '', texts[0]);

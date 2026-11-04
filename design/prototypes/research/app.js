@@ -1,9 +1,12 @@
 import { startDocument, noteGroups, documentList } from '../_shared/doc-frame.js';
 
 startDocument({
+  copy: {
+    empty: ['Araştırma listesi boş', 'Kaydedilmiş araştırmaları görmek için listeye dön.', 'Araştırmalara dön'],
+    loading: ['Araştırmalar sıralanıyor', 'Araştırma başlıkları ve kaynak türleri okunuyor.'],
+    error: ['Araştırma listesi açılamadı', 'research/ klasörüne erişimi kontrol et, sonra listeyi yeniden yükle.'],
+  },
   firstStep(ctx) { ctx.setState('full'); },
-  emptyLabel: 'Araştırmalara dön',
-  emptyMessage: 'Henüz araştırma belgesi yok. Örnek belgelere dönebilirsiniz.',
   sidebar: (ctx) => ({ groups: noteGroups(ctx, true) }),
   prepare(ctx) {
     const types = ['İnceleme', 'Deney', 'Kaynak'];

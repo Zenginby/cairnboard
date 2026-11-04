@@ -5,14 +5,14 @@
     { "id": "archived", "label": "Arşiv" }
   ],
   "status": {
-    "ornek-proje": "active",
-    "ornek-proje-2": "active",
-    "ornek-proje-3": "active",
-    "ornek-proje-5": "active",
-    "ornek-proje-4": "paused",
-    "ornek-proje-6": "paused",
-    "ornek-proje-7": "archived",
-    "ornek-proje-8": "archived"
+    "mutfak-defteri": "active",
+    "tez-taslagi": "active",
+    "haftalik-plan": "active",
+    "tasarim-denemesi": "active",
+    "okuma-listesi": "paused",
+    "kucuk-araclar": "paused",
+    "bahce-notlari": "archived",
+    "sonbahar-albumu": "archived"
   },
   "toneNames": ["mor", "yeşil", "turuncu", "mavi", "pembe", "kırmızı", "gri", "çimen"]
 }

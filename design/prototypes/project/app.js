@@ -4,13 +4,16 @@ const requested = new URLSearchParams(location.search).get('project');
 let deleted = false;
 const selected = (ctx) => ctx.data.projects.find((project) => project.id === requested) || ctx.data.projects[0];
 startDocument({
+  copy: {
+    empty: ['Proje içeriği görünmüyor', 'Kartlarını ve notlarını görmek için proje görünümüne dön.', 'Projeye dön'],
+    loading: ['Proje özeti hesaplanıyor', 'Projeye bağlı kartlar ve sayfalar sayılıyor.'],
+    error: ['Proje açılamadı', 'Projenin index.md dosyasına erişimi kontrol et, sonra projeyi yeniden yükle.'],
+  },
   firstStep(ctx) { ctx.setState('full'); },
-  emptyLabel: 'Projeye dön',
-  emptyMessage: 'Henüz proje içeriği yok. Örnek projeye dönebilirsiniz.',
   record: selected,
   reset() { deleted = false; },
-  reload(ctx) { ctx.record.description = 'Dışarıda güncellenen proje açıklaması. Küçük adımlar birlikte gözden geçirilecek.'; },
-  markdown: (ctx) => `# ${ctx.record.name}\n\n${ctx.record.description || 'Yerel araçlar, küçük adımlar'}`,
+  reload(ctx) { ctx.record.description = `${ctx.data.projectSummaries.find((item) => item.projectId === ctx.record.id).description}. Sonraki adımlar kartlarda.`; },
+  markdown: (ctx) => `# ${ctx.record.name}\n\n${ctx.record.description || ctx.data.projectSummaries.find((item) => item.projectId === ctx.record.id).description}`,
   sidebar(ctx) {
     const project = selected(ctx);
     return { project, groups: [{ title: project.name, entries: [{ title: 'Genel bakış', href: `../project/?project=${project.id}`, current: true }, { title: 'Notlar', href: `../notes/?project=${project.id}` }, { title: 'Kartlar', href: `../board/?project=${project.id}` }, { title: 'Günlük', href: `../journal/?project=${project.id}` }, { title: 'Araştırmalar', href: `../research/?project=${project.id}` }] }] };
@@ -22,21 +25,21 @@ startDocument({
     document.querySelector('.project-cover').style.setProperty('--project-wash', `var(--color-tone-${project.tone}-bg)`);
     if (deleted) { ctx.body.replaceChildren(el('p', 'muted', 'Proje çöp kutusuna taşındı.')); return; }
     const toolbar = el('div', 'row doc-toolbar');
-    const edit = button('Düzenle', () => {
+    const edit = button('Projeyi düzenle', () => {
       if (!ctx.canWrite()) return;
       const name = field('Proje adı'); name.control.value = project.name; name.control.required = true;
       const description = field('Açıklama', 'textarea'); description.control.value = project.description || summary.description;
       ctx.ui.open('Projeyi düzenle', [name.wrapper, description.wrapper], () => {
         if (!ctx.canWrite()) return false;
-        if (!name.control.value.trim()) { name.control.setCustomValidity('Bir proje adı yazın.'); name.control.reportValidity(); return false; }
+        if (!name.control.value.trim()) { name.control.setCustomValidity('Bir proje adı yaz.'); name.control.reportValidity(); return false; }
         project.name = name.control.value.trim(); project.description = description.control.value.trim(); ctx.refresh(); ctx.toast('Proje kaydedildi.');
-      }, false, 'Kaydet');
+      }, false, 'Projeyi kaydet');
       name.control.addEventListener('input', () => name.control.setCustomValidity(''));
     });
-    const archive = button(project.archived ? 'Arşivden çıkar' : 'Arşivle', () => ctx.confirm(project.archived ? 'Projeyi arşivden çıkar' : 'Projeyi arşivle', 'Projenin arşiv durumunu bu oturumda değiştirebilirsiniz.', () => {
+    const archive = button(project.archived ? 'Projeyi arşivden çıkar' : 'Projeyi arşivle', () => ctx.confirm(project.archived ? 'Projeyi arşivden çıkar' : 'Projeyi arşivle', 'Projenin arşiv durumunu bu oturumda değiştirebilirsin.', () => {
       project.archived = !project.archived; ctx.refresh(); ctx.focus('#project-archive'); ctx.toast(project.archived ? 'Proje arşivlendi.' : 'Proje arşivden çıkarıldı.');
-    })); archive.id = 'project-archive';
-    const remove = button('Sil', () => ctx.confirm('Projeyi sil', 'Proje ve bağlı sayfaları çöp kutusuna taşınacak. Bu prototipte işlem geri alınabilir.', () => {
+    }, project.archived ? 'Projeyi arşivden çıkar' : 'Projeyi arşivle')); archive.id = 'project-archive';
+    const remove = button('Projeyi sil', () => ctx.confirm('Projeyi sil', 'Proje ve bağlı sayfaları çöp kutusuna taşınacak. Bu prototipte işlem geri alınabilir.', () => {
       deleted = true; ctx.refresh(); ctx.focus(); ctx.toast('Proje çöp kutusuna taşındı.', () => { deleted = false; ctx.refresh(); });
     }, 'Çöp kutusuna taşı'), 'button button--danger');
     [edit, archive, remove].forEach((node) => { node.disabled = ctx.state === 'locked'; });
@@ -56,7 +59,7 @@ startDocument({
       box.append(el('h3', `project-priority project-priority-${priority}`, title));
       const list = el('ul'); records.forEach((record) => {
         const li = el('li'); const column = ctx.data.columns.find((column) => column.id === record.column);
-        const copy = el('div'); copy.append(link(ctx.text(record.title), `../card/?id=${record.id}`), el('p', '', 'Sonra: Kabul ölçütlerini birlikte denetle.'));
+        const copy = el('div'); copy.append(link(ctx.text(record.title), `../card/?id=${record.id}`), el('p', '', 'Sonra: Kartın kalan ölçütlerini denetle.'));
         li.append(el('span', `chip chip--${column.role === 'todo' ? 'planned' : column.role}`, column.label), copy); list.append(li);
       }); box.append(list);
     });

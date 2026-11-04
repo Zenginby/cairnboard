@@ -143,7 +143,7 @@ function sidebar(ctx, groups, project) {
     wrapper.append(toggle, content); root.append(wrapper);
   });
 }
-export function markdownEditor(ctx, value, save, cancel) {
+export function markdownEditor(ctx, value, save, cancel, saveLabel = 'Notu kaydet') {
   const root = el('div', 'stack');
   const columns = el('div', 'doc-editor');
   const source = field('Markdown', 'textarea');
@@ -157,7 +157,7 @@ export function markdownEditor(ctx, value, save, cancel) {
   columns.append(source.wrapper, preview);
   root.append(columns);
   const actions = el('div', 'row');
-  actions.append(button('Kaydet', () => {
+  actions.append(button(saveLabel, () => {
     if (!ctx.canWrite()) return;
     save(source.control.value);
   }, 'button button--primary'), button('İptal', cancel));
@@ -191,7 +191,7 @@ export function documentList(ctx, records, { research = false } = {}) {
     item.append(link(ctx.text(record.title), recordHref(record), 'document-title'), meta, el('p', '', ctx.text(record.body || '')));
     list.append(item); return { item, record };
   });
-  const empty = el('p', 'muted', 'Sonuç yok. Başka bir metin veya proje seçin.');
+  const empty = el('p', 'muted', 'Sonuç yok. Başka bir metin veya proje seç.');
   const filter = () => {
     const term = query.control.value.toLocaleLowerCase('tr').trim();
     rows.forEach(({ item, record }) => { item.hidden = Boolean(type && kindFor(record) !== type || project.control.value && record.projectId !== project.control.value || !item.textContent.toLocaleLowerCase('tr').includes(term)); });
@@ -226,7 +226,7 @@ export function startDocument(options) {
     focus: (selector = '#main') => requestAnimationFrame(() => $(selector)?.focus({ preventScroll: true })),
     canWrite: () => {
       if (state === 'locked') { ctx.toast('claude üzerinde çalışıyor. Kilit kalkana kadar düzenlenemez.'); return false; }
-      if (state === 'conflict') { $('#conflict').hidden = false; ctx.toast('Bu dosya dışarıda değişti. Kaydetmeden önce yeniden yükleyin veya farkı inceleyin.'); return false; }
+      if (state === 'conflict') { $('#conflict').hidden = false; ctx.toast('Bu dosya dışarıda değişti. Kaydetmeden önce yeniden yükle veya farkı incele.'); return false; }
       return true;
     },
     header: (title, source, markdown, cover = false, extra = []) => {
@@ -237,9 +237,9 @@ export function startDocument(options) {
       const raw = (event) => ctx.ui.open('Ham Markdown', [el('pre', 'doc-raw type-code', markdown())], null, event.detail === 0);
       const copy = button("Markdown'ı kopyala", async () => {
         try { await navigator.clipboard.writeText(markdown()); copy.textContent = 'Kopyalandı'; ctx.toast('Markdown kopyalandı.'); }
-        catch { const area = field('Kopyalanacak Markdown', 'textarea'); area.control.value = markdown(); area.control.readOnly = true; ctx.ui.open('Markdown’ı seçip kopyalayın', [area.wrapper], null, true); area.control.select(); }
+        catch { const area = field('Kopyalanacak Markdown', 'textarea'); area.control.value = markdown(); area.control.readOnly = true; ctx.ui.open('Markdown’ı seçip kopyala', [area.wrapper], null, true); area.control.select(); }
       }, 'button doc-pill');
-      actions.append(copy, button('Ham', raw, 'button doc-pill'), ...extra);
+      actions.append(copy, button('Markdown’ı aç', raw, 'button doc-pill'), ...extra);
       row.append(heading, actions);
       const info = el('p', 'doc-source');
       info.append('Kaynak: ', el('code', '', source), ' · değişti: 3 Kasım 2026 · ');
@@ -255,7 +255,7 @@ export function startDocument(options) {
       if (undo) notice.append(button('Geri al', () => { undo(); notice.remove(); ctx.focus(); ctx.ui.announce('İşlem geri alındı.'); }));
       notice.append(button('Kapat', () => { notice.remove(); ctx.focus(); }));
     },
-    confirm: (title, description, action, label = 'Onayla') => ctx.ui.open(title, [el('p', '', description)], () => { if (!ctx.canWrite()) return false; action(); }, false, label),
+    confirm: (title, description, action, label = title) => ctx.ui.open(title, [el('p', '', description)], () => { if (!ctx.canWrite()) return false; action(); }, false, label),
     updateTOC: () => updateTOC()
   };
   ctx.ui = setupUI(data, (kind) => { setState('full'); options.created?.(ctx, kind); }, (instant) => ctx.ui.create('card', instant));
@@ -342,11 +342,7 @@ export function startDocument(options) {
   }
   function setState(value) {
     state = value; $('#prototype-state').value = value;
-    renderState(value, () => setState('full'), () => options.firstStep ? options.firstStep(ctx) : ctx.ui.create('note'));
-    if (value === 'empty') {
-      $('#state-content p')?.replaceChildren(options.emptyMessage || 'Henüz kayıt yok. İlk notunuzu ekleyerek başlayın.');
-      const first = $('#state-content button'); if (first) first.textContent = options.emptyLabel || 'Not ekle';
-    }
+    renderState(value, () => setState('full'), () => options.firstStep ? options.firstStep(ctx) : ctx.ui.create('note'), options.copy);
     render();
   }
   $('#prototype-state').addEventListener('change', (event) => {
@@ -356,13 +352,13 @@ export function startDocument(options) {
   $('#diff-open').addEventListener('click', (event) => {
     event.stopImmediatePropagation();
     const current = $('.doc-editor textarea')?.value ?? options.markdown?.(ctx) ?? ctx.record?.body ?? '';
-    ctx.ui.open('Dosyadaki fark', [el('p', 'muted', 'Bu oturumdaki sürüm'), el('pre', 'doc-raw type-code', current), el('p', 'muted', 'Dışarıdaki sürüm'), el('pre', 'doc-raw type-code', `${current}\n\nDışarıda eklenen not: Birlikte yeniden gözden geçir.`), el('p', '', 'Yeniden yükle dışarıdaki örnek sürümü uygular; bu oturumdaki taslak kapanır.')], null, event.detail === 0);
+    ctx.ui.open('Dosyadaki fark', [el('p', 'muted', 'Bu oturumdaki sürüm'), el('pre', 'doc-raw type-code', current), el('p', 'muted', 'Dışarıdaki sürüm'), el('pre', 'doc-raw type-code', `${current}\n\nDışarıda eklenen not: Son değişikliğin tarihini de kaydet.`), el('p', '', 'Yeniden yükle dışarıdaki sürümü uygular; bu oturumdaki taslak kapanır.')], null, event.detail === 0);
   }, true);
   $('#reload').addEventListener('click', () => {
     options.reload?.(ctx); setState('full'); ctx.focus(); ctx.toast('Dosyanın dışarıdaki sürümü yüklendi.');
   });
   async function load() {
-    renderState('loading', load, () => {});
+    renderState('loading', load, () => {}, options.copy);
     try {
       const [base, response] = await Promise.all([loadData(), fetch('../_shared/workspace.json')]);
       if (!response.ok) throw new Error('Workspace unavailable');
@@ -373,7 +369,7 @@ export function startDocument(options) {
       fixtures = structuredClone(data); initialized = true; setState('full');
       if (location.hash) requestAnimationFrame(() => document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({ behavior: 'instant' }));
     } catch {
-      state = 'error'; $('#prototype-state').value = 'error'; renderState('error', load, () => {});
+      state = 'error'; $('#prototype-state').value = 'error'; renderState('error', load, () => {}, options.copy);
       if (!initialized) $('#doc-sidebar').replaceChildren(el('p', 'type-label muted', 'Sayfa menüsü yüklenemedi.'));
     }
   }

@@ -51,7 +51,7 @@ function paintCheck() {
   } else if (check.status === 'valid') line.append(el('span', 'chip chip--done', 'Geçerli'), el('span', '', check.text.replace('Geçerli: ', '')));
   else if (check.status === 'missing') {
     line.append(el('span', 'chip chip--warning', 'Yok'), el('span', '', 'Bu klasör yok. Oluşturulsun mu?'));
-    const create = button('Oluştur', () => {
+    const create = button('Klasörü oluştur', () => {
       create.setAttribute('aria-busy', 'true');
       create.disabled = true;
       setTimeout(() => {
@@ -116,7 +116,7 @@ function welcome() {
   const control = segmented('setup-language', [['tr', 'Türkçe'], ['en', 'English']], answers.language, (value) => { answers.language = value; announce(value === 'en' ? 'English seçildi. Arayüz kurulumdan sonra İngilizce olur.' : 'Türkçe seçildi.'); });
   control.setAttribute('aria-labelledby', label.id);
   language.append(label, control);
-  return [...heading('Cairnboard’a hoş geldin', state === 'long' ? 'Notların, kartların ve günlüğün bilgisayarında, düz Markdown dosyalarında durur. Sen ve ajanların aynı klasörde çalışırsınız; hiçbir şey buluta gönderilmez ve hiçbir dosya senden habersiz silinmez. Kurulum dört kısa adımdan oluşur ve istediğin zaman geri dönebilirsin.' : 'Notların, kartların ve günlüğün bilgisayarında, düz Markdown dosyalarında durur. Birkaç kısa adımda hazır.'), language, actions('Başla', () => go(1), false)];
+  return [...heading('Çalışma alanını kur', state === 'long' ? 'Önce arayüz dilini, ardından not ve kartların kaydedileceği klasörü seçeceksin. Hazır içerik eklemek isteğe bağlı. Son adımda seçimlerini kontrol edebilirsin; önceki adıma dönersen seçtiklerin korunur.' : 'Dilini ve dosyalarının kaydedileceği klasörü seç.'), language, actions('Dili seç', () => go(1), false)];
 }
 function folder() {
   const fieldNode = el('div', 'setup-field');
@@ -133,7 +133,7 @@ function folder() {
   input.addEventListener('input', () => { answers.path = input.value; clearTimeout(checkTimer); check = { status: 'idle' }; paintCheck(); });
   input.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); runCheck(); } });
   input.addEventListener('change', () => runCheck());
-  row.append(input, button('Denetle', () => runCheck(), 'button path-check'));
+  row.append(input, button('Klasörü denetle', () => runCheck(), 'button path-check'));
   const status = el('p', 'path-status');
   status.id = 'path-status';
   status.setAttribute('aria-live', 'polite');
@@ -141,7 +141,7 @@ function folder() {
   hint.id = 'path-hint';
   hint.append('Prototipte dene: ', el('code', '', '~/Belgeler/cairn'), ' geçerli, ', el('code', '', '~/Belgeler/yeni-cairn'), ' yok, ', el('code', '', '/sistem/cairn'), ' izin yok.');
   fieldNode.append(label, row, status, hint);
-  return [...heading('Veri klasörünü seç', 'Her şey bu klasörde düz dosyalar olarak durur. Sonradan cairn init ile değiştirebilirsin.'), fieldNode, actions('Devam', () => { if (check.status === 'valid') go(2); })];
+  return [...heading('Veri klasörünü seç', 'Her şey bu klasörde düz dosyalar olarak durur. Sonradan cairn init ile değiştirebilirsin.'), fieldNode, actions('Klasörü seç', () => { if (check.status === 'valid') go(2); })];
 }
 function sample() {
   const option = el('label', 'sample-option');
@@ -150,9 +150,9 @@ function sample() {
   input.checked = answers.sample;
   input.addEventListener('change', () => { answers.sample = input.checked; });
   const text = el('span', 'sample-copy');
-  text.append(el('span', 'sample-title', 'Örnek veri ekle'), el('span', 'sample-text', 'Bir örnek proje, üç not ve beş kart. Neyin nerede durduğunu görmek için; sonra tek tıkla Çöp’e gider.'));
+  text.append(el('span', 'sample-title', 'Örnek veri ekle'), el('span', 'sample-text', 'Mutfak defteri projesi, üç not ve beş kart eklenir. Eklenen içeriği sonradan Çöp’e taşıyabilirsin.'));
   option.append(input, text);
-  return [...heading('Örnek veriyle başla', 'İsteğe bağlı. Boş bir çalışma alanıyla da başlayabilirsin.'), option, actions('Devam', () => go(3))];
+  return [...heading('Örnek veriyle başla', 'İsteğe bağlı. Boş bir çalışma alanıyla da başlayabilirsin.'), option, actions('Seçimi kaydet', () => go(3))];
 }
 function done() {
   const list = el('dl', 'setup-summary');

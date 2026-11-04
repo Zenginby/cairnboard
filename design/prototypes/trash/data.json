@@ -1,12 +1,12 @@
 {
   "trash": [
-    { "id": "trash-1", "kind": "note", "title": "Eski toplantı notu", "projectId": "ornek-proje", "deletedAt": "2026-11-03T16:20:00", "deletedBy": "ada" },
-    { "id": "trash-2", "kind": "card", "title": "Arama kutusunu sağa taşı", "projectId": "ornek-proje-3", "deletedAt": "2026-11-03T11:05:00", "deletedBy": "claude" },
-    { "id": "trash-3", "kind": "research", "title": "Eski dizin biçimi karşılaştırması", "projectId": "ornek-proje-2", "deletedAt": "2026-11-02T18:40:00", "deletedBy": "deniz" },
-    { "id": "trash-4", "kind": "card", "title": "Kopya kart: dar ekran başlıkları", "projectId": "ornek-proje-2", "deletedAt": "2026-11-01T09:12:00", "deletedBy": "codex" },
-    { "id": "trash-5", "kind": "wiki", "title": "Taslak kurulum sayfası", "projectId": "ornek-proje-6", "deletedAt": "2026-10-29T14:30:00", "deletedBy": "ada" },
-    { "id": "trash-6", "kind": "journal", "title": "28 Ekim günlüğünden bir satır", "projectId": "ornek-proje-3", "deletedAt": "2026-10-28T20:02:00", "deletedBy": "deniz" },
-    { "id": "trash-7", "kind": "note", "title": "Yinelenen fikir notu", "projectId": "ornek-proje-5", "deletedAt": "2026-10-21T10:00:00", "deletedBy": "claude" }
+    { "id": "trash-1", "kind": "note", "title": "Eski toplantı notu", "projectId": "mutfak-defteri", "deletedAt": "2026-11-03T16:20:00", "deletedBy": "ada" },
+    { "id": "trash-2", "kind": "card", "title": "Cuma için masa ödünç al", "projectId": "haftalik-plan", "deletedAt": "2026-11-03T11:05:00", "deletedBy": "claude" },
+    { "id": "trash-3", "kind": "research", "title": "Görüşme formunun ilk sürümü", "projectId": "tez-taslagi", "deletedAt": "2026-11-02T18:40:00", "deletedBy": "deniz" },
+    { "id": "trash-4", "kind": "card", "title": "Kopya kart: görüşme dökümlerini kontrol et", "projectId": "tez-taslagi", "deletedAt": "2026-11-01T09:12:00", "deletedBy": "codex" },
+    { "id": "trash-5", "kind": "wiki", "title": "Taslak kurulum sayfası", "projectId": "kucuk-araclar", "deletedAt": "2026-10-29T14:30:00", "deletedBy": "ada" },
+    { "id": "trash-6", "kind": "journal", "title": "28 Ekim günlüğünden bir satır", "projectId": "haftalik-plan", "deletedAt": "2026-10-28T20:02:00", "deletedBy": "deniz" },
+    { "id": "trash-7", "kind": "note", "title": "Yinelenen fikir notu", "projectId": "tasarim-denemesi", "deletedAt": "2026-10-21T10:00:00", "deletedBy": "claude" }
   ],
-  "now": "2026-11-03T17:15:00"
+  "now": "2026-11-03T17:23:00"
 }

@@ -22,7 +22,7 @@ const canvas = $('#graph-canvas');
 const context = canvas.getContext('2d');
 const tooltip = $('#graph-tooltip');
 const copy = {
-  empty: ['Grafikte gösterilecek not yok', 'Notlar birbirine [[bağlantı]] verdikçe burada bir ağ oluşur. İlk notu ekleyerek başla.', 'İlk notu ekle'],
+  empty: ['Grafikte gösterilecek not yok', 'Bir not yazıp başka bir nota [[bağlantı]] ver; bağlantı burada görünsün.', 'İlk notu ekle'],
   loading: ['Bağlantılar okunuyor', 'Notlardaki bağlantılar ve etiketler toplanıyor.'],
   error: ['Bağlantılar okunamadı', 'Bağlantı dizini açılamadı. Yeniden dene; sorun sürerse cairn index komutunu çalıştır.'],
 };

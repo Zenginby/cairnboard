@@ -50,18 +50,17 @@
     <div class="doc-layout">
       <nav id="doc-sidebar" class="doc-sidebar" aria-label="Sayfa gezinmesi"></nav>
       <div class="doc-column">
-        <section id="conflict" class="toast is-open stack" aria-label="Dosya çakışması" hidden><div class="row"><span class="chip chip--warning">409 çakışma</span><h2 class="type-title">Bu dosya dışarıda değişti</h2></div><p>Son değişiklikleri inceleyip güncel dosyayı yükleyin.</p><div class="row"><button class="button" id="reload">Yeniden yükle</button><button class="button" id="diff-open">Farkı gör</button></div></section>
+        <section id="conflict" class="toast is-open stack" aria-label="Dosya çakışması" hidden><div class="row"><span class="chip chip--warning">409 çakışma</span><h2 class="type-title">Bu dosya dışarıda değişti</h2></div><p>Son değişiklikleri inceleyip güncel dosyayı yükle.</p><div class="row"><button class="button" id="reload">Yeniden yükle</button><button class="button" id="diff-open">Farkı gör</button></div></section>
         <div id="screen-content" class="stack">
           <header id="doc-heading" class="doc-heading"></header>
           <div class="doc-body-layout"><article id="doc-body" class="doc-body"></article><nav id="doc-toc" class="doc-toc" aria-label="Sayfa içeriği"></nav></div>
         </div>
         <section id="state-content" class="empty-state" aria-labelledby="state-title" hidden></section>
-        <p class="type-label muted doc-footer">Yerel çalışma alanı · Kurgusal örnek veriler</p>
       </div>
     </div>
   </main>
   <aside class="prototype-controls" aria-label="Prototip denetimleri"><label class="row type-label">Prototip durumu <select id="prototype-state"><option value="full">dolu</option><option value="empty">boş</option><option value="loading">yükleniyor</option><option value="error">hata</option><option value="locked">kilitli</option><option value="conflict">409 çakışma</option><option value="long">uzun metin</option></select></label></aside>
-  <dialog class="modal" id="editor" aria-labelledby="editor-title"><form id="editor-form" class="stack"><h2 id="editor-title"></h2><div id="editor-body" class="stack"></div><div class="row"><button class="button button--primary" id="editor-save" type="submit">Ekle</button><button class="button" id="editor-close" type="button">Kapat</button></div></form></dialog>
+  <dialog class="modal" id="editor" aria-labelledby="editor-title"><form id="editor-form" class="stack"><h2 id="editor-title"></h2><div id="editor-body" class="stack"></div><div class="row"><button class="button button--primary" id="editor-save" type="submit">Değişiklikleri kaydet</button><button class="button" id="editor-close" type="button">Kapat</button></div></form></dialog>
   <p id="announcements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 </body>
 </html>

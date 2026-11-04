@@ -14,19 +14,22 @@ function addToday(ctx) {
   ctx.ui.open('Bugüne ekle', [note.wrapper], () => {
     if (!ctx.canWrite()) return false;
     const value = note.control.value.trim();
-    if (!value) { note.control.setCustomValidity('Kısa bir not yazın.'); note.control.reportValidity(); return false; }
+    if (!value) { note.control.setCustomValidity('Kısa bir not yaz.'); note.control.reportValidity(); return false; }
     ctx.data.journal.push({ id: crypto.randomUUID(), date: ctx.data.dashboard.date, time: 'Şimdi', body: value, authorId: 'ada', projectId: projectFilter || ctx.data.projects[0].id });
     month = new Date(`${ctx.data.dashboard.date}T12:00:00`); month.setDate(1); selected = ctx.data.dashboard.date;
     ctx.setState('full'); ctx.toast('Bugünün günlüğüne eklendi.'); ctx.focus('#add-today');
-  }, false, 'Ekle');
+  }, false, 'Kaydı ekle');
   note.control.addEventListener('input', () => note.control.setCustomValidity(''));
 }
 startDocument({
+  copy: {
+    empty: ['Takvimde günlük kaydı yok', 'Bugün yaptığın bir işi günlüğe yaz.', 'Kaydı ekle'],
+    loading: ['Günlük takvimi hazırlanıyor', 'Kayıt bulunan günler ve proje bilgileri okunuyor.'],
+    error: ['Günlük takvimi açılamadı', 'journal/ klasörüne erişimi kontrol et, sonra takvimi yeniden yükle.'],
+  },
   firstStep: addToday,
-  emptyLabel: 'Bugüne ekle',
-  emptyMessage: 'Henüz günlük kaydı yok. Bugünden kısa bir not bırakın.',
   reset() { selected = ''; },
-  reload(ctx) { ctx.data.journal[0].body += ' Birlikte yeniden gözden geçirilecek.'; },
+  reload(ctx) { ctx.data.journal[0].body += ' Tarihi takvimden doğruladım.'; },
   sidebar(ctx) {
     const dates = [...new Set([...ctx.data.dashboard.journalDays, ...ctx.data.journal.map((entry) => entry.date)])].sort().reverse();
     return { groups: [...new Set(dates.map((value) => value.slice(0, 7)))].map((value) => ({ title: new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(new Date(`${value}-01T12:00:00`)), entries: [{ title: 'Ay görünümü', href: `../journal/?month=${value}`, current: dateKey(1).startsWith(value) }, ...dates.filter((date) => date.startsWith(value)).map((date) => ({ title: date, href: `../journal-day/?date=${date}` }))] })) };
@@ -47,7 +50,7 @@ startDocument({
   render(ctx) {
     ctx.header('Günlük', 'journal/', () => ctx.data.journal.map((entry) => `## ${entry.date} · ${entry.time}\n\n- ${entry.body}`).join('\n\n'));
     const toolbar = el('div', 'row doc-toolbar');
-    const add = button('Bugüne ekle', () => addToday(ctx), 'button button--primary'); add.id = 'add-today'; add.disabled = ctx.state === 'locked'; toolbar.append(add);
+    const add = button('Bugüne kayıt ekle', () => addToday(ctx), 'button button--primary'); add.id = 'add-today'; add.disabled = ctx.state === 'locked'; toolbar.append(add);
     if (ctx.state === 'locked') toolbar.append(el('span', 'type-label muted', 'claude üzerinde çalışıyor.'));
     const calendar = el('section', 'calendar'); calendar.setAttribute('aria-label', 'Günlük takvimi');
     const navigation = el('div', 'calendar-navigation');

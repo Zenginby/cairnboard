@@ -11,7 +11,7 @@ let kind = 'all';
 let lastQuery = '';
 const recent = ['kabul ölçütleri', 'dar ekran', 'ajan'];
 const copy = {
-  empty: ['Aranacak bir şey yok', 'Bu çalışma alanında henüz not, kart ya da günlük kaydı yok. İlk notu ekleyince burada aranabilir.', 'İlk notu ekle'],
+  empty: ['Aranacak bir şey yok', 'Bu çalışma alanında henüz not, kart ya da günlük kaydı yok. İlk notu eklece burada aranabilir.', 'İlk notu ekle'],
   loading: ['Dizin hazırlanıyor', 'Notlar, kartlar ve günlük aramaya ekleniyor.'],
   error: ['Arama dizini okunamadı', '.cairn/index dosyası açılamadı. Yeniden dene; sorun sürerse cairn index komutuyla dizini yeniden kur.'],
 };

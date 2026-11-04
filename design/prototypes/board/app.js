@@ -1,6 +1,11 @@
 import { lessMotion, tokenTime } from '../_shared/components.js';
 import { $, el, button, priorities, projectChip, lockMessage, field, loadData, setupUI, renderState } from '../_shared/app-ui.js';
 
+const copy = {
+  empty: ['Panoda kart yok', 'İşin başlığını yazıp yerleşeceği sütunu seç.', 'Kartı ekle'],
+  loading: ['Pano kuruluyor', 'Kartlar sütunlara ve önceliklerine göre yerleştiriliyor.'],
+  error: ['Pano okunamadı', 'Kart dosyalarına erişimi kontrol et, sonra panoyu yeniden yükle.'],
+};
 let data;
 let fixtures;
 let ui;
@@ -144,7 +149,7 @@ function fillCardCopy(copy, record, title) {
   copy.replaceChildren(line);
   if (record.column === 'doing') {
     const next = el('p');
-    next.append(el('b', '', 'Sonra: '), document.createTextNode('Kabul ölçütlerini birlikte denetle.'));
+    next.append(el('b', '', 'Sonra: '), document.createTextNode('Kartın kalan ölçütlerini denetle.'));
     copy.append(next);
   }
 }
@@ -168,10 +173,10 @@ function makeCard(record, index) {
   const criteria = el('span', 'counter', progress);
   criteria.setAttribute('aria-label', `Kabul ölçütleri: ${progress}`);
   const handle = el('span', 'drag-handle', '⠿');
-  handle.title = 'Sürüklemek için tutun. Taşımak için Taşı… düğmesini de kullanabilirsiniz.';
+  handle.title = 'Sürüklemek için tut. Kartı taşı… düğmesiyle de taşıyabilirsin.';
   handle.setAttribute('aria-hidden', 'true');
   meta.append(owner, criteria, el('span', 'counter', `${record.comments} yorum`), handle);
-  const move = button('Taşı…', (event) => openMenu(card, event.detail === 0), 'move-trigger');
+  const move = button('Kartı taşı…', (event) => openMenu(card, event.detail === 0), 'move-trigger');
   move.dataset.move = '';
   move.setAttribute('aria-haspopup', 'menu');
   move.setAttribute('aria-expanded', 'false');
@@ -238,17 +243,17 @@ function buildBoard() {
     title.control.required = true;
     title.control.addEventListener('input', () => title.control.setCustomValidity(''));
     const actions = el('div', 'row');
-    const save = el('button', 'button button--primary', 'Ekle');
+    const save = el('button', 'button button--primary', 'Kartı ekle');
     save.type = 'submit';
     actions.append(save, button('Vazgeç', () => { form.hidden = true; add.focus(); }));
     form.append(title.wrapper, actions);
-    const add = button('Kart ekle', (event) => inlineAdd(column, form, event.detail === 0), 'button column-add');
+    const add = button('Kartı ekle', (event) => inlineAdd(column, form, event.detail === 0), 'button column-add');
     add.dataset.add = column.id;
     form.addEventListener('keydown', (event) => { if (event.key === 'Escape') { form.hidden = true; add.focus(); } });
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       const value = title.control.value.trim();
-      if (!value) { title.control.setCustomValidity('Bir başlık yazın.'); title.control.reportValidity(); return; }
+      if (!value) { title.control.setCustomValidity('Bir başlık yaz.'); title.control.reportValidity(); return; }
       const record = { id: crypto.randomUUID(), title: value, projectId: projectFilter === 'all' ? data.projects[0].id : projectFilter, column: column.id, priority: priorityFilter === 'all' ? 'normal' : priorityFilter, assigneeId: 'ada', criteria: [], comments: 0 };
       data.cards.unshift(record);
       if (cards !== data.cards) cards.unshift(record);
@@ -266,7 +271,7 @@ function buildBoard() {
     list.dataset.label = column.label;
     list.setAttribute('aria-label', `${column.label} kartları`);
     cards.filter((record) => record.column === column.id && passes(record)).forEach((record, index) => list.append(makeCard(record, index)));
-    const empty = el('p', 'muted type-label column-empty', 'Burada henüz kart yok. Kart ekle ile başlayın veya buraya bir kart taşıyın.');
+    const empty = el('p', 'muted type-label column-empty', `${column.label} sütununda kart yok. Bu sütuna bir kart ekle.`);
     empty.id = `empty-${column.id}`;
     arrangeGroups(list);
     const content = el('div', 'column-content');
@@ -495,7 +500,7 @@ function setState(value) {
   if (['many', 'locked'].includes(value)) { projectFilter = 'all'; priorityFilter = 'all'; }
   if (value === 'locked') activeColumn = 'doing';
   $('#priority-filter').value = priorityFilter;
-  renderState(value, () => setState('full'), () => ui.create('card', false, activeColumn));
+  renderState(value, () => setState('full'), () => ui.create('card', false, activeColumn), copy);
   buildFilters();
   buildBoard();
 }
@@ -514,7 +519,7 @@ async function start() {
     $('#reload').addEventListener('click', () => { data.cards[0].title += ' ve sonucu günlüğe yaz'; setState('full'); ui.announce('Dosyanın dışarıdaki sürümü yüklendi.'); });
     setState('full');
   } catch {
-    renderState('error', start, () => {});
+    renderState('error', start, () => {}, copy);
   }
 }
 start();

@@ -14,7 +14,7 @@ const roleFor = (record) => data.columns.find((column) => column.id === record.c
 const nameFor = (project) => state === 'long' ? data.longText.projectName : project.name;
 const summaryFor = (project) => data.projectSummaries.find((item) => item.projectId === project.id) || { description: '', noteCount: 0, completedArchive: 0 };
 const copy = {
-  empty: ['Henüz bir proje yok', 'Bir proje, birlikte yürüyen kartları ve notları bir araya getirir. İlkini ekleyerek başla.', 'Proje ekle'],
+  empty: ['Henüz bir proje yok', 'Kartlarını ve notlarını toplayacağın projeye bir ad ver.', 'Proje ekle'],
   loading: ['Projeler yükleniyor', 'Proje kutuları ve kart sayıları hazırlanıyor.'],
   error: ['Projeler yüklenemedi', 'projects.yml okunamadı. Dosya yerinde mi bak, sonra yeniden dene.'],
 };
@@ -80,7 +80,7 @@ function projectBox(project) {
   const stat = el('p', 'project-stat');
   stat.append(el('strong', 'counter', `${completed}/${total} kart`), document.createTextNode('panoda bitti'));
   const focus = records.find((record) => roleFor(record) !== 'done');
-  const focusText = focus ? (state === 'long' ? `${focus.title} — ${data.longText.title}` : focus.title) : 'Açık kart yok. Yeni bir adıma yer var.';
+  const focusText = focus ? (state === 'long' ? `${focus.title} — ${data.longText.title}` : focus.title) : 'Bu projede açık kart yok.';
   node.append(top, stat, el('p', 'project-focus', focusText));
   return node;
 }
@@ -151,7 +151,7 @@ function addProject(instant = false) {
   name.control.autocomplete = 'off';
   const description = field('Kısa açıklama');
   description.control.maxLength = 80;
-  description.control.placeholder = 'Örnek: Bir haftaya sığan işler';
+  description.control.placeholder = 'Randevular, alışveriş ve ev işleri';
   const error = el('p', 'field-error type-label');
   error.id = 'project-name-error';
   error.hidden = true;
@@ -159,7 +159,7 @@ function addProject(instant = false) {
   const tones = toneSwatches();
   ui.open('Proje ekle', [name.wrapper, description.wrapper, tones], () => {
     const value = name.control.value.trim();
-    const problem = !value ? 'Bir ad yazın.' : data.projects.some((project) => project.name.toLocaleLowerCase('tr') === value.toLocaleLowerCase('tr')) ? 'Bu adda bir proje zaten var.' : '';
+    const problem = !value ? 'Bir ad yaz.' : data.projects.some((project) => project.name.toLocaleLowerCase('tr') === value.toLocaleLowerCase('tr')) ? 'Bu adda bir proje zaten var.' : '';
     error.textContent = problem;
     error.hidden = !problem;
     name.control.setAttribute('aria-invalid', String(Boolean(problem)));
@@ -179,7 +179,7 @@ function addProject(instant = false) {
     entrance(box);
     requestAnimationFrame(() => box.focus({ preventScroll: false }));
     ui.announce(`${value} projesi Aktif bölümüne eklendi.`);
-  }, instant, 'Ekle');
+  }, instant, 'Projeyi ekle');
   name.control.addEventListener('input', () => { error.hidden = true; name.control.removeAttribute('aria-invalid'); });
 }
 function setState(value) {
@@ -203,7 +203,7 @@ async function start() {
     $('#add-project').addEventListener('click', (event) => addProject(event.detail === 0));
     $('#prototype-state').addEventListener('change', (event) => { Object.assign(data, structuredClone(fixtures)); page = structuredClone(pageFixture); setState(event.target.value); });
     $('#reload').addEventListener('click', () => {
-      page.status['ornek-proje-4'] = 'active';
+      page.status['okuma-listesi'] = 'active';
       setState('full');
       $('#main').focus();
       ui.announce('Güncel proje listesi yüklendi. Okuma listesi Aktif bölümüne geçti.');

@@ -24,22 +24,22 @@
   "cards": [
     {
       "id": "card-1",
-      "title": "İlk taslağı birlikte gözden geçir",
-      "projectId": "ornek-proje",
+      "title": "Mercimek çorbasının ölçülerini netleştir",
+      "projectId": "mutfak-defteri",
       "column": "todo",
       "priority": "urgent",
       "assigneeId": "ada",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
+          "text": "Mercimek ve su miktarı yazıldı",
           "done": true
         },
         {
-          "text": "Dar ekranda doğrulandı",
+          "text": "İki porsiyonla denendi",
           "done": true
         },
         {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Tuz miktarı tartıldı",
           "done": false
         }
       ],
@@ -47,22 +47,18 @@
     },
     {
       "id": "card-2",
-      "title": "Dar ekranda başlıkları doğrula",
-      "projectId": "ornek-proje-2",
+      "title": "Görüşme sorularını danışmana gönder",
+      "projectId": "tez-taslagi",
       "column": "doing",
       "priority": "important",
       "assigneeId": "claude",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
+          "text": "Sorular yöntem taslağına eklendi",
           "done": true
         },
         {
-          "text": "Dar ekranda doğrulandı",
-          "done": false
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Danışmana e-posta gönderildi",
           "done": false
         }
       ],
@@ -70,137 +66,112 @@
     },
     {
       "id": "card-3",
-      "title": "Örnek notları düzenle",
-      "projectId": "ornek-proje-8",
+      "title": "Yürüyüş fotoğraflarını tarihe göre ayır",
+      "projectId": "sonbahar-albumu",
       "column": "done",
       "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
-          "done": true
-        },
-        {
-          "text": "Dar ekranda doğrulandı",
-          "done": true
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Dosyalar çekim gününe göre ayrıldı",
           "done": true
         }
       ],
-      "comments": 1
+      "comments": 0
     },
     {
       "id": "card-4",
-      "title": "Arama sonuçlarında bağlamı göster",
-      "projectId": "ornek-proje-3",
+      "title": "Cuma akşamı için alışveriş listesi çıkar",
+      "projectId": "haftalik-plan",
       "column": "todo",
       "priority": "important",
       "assigneeId": "deniz",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
+          "text": "Evdeki malzemeler kontrol edildi",
           "done": false
         },
         {
-          "text": "Dar ekranda doğrulandı",
+          "text": "Altı kişilik miktarlar yazıldı",
           "done": false
         },
         {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Pazar alışverişi ayrıldı",
+          "done": false
+        },
+        {
+          "text": "Eksikler Deniz’e iletildi",
+          "done": false
+        }
+      ],
+      "comments": 1
+    },
+    {
+      "id": "card-5",
+      "title": "Haftanın masraflarını topla",
+      "projectId": "haftalik-plan",
+      "column": "todo",
+      "priority": "normal",
+      "assigneeId": "ada",
+      "criteria": [],
+      "comments": 0
+    },
+    {
+      "id": "card-6",
+      "title": "Nohudu düdüklüde pişirme süresini dene",
+      "projectId": "mutfak-defteri",
+      "column": "doing",
+      "priority": "urgent",
+      "assigneeId": "codex",
+      "criteria": [
+        {
+          "text": "Islatma süresi kaydedildi",
+          "done": true
+        },
+        {
+          "text": "Basınç sonrası süre ölçüldü",
+          "done": false
+        }
+      ],
+      "comments": 5
+    },
+    {
+      "id": "card-7",
+      "title": "Görüşme dökümlerindeki eksik satırları tamamla",
+      "projectId": "tez-taslagi",
+      "column": "review",
+      "priority": "important",
+      "assigneeId": "deniz",
+      "criteria": [
+        {
+          "text": "Anlaşılmayan yerler işaretlendi",
+          "done": true
+        },
+        {
+          "text": "Ses kaydıyla karşılaştırıldı",
+          "done": true
+        },
+        {
+          "text": "Döküm yeniden okundu",
           "done": false
         }
       ],
       "comments": 2
     },
     {
-      "id": "card-5",
-      "title": "Günlüğe kısa bir özet ekle",
-      "projectId": "ornek-proje-3",
-      "column": "todo",
-      "priority": "normal",
-      "assigneeId": "ada",
-      "criteria": [
-        {
-          "text": "İlk taslak hazır",
-          "done": true
-        },
-        {
-          "text": "Dar ekranda doğrulandı",
-          "done": false
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
-          "done": false
-        }
-      ],
-      "comments": 0
-    },
-    {
-      "id": "card-6",
-      "title": "Klavye ile kart taşıma akışını dene",
-      "projectId": "ornek-proje",
-      "column": "doing",
-      "priority": "urgent",
-      "assigneeId": "codex",
-      "criteria": [
-        {
-          "text": "İlk taslak hazır",
-          "done": true
-        },
-        {
-          "text": "Dar ekranda doğrulandı",
-          "done": true
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
-          "done": false
-        }
-      ],
-      "comments": 4
-    },
-    {
-      "id": "card-7",
-      "title": "Not bağlantılarını birlikte incele",
-      "projectId": "ornek-proje-2",
-      "column": "review",
-      "priority": "important",
-      "assigneeId": "deniz",
-      "criteria": [
-        {
-          "text": "İlk taslak hazır",
-          "done": true
-        },
-        {
-          "text": "Dar ekranda doğrulandı",
-          "done": true
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
-          "done": false
-        }
-      ],
-      "comments": 1
-    },
-    {
       "id": "card-8",
-      "title": "İlk kullanım metnini sadeleştir",
-      "projectId": "ornek-proje-8",
+      "title": "Albümün giriş yazısını kısalt",
+      "projectId": "sonbahar-albumu",
       "column": "review",
       "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
+          "text": "Giriş yazısı yüz sözcüğün altına indi",
           "done": true
         },
         {
-          "text": "Dar ekranda doğrulandı",
-          "done": true
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Çekim tarihleri doğrulandı",
           "done": false
         }
       ],
@@ -208,60 +179,47 @@
     },
     {
       "id": "card-9",
-      "title": "Eski örnekleri arşive ayır",
-      "projectId": "ornek-proje-3",
+      "title": "Geçen ayın faturalarını dosyala",
+      "projectId": "haftalik-plan",
       "column": "todo",
       "priority": "low",
       "assigneeId": "deniz",
-      "criteria": [
-        {
-          "text": "İlk taslak hazır",
-          "done": false
-        },
-        {
-          "text": "Dar ekranda doğrulandı",
-          "done": false
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
-          "done": false
-        }
-      ],
+      "criteria": [],
       "comments": 0
     },
     {
       "id": "card-10",
-      "title": "Tamamlanan işleri günlüğe bağla",
-      "projectId": "ornek-proje",
+      "title": "Fırın sebze tarifine süreyi ekle",
+      "projectId": "mutfak-defteri",
       "column": "done",
       "priority": "normal",
       "assigneeId": "codex",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
+          "text": "Fansız fırın sıcaklığı yazıldı",
           "done": true
         },
         {
-          "text": "Dar ekranda doğrulandı",
-          "done": true
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Pişirme süresi tarife eklendi",
           "done": true
         }
       ],
-      "comments": 2
+      "comments": 1
     },
     {
       "id": "card-11",
-      "title": "Arama dizinini küçük bir örnekle dene",
-      "projectId": "ornek-proje-3",
+      "title": "Kışlık montu temizlemeye bırak",
+      "projectId": "haftalik-plan",
       "column": "doing",
       "priority": "important",
       "assigneeId": "codex",
       "criteria": [
         {
-          "text": "Örnekle doğrulandı",
+          "text": "Teslim fişi saklandı",
+          "done": true
+        },
+        {
+          "text": "Teslim alma günü takvime işlendi",
           "done": false
         }
       ],
@@ -269,44 +227,56 @@
     },
     {
       "id": "card-12",
-      "title": "İlk kullanım akışını birlikte gözden geçir",
-      "projectId": "ornek-proje-8",
+      "title": "Baskı için on iki fotoğraf seç",
+      "projectId": "sonbahar-albumu",
       "column": "doing",
       "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
-          "text": "Örnekle doğrulandı",
+          "text": "Benzer kareler elendi",
+          "done": true
+        },
+        {
+          "text": "Baskı boyutu seçildi",
+          "done": false
+        },
+        {
+          "text": "On iki kare işaretlendi",
           "done": false
         }
       ],
-      "comments": 0
+      "comments": 4
     },
     {
       "id": "card-13",
-      "title": "Gözlem notlarını bir araya getir",
-      "projectId": "ornek-proje-2",
+      "title": "Görüşme notlarını konulara göre grupla",
+      "projectId": "tez-taslagi",
       "column": "todo",
       "priority": "normal",
       "assigneeId": "deniz",
       "criteria": [
         {
-          "text": "Örnekle doğrulandı",
+          "text": "Ulaşım ve zaman başlıkları ayrıldı",
           "done": false
         }
       ],
-      "comments": 0
+      "comments": 1
     },
     {
       "id": "card-14",
-      "title": "Haftanın ilk adımını belirle",
-      "projectId": "ornek-proje-3",
+      "title": "Pazartesi randevularını takvime işle",
+      "projectId": "haftalik-plan",
       "column": "todo",
       "priority": "important",
       "assigneeId": "ada",
       "criteria": [
         {
-          "text": "Örnekle doğrulandı",
+          "text": "Randevu saatleri doğrulandı",
+          "done": false
+        },
+        {
+          "text": "Yol süreleri eklendi",
           "done": false
         }
       ],
@@ -314,29 +284,24 @@
     },
     {
       "id": "card-15",
-      "title": "Okuma kuyruğuna kısa açıklamalar ekle",
-      "projectId": "ornek-proje-4",
+      "title": "Okuma kuyruğuna sayfa sayılarını ekle",
+      "projectId": "okuma-listesi",
       "column": "todo",
       "priority": "low",
       "assigneeId": "deniz",
-      "criteria": [
-        {
-          "text": "Örnekle doğrulandı",
-          "done": false
-        }
-      ],
+      "criteria": [],
       "comments": 0
     },
     {
       "id": "card-16",
-      "title": "Proje kapağındaki metni sadeleştir",
-      "projectId": "ornek-proje-8",
+      "title": "Albüm kapağı için tarih aralığını yaz",
+      "projectId": "sonbahar-albumu",
       "column": "todo",
       "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
-          "text": "Örnekle doğrulandı",
+          "text": "İlk ve son çekim tarihi bulundu",
           "done": false
         }
       ],
@@ -358,182 +323,182 @@
     },
     {
       "id": "note-3",
-      "projectId": "ornek-proje",
-      "title": "Ajanlarla çalışma anlaşması",
-      "body": "Bir kartı üstlen, kabul ölçütlerini denetle ve bitirirken ne değiştiğini not et.",
+      "projectId": "mutfak-defteri",
+      "title": "Tarif kayıt düzeni",
+      "body": "Ölçüleri gramla yazıyorum. Fırın sıcaklığının yanına fanlı mı fansız mı olduğunu da ekle; aynı tarif iki ayarda farklı sonuç veriyor.",
       "kind": "wiki",
       "pinned": true,
       "updated": "Dün"
     },
     {
       "id": "note-4",
-      "projectId": "ornek-proje-3",
-      "title": "Bir sonraki küçük adım",
-      "body": "Arama için önce başlık ve proje adı yeterli. Kalanını ihtiyaç oldukça ekleyelim.",
+      "projectId": "haftalik-plan",
+      "title": "Cuma hazırlığı",
+      "body": "Akşam yemeğine altı kişi gelecek. Nohut perşembe gecesi suya girecek, salatayı cuma hazırlayacağım.",
       "kind": "note",
       "pinned": false,
       "updated": "Dün"
     },
     {
       "id": "research-1",
-      "projectId": "ornek-proje",
-      "title": "Yerel aramada bağlamı korumak",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "mutfak-defteri",
+      "title": "Mercimeği kavurmak fark ediyor mu?",
+      "body": "Soğanla iki dakika kavurduğum mercimek daha belirgin kokuyor. Doğrudan su eklediğim tencerede bu tat yoktu; bir sonraki denemede yağ miktarını sabit tutacağım.",
       "kind": "research",
       "pinned": true,
       "updated": "3 Kasım"
     },
     {
       "id": "research-2",
-      "projectId": "ornek-proje-2",
-      "title": "Ajan devirlerinde küçük kontrol listeleri",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "tez-taslagi",
+      "title": "Görüşme sorularının sırası",
+      "body": "Ulaşım sorusuyla başlamak sohbeti açtı. Yaş ve meslek bilgilerini sona bırakınca kesinti daha az oldu.",
       "kind": "research",
       "pinned": false,
-      "updated": "3 Kasım"
+      "updated": "2 Kasım"
     },
     {
       "id": "research-3",
-      "projectId": "ornek-proje-3",
-      "title": "Klavye ile çalışan bir pano",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "haftalik-plan",
+      "title": "Pazar alışverişinin saati",
+      "body": "Öğleden sonra maydanoz kalmamıştı.",
       "kind": "research",
       "pinned": false,
-      "updated": "3 Kasım"
+      "updated": "31 Ekim"
     },
     {
       "id": "research-4",
-      "projectId": "ornek-proje",
-      "title": "Markdown klasöründe bağlantı düzeni",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "mutfak-defteri",
+      "title": "Nohudu ıslatma süresi",
+      "body": "Sekiz saat ıslanan nohutların bir kısmı pişerken kabuk attı. On iki saatlik denemeyi aynı paketten ayırdığım nohutla yapacağım.",
       "kind": "research",
       "pinned": false,
-      "updated": "2 Kasım"
+      "updated": "30 Ekim"
     },
     {
       "id": "research-5",
-      "projectId": "ornek-proje-2",
-      "title": "Dar ekranlarda okunabilir başlıklar",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "tez-taslagi",
+      "title": "Dökümde duraksamaları yazmak",
+      "body": "Her duraksamayı yazmak metni okumayı zorlaştırıyor. Yalnız anlamı etkileyen sessizlikleri köşeli parantezle belirttim; yöntem notunda bu tercihi açıklayacağım.",
       "kind": "research",
       "pinned": false,
-      "updated": "2 Kasım"
+      "updated": "28 Ekim"
     },
     {
       "id": "research-6",
-      "projectId": "ornek-proje-3",
-      "title": "Günlüklerden kararları bulmak",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "haftalik-plan",
+      "title": "Fişleri saklama düzeni",
+      "body": "Kağıt fişleri ay sonunda okumak zorlaşıyor. Alışveriş günü fotoğraf çekip tutarı haftalık nota yazınca eksik kalmadı.",
       "kind": "research",
       "pinned": false,
-      "updated": "2 Kasım"
+      "updated": "26 Ekim"
     },
     {
       "id": "research-7",
-      "projectId": "ornek-proje",
-      "title": "Kabul ölçütlerini somutlaştırmak",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "mutfak-defteri",
+      "title": "Fırında aynı anda iki tepsi",
+      "body": "Üst raftaki sebzeler sekiz dakika erken kızardı. Tepsileri pişirmenin ortasında değiştirmek gerekiyor.",
       "kind": "research",
       "pinned": false,
-      "updated": "2 Kasım"
+      "updated": "24 Ekim"
     },
     {
       "id": "research-8",
-      "projectId": "ornek-proje-2",
-      "title": "Kısa notları kalıcı bilgiye dönüştürmek",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "tez-taslagi",
+      "title": "Kaynak notunda sayfa numarası",
+      "body": "Alıntıyı kaydederken sayfa numarasını atlamışım. İki cümleyi yeniden bulmak yarım saat sürdü; bundan sonra kaynak notunu kitap açıkken tamamlayacağım.",
       "kind": "research",
       "pinned": false,
-      "updated": "2 Kasım"
+      "updated": "22 Ekim"
     },
     {
       "id": "research-9",
-      "projectId": "ornek-proje-3",
-      "title": "Dosya değişikliklerini karşılaştırmak",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "haftalik-plan",
+      "title": "Randevular arasındaki yol süresi",
+      "body": "Haritadaki süreye on beş dakika eklemek salı günü yeterli oldu. Yağmurlu bir günde yeniden bakacağım.",
       "kind": "research",
       "pinned": false,
-      "updated": "2 Kasım"
+      "updated": "20 Ekim"
     },
     {
       "id": "research-10",
-      "projectId": "ornek-proje",
-      "title": "Bir proje için sakin bir başlangıç",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "mutfak-defteri",
+      "title": "Çorbayı ertesi güne saklamak",
+      "body": "Dolapta bir gece bekleyince koyulaştı. Isıtırken porsiyon başına yarım çay bardağı su yeterli; limonu servis sırasında eklemek daha iyi.",
       "kind": "research",
       "pinned": false,
-      "updated": "2 Kasım"
+      "updated": "18 Ekim"
     },
     {
       "id": "research-11",
-      "projectId": "ornek-proje-2",
-      "title": "Geri bildirimi işe dönüştürmek",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "tez-taslagi",
+      "title": "İlk iki görüşmede ortak temalar",
+      "body": "İki kişi de aktarma beklemekten söz etti, ancak biri süreye diğeri belirsizliğe odaklandı. Bunları şimdilik ayrı kodlarda tutuyorum.",
       "kind": "research",
       "pinned": false,
-      "updated": "2 Kasım"
+      "updated": "17 Ekim"
     },
     {
       "id": "research-12",
-      "projectId": "ornek-proje-3",
-      "title": "Tamamlanan kartların izi",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek.",
+      "projectId": "haftalik-plan",
+      "title": "Haftalık planı ne zaman hazırlamalı?",
+      "body": "Pazar akşamı yazdığım liste pazartesiye kalandan daha gerçekçiydi. Önce sabit randevuları koyup kalan işleri boşluklara dağıttım.",
       "kind": "research",
       "pinned": false,
-      "updated": "2 Kasım"
+      "updated": "16 Ekim"
     }
   ],
   "longText": {
-    "projectName": "Örnek proje araştırma ve tasarım defteri",
-    "title": "Kullanıcıların farklı ekran boyutlarında uzun Türkçe başlıkları, proje adlarını ve kabul ölçütlerini rahatça okuyabildiğini birlikte doğrulayalım",
-    "english": "Verify together that developers can comfortably read lengthy project names, acceptance criteria and detailed task descriptions on smaller screens"
+    "projectName": "Sonbahar yürüyüşlerinden kalan fotoğrafları ayıklama ve albüm hazırlığı",
+    "title": "Yağmurdan önceki son yürüyüşte çekilen fotoğrafları ışığa ve çekim saatine göre ayırıp basılacak albüm için tarih sırasını yeniden düzenle",
+    "english": "Sort the photographs from the last autumn walk by light and time of day, then arrange the selected prints in chronological order for the family album"
   },
   "projectSummaries": [
     {
-      "projectId": "ornek-proje",
-      "description": "Yerel araçlar, küçük adımlar",
+      "projectId": "mutfak-defteri",
+      "description": "Denenen tarifler ve düzeltilen ölçüler",
       "noteCount": 30,
       "completedArchive": 12
     },
     {
-      "projectId": "ornek-proje-2",
-      "description": "Gözlemler ve kararlar",
+      "projectId": "tez-taslagi",
+      "description": "Görüşmeler, kaynaklar ve yöntem taslağı",
       "noteCount": 24,
       "completedArchive": 25
     },
     {
-      "projectId": "ornek-proje-3",
-      "description": "Bir haftaya sığan işler",
+      "projectId": "haftalik-plan",
+      "description": "Randevular, alışveriş ve ev işleri",
       "noteCount": 18,
       "completedArchive": 35
     },
     {
-      "projectId": "ornek-proje-4",
+      "projectId": "okuma-listesi",
       "description": "Sonraki okumalar",
       "noteCount": 12,
       "completedArchive": 20
     },
     {
-      "projectId": "ornek-proje-5",
+      "projectId": "tasarim-denemesi",
       "description": "Arayüz fikirleri",
       "noteCount": 9,
       "completedArchive": 20
     },
     {
-      "projectId": "ornek-proje-6",
+      "projectId": "kucuk-araclar",
       "description": "Günlük küçük kolaylıklar",
       "noteCount": 16,
       "completedArchive": 15
     },
     {
-      "projectId": "ornek-proje-7",
+      "projectId": "bahce-notlari",
       "description": "Dışarıdan gözlemler",
       "noteCount": 7,
       "completedArchive": 14
     },
     {
-      "projectId": "ornek-proje-8",
-      "description": "Birlikte tasarlanan denemeler",
+      "projectId": "sonbahar-albumu",
+      "description": "Seçilecek kareler ve baskı notları",
       "noteCount": 22,
       "completedArchive": 20
     }
@@ -542,67 +507,67 @@
     {
       "id": "journal-1",
       "date": "2026-11-03",
-      "time": "09:00",
+      "time": "09:07",
       "authorId": "ada",
-      "body": "İlk taslak hazır; sırada birlikte inceleme var."
+      "body": "Çorbanın su ölçüsünü düzelttim. Kıvamı bu kez tam oldu."
     },
     {
       "id": "journal-2",
       "date": "2026-11-03",
-      "time": "09:40",
+      "time": "09:43",
       "authorId": "deniz",
-      "body": "Kabul ölçütleri sadeleştirildi."
+      "body": "Danışmandan dönüş geldi; son iki soruyu birleştirmemi öneriyor."
     },
     {
       "id": "journal-3",
       "date": "2026-11-03",
-      "time": "10:15",
+      "time": "10:26",
       "authorId": "ada",
-      "body": "Klavye ile kart taşıma akışı birlikte denendi."
+      "body": "Mont temizlemeye bırakıldı."
     },
     {
       "id": "journal-4",
       "date": "2026-11-03",
-      "time": "11:30",
+      "time": "11:52",
       "authorId": "deniz",
-      "body": "Arama sonuçlarında proje adları görünür oldu."
+      "body": "Cuma için liste hazır. Evde pirinç var, yeniden almaya gerek yok."
     },
     {
       "id": "journal-5",
       "date": "2026-11-03",
-      "time": "13:10",
+      "time": "13:18",
       "authorId": "ada",
-      "body": "Not bağlantılarındaki eksikler tamamlandı."
+      "body": "Düdüklünün contası kaçırıyor. Nohut denemesini contayı değiştirdikten sonra yapacağım; süreyi bugünkü pişirmeden çıkarmak doğru olmaz."
     },
     {
       "id": "journal-6",
       "date": "2026-11-03",
-      "time": "14:25",
+      "time": "14:41",
       "authorId": "deniz",
-      "body": "İlk kullanım için kısa bir yol seçildi."
+      "body": "Üçüncü görüşmenin dökümünü bitirdim, iki yerde ses anlaşılmıyor. Ses kaydında 14:32 ve 27:08 işaretli."
     },
     {
       "id": "journal-7",
       "date": "2026-11-03",
-      "time": "16:00",
+      "time": "16:30",
       "authorId": "ada",
-      "body": "Dar ekran gözlemleri araştırma defterine eklendi."
+      "body": "Elektrik faturası ödendi."
     },
     {
       "id": "journal-8",
       "date": "2026-11-03",
-      "time": "17:15",
+      "time": "17:23",
       "authorId": "deniz",
-      "body": "Bir sonraki adım yarının ilk kartına yazıldı."
+      "body": "Yarın pazardan limon ve maydanoz alacağım. Nohut akşamdan ıslanacak."
     }
   ],
   "dashboard": {
     "date": "2026-11-03",
-    "updated": "17:15",
+    "updated": "17:23",
     "defaultProjects": [
-      "ornek-proje",
-      "ornek-proje-2",
-      "ornek-proje-3"
+      "mutfak-defteri",
+      "tez-taslagi",
+      "haftalik-plan"
     ],
     "journalDays": [
       "2026-10-16",

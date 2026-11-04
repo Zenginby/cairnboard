@@ -24,22 +24,22 @@
   "cards": [
     {
       "id": "card-1",
-      "title": "İlk taslağı birlikte gözden geçir",
-      "projectId": "ornek-proje",
+      "title": "Mercimek çorbasının ölçülerini netleştir",
+      "projectId": "mutfak-defteri",
       "column": "todo",
       "priority": "urgent",
       "assigneeId": "ada",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
+          "text": "Mercimek ve su miktarı yazıldı",
           "done": true
         },
         {
-          "text": "Dar ekranda doğrulandı",
+          "text": "İki porsiyonla denendi",
           "done": true
         },
         {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Tuz miktarı tartıldı",
           "done": false
         }
       ],
@@ -47,22 +47,18 @@
     },
     {
       "id": "card-2",
-      "title": "Dar ekranda başlıkları doğrula",
-      "projectId": "ornek-proje-2",
+      "title": "Görüşme sorularını danışmana gönder",
+      "projectId": "tez-taslagi",
       "column": "doing",
       "priority": "important",
       "assigneeId": "claude",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
+          "text": "Sorular yöntem taslağına eklendi",
           "done": true
         },
         {
-          "text": "Dar ekranda doğrulandı",
-          "done": false
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Danışmana e-posta gönderildi",
           "done": false
         }
       ],
@@ -70,137 +66,112 @@
     },
     {
       "id": "card-3",
-      "title": "Örnek notları düzenle",
-      "projectId": "ornek-proje-8",
+      "title": "Yürüyüş fotoğraflarını tarihe göre ayır",
+      "projectId": "sonbahar-albumu",
       "column": "done",
       "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
-          "done": true
-        },
-        {
-          "text": "Dar ekranda doğrulandı",
-          "done": true
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Dosyalar çekim gününe göre ayrıldı",
           "done": true
         }
       ],
-      "comments": 1
+      "comments": 0
     },
     {
       "id": "card-4",
-      "title": "Arama sonuçlarında bağlamı göster",
-      "projectId": "ornek-proje",
+      "title": "Cuma akşamı için alışveriş listesi çıkar",
+      "projectId": "haftalik-plan",
       "column": "todo",
       "priority": "important",
       "assigneeId": "deniz",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
+          "text": "Evdeki malzemeler kontrol edildi",
           "done": false
         },
         {
-          "text": "Dar ekranda doğrulandı",
+          "text": "Altı kişilik miktarlar yazıldı",
           "done": false
         },
         {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Pazar alışverişi ayrıldı",
+          "done": false
+        },
+        {
+          "text": "Eksikler Deniz’e iletildi",
+          "done": false
+        }
+      ],
+      "comments": 1
+    },
+    {
+      "id": "card-5",
+      "title": "Haftanın masraflarını topla",
+      "projectId": "haftalik-plan",
+      "column": "todo",
+      "priority": "normal",
+      "assigneeId": "ada",
+      "criteria": [],
+      "comments": 0
+    },
+    {
+      "id": "card-6",
+      "title": "Nohudu düdüklüde pişirme süresini dene",
+      "projectId": "mutfak-defteri",
+      "column": "doing",
+      "priority": "urgent",
+      "assigneeId": "codex",
+      "criteria": [
+        {
+          "text": "Islatma süresi kaydedildi",
+          "done": true
+        },
+        {
+          "text": "Basınç sonrası süre ölçüldü",
+          "done": false
+        }
+      ],
+      "comments": 5
+    },
+    {
+      "id": "card-7",
+      "title": "Görüşme dökümlerindeki eksik satırları tamamla",
+      "projectId": "tez-taslagi",
+      "column": "review",
+      "priority": "important",
+      "assigneeId": "deniz",
+      "criteria": [
+        {
+          "text": "Anlaşılmayan yerler işaretlendi",
+          "done": true
+        },
+        {
+          "text": "Ses kaydıyla karşılaştırıldı",
+          "done": true
+        },
+        {
+          "text": "Döküm yeniden okundu",
           "done": false
         }
       ],
       "comments": 2
     },
     {
-      "id": "card-5",
-      "title": "Günlüğe kısa bir özet ekle",
-      "projectId": "ornek-proje-3",
-      "column": "todo",
-      "priority": "normal",
-      "assigneeId": "ada",
-      "criteria": [
-        {
-          "text": "İlk taslak hazır",
-          "done": true
-        },
-        {
-          "text": "Dar ekranda doğrulandı",
-          "done": false
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
-          "done": false
-        }
-      ],
-      "comments": 0
-    },
-    {
-      "id": "card-6",
-      "title": "Klavye ile kart taşıma akışını dene",
-      "projectId": "ornek-proje",
-      "column": "doing",
-      "priority": "urgent",
-      "assigneeId": "codex",
-      "criteria": [
-        {
-          "text": "İlk taslak hazır",
-          "done": true
-        },
-        {
-          "text": "Dar ekranda doğrulandı",
-          "done": true
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
-          "done": false
-        }
-      ],
-      "comments": 4
-    },
-    {
-      "id": "card-7",
-      "title": "Not bağlantılarını birlikte incele",
-      "projectId": "ornek-proje-2",
-      "column": "review",
-      "priority": "important",
-      "assigneeId": "deniz",
-      "criteria": [
-        {
-          "text": "İlk taslak hazır",
-          "done": true
-        },
-        {
-          "text": "Dar ekranda doğrulandı",
-          "done": true
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
-          "done": false
-        }
-      ],
-      "comments": 1
-    },
-    {
       "id": "card-8",
-      "title": "İlk kullanım metnini sadeleştir",
-      "projectId": "ornek-proje-8",
+      "title": "Albümün giriş yazısını kısalt",
+      "projectId": "sonbahar-albumu",
       "column": "review",
       "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
+          "text": "Giriş yazısı yüz sözcüğün altına indi",
           "done": true
         },
         {
-          "text": "Dar ekranda doğrulandı",
-          "done": true
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Çekim tarihleri doğrulandı",
           "done": false
         }
       ],
@@ -208,49 +179,32 @@
     },
     {
       "id": "card-9",
-      "title": "Eski örnekleri arşive ayır",
-      "projectId": "ornek-proje-3",
+      "title": "Geçen ayın faturalarını dosyala",
+      "projectId": "haftalik-plan",
       "column": "todo",
       "priority": "low",
       "assigneeId": "deniz",
-      "criteria": [
-        {
-          "text": "İlk taslak hazır",
-          "done": false
-        },
-        {
-          "text": "Dar ekranda doğrulandı",
-          "done": false
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
-          "done": false
-        }
-      ],
+      "criteria": [],
       "comments": 0
     },
     {
       "id": "card-10",
-      "title": "Tamamlanan işleri günlüğe bağla",
-      "projectId": "ornek-proje",
+      "title": "Fırın sebze tarifine süreyi ekle",
+      "projectId": "mutfak-defteri",
       "column": "done",
       "priority": "normal",
       "assigneeId": "codex",
       "criteria": [
         {
-          "text": "İlk taslak hazır",
+          "text": "Fansız fırın sıcaklığı yazıldı",
           "done": true
         },
         {
-          "text": "Dar ekranda doğrulandı",
-          "done": true
-        },
-        {
-          "text": "Birlikte gözden geçirildi",
+          "text": "Pişirme süresi tarife eklendi",
           "done": true
         }
       ],
-      "comments": 2
+      "comments": 1
     }
   ],
   "notes": [
@@ -268,26 +222,26 @@
     },
     {
       "id": "note-3",
-      "projectId": "ornek-proje",
-      "title": "Ajanlarla çalışma anlaşması",
-      "body": "Bir kartı üstlen, kabul ölçütlerini denetle ve bitirirken ne değiştiğini not et.",
+      "projectId": "mutfak-defteri",
+      "title": "Tarif kayıt düzeni",
+      "body": "Ölçüleri gramla yazıyorum. Fırın sıcaklığının yanına fanlı mı fansız mı olduğunu da ekle; aynı tarif iki ayarda farklı sonuç veriyor.",
       "kind": "wiki",
       "pinned": true,
       "updated": "Dün"
     },
     {
       "id": "note-4",
-      "projectId": "ornek-proje-3",
-      "title": "Bir sonraki küçük adım",
-      "body": "Arama için önce başlık ve proje adı yeterli. Kalanını ihtiyaç oldukça ekleyelim.",
+      "projectId": "haftalik-plan",
+      "title": "Cuma hazırlığı",
+      "body": "Akşam yemeğine altı kişi gelecek. Nohut perşembe gecesi suya girecek, salatayı cuma hazırlayacağım.",
       "kind": "note",
       "pinned": false,
       "updated": "Dün"
     }
   ],
   "longText": {
-    "projectName": "Örnek proje araştırma ve tasarım defteri",
-    "title": "Kullanıcıların farklı ekran boyutlarında uzun Türkçe başlıkları, proje adlarını ve kabul ölçütlerini rahatça okuyabildiğini birlikte doğrulayalım",
-    "english": "Verify together that developers can comfortably read lengthy project names, acceptance criteria and detailed task descriptions on smaller screens"
+    "projectName": "Sonbahar yürüyüşlerinden kalan fotoğrafları ayıklama ve albüm hazırlığı",
+    "title": "Yağmurdan önceki son yürüyüşte çekilen fotoğrafları ışığa ve çekim saatine göre ayırıp basılacak albüm için tarih sırasını yeniden düzenle",
+    "english": "Sort the photographs from the last autumn walk by light and time of day, then arrange the selected prints in chronological order for the family album"
   }
 }

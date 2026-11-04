@@ -6,14 +6,18 @@ let editing = false;
 let deleted = false;
 let closeMoveMenu = () => {};
 document.addEventListener('pointerdown', (event) => { if (!event.target.closest('.card-move-dropdown')) closeMoveMenu(); });
-const bodyFor = (ctx) => ctx.record.body || ctx.data.body;
+const bodyFor = (ctx) => ctx.record.body || (ctx.record.id === 'card-1' ? ctx.data.body : '');
 startDocument({
+  copy: {
+    empty: ['Gösterilecek kart yok', 'Yapacağın işin başlığını yeni bir karta yaz.', 'Kartı ekle'],
+    loading: ['Kart açılıyor', 'Kartın ölçütleri ve yorumları okunuyor.'],
+    error: ['Kart okunamadı', 'Kart dosyasına erişimi kontrol et, sonra kartı yeniden yükle.'],
+  },
   record: (ctx) => ctx.data.cards.find((record) => record.id === id) || ctx.data.cards[0],
   markdown: bodyFor,
   reset(ctx, value) { editing = value === 'conflict'; deleted = false; },
-  reload(ctx) { ctx.record.body = `${bodyFor(ctx)}\n\nDışarıda eklenen not: Birlikte yeniden gözden geçir.`; editing = false; },
+  reload(ctx) { ctx.record.body = `${bodyFor(ctx)}\n\nDışarıda eklenen not: Son değişikliğin tarihini de kaydet.`; editing = false; },
   firstStep(ctx) { if (ctx.canWrite()) ctx.ui.create('card'); },
-  emptyLabel: 'Kart ekle',
   sidebar: (ctx) => ({ groups: [{ title: 'Proje', entries: [{ title: ctx.data.projects.find((project) => project.id === ctx.record.projectId).name, href: `../project/?project=${ctx.record.projectId}` }] }, { title: 'Kartlar', entries: ctx.data.cards.filter((record) => !record.trashed && record.projectId === ctx.record.projectId).map((record) => ({ title: ctx.text(record.title), href: `../card/?id=${record.id}`, current: record.id === ctx.record.id })) }] }),
   render(ctx) {
     const record = ctx.record;
@@ -35,7 +39,7 @@ startDocument({
       const items = [...menu.querySelectorAll('button:not(:disabled)')];
       (last ? items.at(-1) : items[0])?.focus({ preventScroll: true });
     };
-    const move = button('Taşı…', (event) => menu.inert ? open(event.detail === 0) : close(true));
+    const move = button('Kartı taşı…', (event) => menu.inert ? open(event.detail === 0) : close(true));
     move.addEventListener('keydown', (event) => {
       if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); open(true, event.key === 'ArrowUp'); }
     });
@@ -58,8 +62,8 @@ startDocument({
       item.setAttribute('role', 'menuitem'); item.disabled = target.id === record.column; menu.append(item);
     });
     move.id = 'card-move-trigger'; dropdown.append(move, menu);
-    const edit = button('Düzenle', () => { if (!ctx.canWrite()) return; editing = true; ctx.refresh(); ctx.focus('.doc-editor textarea'); }); edit.id = 'card-edit';
-    const remove = button('Sil', () => ctx.confirm('Kartı çöp kutusuna taşı', 'Kartı ve yorumlarını bu oturumda geri alabilirsiniz.', () => {
+    const edit = button('Kartı düzenle', () => { if (!ctx.canWrite()) return; editing = true; ctx.refresh(); ctx.focus('.doc-editor textarea'); }); edit.id = 'card-edit';
+    const remove = button('Kartı sil', () => ctx.confirm('Kartı çöp kutusuna taşı', 'Kartı ve yorumlarını bu oturumda geri alabilirsin.', () => {
       deleted = true; record.trashed = true; editing = false; ctx.refresh(); ctx.focus(); ctx.toast('Kart çöp kutusuna taşındı.', () => { deleted = false; record.trashed = false; ctx.refresh(); });
     }, 'Çöp kutusuna taşı'), 'button button--danger');
     [move, edit, remove].forEach((node) => { node.disabled = locked; });
@@ -93,11 +97,12 @@ startDocument({
         if (!title.control.value.trim()) { title.control.reportValidity(); return; }
         record.title = title.control.value.trim(); record.priority = priority.control.value; record.body = value; editing = false;
         ctx.refresh(); ctx.focus('#card-edit'); ctx.toast('Kart kaydedildi.');
-      }, () => { editing = false; ctx.refresh(); ctx.focus('#card-edit'); });
+      }, () => { editing = false; ctx.refresh(); ctx.focus('#card-edit'); }, 'Kartı kaydet');
       ctx.body.append(title.wrapper, priority.wrapper, editor.node);
     } else ctx.body.append(renderMarkdown(bodyFor(ctx), ctx.data.notes));
     const comments = section('Yorumlar', 'comments'); const thread = el('ol', 'comment-thread');
-    ctx.data.commentThread.forEach((comment) => {
+    const commentThread = record.commentThread || (record.id === 'card-1' ? ctx.data.commentThread : []);
+    commentThread.forEach((comment) => {
       const row = el('li'); const meta = el('div', 'comment-meta');
       const person = ctx.data.people.find((person) => person.id === comment.authorId);
       meta.append(el('strong', '', person?.name || `${comment.authorId} · ajan`), el('time', '', comment.time));
@@ -109,8 +114,8 @@ startDocument({
     form.addEventListener('submit', (event) => {
       event.preventDefault(); if (!ctx.canWrite()) return;
       const value = comment.control.value.trim();
-      if (!value) { comment.control.setCustomValidity('Bir yorum yazın.'); comment.control.reportValidity(); return; }
-      ctx.data.commentThread.push({ authorId: 'ada', time: 'Şimdi', body: value }); record.comments++;
+      if (!value) { comment.control.setCustomValidity('Bir yorum yaz.'); comment.control.reportValidity(); return; }
+      record.commentThread = [...commentThread, { authorId: 'ada', time: 'Şimdi', body: value }]; record.comments++;
       ctx.refresh(); ctx.focus('#comment-input'); ctx.toast('Yorum eklendi.');
     });
     comment.control.addEventListener('input', () => comment.control.setCustomValidity(''));

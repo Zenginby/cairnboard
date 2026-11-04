@@ -1,11 +1,14 @@
 import { startDocument, noteGroups, renderMarkdown, references, section, el, projectChip } from '../_shared/doc-frame.js';
 
 const id = new URLSearchParams(location.search).get('id') || 'research-1';
-const bodyFor = (ctx) => `${ctx.record.body}\n\n${ctx.data.findings}`;
+const bodyFor = (ctx) => ctx.record.id === 'research-1' ? `${ctx.record.body}\n\n${ctx.data.findings}` : ctx.record.body;
 startDocument({
+  copy: {
+    empty: ['Araştırmanın içeriği boş', 'Kaydedilmiş bulguları görmek için belgeye dön.', 'Araştırmaya dön'],
+    loading: ['Araştırma açılıyor', 'Bulgular, kaynak bilgisi ve ilgili notlar okunuyor.'],
+    error: ['Araştırma okunamadı', 'Araştırma dosyasına erişimi kontrol et, sonra belgeyi yeniden yükle.'],
+  },
   firstStep(ctx) { ctx.setState('full'); },
-  emptyLabel: 'Araştırmaya dön',
-  emptyMessage: 'Bu araştırma belgesinde henüz içerik yok.',
   record: (ctx) => ctx.data.notes.find((record) => record.id === id && record.kind === 'research') || ctx.data.notes.find((record) => record.kind === 'research'),
   sidebar: (ctx) => ({ groups: noteGroups(ctx, true) }),
   markdown: bodyFor,
@@ -18,11 +21,14 @@ startDocument({
     const list = el('dl');
     // Each fact: the main line at full strength, its detail (who, when) quieter underneath.
     const fact = (term, main, detail) => { const dd = el('dd', '', main); dd.append(el('span', 'research-source-detail', detail)); list.append(el('dt', '', term), dd); };
-    fact('Kaynak', 'Yerel notlar', 'Ada ve Deniz’in gözlemleri');
-    fact('Yöntem', 'Üç notla kısa bir kullanım denemesi', '3 Kasım 2026');
-    source.append(list, el('p', 'research-source-note', 'Kurgusal bir kayıt; bulgular daha geniş bir örnekle sınanacak.'));
+    const cooking = record.id === 'research-1';
+    fact('Kaynak', cooking ? 'Pişirme defteri' : record.title, cooking ? 'Ada’nın iki tencereyle yaptığı karşılaştırma' : 'Çalışma notları');
+    fact('Yöntem', cooking ? 'Kavurarak ve kavurmadan pişirme' : 'Notları inceleme', record.updated);
+    source.append(list);
+    if (cooking) source.append(el('p', 'research-source-note', 'Yağ ve su tartılmadı; sonuçları doğrulamak için ölçülü bir pişirme daha gerekiyor.'));
     const links = section('Bağlantılar', 'links');
-    links.append(references([{ kind: 'Not', title: 'İlk fikirler', detail: 'Kararın bağlamı', href: '../note/?id=note-1' }, { kind: 'Günlük', title: '3 Kasım 2026', detail: 'Deneyin çalışma kaydı', href: '../journal-day/?date=2026-11-03' }, { kind: 'Proje', title: ctx.data.projects.find((project) => project.id === record.projectId).name, detail: 'Projenin genel görünümü', href: `../project/?project=${record.projectId}` }]));
+    const related = ctx.data.notes.find((note) => note.projectId === record.projectId && note.kind !== 'research');
+    links.append(references([{ kind: 'Not', title: related.title, detail: 'İlgili çalışma notu', href: `../note/?id=${related.id}` }, { kind: 'Günlük', title: '3 Kasım 2026', detail: cooking ? 'Pişirme günü tutulan kayıt' : 'Çalışma günlüğü', href: '../journal-day/?date=2026-11-03' }, { kind: 'Proje', title: ctx.data.projects.find((project) => project.id === record.projectId).name, detail: 'Projenin genel görünümü', href: `../project/?project=${record.projectId}` }]));
     ctx.body.replaceChildren(meta, source, renderMarkdown(bodyFor(ctx), ctx.data.notes), links);
   }
 });

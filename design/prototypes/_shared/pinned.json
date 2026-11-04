@@ -1,7 +1,7 @@
 {
   "projects": {
-    "ornek-proje": {
-      "name": "Örnek proje",
+    "mutfak-defteri": {
+      "name": "Mutfak defteri",
       "tone": 1
     }
   },
@@ -9,26 +9,26 @@
     {
       "id": "note-1",
       "kind": "note",
-      "title": "İlk fikirler",
-      "projectId": "ornek-proje",
+      "title": "Çorbanın kıvamı",
+      "projectId": "mutfak-defteri",
       "updated": "Bugün 10.42",
-      "body": "Küçük adımlarla başlayalım; her kararın nedenini kısa bir notla saklayalım. Kartı kapatmadan önce kabul ölçütlerine bir kez daha bakalım."
+      "body": "Bir su bardağı mercimeğe beş bardak su fazla geldi. Bir sonraki pişirmede dört bardakla başlayacağım; blender sonrası gerekirse sıcak su eklerim."
     },
     {
       "id": "note-3",
       "kind": "wiki",
-      "title": "Ajanlarla çalışma anlaşması",
-      "projectId": "ornek-proje",
+      "title": "Tarif kayıt düzeni",
+      "projectId": "mutfak-defteri",
       "updated": "Dün",
-      "body": "Bir kartı üstlen, kabul ölçütlerini denetle ve bitirirken ne değiştiğini not et."
+      "body": "Ölçüleri gramla yazıyorum. Fırın sıcaklığının yanına fanlı mı fansız mı olduğunu da ekle; aynı tarif iki ayarda farklı sonuç veriyor."
     },
     {
-      "id": "note-5",
+      "id": "research-1",
       "kind": "research",
-      "title": "Yerel aramada bağlamı korumak",
-      "projectId": "ornek-proje",
+      "title": "Mercimeği kavurmak fark ediyor mu?",
+      "projectId": "mutfak-defteri",
       "updated": "3 Kasım",
-      "body": "Küçük bir örnekle başladık. Gözlemleri not ettik; sıradaki adım bu yaklaşımı gerçek bir iş akışında birlikte denemek."
+      "body": "Soğanla iki dakika kavurduğum mercimek daha belirgin kokuyor. Doğrudan su eklediğim tencerede bu tat yoktu; bir sonraki denemede yağ miktarını sabit tutacağım."
     }
   ]
 }
