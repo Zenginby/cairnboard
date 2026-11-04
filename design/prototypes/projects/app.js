@@ -64,7 +64,7 @@ function projectBox(project) {
   const completed = records.filter((record) => roleFor(record) === 'done').length + summary.completedArchive;
   const total = records.length + summary.completedArchive;
   const node = el('a', 'box panel project-box box--interactive');
-  node.href = `../project/?id=${encodeURIComponent(project.id)}`;
+  node.href = `../project/?project=${encodeURIComponent(project.id)}`;
   node.dataset.project = project.id;
   node.style.setProperty('--project-wash', `var(--color-tone-${project.tone}-bg)`);
   node.style.setProperty('--project-ink', `var(--color-tone-${project.tone}-text)`);
