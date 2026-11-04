@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+  <title>Bir şey ters gitti · Cairnboard</title>
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="../_shared/components.css">
+  <link rel="stylesheet" href="../_shared/shell.css">
+  <link rel="stylesheet" href="app.css">
+  <script type="module" src="app.js"></script>
+  <script type="module" src="../_shared/pinned-rail.js"></script>
+</head>
+<body>
+  <a class="skip-link button" href="#main">İçeriğe geç</a>
+  <header class="topbar app-shell">
+    <div class="shell-top-row">
+      <a class="brand" href="../home/"><span>Cairnboard</span></a>
+      <div class="shell-actions">
+        <button class="shell-search" id="search-open" aria-label="Ara" aria-keyshortcuts="Meta+K Control+K /"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"></circle><path d="m15 15 5 5"></path></svg><span class="search-caption">Ara</span><kbd class="search-caption">⌘K</kbd></button>
+        <button type="button" class="theme-toggle" data-theme-toggle aria-label="Koyu görünüme geç">
+          <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+          <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg>
+        </button>
+        <div class="dropdown theme-dropdown">
+          <button class="appearance-trigger" id="theme-open" aria-label="Görünüm ayarları" aria-haspopup="dialog" aria-expanded="false" aria-controls="theme-panel"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></button>
+          <div class="menu theme-panel" id="theme-panel" role="dialog" aria-label="Görünüm ayarları" inert>
+            <label class="field type-label">Tema<select data-theme-menu><option value="bento">Bento</option><option value="paper">Kâğıt</option><option value="graphite">Grafit</option></select></label>
+            <label class="field type-label">Görünüm<select data-mode-menu><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label>
+            <label class="motion-toggle row type-label"><input type="checkbox" data-motion-toggle> Hareket: az</label>
+          </div>
+        </div>
+      </div>
+    </div>
+    <nav class="app-navigation" aria-label="Ana gezinme">
+      <div class="app-tabs" data-app-tabs>
+        <a href="../home/"><span class="tab-indicator" aria-hidden="true" hidden></span><span class="tab-name">Ana sayfa</span></a>
+        <a href="../board/"><span class="tab-name">Pano</span></a>
+        <a href="../projects/"><span class="tab-name">Projeler</span></a>
+        <a href="../notes/"><span class="tab-name">Notlar</span></a>
+        <a href="../journal/"><span class="tab-name">Günlük</span></a>
+        <a href="../research/"><span class="tab-name">Araştırmalar</span></a>
+      </div>
+    </nav>
+  </header>
+  <main id="main" class="page-frame stack workspace" tabindex="-1">
+    <div id="screen-content" class="status-page">
+      <section class="status-card" aria-labelledby="status-title">
+        <p class="status-number" aria-hidden="true">500</p>
+        <h1 id="status-title" class="status-title"><span class="sr-only">500: </span>Bir şey ters gitti, verilerin yerinde.</h1>
+        <p class="status-text" id="status-text">Sunucu bu isteği tamamlayamadı. Hiçbir dosya değişmedi; yeniden deneyebilir ya da Ana sayfaya dönebilirsin.</p>
+        <div class="row status-actions"><a class="button button--primary" href="../home/">Ana sayfaya dön</a><button class="button" id="status-retry" type="button">Yeniden dene</button></div>
+        <p class="type-label muted status-ref" id="status-ref"></p>
+      </section>
+    </div>
+    <section id="state-content" class="box empty-state" aria-labelledby="state-title" hidden></section>
+    <p class="type-label muted">Yerel çalışma alanı · Kurgusal örnek veriler</p>
+  </main>
+  <aside class="prototype-controls" aria-label="Prototip denetimleri"><label class="row type-label">Prototip durumu <select id="prototype-state"><option value="full">dolu</option><option value="empty">boş</option><option value="loading">yükleniyor</option><option value="error">hata</option><option value="long">uzun metin</option></select></label></aside>
+  <dialog class="modal" id="editor" aria-labelledby="editor-title"><form id="editor-form" class="stack"><h2 id="editor-title"></h2><div id="editor-body" class="stack"></div><div class="row"><button class="button button--primary" id="editor-save" type="submit">Ekle</button><button class="button" id="editor-close" type="button">Kapat</button></div></form></dialog>
+  <p id="announcements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+</body>
+</html>

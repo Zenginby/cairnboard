@@ -37,6 +37,7 @@ export function setupShell(search) {
   links.forEach((link) => link.addEventListener('click', (event) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0 || new URL(link.href).pathname === location.pathname) return;
     const rect = indicator.getBoundingClientRect();
+    if (!rect.width) return; // Pages outside the tabs keep a hidden indicator.
     try { sessionStorage.setItem('prototype-tab-origin', JSON.stringify({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })); } catch { /* Optional continuity across a full page load. */ }
   }));
   document.documentElement.addEventListener('motionchange', () => { if (lessMotion()) slide?.cancel(); });

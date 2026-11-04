@@ -1,0 +1,18 @@
+{
+  "groups": [
+    { "id": "active", "label": "Aktif" },
+    { "id": "paused", "label": "Beklemede" },
+    { "id": "archived", "label": "Arşiv" }
+  ],
+  "status": {
+    "ornek-proje": "active",
+    "ornek-proje-2": "active",
+    "ornek-proje-3": "active",
+    "ornek-proje-5": "active",
+    "ornek-proje-4": "paused",
+    "ornek-proje-6": "paused",
+    "ornek-proje-7": "archived",
+    "ornek-proje-8": "archived"
+  },
+  "toneNames": ["mor", "yeşil", "turuncu", "mavi", "pembe", "kırmızı", "gri", "çimen"]
+}

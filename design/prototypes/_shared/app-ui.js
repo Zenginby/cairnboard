@@ -1,6 +1,7 @@
 import '../_shared/theme.js';
 import { setupShell } from './shell.js';
 import { initComponents, showDialog } from '../_shared/components.js';
+import { createSearch, searchRecords } from './search-results.js';
 
 export const $ = (selector) => document.querySelector(selector);
 export function el(tag, className = '', text) {
@@ -46,8 +47,8 @@ export function lockMessage() {
   line.append(icon, document.createTextNode('claude üzerinde çalışıyor. Kilit kalkana kadar taşınamaz.'));
   return line;
 }
-export async function loadData() {
-  const responses = await Promise.all([fetch('../_shared/sample.json'), fetch('data.json')]);
+export async function loadData(source = 'data.json') {
+  const responses = await Promise.all([fetch('../_shared/sample.json'), fetch(source)]);
   if (responses.some((response) => !response.ok)) throw new Error('Sample data unavailable');
   const [base, extra] = await Promise.all(responses.map((response) => response.json()));
   const merge = (kind) => [...new Map([...base[kind], ...extra[kind]].map((record) => [record.id, { ...base[kind].find((item) => item.id === record.id), ...record }])).values()];
@@ -120,18 +121,21 @@ export function setupUI(data, onCreate, openCard) {
     title.control.focus();
   };
   const search = (instant = false) => {
-    const query = field('Notlarda ve kartlarda ara');
+    const query = field('Notlarda, kartlarda ve günlükte ara');
     query.control.type = 'search';
-    const results = el('div', 'stack search-results');
+    const results = createSearch({ input: query.control, records: () => searchRecords(data), projects: () => data.projects, limit: 8 });
+    const status = el('p', 'muted type-label search-status');
+    status.setAttribute('aria-live', 'polite');
+    const all = el('a', 'search-all type-label', 'Tüm sonuçları arama sayfasında aç');
     const render = () => {
-      const term = query.control.value.toLocaleLowerCase('tr');
-      const records = [...data.cards, ...data.notes].filter((record) => `${record.title} ${record.body || ''} ${data.projects.find((project) => project.id === record.projectId)?.name || ''}`.toLocaleLowerCase('tr').includes(term));
-      results.replaceChildren(...records.map((record) => button(record.title, () => inspect(record, true), 'button result-button')));
-      if (!records.length) results.append(el('p', 'muted', 'Sonuç yok. Başka bir sözcük deneyin.'));
+      const { total, shown } = results.render();
+      const value = query.control.value.trim();
+      all.href = `../search/${value ? `?q=${encodeURIComponent(value)}` : ''}`;
+      status.textContent = !value ? 'Aramak için yazmaya başlayın. Ok tuşlarıyla seçin, Enter ile açın.' : total ? `${total} sonuç${total > shown ? `, ilk ${shown} gösteriliyor` : ''}.` : 'Sonuç yok. Başka bir sözcük deneyin.';
     };
     query.control.addEventListener('input', render);
     render();
-    open('Ara', [query.wrapper, results], null, instant);
+    open('Ara', [query.wrapper, status, results.list, all], null, instant);
     query.control.focus();
   };
   const help = (instant = false) => open('Klavye kısayolları', [el('p', '', 'N — hızlı not · C — yeni kart · / veya ⌘K / Ctrl+K — ara · ? — kısayollar'), el('p', '', 'M — odaktaki kartı taşı · Ok tuşları — menü veya sütun seçimi · Escape — kapat / sürüklemeyi iptal et'), el('p', 'muted', 'Girdi alanlarında yazarken kısayollar çalışmaz.')], null, instant);
@@ -146,27 +150,37 @@ export function setupUI(data, onCreate, openCard) {
     const actions = { n: () => create('note', true), c: () => openCard(true), '/': () => search(true), '?': () => help(true) };
     if (actions[event.key.toLowerCase()]) { event.preventDefault(); actions[event.key.toLowerCase()](); }
   });
-  $('#diff-open').addEventListener('click', (event) => open('Dosyadaki fark', [el('p', 'muted', 'Örnek kart · dışarıdaki değişiklik'), el('p', 'type-code', `− ${data.cards[0].title}`), el('p', 'type-code', `+ ${data.cards[0].title} ve sonucu günlüğe yaz`), el('p', '', 'Yeniden yükle seçeneği dışarıdaki sürümü bu oturumda uygular.')], null, event.detail === 0));
+  $('#diff-open')?.addEventListener('click', (event) => open('Dosyadaki fark', [el('p', 'muted', 'Örnek kart · dışarıdaki değişiklik'), el('p', 'type-code', `− ${data.cards[0].title}`), el('p', 'type-code', `+ ${data.cards[0].title} ve sonucu günlüğe yaz`), el('p', '', 'Yeniden yükle seçeneği dışarıdaki sürümü bu oturumda uygular.')], null, event.detail === 0));
   initComponents();
   return { open, close, inspect, create, announce };
 }
-export function renderState(state, retry, firstStep) {
+// copy (optional) replaces the default texts per state: { empty: [title, text, action], loading: [title, text], error: [title, text] }.
+export function renderState(state, retry, firstStep, copy = {}) {
   const panel = $('#state-content');
   const special = ['empty', 'loading', 'error'].includes(state);
   $('#screen-content').hidden = special;
   panel.hidden = !special;
-  $('#conflict').hidden = state !== 'conflict';
+  if ($('#conflict')) $('#conflict').hidden = state !== 'conflict';
   panel.replaceChildren();
   panel.setAttribute('aria-busy', String(state === 'loading'));
   if (!special) return;
-  const title = el('h2', '', state === 'empty' ? 'Yeni bir başlangıca yer var' : state === 'loading' ? 'Çalışma alanı yükleniyor' : 'Çalışma alanı yüklenemedi');
+  const texts = {
+    empty: ['Yeni bir başlangıca yer var', 'İlk kartınızı ekleyerek bir sonraki adımı belirleyin.', 'İlk kartı ekle'],
+    loading: ['Çalışma alanı yükleniyor', 'Notlar ve kartlar hazırlanıyor.'],
+    error: ['Çalışma alanı yüklenemedi', 'Dosyalar okunamadı. Yeniden yüklemeyi deneyin.'],
+    ...copy,
+  }[state];
+  const title = el('h2', '', texts[0]);
   title.id = 'state-title';
   panel.append(title);
   if (state === 'loading') {
     const skeletons = el('div', 'stack skeletons');
     skeletons.setAttribute('aria-hidden', 'true');
     for (let index = 0; index < 3; index++) skeletons.append(el('div', 'skeleton'));
-    panel.append(skeletons, el('p', 'muted', 'Notlar ve kartlar hazırlanıyor.'));
-  } else if (state === 'error') panel.append(el('p', 'muted', 'Dosyalar okunamadı. Yeniden yüklemeyi deneyin.'), button('Yeniden dene', retry));
-  else panel.append(el('p', 'muted', 'İlk kartınızı ekleyerek bir sonraki adımı belirleyin.'), button('İlk kartı ekle', firstStep, 'button button--primary'));
+    panel.append(skeletons, el('p', 'muted', texts[1]));
+  } else if (state === 'error') panel.append(el('p', 'muted', texts[1]), button('Yeniden dene', retry));
+  else {
+    panel.append(el('p', 'muted', texts[1]));
+    if (texts[2] && firstStep) panel.append(button(texts[2], firstStep, 'button button--primary'));
+  }
 }
