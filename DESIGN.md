@@ -268,19 +268,31 @@ shadow-indicator: 0 1px 3px rgba(0, 0, 0, 0.12)
 
 ## Motion
 
-Motion explains where something came from or confirms that an action happened; it is never decoration. Only
-`transform` and `opacity` animate, with three exceptions the Bento look depends on: a box's shadow changes with
-`ease-default` while it lifts on hover (`distance-lift`, `distance-lift-card`, `scale-hover`), a collapsing column
-animates `grid-template-rows` from `0fr` to `1fr` with a short `blur-small` fade, and the header material uses
-`blur-material` and `saturate-material` as a static backdrop filter. Every animation can be interrupted (transitions, not keyframes, for state changes).
+Motion explains where something came from or confirms that an action happened; it is never decoration. Movement
+uses only `transform` and `opacity`. Besides those, these properties may transition, always with `duration-quick` or
+`duration-fast` and a token easing:
+
+- **Colour on state change:** `color`, `background-color`, `border-color`, `fill`, `stroke` and
+  `text-decoration-color` on hover, focus, selection, pin, "stuck" toolbars and scrolled headers.
+- **Shadow on lift:** a box's shadow changes with `ease-default` while it lifts on hover (`distance-lift`,
+  `distance-lift-card`, `scale-hover`); the same for a dragged card's ghost.
+- **Soft focus:** `filter` with `blur-small` (or `saturate-material`) as a short fade on entering or leaving
+  elements: toasts, menus, pickers, a sticky toolbar becoming stuck, a column header while its column collapses.
+- **Collapse:** a column or panel animates `grid-template-rows` from `0fr` to `1fr`.
+- **Drawing:** the tab pill's `background-size`, and `stroke-dashoffset` for a check mark or ring drawing itself.
+- **Theme reveal:** `clip-path`, described below.
+
+Layout properties (`width`, `height`, `top`, `left`, `margin`, `padding`, `inset`, `font-size`) never animate. The
+header material's `blur-material` and `saturate-material` stay a static backdrop filter. Every animation can be
+interrupted (transitions, not keyframes, for state changes).
 Closing is one step shorter than opening and uses `ease-out`. Things opened by keyboard shortcut appear without
 animation. Stagger is used only on first load, at most `stagger-max-items` items. With `prefers-reduced-motion:
-reduce` or the "Motion: less" setting, movement is removed and only short fades remain. `ease-spring` and `ease-spring-bouncy`
+reduce` or the "Motion: less" setting, movement (`transform`, `grid-template-rows`, `background-size`,
+`stroke-dashoffset`, `clip-path`) is removed; only short opacity and colour fades remain, and blur is dropped. `ease-spring` and `ease-spring-bouncy`
 fall back to `ease-spring-fallback` where `linear()` is not supported. Page changes are plain: content swaps instantly;
 only the tab pill slides and a home box may grow into its page title. Never give long content a view-transition name.
 Theme changes reveal the new palette as a circle growing from the control that changed it (a view transition on
-the root, `clip-path` from radius 0 to the farthest corner, `duration-theme-reveal` with `ease-out-quart`); this is
-the one animation that is not `transform` or `opacity`. During it nothing else transitions, and without view
+the root, `clip-path` from radius 0 to the farthest corner, `duration-theme-reveal` with `ease-out-quart`). During it nothing else transitions, and without view
 transition support, with reduced motion or with "Motion: less" the theme changes instantly.
 
 ```yaml

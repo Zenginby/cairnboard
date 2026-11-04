@@ -24,6 +24,7 @@ jobs:
       - run: npm ci
       - run: npm run build:cli
       - run: npm test
+      - run: npm run design:lint
       - run: node security/ci-scan.mjs
       - name: Scan secrets
         run: |
