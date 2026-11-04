@@ -26,3 +26,10 @@ Cairnboard's extra controls use the supplied shared components and larger touch 
 ## Verification
 
 `npm test`: 684 passed, one skipped. `npm run design:lint`: no errors or warnings. Isolated browser previews passed 1178 checks across both screens at 375/640/800/1024/1280/1440/1600px plus simulated OS-reduced-motion cases. Checks loaded both supplied Inter subsets and covered computed reference values, pulse geometry, indicator morphing, non-overlapping navigation, all six palettes/states, selection, journal input, keyboard controls, collapse, filter-stable priority ordering, focus return and a synthetic pointer drop. The temporary harness embeds existing local assets and mocks fixture reads; production HTTP/CSP loading, screenshot equality and hardware performance are not certified by it. Source/CSP patterns, token references, module syntax/bundling, shell parity and owned-folder-only changes were also checked. Changes remain uncommitted.
+
+## Data model alignment
+
+- The "Sabitlenenler" list applies this session's pin changes (`_shared/pins.js`) to the notes, so pinning or unpinning on a note page or in the rail shows here too, including at 375px where the rail is hidden.
+- The journal box lists today's jobs (journal sections, `_shared/journal.js`); the input adds a job by its title. The core stores no per-entry time or author; see "Veri modeli varsayımı" in the journal READMEs.
+- Priority is `urgent`, `important`, `low` or absent (shown as “Diğer”); there is no `normal` value.
+- The project progress ring is `_shared/progress-ring.js`, shared with Projeler.

@@ -125,14 +125,25 @@
     {
       "id": "journal-1",
       "date": "2026-11-03",
-      "authorId": "ada",
-      "body": "Çorbanın su ölçüsünü düzelttim. Kıvamı bu kez tam oldu."
+      "title": "Çorba ölçüsü",
+      "label": "tarif",
+      "items": [
+        {
+          "type": "decision",
+          "text": "Su ölçüsünü düzelttim. Kıvamı bu kez tam oldu. [[mutfak-defteri|Mutfak defteri]]"
+        }
+      ]
     },
     {
       "id": "journal-2",
       "date": "2026-11-03",
-      "authorId": "deniz",
-      "body": "Danışmandan dönüş geldi; son iki soruyu birleştirmemi öneriyor."
+      "title": "Danışman dönüşü",
+      "items": [
+        {
+          "type": "discovery",
+          "text": "Danışmandan dönüş geldi; son iki soruyu birleştirmemi öneriyor. [[tez-taslagi|Tez taslağı]]"
+        }
+      ]
     }
   ]
 }

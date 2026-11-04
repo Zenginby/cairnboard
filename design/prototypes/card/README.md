@@ -6,6 +6,8 @@ A card document shows status, priority, project and person or agent badges, a da
 
 Reproduces the original tool's badges, progress timeline and document frame.
 
+An unknown `?id=` shows the shared 404 card instead of the first card. Priority follows the core: `urgent`, `important`, `low`, or no priority (shown as “Diğer”).
+
 Page-specific keyboard behavior: The move menu supports arrow keys, Home and End, Enter, Escape and Tab. Native Space toggles acceptance checkboxes. Tab reaches the comment textarea and submit button. Focus returns to the moved card action or the comment input after a write.
 
 Page-specific limits: Checklist checkboxes and progress are interactive product adaptations of the original progress timeline. The default comments are a fictional thread. Moves, comments and edits are local to this page; they do not mutate the board prototype.

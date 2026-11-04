@@ -4,7 +4,7 @@ Three-column board (Todo / Doing / Done) with 300 cards total; a second layout p
 
 Note: the ghost and drop line are positioned through the CSSOM (`el.style.translate`, `el.style.width`), which this page relies on being allowed under the CSP; see experiment 01. Any violation shows in the log.
 
-Open: `node design/experiments/serve.mjs`, then http://127.0.0.1:4390/05-dnd/
+Open: `npm run design:serve`, then http://127.0.0.1:4391/experiments/05-dnd/
 
 | Observation | Chrome | Brave | Safari | Firefox |
 |---|---|---|---|---|

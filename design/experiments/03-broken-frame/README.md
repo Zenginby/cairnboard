@@ -9,7 +9,7 @@ Two short pages (header, sidebar, content) share a fetch + `DOMParser` router th
 
 The tab pill has its own `view-transition-name` (`pill`). The header and sidebar are deliberately unnamed (part of root) so any dimming in (a) shows up. Use back/forward to check direction in (d). Watch for chrome dimming/flashing, blend artefacts, slide clipping.
 
-Open: `node design/experiments/serve.mjs`, then http://127.0.0.1:4390/03-broken-frame/
+Open: `npm run design:serve`, then http://127.0.0.1:4391/experiments/03-broken-frame/
 
 | Observation | Chrome | Brave | Safari | Firefox |
 |---|---|---|---|---|

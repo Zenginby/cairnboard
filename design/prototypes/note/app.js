@@ -18,7 +18,7 @@ startDocument({
     loading: ['Not açılıyor', 'Notun Markdown içeriği ve bağlantıları okunuyor.'],
     error: ['Not okunamadı', 'Not dosyasına erişimi kontrol et, sonra notu yeniden yükle.'],
   },
-  record: (ctx) => ctx.data.notes.find((record) => record.id === id && record.kind !== 'research') || ctx.data.notes.find((record) => record.kind !== 'research'),
+  record: (ctx) => ctx.data.notes.find((record) => record.id === id && record.kind !== 'research'),
   sidebar: (ctx) => ({ groups: noteGroups(ctx) }),
   created: (ctx, kind) => { if (kind === 'note') ctx.toast('Not eklendi; sol panelde ve Notlar listesinde.'); },
   markdown: bodyFor,
@@ -73,6 +73,6 @@ startDocument({
       { kind: 'Günlük', title: '3 Kasım 2026', detail: 'Bu nota bağlantı veren günlük', href: '../journal-day/?date=2026-11-03' },
       { kind: 'Wiki', title: 'Tarif kayıt düzeni', detail: 'Ölçüler ve fırın ayarları', href: '../note/?id=note-3' }
     ]));
-    ctx.body.replaceChildren(toolbar, meta, renderMarkdown(bodyFor(ctx), ctx.data.notes), backlinks);
+    ctx.body.replaceChildren(toolbar, meta, renderMarkdown(bodyFor(ctx), ctx.data), backlinks);
   }
 });

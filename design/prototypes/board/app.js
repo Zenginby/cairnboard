@@ -1,5 +1,5 @@
 import { lessMotion, tokenTime } from '../_shared/components.js';
-import { $, el, button, priorities, projectChip, lockMessage, field, loadData, setupUI, renderState } from '../_shared/app-ui.js';
+import { $, el, button, priorities, priorityOf, projectChip, lockMessage, field, loadData, setupUI, renderState } from '../_shared/app-ui.js';
 
 const copy = {
   empty: ['Panoda kart yok', 'İşin başlığını yazıp yerleşeceği sütunu seç.', 'Kartı ekle'],
@@ -40,7 +40,7 @@ document.body.append(marker);
 const lists = () => [...document.querySelectorAll('.kanban-list')];
 const recordFor = (node) => cards.find((record) => record.id === node.dataset.id);
 const isLocked = (record) => state === 'locked' && record.id === 'card-2';
-const passes = (record) => (projectFilter === 'all' || record.projectId === projectFilter) && (priorityFilter === 'all' || record.priority === priorityFilter);
+const passes = (record) => (projectFilter === 'all' || record.projectId === projectFilter) && (priorityFilter === 'all' || priorityOf(record) === priorityFilter);
 function titleFor(record, index = 0) {
   return state === 'long' ? `${record.title} — ${index % 2 ? data.longText.english : data.longText.title}` : record.title;
 }
@@ -68,15 +68,15 @@ function openMenu(card, instant = false) {
     item.tabIndex = -1;
     menu.append(item);
   };
-  const siblings = cardsIn(current).filter((item) => recordFor(item).priority === record.priority);
+  const siblings = cardsIn(current).filter((item) => priorityOf(recordFor(item)) === priorityOf(record));
   const position = siblings.indexOf(card);
   add('Bir sıra yukarı', current, siblings[position - 1] || card);
   add('Bir sıra aşağı', current, siblings[position + 2] || null);
   menu.children[0].disabled = position === 0;
   menu.children[1].disabled = position === siblings.length - 1;
   lists().forEach((list) => {
-    add(`${list.dataset.label}, ${priorities[record.priority]} en üste`, list, cardsIn(list).find((item) => recordFor(item).priority === record.priority) || null);
-    add(`${list.dataset.label}, ${priorities[record.priority]} en alta`, list, null);
+    add(`${list.dataset.label}, ${priorities[priorityOf(record)]} en üste`, list, cardsIn(list).find((item) => priorityOf(recordFor(item)) === priorityOf(record)) || null);
+    add(`${list.dataset.label}, ${priorities[priorityOf(record)]} en alta`, list, null);
   });
   card.querySelector('[data-move]').setAttribute('aria-expanded', 'true');
   menu.classList.toggle('is-instant', instant);
@@ -121,11 +121,11 @@ function arrangeGroups(list) {
   list.querySelectorAll(':scope > .priority-heading-item').forEach((node) => node.remove());
   const items = cardsIn(list);
   Object.entries(priorities).forEach(([priority, label]) => {
-    const group = items.filter((card) => recordFor(card).priority === priority);
+    const group = items.filter((card) => priorityOf(recordFor(card)) === priority);
     if (!group.length) return;
     const heading = el('li', 'priority-heading-item');
     heading.setAttribute('role', 'presentation');
-    heading.append(el('h3', `priority-heading priority-${priority}`, label));
+    heading.append(el('h3', `priority-heading priority-${priority || 'none'}`, label));
     list.append(heading, ...group);
   });
 }
@@ -255,7 +255,7 @@ function buildBoard() {
       event.preventDefault();
       const value = title.control.value.trim();
       if (!value) { title.control.setCustomValidity('Bir başlık yaz.'); title.control.reportValidity(); return; }
-      const record = { id: crypto.randomUUID(), title: value, projectId: projectFilter === 'all' ? data.projects[0].id : projectFilter, column: column.id, priority: priorityFilter === 'all' ? 'normal' : priorityFilter, assigneeId: 'ada', criteria: [], comments: 0 };
+      const record = { id: crypto.randomUUID(), title: value, projectId: projectFilter === 'all' ? data.projects[0].id : projectFilter, column: column.id, ...(priorityFilter !== 'all' && priorityFilter ? { priority: priorityFilter } : {}), assigneeId: 'ada', criteria: [], comments: 0 };
       data.cards.unshift(record);
       if (cards !== data.cards) cards.unshift(record);
       list.prepend(makeCard(record, 0));
@@ -309,11 +309,11 @@ function visibleRects() {
 }
 function insertionReference(card, list, ref) {
   if (ref === card) ref = nextCard(card);
-  const priority = recordFor(card).priority;
-  if (!ref || recordFor(ref).priority === priority) return ref;
+  const priority = priorityOf(recordFor(card));
+  if (!ref || priorityOf(recordFor(ref)) === priority) return ref;
   const siblings = cardsIn(list);
   const position = siblings.indexOf(ref);
-  return siblings.find((item, index) => index >= position && item !== card && recordFor(item).priority === priority) || null;
+  return siblings.find((item, index) => index >= position && item !== card && priorityOf(recordFor(item)) === priority) || null;
 }
 function commitMove(card, list, ref = null, ghostRect = null) {
   const record = recordFor(card);
@@ -331,14 +331,14 @@ function commitMove(card, list, ref = null, ghostRect = null) {
   arrangeGroups(source);
   if (source !== list) arrangeGroups(list);
   // Keep the backing order in sync so a subsequent filter never undoes a move.
-  const group = cardsIn(list).filter((item) => recordFor(item).priority === record.priority);
+  const group = cardsIn(list).filter((item) => priorityOf(recordFor(item)) === priorityOf(record));
   const following = group[group.indexOf(card) + 1];
   const next = following ? recordFor(following) : null;
   const index = cards.indexOf(record);
   cards.splice(index, 1);
   if (next) cards.splice(cards.indexOf(next), 0, record);
   else {
-    const last = cards.findLastIndex((item) => item.column === record.column && item.priority === record.priority);
+    const last = cards.findLastIndex((item) => item.column === record.column && priorityOf(item) === priorityOf(record));
     cards.splice(last + 1, 0, record);
   }
   selectColumn(record.column);
