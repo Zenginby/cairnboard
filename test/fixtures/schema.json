@@ -1527,7 +1527,11 @@
         },
         "pin": {
           "type": "boolean",
-          "summary": "Pin the note."
+          "summary": "Pin the note; cannot be combined with --unpin."
+        },
+        "unpin": {
+          "type": "boolean",
+          "summary": "Unpin the note; cannot be combined with --pin."
         },
         "valid-from": {
           "type": "string",
@@ -1626,7 +1630,11 @@
         },
         "pin": {
           "type": "boolean",
-          "summary": "Pin the note."
+          "summary": "Pin the note; cannot be combined with --unpin."
+        },
+        "unpin": {
+          "type": "boolean",
+          "summary": "Unpin the note; cannot be combined with --pin."
         },
         "valid-from": {
           "type": "string",
@@ -1769,6 +1777,18 @@
           "summary": "Set sources; repeat for multiple sources.",
           "multiple": true
         },
+        "valid-from": {
+          "type": "string",
+          "summary": "Set the first valid date."
+        },
+        "valid-until": {
+          "type": "string",
+          "summary": "Set the last valid date."
+        },
+        "superseded-by": {
+          "type": "string",
+          "summary": "Set the replacement reference."
+        },
         "date": {
           "type": "string",
           "summary": "Set the research date."
@@ -1858,6 +1878,18 @@
           "type": "string",
           "summary": "Set sources; repeat for multiple sources.",
           "multiple": true
+        },
+        "valid-from": {
+          "type": "string",
+          "summary": "Set the first valid date."
+        },
+        "valid-until": {
+          "type": "string",
+          "summary": "Set the last valid date."
+        },
+        "superseded-by": {
+          "type": "string",
+          "summary": "Set the replacement reference."
         },
         "date": {
           "type": "string",
@@ -2968,6 +3000,10 @@
       "exit": 5
     },
     {
+      "code": "bad_encoding",
+      "exit": 5
+    },
+    {
       "code": "runtime_unsupported",
       "exit": 5
     },
@@ -3034,7 +3070,10 @@
       "raw_sha256",
       "input_sha256",
       "sourceDate",
-      "processed"
+      "processed",
+      "superseded_by",
+      "valid_from",
+      "valid_until"
     ],
     "journal": [
       "date"

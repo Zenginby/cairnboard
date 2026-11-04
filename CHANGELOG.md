@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Reject text mutations of invalid UTF-8 files without changing their bytes; preserve byte mutations.
+- Skip and report unreadable pages and raw sources on indexed and fallback reads.
+- Add mutually exclusive `--pin` / `--unpin` note options and expose research validity and
+  replacement fields (`--valid-from`, `--valid-until`, `--superseded-by`) in the CLI and schema.
+- Cache wiki summaries while indexing; rebuild older index schemas and avoid warm listing body reads.
+
 - Fix review findings: wiki classification, text matching, bounded reads, indexing, mentions and repeatable source/code options.
 - Add `mentions`: pages that name a note without linking to it (Turkish folding, word boundaries,
   code and existing links skipped), and `--link path:line` to convert one mention with confirmation and undo.

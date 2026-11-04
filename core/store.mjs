@@ -258,6 +258,28 @@ function undoRecord(ctx, options) {
   return { ...record, items };
 }
 
+function applyMutation(item, before) {
+  let input = before;
+  if (before !== null) {
+    try {
+      input = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(before);
+    } catch {
+      // Byte mutations can still replace or delete an invalid UTF-8 pre-image.
+      input = Buffer.from(before);
+    }
+  }
+  const badEncoding = () => new CairnError('bad_encoding', 'Cannot edit this file as text; convert it to UTF-8 first.');
+  let after;
+  try {
+    after = item.apply(input);
+  } catch (error) {
+    if (Buffer.isBuffer(input)) throw badEncoding();
+    throw error;
+  }
+  if (Buffer.isBuffer(input) && typeof after === 'string') throw badEncoding();
+  return after;
+}
+
 function prepare(ctx, options, items, tx) {
   const undo = undoRecord(ctx, options);
   if (undo && undo.items.length !== items.length) throw invalid('Undo targets do not match history.');
@@ -273,7 +295,7 @@ function prepare(ctx, options, items, tx) {
     if ((index === 0 && options.ifRevision !== undefined && options.ifRevision !== beforeRev)
       || ((item.expectAbsent || item.createOnly) && before !== null)
       || (original && beforeRev !== original.after)) throw conflict(beforeRev);
-    const after = item.apply(before === null ? null : before.toString('utf8'));
+    const after = applyMutation(item, before);
     if (after !== null && typeof after !== 'string' && !Buffer.isBuffer(after)) throw invalid('Mutation must return text, bytes or null.');
     const bytes = after === null ? null : Buffer.from(after);
     if (original && rev(bytes) !== rev(historyBytes(original))) throw invalid('Undo content does not match history.');

@@ -30,7 +30,7 @@ export function undo(ctx, { dryRun = false } = {}) {
           throw new CairnError('conflict', 'Another operation happened since; undo again to revert it.');
         }
         checked = true;
-        return item.before === null ? null : item.beforeBytes ? Buffer.from(item.beforeBytes, 'base64') : item.before;
+        return item.before === null ? null : item.beforeBytes ? Buffer.from(item.beforeBytes, 'base64') : Buffer.from(item.before);
       } })) });
   const { items, ...single } = result;
   return single;

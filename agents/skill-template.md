@@ -16,6 +16,8 @@ Every command uses the full invocation below. Keep its quoting, even if the path
 {{actorGuide}}
 Use `--data "<path>"` to select a data directory when discovery is unavailable. Use IDs from results; a Markdown file without an ID has a temporary selector such as `@cards/acme`.
 The command reference describes the available operations and their required arguments; inspect the schema for all optional flags and fields.
+Use `--pin` or `--unpin` on note add/update (never together). Note and research add/update accept
+`--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` and `--superseded-by <ref>`.
 
 ## Workflow
 

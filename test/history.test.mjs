@@ -71,3 +71,11 @@ test('undo preserves preimage bytes even when a Buffer contains non-UTF-8 bytes'
   undo(ctx, {});
   assert.deepEqual(readFileSync(join(ctx.root, 'note.md')), bytes);
 });
+
+test('undo of a byte mutation restores a UTF-8 pre-image over invalid UTF-8', (t) => {
+  const ctx = fixture(t), before = Buffer.from('# Acme\n');
+  writeFileSync(join(ctx.root, 'note.md'), before);
+  writeMany(ctx, { op: 'note.write', items: [{ path: 'note.md', apply: () => Buffer.from([0xff]) }] });
+  undo(ctx, {});
+  assert.deepEqual(readFileSync(join(ctx.root, 'note.md')), before);
+});

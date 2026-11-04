@@ -50,6 +50,7 @@ function patchFields(ctx, type, opts) {
     date: 'date', 'source-date': 'sourceDate', processed: 'processed',
   };
   for (const [option, field] of Object.entries(names)) if (opts[option] !== undefined) patch[field] = opts[option];
+  if (opts.unpin) patch.pinned = false;
   if (patch.tone !== undefined) {
     if (!/^[1-8]$/u.test(patch.tone)) throw new CairnError('validation', 'Invalid project tone.');
     patch.tone = Number(patch.tone);
@@ -79,8 +80,11 @@ export function writeCommands({ string, boolean }) {
       ...(type === 'card' ? { column: string('Set the column key.'), priority: string('Set urgent, important or low.') } : {}),
       ...(['note', 'research'].includes(type) ? { kind: string('Set the entity kind.'), source: string('Set the source.'),
         sources: multiple('Set sources; repeat for multiple sources.') } : {}),
-      ...(type === 'note' ? { pin: boolean('Pin the note.'), 'valid-from': string('Set the first valid date.'),
-        'valid-until': string('Set the last valid date.'), 'superseded-by': string('Set the replacement reference.'), code: multiple('Set code paths; repeat for multiple paths.') } : {}),
+      ...(type === 'note' ? { pin: boolean('Pin the note; cannot be combined with --unpin.'),
+        unpin: boolean('Unpin the note; cannot be combined with --pin.') } : {}),
+      ...(['note', 'research'].includes(type) ? { 'valid-from': string('Set the first valid date.'),
+        'valid-until': string('Set the last valid date.'), 'superseded-by': string('Set the replacement reference.') } : {}),
+      ...(type === 'note' ? { code: multiple('Set code paths; repeat for multiple paths.') } : {}),
       ...(type === 'research' ? { date: string('Set the research date.'), 'source-date': string('Set the source date.'),
         processed: boolean('Mark as processed.') } : {}),
     };
