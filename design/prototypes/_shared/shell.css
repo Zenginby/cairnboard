@@ -5,11 +5,15 @@ body { color: var(--color-text-2); font-optical-sizing: auto; -webkit-font-smoot
 .app-shell .brand { display: inline-flex; gap: calc(var(--space-md) * .6); color: var(--color-text); font-size: var(--font-lead-size); font-weight: var(--font-display-weight); letter-spacing: var(--font-title-letter-spacing); text-decoration: none; }
 .brand::before { content: ''; flex: none; width: var(--space-lg); height: var(--space-lg); background: conic-gradient(from 90deg, var(--color-tone-2) 0 25%, var(--color-tone-3) 0 50%, var(--color-line-strong) 0 75%, var(--color-tone-1) 0); mask: linear-gradient(var(--color-text) 0 0) 0 0 / 44% 44% no-repeat, linear-gradient(var(--color-text) 0 0) 100% 0 / 44% 44% no-repeat, linear-gradient(var(--color-text) 0 0) 0 100% / 44% 44% no-repeat, linear-gradient(var(--color-text) 0 0) 100% 100% / 44% 44% no-repeat; border-radius: var(--radius-xs); }
 .shell-actions { display: flex; align-items: center; flex-shrink: 0; gap: var(--space-sm); }
-.shell-search, .appearance-trigger { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-sm); min-width: calc(var(--space-md) * 2); min-height: calc(var(--space-md) * 2); border: 0; border-radius: var(--radius-full); padding: var(--space-sm) var(--space-md); background: var(--color-pill-bg); color: var(--color-text-2); font-size: var(--font-ui-size); cursor: pointer; font-weight: var(--font-ui-weight); line-height: var(--font-ui-line-height); }
+.shell-search, .appearance-trigger, .shell-graph { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-sm); min-width: calc(var(--space-md) * 2); min-height: calc(var(--space-md) * 2); border: 0; border-radius: var(--radius-full); padding: var(--space-sm) var(--space-md); background: var(--color-pill-bg); color: var(--color-text-2); font-size: var(--font-ui-size); cursor: pointer; font-weight: var(--font-ui-weight); line-height: var(--font-ui-line-height); }
 .shell-search { width: var(--space-search-width); justify-content: start; }
 .shell-search kbd { margin-inline-start: auto; font-family: var(--font-code-family); font-size: var(--font-label-size); }
-.shell-search svg, .appearance-trigger svg { width: var(--space-md); height: var(--space-md); fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
-.appearance-trigger { padding: var(--space-xs); }
+.shell-search svg, .appearance-trigger svg, .shell-graph svg { width: var(--space-md); height: var(--space-md); fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
+.appearance-trigger, .shell-graph { padding: var(--space-xs); }
+/* The graph is its own page, reached from the top bar next to search; on the graph page the button reads as current. */
+.shell-graph { text-decoration: none; transition: color var(--motion-duration-quick) var(--motion-ease-out), background-color var(--motion-duration-quick) var(--motion-ease-out); }
+.shell-graph:hover, .shell-graph[aria-current="page"] { color: var(--color-text); }
+.shell-graph[aria-current="page"] { background: var(--color-pill-indicator); }
 .app-navigation { display: flex; align-items: center; height: var(--space-nav-height); overflow-x: auto; scrollbar-width: none; margin-inline: calc(-1 * var(--space-lg)); padding-inline: var(--space-lg); }
 .app-tabs { position: relative; display: flex; gap: var(--space-2xs); padding: var(--space-xs); border-radius: var(--radius-full); background: var(--color-pill-bg); width: max-content; flex-shrink: 0; }
 .app-tabs a { position: relative; display: flex; align-items: center; min-height: calc(var(--space-md) * 2); padding-inline: calc(var(--space-md) * .9); border-radius: var(--radius-full); white-space: nowrap; font-size: var(--font-ui-size); font-weight: var(--font-ui-weight); color: var(--color-text-2); text-decoration: none; transition: transform var(--motion-duration-quick) var(--motion-ease-out); }
@@ -34,7 +38,7 @@ body { color: var(--color-text-2); font-optical-sizing: auto; -webkit-font-smoot
 }
 @media (pointer: coarse) {
   .app-navigation { min-height: calc(var(--space-xl) + var(--space-md)); }
-  .app-tabs a, .shell-search, .appearance-trigger, .motion-toggle { min-width: calc(var(--space-xl) + var(--space-xs)); min-height: calc(var(--space-xl) + var(--space-xs)); }
+  .app-tabs a, .shell-search, .appearance-trigger, .shell-graph, .motion-toggle { min-width: calc(var(--space-xl) + var(--space-xs)); min-height: calc(var(--space-xl) + var(--space-xs)); }
   .app-shell .theme-toggle { inline-size: calc(var(--space-xl) + var(--space-xs)); block-size: calc(var(--space-xl) + var(--space-xs)); }
 }
 [data-motion="less"] .app-tabs a { transform: none; transition-property: opacity; }
