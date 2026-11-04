@@ -2,6 +2,7 @@ import '../_shared/theme.js';
 import { setupShell } from './shell.js';
 import { initComponents, showDialog } from '../_shared/components.js';
 import { createSearch, searchRecords } from './search-results.js';
+import { pinNote } from './pins.js';
 
 export const $ = (selector) => document.querySelector(selector);
 export function el(tag, className = '', text) {
@@ -47,12 +48,22 @@ export function lockMessage() {
   line.append(icon, document.createTextNode('claude üzerinde çalışıyor. Kilit kalkana kadar taşınamaz.'));
   return line;
 }
+// Notes written in this browser session (quick notes, Not ekle) survive moving between pages.
+const createdKey = 'prototype-created-notes';
+function readCreatedNotes() {
+  try { const value = JSON.parse(sessionStorage.getItem(createdKey) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; }
+}
+function saveCreatedNote(note) {
+  try { sessionStorage.setItem(createdKey, JSON.stringify([note, ...readCreatedNotes().filter((item) => item.id !== note.id)])); } catch { /* Kept on this page only. */ }
+}
 export async function loadData(source = 'data.json') {
   const responses = await Promise.all([fetch('../_shared/sample.json'), fetch(source)]);
   if (responses.some((response) => !response.ok)) throw new Error('Sample data unavailable');
   const [base, extra] = await Promise.all(responses.map((response) => response.json()));
   const merge = (kind) => [...new Map([...base[kind], ...extra[kind]].map((record) => [record.id, { ...base[kind].find((item) => item.id === record.id), ...record }])).values()];
-  return { ...base, ...extra, cards: merge('cards'), notes: merge('notes') };
+  const notes = merge('notes');
+  const created = readCreatedNotes().filter((note) => !notes.some((item) => item.id === note.id));
+  return { ...base, ...extra, cards: merge('cards'), notes: [...created, ...notes] };
 }
 export function field(label, tag = 'input') {
   const wrapper = el('label', 'field');
@@ -115,15 +126,28 @@ export function setupUI(data, onCreate, openCard) {
       priority.control.append(option);
     });
     priority.control.value = 'normal';
-    open(kind === 'note' ? 'Hızlı not' : 'Yeni kart', [title.wrapper, project.wrapper, kind === 'note' ? body.wrapper : priority.wrapper], () => {
+    // A new note can be pinned right away; pinned notes show in the pinned rail and the Sabitlenenler lists.
+    const pin = el('label', 'row type-label quick-pin');
+    const pinBox = el('input');
+    pinBox.type = 'checkbox';
+    pin.append(pinBox, document.createTextNode('Sabitle'));
+    open(kind === 'note' ? 'Hızlı not' : 'Yeni kart', [title.wrapper, project.wrapper, ...(kind === 'note' ? [body.wrapper, pin] : [priority.wrapper])], () => {
       const value = title.control.value.trim();
       if (!value) { title.control.setCustomValidity('Bir başlık yaz.'); title.control.reportValidity(); return false; }
       const record = { id: crypto.randomUUID(), title: value, projectId: project.control.value };
-      if (kind === 'note') data.notes.unshift({ ...record, body: body.control.value.trim(), kind: 'note', pinned: false, updated: 'Şimdi' });
+      if (kind === 'note') {
+        const note = { ...record, body: body.control.value.trim(), kind: 'note', pinned: pinBox.checked, updated: 'Şimdi' };
+        data.notes.unshift(note);
+        saveCreatedNote(note);
+        if (note.pinned) {
+          const owner = data.projects.find((item) => item.id === note.projectId);
+          pinNote({ id: note.id, kind: 'note', title: note.title, projectId: note.projectId, updated: note.updated, body: note.body, project: owner && { name: owner.name, tone: owner.tone } });
+        }
+      }
       else data.cards.unshift({ ...record, column, priority: priority.control.value, assigneeId: 'ada', criteria: [], comments: 0 });
       onCreate(kind);
-      announce(kind === 'note' ? 'Not eklendi.' : 'Kart eklendi.');
-    }, instant, kind === 'note' ? 'Notu ekle' : 'Kartı ekle');
+      announce(kind === 'note' ? (pinBox.checked ? 'Not eklendi ve sabitlendi.' : 'Not eklendi.') : 'Kart eklendi.');
+    }, instant, kind === 'note' ? 'Not ekle' : 'Kartı ekle');
     title.control.addEventListener('input', () => title.control.setCustomValidity(''));
     title.control.focus();
   };
@@ -147,6 +171,19 @@ export function setupUI(data, onCreate, openCard) {
   };
   const help = (instant = false) => open('Klavye kısayolları', [el('p', '', 'N — hızlı not · C — yeni kart · / veya ⌘K / Ctrl+K — ara · ? — kısayollar'), el('p', '', 'M — odaktaki kartı taşı · Ok tuşları — menü veya sütun seçimi · Escape — kapat / sürüklemeyi iptal et'), el('p', 'muted', 'Girdi alanlarında yazarken kısayollar çalışmaz.')], null, instant);
   setupShell(search);
+  // A quick note is one press away on every page: a floating button (N on the keyboard does the same).
+  if (!document.querySelector('.quick-note-fab')) {
+    const fab = button('', (event) => create('note', event.detail === 0), 'quick-note-fab');
+    fab.setAttribute('aria-label', 'Hızlı not al');
+    fab.setAttribute('aria-keyshortcuts', 'N');
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(icon.namespaceURI, 'path');
+    path.setAttribute('d', 'M4 20h4L19 9l-4-4L4 16v4Zm9.5-13.5 4 4');
+    icon.append(path);
+    fab.append(icon, el('span', 'quick-note-label', 'Hızlı not'));
+    document.body.append(fab);
+  }
   document.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') {
       event.preventDefault();

@@ -20,6 +20,7 @@ startDocument({
   },
   record: (ctx) => ctx.data.notes.find((record) => record.id === id && record.kind !== 'research') || ctx.data.notes.find((record) => record.kind !== 'research'),
   sidebar: (ctx) => ({ groups: noteGroups(ctx) }),
+  created: (ctx, kind) => { if (kind === 'note') ctx.toast('Not eklendi; sol panelde ve Notlar listesinde.'); },
   markdown: bodyFor,
   reset(ctx, value) { editing = value === 'conflict'; deleted = false; },
   reload(ctx) { ctx.record.markdown = `${bodyFor(ctx)}\n\nDışarıda eklenen not: Son değişikliğin tarihini de kaydet.`; editing = false; },
@@ -29,7 +30,8 @@ startDocument({
     pageCtx = ctx;
     record.pinned = isPinned(record.id, Boolean(record.pinned));
     if (deleted) { ctx.header(record.title, `notes/${record.id}.md`, () => `# ${record.title}\n\n${bodyFor(ctx)}`); ctx.body.replaceChildren(el('p', 'muted', 'Not çöp kutusuna taşındı. Geri al ile bu oturumda geri getirebilirsin.')); return; }
-    const toolbar = el('div', 'row doc-toolbar');
+    const toolbar = el('div', 'row doc-toolbar doc-toolbar--sticky');
+    const addNote = button('Not ekle', () => { if (ctx.canWrite()) ctx.ui.create('note'); }, 'button button--primary');
     const edit = button('Notu düzenle', () => startEdit(ctx));
     // Pin sits with the page actions in the title row: a pushpin that fills in when the note is pinned.
     const pin = button('', () => {
@@ -57,7 +59,8 @@ startDocument({
       ctx.toast('Not çöp kutusuna taşındı.', () => { deleted = false; record.trashed = false; ctx.refresh(); });
     }, 'Çöp kutusuna taşı'), 'button button--danger');
     [edit, pin, remove].forEach((node) => { node.disabled = ctx.state === 'locked'; });
-    toolbar.append(edit, remove);
+    addNote.disabled = ctx.state === 'locked';
+    toolbar.append(addNote, edit, remove);
     if (ctx.state === 'locked') toolbar.append(el('span', 'type-label muted', 'claude üzerinde çalışıyor. Kilit kalkana kadar düzenlenemez.'));
     const meta = el('div', 'row note-meta type-label muted');
     meta.append(projectChip(ctx.data.projects.find((project) => project.id === record.projectId)), el('span', '', `Ada · ${record.updated} · ${record.kind === 'wiki' ? 'Wiki' : 'Not'}`));

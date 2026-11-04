@@ -66,6 +66,8 @@ body { background: var(--color-surface); }
 .doc-toc li[data-level="3"] { padding-inline-start: var(--space-md); }
 .doc-footer { margin-top: var(--space-xl); }
 .doc-toolbar { margin-bottom: var(--space-lg); }
+/* "Not ekle" stays in reach on the notes list and inside a note: the toolbar sticks under the top bar. */
+.doc-toolbar--sticky { position: sticky; top: var(--header-height); z-index: 5; margin-inline: calc(-1 * var(--space-sm)); padding: var(--space-sm); border-bottom: var(--space-hairline) solid var(--color-line); background: var(--color-surface); }
 .doc-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
 .doc-editor .textarea { min-height: calc(var(--space-xl) * 12); font-family: var(--font-code-family); font-size: var(--font-code-size); }
 .doc-preview { min-width: 0; }

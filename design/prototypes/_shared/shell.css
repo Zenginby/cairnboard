@@ -104,3 +104,16 @@ body { color: var(--color-text-2); font-optical-sizing: auto; -webkit-font-smoot
 @media (pointer: coarse) { .action-link { min-height: calc(var(--space-xl) + var(--space-xs)); } }
 [data-motion="less"] :is(.action-link, .action-link::after) { transform: none !important; }
 @media (prefers-reduced-motion: reduce) { :is(.action-link, .action-link::after) { transform: none !important; } }
+
+/* Quick note: a floating button on every page, above the prototype controls and clear of the pinned rail. It shows
+   its label on wide screens and becomes a round icon button on phones. */
+.quick-note-fab { position: fixed; right: var(--space-md); bottom: calc(var(--space-xl) * 2 + var(--space-md)); z-index: 21; display: inline-flex; align-items: center; gap: var(--space-sm); min-height: calc(var(--space-xl) + var(--space-md)); padding: 0 var(--space-lg) 0 var(--space-md); border: 0; border-radius: var(--radius-full); background: var(--color-text); color: var(--color-surface); font-size: var(--font-ui-size); font-weight: var(--font-title-weight); box-shadow: var(--shadow-box-raised); cursor: pointer; transition: transform var(--motion-duration-press) var(--motion-ease-out), box-shadow var(--motion-duration-fast) var(--motion-ease-default); }
+.quick-note-fab svg { width: var(--space-lg); height: var(--space-lg); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.quick-note-fab:active { transform: scale(var(--motion-scale-press)); }
+@media (hover: hover) and (pointer: fine) { .quick-note-fab:hover { transform: translateY(calc(-1 * var(--motion-distance-micro))); } }
+@media (min-width: 90rem) { :root[data-pinned-rail="open"] .quick-note-fab { right: calc(var(--pinned-rail-width) + var(--space-md) * 2); } }
+@media (width < 40rem) { .quick-note-fab { width: calc(var(--space-xl) + var(--space-md)); padding: 0; justify-content: center; } .quick-note-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
+[data-motion="less"] .quick-note-fab { transform: none !important; }
+@media (prefers-reduced-motion: reduce) { .quick-note-fab { transform: none !important; } }
+.quick-pin { gap: var(--space-sm); align-items: center; cursor: pointer; }
+.quick-pin input { width: var(--space-md); height: var(--space-md); accent-color: var(--color-text); }
