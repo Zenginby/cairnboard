@@ -18,11 +18,6 @@ body { background: var(--color-surface); }
 .sidebar-group[data-open="true"] .sidebar-group-content { grid-template-rows: 1fr; transition-duration: var(--motion-duration-fast); transition-timing-function: var(--motion-ease-smooth-out); }
 .sidebar-group[data-open="true"] .sidebar-group-inner { opacity: 1; filter: none; transition-duration: var(--motion-duration-fast); }
 .sidebar-group.is-instant :is(.sidebar-group-content, .sidebar-group-inner, .sidebar-chevron) { transition: none; }
-.project-switcher { padding-bottom: var(--space-md); margin-bottom: var(--space-md); border-bottom: var(--space-hairline) solid var(--color-line); }
-.project-switcher p { font-weight: var(--font-title-weight); margin-bottom: var(--space-sm); }
-.project-switcher ul { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-12); }
-.project-switcher a { padding: var(--space-sm) 0; }
-.project-switcher a[aria-current="page"] { background: none; box-shadow: none; }
 /* The sidebar runs the full height of the window: the page's bottom space sits inside the content column, so the
    layout (and the sticky sidebar in it) reaches the bottom of the page. */
 .workspace:has(> .doc-layout) { padding-bottom: 0; }
@@ -32,6 +27,12 @@ body { background: var(--color-surface); }
 .doc-title-row h1 { min-width: 0; color: var(--color-text); font-family: var(--font-page-title-family); font-size: clamp(var(--font-display-size), 4.4vw, var(--font-page-title-size)); font-weight: var(--font-page-title-weight); line-height: var(--font-page-title-line-height); letter-spacing: var(--font-page-title-letter-spacing); text-wrap: balance; }
 .doc-raw-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); flex-shrink: 0; margin-top: calc(var(--space-md) * .4); }
 .doc-pill { min-height: calc(var(--space-md) * 2); padding: calc(var(--space-md) * .4) calc(var(--space-md) * .85); border: 0; background: var(--color-pill-bg); color: var(--color-text-2); font-size: var(--font-caption-size); font-weight: var(--font-body-weight); }
+.doc-pin { display: inline-flex; align-items: center; gap: var(--space-xs); }
+.doc-pin svg { width: var(--space-md); height: var(--space-md); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; transform: rotate(-20deg); transition: transform var(--motion-duration-quick) var(--motion-ease-spring), fill var(--motion-duration-quick) var(--motion-ease-out); }
+.doc-pin.is-pinned { background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-box); }
+.doc-pin.is-pinned svg { fill: currentColor; transform: rotate(0deg); }
+[data-motion="less"] .doc-pin svg { transition: none; }
+@media (prefers-reduced-motion: reduce) { .doc-pin svg { transition: none; } }
 .doc-source { margin-top: calc(var(--space-md) * .6); color: var(--color-text-3); font-size: var(--font-label-size); overflow-wrap: anywhere; }
 .doc-source code { font-size: inherit; user-select: all; }
 .doc-body-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); align-items: start; min-width: 0; }
@@ -102,18 +103,11 @@ body { background: var(--color-surface); }
 @media (min-width: 72rem) {
   .doc-body-layout:has(.doc-toc:not([hidden])) { grid-template-columns: minmax(0, var(--doc-content-width)) var(--doc-toc-width); }
   .doc-heading { margin-inline: 0; }
-  .doc-column:has(.doc-toc:not([hidden])) .doc-heading { max-width: min(var(--doc-content-width), calc(100% - var(--doc-toc-width) - var(--space-xl))); }
+  /* The title row spans the text and the contents column, so the page actions sit above the contents, not on the title. */
+  .doc-column:has(.doc-toc:not([hidden])) .doc-heading { max-width: calc(var(--doc-content-width) + var(--doc-toc-width) + var(--space-xl)); }
   .doc-column:has(.doc-toc[hidden]) .doc-heading { margin-inline: auto; }
   .doc-toc { display: block; position: sticky; top: calc(var(--header-height) + var(--space-lg)); max-height: calc(100dvh - var(--header-height) - var(--space-xl)); overflow-y: auto; }
 }
-@media (min-width: 90rem) {
-  :root[data-pinned-rail="open"] .doc-body-layout:has(.doc-toc:not([hidden])) { display: flex; flex-direction: column; gap: var(--space-lg); }
-  :root[data-pinned-rail="open"] :is(.doc-heading, .doc-body, .doc-toc) { width: 100%; max-width: var(--doc-content-width); margin-inline: auto; }
-  :root[data-pinned-rail="open"] .doc-column:has(.doc-toc:not([hidden])) .doc-heading { max-width: var(--doc-content-width); }
-  :root[data-pinned-rail="open"] .doc-toc { position: static; order: -1; max-height: none; }
-  :root[data-pinned-rail="open"] .doc-toc ul { display: flex; flex-wrap: wrap; gap: var(--space-xs); border: 0; }
-  :root[data-pinned-rail="open"] .doc-toc a { margin: 0; padding: var(--space-xs) var(--space-12); border: 0; border-radius: var(--radius-full); }
-  :root[data-pinned-rail="open"] .doc-toc a[aria-current="true"] { background: var(--color-pill-bg); }
 }
 @media (width < 50rem) {
   .doc-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }

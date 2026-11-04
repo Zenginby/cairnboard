@@ -65,7 +65,7 @@ body { color: var(--color-text-2); font-optical-sizing: auto; -webkit-font-smoot
 /* In-app links are not web-blue underlined text. A plain link in the content reads as text with a soft line under it;
    on hover a quiet tint rises from that line. A link that leads somewhere as an action (.action-link) is a small pill
    with an arrow that nudges forward. Links with their own class keep their own look. */
-:where(main, .modal) a:where(:not([class]), [class=""]) {
+:where(main, .modal) a:where(:not([class]), [class=""]):not(:where(nav *, .doc-sidebar *, .doc-toc *)) {
   color: var(--color-text);
   font-weight: var(--font-ui-weight);
   text-decoration: none;
@@ -79,7 +79,7 @@ body { color: var(--color-text-2); font-optical-sizing: auto; -webkit-font-smoot
     linear-gradient(var(--color-line-strong), var(--color-line-strong)) no-repeat 0 100% / 100% var(--space-hairline);
   transition: background-size var(--motion-duration-quick) var(--motion-ease-out);
 }
-:where(main, .modal) a:where(:not([class]), [class=""]):focus-visible { background-size: 100% 100%, 100% var(--space-hairline); }
+:where(main, .modal) a:where(:not([class]), [class=""]):not(:where(nav *, .doc-sidebar *, .doc-toc *)):focus-visible { background-size: 100% 100%, 100% var(--space-hairline); }
 .action-link {
   display: inline-flex;
   align-items: center;
@@ -97,7 +97,7 @@ body { color: var(--color-text-2); font-optical-sizing: auto; -webkit-font-smoot
 .action-link::after { content: '→'; color: var(--color-text-3); transition: transform var(--motion-duration-quick) var(--motion-ease-out), color var(--motion-duration-quick) var(--motion-ease-out); }
 .action-link:active { transform: scale(var(--motion-scale-press)); }
 @media (hover: hover) and (pointer: fine) {
-  :where(main, .modal) a:where(:not([class]), [class=""]):hover { background-size: 100% 100%, 100% var(--space-hairline); }
+  :where(main, .modal) a:where(:not([class]), [class=""]):not(:where(nav *, .doc-sidebar *, .doc-toc *)):hover { background-size: 100% 100%, 100% var(--space-hairline); }
   .action-link:hover { background: var(--color-surface-inset-2); }
   .action-link:hover::after { transform: translateX(var(--space-2xs)); color: var(--color-text); }
 }

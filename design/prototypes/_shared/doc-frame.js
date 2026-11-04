@@ -111,18 +111,6 @@ function sidebar(ctx, groups, project) {
   const root = $('#doc-sidebar');
   const previous = new Map([...root.querySelectorAll('.sidebar-group')].map((group) => [group.dataset.name, group.dataset.open]));
   root.replaceChildren();
-  if (project) {
-    const picker = el('div', 'project-switcher');
-    picker.append(el('p', '', 'Proje değiştir'));
-    const list = el('ul');
-    ctx.data.projects.forEach((item) => {
-      const li = el('li');
-      const anchor = link(item.name, `../project/?project=${encodeURIComponent(item.id)}`);
-      if (project.id === item.id) anchor.setAttribute('aria-current', 'page');
-      li.append(anchor); list.append(li);
-    });
-    picker.append(list, link('Tüm projeler', '../projects/')); root.append(picker);
-  }
   groups.forEach((group, index) => {
     const wrapper = el('section', 'sidebar-group');
     wrapper.dataset.name = group.title;
@@ -240,7 +228,7 @@ export function startDocument(options) {
       if (state === 'conflict') { $('#conflict').hidden = false; ctx.toast('Bu dosya dışarıda değişti. Kaydetmeden önce yeniden yükleyin veya farkı inceleyin.'); return false; }
       return true;
     },
-    header: (title, source, markdown, cover = false) => {
+    header: (title, source, markdown, cover = false, extra = []) => {
       const header = $('#doc-heading');
       const row = el('div', `doc-title-row${cover ? ' project-cover' : ''}`);
       const heading = el('h1', '', ctx.text(title)); heading.id = 'doc-title';
@@ -250,7 +238,7 @@ export function startDocument(options) {
         try { await navigator.clipboard.writeText(markdown()); copy.textContent = 'Kopyalandı'; ctx.toast('Markdown kopyalandı.'); }
         catch { const area = field('Kopyalanacak Markdown', 'textarea'); area.control.value = markdown(); area.control.readOnly = true; ctx.ui.open('Markdown’ı seçip kopyalayın', [area.wrapper], null, true); area.control.select(); }
       }, 'button doc-pill');
-      actions.append(copy, button('Ham', raw, 'button doc-pill'));
+      actions.append(copy, button('Ham', raw, 'button doc-pill'), ...extra);
       row.append(heading, actions);
       const info = el('p', 'doc-source');
       info.append('Kaynak: ', el('code', '', source), ' · değişti: 3 Kasım 2026 · ');
