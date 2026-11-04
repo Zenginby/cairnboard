@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="../_shared/components.css">
   <link rel="stylesheet" href="../_shared/shell.css">
   <link rel="stylesheet" href="../_shared/doc-frame.css">
+  <link rel="stylesheet" href="../_shared/graph.css">
+  <link rel="stylesheet" href="../_shared/local-graph.css">
   <link rel="stylesheet" href="app.css">
   <script type="module" src="app.js"></script>
   <script type="module" src="../_shared/pinned-rail.js" blocking="render"></script>
@@ -54,7 +56,7 @@
         <section id="conflict" class="toast is-open stack" aria-label="Dosya çakışması" hidden><div class="row"><span class="chip chip--warning">409 çakışma</span><h2 class="type-title">Bu dosya dışarıda değişti</h2></div><p>Son değişiklikleri inceleyip güncel dosyayı yükle.</p><div class="row"><button class="button" id="reload">Yeniden yükle</button><button class="button" id="diff-open">Farkı gör</button></div></section>
         <div id="screen-content" class="stack">
           <header id="doc-heading" class="doc-heading"></header>
-          <div class="doc-body-layout"><article id="doc-body" class="doc-body"></article><nav id="doc-toc" class="doc-toc" aria-label="Sayfa içeriği"></nav></div>
+          <div class="doc-body-layout"><article id="doc-body" class="doc-body"></article><aside class="doc-aside" aria-label="Sayfa bağlantıları"><nav id="doc-toc" class="doc-toc" aria-label="Sayfa içeriği"></nav></aside></div>
         </div>
         <section id="state-content" class="empty-state" aria-labelledby="state-title" hidden></section>
       </div>

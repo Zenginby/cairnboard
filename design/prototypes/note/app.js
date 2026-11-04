@@ -13,6 +13,7 @@ const startEdit = (ctx) => {
   editing = true; ctx.refresh(); ctx.focus('.doc-editor textarea');
 };
 startDocument({
+  localGraph: true,
   copy: {
     empty: ['Bu notun içeriği boş', 'Notu düzenleyerek içeriğini yaz.', 'Notu düzenle'],
     loading: ['Not açılıyor', 'Notun Markdown içeriği ve bağlantıları okunuyor.'],

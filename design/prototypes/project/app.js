@@ -5,6 +5,7 @@ const requested = new URLSearchParams(location.search).get('project');
 let deleted = false;
 const selected = (ctx) => requested === null ? ctx.data.projects[0] : ctx.data.projects.find((project) => project.id === requested);
 startDocument({
+  localGraph: true,
   copy: {
     empty: ['Proje içeriği görünmüyor', 'Kartlarını ve notlarını görmek için proje görünümüne dön.', 'Projeye dön'],
     loading: ['Proje özeti hesaplanıyor', 'Projeye bağlı kartlar ve sayfalar sayılıyor.'],

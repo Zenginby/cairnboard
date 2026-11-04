@@ -1,0 +1,23 @@
+/* Graph aliases inherit the active palette; no separate graph palette is needed. */
+:root {
+  --graph-note: var(--color-tone-1);
+  --graph-note-concept: var(--color-tone-2);
+  --graph-note-reference: var(--color-tone-4);
+  --graph-note-index: var(--color-tone-7);
+  --graph-wiki: var(--color-tone-5);
+  --graph-project: var(--color-tone-3);
+  --graph-research: var(--color-tone-4);
+  --graph-journal: var(--color-tone-7);
+  --graph-card: var(--color-tone-8);
+  --graph-raw: var(--color-text-3);
+  --graph-tag: var(--color-text-3);
+  --graph-ghost: var(--color-text-3);
+  --graph-ambiguous: var(--color-warning);
+}
+.graph-canvas { display: block; width: 100%; height: clamp(calc(var(--space-xl) * 9), 62vh, calc(var(--space-xl) * 16)); border-radius: var(--radius-md); background: var(--color-surface-inset); touch-action: none; cursor: grab; }
+.graph-canvas.is-pointing { cursor: pointer; }
+.graph-canvas.is-dragging { cursor: grabbing; }
+.graph-tooltip { min-height: calc(var(--space-md) * 2); color: var(--color-text-2); font-size: var(--font-caption-size); overflow-wrap: anywhere; }
+.graph-tooltip[hidden] { display: block !important; visibility: hidden; }
+.graph-help { font-size: var(--font-label-size); color: var(--color-text-3); }
+.graph-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }

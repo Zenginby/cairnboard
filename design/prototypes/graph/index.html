@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../_shared/base.css">
   <link rel="stylesheet" href="../_shared/components.css">
   <link rel="stylesheet" href="../_shared/shell.css">
+  <link rel="stylesheet" href="../_shared/graph.css">
   <link rel="stylesheet" href="app.css">
   <script type="module" src="app.js"></script>
   <script type="module" src="../_shared/pinned-rail.js" blocking="render"></script>
@@ -48,21 +49,30 @@
   <main id="main" class="page-frame stack workspace" tabindex="-1">
     <div id="screen-content" class="stack">
       <div class="page-title"><div class="stack page-heading"><h1>Bağlantı grafiği</h1><p class="muted" id="graph-summary"></p></div><div class="tabs view-tabs" role="tablist" aria-label="Görünüm"><span class="tab-indicator" aria-hidden="true"></span><button class="tab" role="tab" id="tab-canvas" aria-selected="true" aria-controls="panel-canvas" type="button">Grafik</button><button class="tab" role="tab" id="tab-list" aria-selected="false" aria-controls="panel-list" tabindex="-1" type="button">Liste</button></div></div>
+      <p id="graph-limit" class="graph-limit type-label" role="status" hidden></p>
       <div class="graph-layout">
         <aside class="graph-filters stack" aria-label="Grafik süzgeçleri">
-          <label class="field"><span class="type-label">Notlarda vurgula</span><input class="input" id="graph-search" type="search" placeholder="Başlıkta ara" autocomplete="off"></label>
-          <fieldset class="graph-projects"><legend class="type-label">Projeler</legend><div id="graph-projects" class="graph-project-list"></div></fieldset>
-          <label class="graph-switch type-label"><input type="checkbox" id="graph-orphans" checked> Yetim notları göster</label>
+          <label class="field"><span class="type-label">Grafikte vurgula</span><input class="input" id="graph-search" type="search" placeholder="Başlıkta ara" autocomplete="off"></label>
+          <label class="field type-label">Tür<select id="graph-type"><option value="">Tümü</option><option value="note">Not</option><option value="wiki">Wiki</option><option value="project">Proje</option><option value="research">Araştırma</option><option value="journal">Günlük</option><option value="card">Kart</option><option value="raw">Ham kaynak</option></select></label>
+          <label class="field type-label">Not türü<select id="graph-kind"><option value="">Tümü</option><option value="note">Not</option><option value="concept">Kavram</option><option value="reference">Kaynak</option><option value="index">Dizin</option></select></label>
+          <label class="field type-label">Proje<select id="graph-project"><option value="">Tümü</option></select></label>
+          <label class="field type-label">Etiket<select id="graph-tag"><option value="">Tümü</option></select></label>
+          <label class="graph-switch type-label"><input type="checkbox" id="graph-orphans" checked> Yetimleri göster</label>
+          <label class="graph-switch type-label"><input type="checkbox" id="graph-ghosts" checked> Hayaletleri göster</label>
+          <label class="graph-switch type-label"><input type="checkbox" id="graph-journals"> Günlükleri göster</label>
+          <label class="graph-switch type-label"><input type="checkbox" id="graph-cards"> Kartları göster</label>
           <label class="graph-switch type-label"><input type="checkbox" id="graph-labels"> Etiketleri göster</label>
           <p class="type-label muted" id="graph-filter-count" aria-live="polite"></p>
         </aside>
         <section class="graph-stage" id="panel-canvas" role="tabpanel" aria-labelledby="tab-canvas">
-          <canvas id="graph-canvas" class="graph-canvas" tabindex="0" role="img" aria-describedby="graph-canvas-help"></canvas>
+          <div class="graph-tools"><button type="button" class="button" id="graph-zoom-in" aria-label="Grafiği yakınlaştır">+</button><button type="button" class="button" id="graph-zoom-out" aria-label="Grafiği uzaklaştır">−</button><button type="button" class="button" id="graph-fit">Grafiği sığdır</button></div>
+          <canvas id="graph-canvas" class="graph-canvas" role="img" aria-describedby="graph-canvas-help"></canvas>
           <p class="graph-tooltip" id="graph-tooltip" aria-hidden="true" hidden></p>
-          <p class="type-label muted graph-help" id="graph-canvas-help">Bir notun üstüne gel, adı görünsün; tıkla, not açılsın. Klavyeyle ok tuşları notlar arasında gezer, Enter açar. Aynı bilgi Liste görünümünde de var.</p>
+          <p class="type-label muted graph-help" id="graph-canvas-help">Boş alanı sürükle, grafiği kaydır. Tekerlekle veya iki parmağınla yakınlaştır. Düğümü sürükle, bu oturumda sabitle; tıkla, sayfayı aç. Klavyeyle Liste görünümüne geç; Tab ile bağlantıyı seç, Enter ile aç.</p>
         </section>
         <section class="graph-list-panel" id="panel-list" role="tabpanel" aria-labelledby="tab-list" hidden><ul class="graph-list" id="graph-list"></ul></section>
       </div>
+      <p class="type-label muted">Daire: varlık · Kesik halka: çözülmemiş hedef · Uyarı rengi ve “Belirsiz hedef”: birden çok eşleşme · Kare: ignore altındaki ham kaynak. Düğüm boyutu geri bağlantı sayısını, çizgi kalınlığı bağlantı sayısını gösterir.</p>
     </div>
     <section id="state-content" class="box empty-state" aria-labelledby="state-title" hidden></section>
   </main>
