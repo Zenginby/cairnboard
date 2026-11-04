@@ -44,11 +44,12 @@ body { background: var(--color-surface); }
 .priority-heading { margin: calc(var(--space-md) * .35) calc(var(--space-md) * .85 - var(--space-sm)); font-size: var(--font-caption-size); font-weight: var(--font-display-weight); letter-spacing: calc(-1 * var(--font-display-letter-spacing)); color: var(--color-text-3); }
 .priority-urgent { color: var(--color-urgent); }
 .priority-important { color: var(--color-important); }
-.kanban-card { display: block; padding: var(--space-12) calc(var(--space-md) * .85); border: 0; border-radius: var(--radius-sm); background: var(--color-surface); box-shadow: var(--shadow-box); font-size: var(--font-small-size); line-height: var(--font-small-line-height); content-visibility: auto; contain-intrinsic-size: auto calc(var(--space-xl) * 5); transition: transform var(--motion-duration-slow) var(--motion-ease-spring-bouncy), box-shadow var(--motion-duration-fast) var(--motion-ease-default), opacity var(--motion-duration-quick) var(--motion-ease-out); font-family: var(--font-small-family); }
-/* Card anatomy: project on top (clear of the Taşı… button), the copy with the title as the card's only link, then the
-   owner and counters. The link's ::before covers the whole card, so the card reads and behaves as one target. */
+.kanban-card { display: block; padding: var(--space-12) calc(var(--space-md) * .85); border: 0; border-radius: var(--radius-sm); background: var(--color-surface); box-shadow: var(--shadow-box); font-size: var(--font-small-size); line-height: var(--font-small-line-height); content-visibility: auto; contain-intrinsic-size: auto calc(var(--space-xl) * 5); transition: transform var(--motion-duration-fast) var(--motion-ease-out), box-shadow var(--motion-duration-fast) var(--motion-ease-default), opacity var(--motion-duration-quick) var(--motion-ease-out); font-family: var(--font-small-family); }
+/* Card anatomy: the copy first (its first line clear of the Taşı… button) with the title as the card's only link, then
+   one line with project, owner and counters. The link's ::before covers the whole card, so the card reads and behaves as one target. */
 .kanban-card { position: relative; cursor: pointer; }
-.card-top { display: flex; align-items: center; min-height: calc(var(--space-md) * 2); padding-inline-end: calc(var(--space-md) * 4); }
+.card-copy p:first-child { padding-inline-end: calc(var(--space-md) * 4); }
+.card-project { margin-top: var(--space-sm); }
 .card-project-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-link { color: var(--color-text); text-decoration: none; overflow-wrap: anywhere; }
 .card-link::before { content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit; }
@@ -63,7 +64,7 @@ body { background: var(--color-surface); }
 .card-copy b { font-weight: var(--font-title-weight); }
 .is-done .card-copy p { color: var(--color-text-3); }
 .card-project-chip { padding: 0 calc(var(--space-md) * .55); font-size: var(--font-caption-size); font-weight: var(--font-label-weight); line-height: var(--font-small-line-height); }
-.card-metadata { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-top: var(--space-sm); color: var(--color-text-3); font-size: var(--font-caption-size); }
+.card-metadata { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-top: var(--space-xs); color: var(--color-text-3); font-size: var(--font-caption-size); }
 .move-trigger { position: absolute; top: var(--space-sm); right: var(--space-sm); display: inline-flex; align-items: center; justify-content: center; min-height: calc(var(--space-md) * 2); min-width: calc(var(--space-md) * 2); padding: var(--space-xs) var(--space-sm); border: 0; border-radius: var(--radius-full); background: var(--color-surface-inset); color: var(--color-text-2); font-size: var(--font-label-size); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity var(--motion-duration-quick) var(--motion-ease-out); }
 .kanban-card:hover .move-trigger, .kanban-card:focus-within .move-trigger, .move-trigger:disabled { opacity: 1; pointer-events: auto; }
 .move-trigger:disabled { cursor: not-allowed; }

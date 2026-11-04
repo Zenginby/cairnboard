@@ -159,10 +159,9 @@ function makeCard(record, index) {
   card.id = record.id;
   card.dataset.id = record.id;
   card.tabIndex = 0;
-  const top = el('div', 'card-top');
+  // As in the original: the card's text comes first, then a line with its project, owner and counts.
   const chip = projectChip(projectFor(record));
   chip.classList.add('card-project-chip');
-  top.append(chip);
   const copy = el('div', 'card-copy');
   fillCardCopy(copy, record, titleFor(record, index));
   const meta = el('div', 'card-metadata');
@@ -175,7 +174,9 @@ function makeCard(record, index) {
   const handle = el('span', 'drag-handle', '⠿');
   handle.title = 'Sürüklemek için tut. Kartı taşı… düğmesiyle de taşıyabilirsin.';
   handle.setAttribute('aria-hidden', 'true');
-  meta.append(owner, criteria, el('span', 'counter', `${record.comments} yorum`), handle);
+  meta.append(owner, criteria, ...(record.comments ? [el('span', 'counter', `${record.comments} yorum`)] : []), handle);
+  const project = el('div', 'card-project');
+  project.append(chip);
   const move = button('Kartı taşı…', (event) => openMenu(card, event.detail === 0), 'move-trigger');
   move.dataset.move = '';
   move.setAttribute('aria-haspopup', 'menu');
@@ -183,7 +184,7 @@ function makeCard(record, index) {
   move.setAttribute('aria-controls', menu.id);
   move.setAttribute('aria-label', `${record.title}: taşı`);
   move.disabled = isLocked(record);
-  card.append(top, move, copy, meta);
+  card.append(move, copy, project, meta);
   if (isLocked(record)) {
     const message = lockMessage();
     message.id = `${record.id}-lock`;

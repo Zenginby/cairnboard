@@ -33,7 +33,7 @@
 .project-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-md); }
 .project-empty { grid-column: 1 / -1; padding: var(--space-md) var(--space-lg); border-radius: var(--radius-lg); background: var(--color-surface-inset-2); }
 .panel { display: block; padding: var(--space-lg); border: 0; border-radius: var(--radius-lg); color: var(--color-text); background: var(--color-surface); box-shadow: var(--shadow-box); }
-a.panel { color: inherit; text-decoration: none; transition: transform var(--motion-duration-slow) var(--motion-ease-spring-bouncy), box-shadow var(--motion-duration-fast) var(--motion-ease-default); }
+a.panel { color: inherit; text-decoration: none; transition: transform var(--motion-duration-fast) var(--motion-ease-out), box-shadow var(--motion-duration-fast) var(--motion-ease-default); }
 .project-box { grid-column: span 2; display: flex; flex-direction: column; gap: var(--space-18); }
 .project-box::before { content: ''; position: absolute; inset: 0 0 auto; height: calc(var(--space-lg) * 4); border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: linear-gradient(var(--project-wash), transparent); pointer-events: none; }
 .project-box > * { position: relative; }
@@ -63,7 +63,7 @@ a.panel { color: inherit; text-decoration: none; transition: transform var(--mot
 .tone-swatch input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
 #projects-lock[hidden] { display: none; }
 @media (hover: hover) and (pointer: fine) {
-  a.panel:hover { transform: translateY(calc(-1 * var(--motion-distance-lift))) scale(var(--motion-scale-hover)); box-shadow: var(--shadow-box-raised); }
+  a.panel:hover { transform: translateY(calc(-1 * var(--motion-distance-micro))); box-shadow: var(--shadow-box-raised); }
 }
 a.panel:active { transform: scale(var(--motion-scale-press-box)); transition-duration: var(--motion-duration-press); transition-timing-function: var(--motion-ease-out); }
 @media (max-width: 64rem) {

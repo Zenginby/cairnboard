@@ -89,7 +89,7 @@ startDocument({
       show(date);
       const cell = grid.querySelector(`[data-date="${date}"]`);
       cell?.focus({ preventScroll: true });
-      cell?.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      cell?.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.motion === 'less' ? 'auto' : 'smooth' });
     };
     for (let slot = 0; slot < Math.ceil((first + total) / 7) * 7; slot++) {
       if (slot % 7 === 0) body.append(el('tr'));

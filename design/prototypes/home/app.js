@@ -264,28 +264,46 @@ function progressRing(done, total) {
 function renderProjects() {
   const grid = $('#project-grid');
   grid.replaceChildren();
-  data.projects.filter((project) => selectedProjects.has(project.id)).forEach((project) => {
+  const shown = data.projects.filter((project) => selectedProjects.has(project.id));
+  // One project leads: the one with the most open cards gets the wide box, the colour wash and the progress ring;
+  // the others are plain and compact, so the row reads as "this is where the work is" rather than a grid of equals.
+  const openCount = (project) => data.cards.filter((record) => record.projectId === project.id && roleFor(record) !== 'done').length;
+  const featured = shown.length > 1 ? shown.reduce((best, project) => (openCount(project) > openCount(best) ? project : best), shown[0]) : null;
+  shown.sort((a, b) => (b === featured) - (a === featured)).forEach((project) => {
     const summary = summaryFor(project);
     const records = data.cards.filter((record) => record.projectId === project.id);
     const completed = records.filter((record) => roleFor(record) === 'done').length + summary.completedArchive;
     const total = records.length + summary.completedArchive;
-    const { node, header } = box(state === 'long' ? data.longText.projectName : project.name, 'project-box', `../project/?project=${encodeURIComponent(project.id)}`);
+    const lead = project === featured;
+    const { node, header } = box(state === 'long' ? data.longText.projectName : project.name, `project-box${lead ? ' project-box--featured' : ''}`, `../project/?project=${encodeURIComponent(project.id)}`);
     node.style.setProperty('--project-wash', `var(--color-tone-${project.tone}-bg)`);
     node.style.setProperty('--project-ink', `var(--color-tone-${project.tone}-text)`);
     node.style.setProperty('--project-tone', `var(--color-tone-${project.tone})`);
     if (!grid.children.length) node.id = 'projects';
+    // The box grows into the project page's cover (cross-document view transition): only the clicked box carries
+    // the shared name, so a page restored from the back/forward cache never has two.
+    node.addEventListener('click', () => {
+      document.querySelectorAll('.project-box').forEach((other) => other.style.removeProperty('view-transition-name'));
+      node.style.setProperty('view-transition-name', 'project-cover');
+    });
     const additionalNotes = data.notes.filter((note) => note.projectId === project.id && !fixtures.notes.some((item) => item.id === note.id)).length;
     const subtitle = el('p', 'project-subtitle', `${summary.description}, ${summary.noteCount + additionalNotes} not`);
     const heading = header.firstElementChild;
     const copy = el('div', 'project-heading');
     copy.append(heading, subtitle);
     header.className = 'project-top';
-    header.replaceChildren(copy, progressRing(completed, total));
+    header.replaceChildren(copy, ...(lead || !featured ? [progressRing(completed, total)] : []));
     const stat = el('p', 'project-stat');
     stat.append(el('strong', 'counter', `${completed}/${total} kart`), document.createTextNode('panoda bitti'));
-    const focus = records.find((record) => roleFor(record) !== 'done');
-    const focusLine = el('p', 'project-focus', focus ? titleFor(focus) : 'Bu projede açık kart yok.');
+    const open = records.filter((record) => roleFor(record) !== 'done');
+    const focusLine = el('p', 'project-focus', open[0] ? titleFor(open[0]) : 'Bu projede açık kart yok.');
     node.append(stat, focusLine);
+    // The lead box has room for what comes after the next card.
+    if (lead && open.length > 1) {
+      const next = el('ul', 'project-next');
+      open.slice(1, 3).forEach((record) => next.append(el('li', '', titleFor(record))));
+      node.append(next);
+    }
     grid.append(node);
   });
   if (!grid.children.length) {
@@ -487,3 +505,4 @@ async function start() {
   }
 }
 start();
+addEventListener('pageshow', () => document.querySelectorAll('.project-box').forEach((box) => box.style.removeProperty('view-transition-name')));

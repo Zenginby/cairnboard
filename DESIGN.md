@@ -96,6 +96,7 @@ spacing:
   xl: 40px
   content-max: 1080px
   page-max: 1152px
+  overview-max: 1184px
   header-height: 56px
   header-height-wide: 68px
   nav-height: 48px

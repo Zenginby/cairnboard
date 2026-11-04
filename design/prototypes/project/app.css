@@ -18,11 +18,13 @@
 .project-open li a:hover { text-decoration: underline; }
 .project-open li p { color: var(--color-text-2); font-size: var(--font-small-size); }
 .project-sections { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--space-md) * 12.5)), 1fr)); gap: var(--space-12); list-style: none; margin: var(--space-md) 0 0; padding: 0; }
-.project-section-link { display: flex; flex-direction: column; gap: var(--space-xs); height: 100%; padding: var(--space-md) calc(var(--space-md) * 1.15); border-radius: var(--radius-md); background: var(--color-surface-inset); text-decoration: none; transition: transform var(--motion-duration-slow) var(--motion-ease-spring-bouncy); }
+.project-section-link { display: flex; flex-direction: column; gap: var(--space-xs); height: 100%; padding: var(--space-md) calc(var(--space-md) * 1.15); border-radius: var(--radius-md); background: var(--color-surface-inset); text-decoration: none; transition: transform var(--motion-duration-fast) var(--motion-ease-out), background-color var(--motion-duration-fast) var(--motion-ease-default); }
 .project-section-name { font-size: var(--font-lead-size); font-weight: var(--font-display-weight); letter-spacing: var(--font-title-letter-spacing); color: var(--color-text); }
 .project-section-count { font-size: var(--font-small-size); color: var(--color-text-3); font-variant-numeric: tabular-nums; }
 .project-section-link:active { transform: scale(var(--motion-scale-press-box)); transition-duration: var(--motion-duration-press); transition-timing-function: var(--motion-ease-out); }
-@media (hover: hover) and (pointer: fine) { .project-section-link:hover { transform: translateY(calc(-1 * var(--motion-distance-lift-card))); background: var(--color-surface-inset-2); } }
+@media (hover: hover) and (pointer: fine) { .project-section-link:hover { transform: translateY(calc(-1 * var(--motion-distance-micro))); background: var(--color-surface-inset-2); } }
 @media (max-width: 40rem) { .project-open li { grid-template-columns: minmax(0, 1fr); gap: var(--space-xs); } }
 [data-motion="less"] .project-section-link { transform: none; transition-property: opacity; }
 @media (prefers-reduced-motion: reduce) { .project-section-link, .project-section-link:hover { transform: none; transition-property: opacity; } }
+/* The home page's project box grows into this cover when you open the project. */
+.doc-title-row.project-cover { view-transition-name: project-cover; }
