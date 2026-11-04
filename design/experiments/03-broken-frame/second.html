@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 Details</title>
+<link rel="stylesheet" href="../_shared/base.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="frame">
+<header class="top">
+<a href="../">← index</a>
+<nav class="tabs" aria-label="Sections">
+<span class="pill p1" aria-hidden="true"></span>
+<a href="index.html" data-tab="0" data-order="0">Overview</a>
+<a href="second.html" data-tab="1" data-order="1" aria-current="page">Details</a>
+</nav>
+<label class="variant">Variant
+<select id="variant">
+<option value="a">(a) default cross-fade</option>
+<option value="b">(b) cross-fade + group(root) normal blend</option>
+<option value="c">(c) no VT, 120 ms opacity enter</option>
+<option value="d">(d) directional slide</option>
+</select></label>
+</header>
+<div class="body">
+<aside class="side"><p><b>acme</b></p><ul><li>ornek-proje</li><li>Kart 1</li><li>Kart 2</li></ul></aside>
+<div class="clip"><main id="main" class="main">
+<h1>Details</h1><p>Second page. Compare the four variants with the selector in the header.</p><p>Look for: sidebar/header dimming mid-transition (blend), flashes, slide clipping.</p>
+</main></div>
+</div>
+<div class="statusbar"><ol id="log"></ol></div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

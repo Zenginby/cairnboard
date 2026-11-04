@@ -115,6 +115,13 @@ test('security review regressions', () => {
   assert.deepEqual(rules('2026-11-01-cairnboard-design-document-version-two'), []);
 });
 
+test('git commit references in messages are not tokens; a bare 40-hex value still is', () => {
+  const rules = (line) => scanText(line, { file: 'x' }).map((f) => f.rule);
+  assert.deepEqual(rules('This reverts commit e8b987e9fef9a07bcb8ec04a99336ae436dc8513.'), []);
+  assert.deepEqual(rules('(cherry picked from commit e8b987e9fef9a07bcb8ec04a99336ae436dc8513)'), []);
+  assert.deepEqual(rules('key e8b987e9fef9a07bcb8ec04a99336ae436dc8513'), ['token']); // cairn-scan:allow-fixture
+});
+
 test('identifier filter does not hide alternating letter-digit tokens', () => {
   assert.deepEqual(scanText('x7k2m9qz4f-p3w8r1t6y0-a9s2d5f8g1h4', { file: 'x' }).map((f) => f.rule), ['token']); // gitleaks:allow (fake test token) cairn-scan:allow-fixture
 });
@@ -123,6 +130,32 @@ test('package registry paths with platform names are not tokens', () => {
   for (const arch of ['linux-mips64el', 'linux-s390x', 'linux-loong64', 'win32-arm64']) {
     const line = `"resolved": "https://registry.npmjs.org/@esbuild/${arch}/-/${arch}-0.28.2.tgz",`;
     assert.deepEqual(scanText(line, { file: 'x' }), [], line);
+  }
+});
+
+test('nested node_modules paths are not tokens', () => {
+  const line = '"node_modules/parse-entities/node_modules/@types/unist": {';
+  assert.deepEqual(scanText(line, { file: 'x' }), [], line);
+});
+
+test('paths with short upper-case words are not tokens, long upper-case runs still are', () => {
+  assert.deepEqual(scanText('design/experiments/01-cssom-csp/README.md', { file: 'x' }), []);
+  assert.deepEqual(scanText('JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP', { file: 'x' }).map((f) => f.rule), ['token']); // gitleaks:allow (fake test token) cairn-scan:allow-fixture
+});
+
+test('a diff marker before a repository path is not part of a token', () => {
+  for (const line of ['+src/styles/fonts/inter-latin-ext-wght-normal.woff2', '    -src/styles/fonts/inter-latin-wght-normal.woff2', "['+src/styles/fonts/inter-latin-ext-wght-normal.woff2']"]) {
+    assert.deepEqual(scanText(line, { file: 'x' }), [], line);
+  }
+  assert.deepEqual(scanText('+AbCdEf0123_GhIjKl4567-MnOpQr89StUvWx', { file: 'x' }).map((f) => f.rule), ['token']); // gitleaks:allow (fake test token) cairn-scan:allow-fixture
+});
+
+test('home paths count only from the root, not as a relative segment', () => {
+  for (const line of ['design/prototypes/home/README.md', 'arrow/Home/End keys', 'docs/users/guide.md']) {
+    assert.deepEqual(scanText(line, { file: 'x' }), [], line);
+  }
+  for (const line of ['/home/acme/x', 'file:///home/acme/x', "cd '/Users/acme'", 'x=/Volumes/acme/y', '(/home/acme)']) { // cairn-scan:allow-fixture
+    assert.deepEqual(scanText(line, { file: 'x' }).map((f) => f.rule), ['home-path'], line);
   }
 });
 

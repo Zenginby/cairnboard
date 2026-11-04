@@ -1,0 +1,17 @@
+.main.named { view-transition-name: main; }
+.board { display: grid; gap: .5rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: .6rem .8rem; }
+.card b { display: block; }
+.note { max-width: 40rem; }
+.note p { margin: 0 0 1rem; height: 8rem; overflow: hidden; }
+.note h2 { margin: 1rem 0 .5rem; }
+.board, .note { content-visibility: visible; }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+::view-transition-old(root) { animation: fade-out 250ms both; }
+::view-transition-new(root) { animation: fade-in 250ms both; }
+::view-transition-old(main) { animation: fade-out 250ms both; }
+::view-transition-new(main) { animation: fade-in 250ms both; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 0.01ms !important; }
+}

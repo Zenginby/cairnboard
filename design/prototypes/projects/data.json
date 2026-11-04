@@ -1,0 +1,18 @@
+{
+  "groups": [
+    { "id": "active", "label": "Aktif" },
+    { "id": "paused", "label": "Beklemede" },
+    { "id": "archived", "label": "Arşiv" }
+  ],
+  "status": {
+    "mutfak-defteri": "active",
+    "tez-taslagi": "active",
+    "haftalik-plan": "active",
+    "tasarim-denemesi": "active",
+    "okuma-listesi": "paused",
+    "kucuk-araclar": "paused",
+    "bahce-notlari": "archived",
+    "sonbahar-albumu": "archived"
+  },
+  "toneNames": ["mor", "yeşil", "turuncu", "mavi", "pembe", "kırmızı", "gri", "çimen"]
+}

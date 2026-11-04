@@ -1,0 +1,1 @@
+.workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--space-xl) + var(--space-md) * 2); }

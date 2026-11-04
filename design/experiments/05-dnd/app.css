@@ -1,0 +1,27 @@
+.status { min-height: 1.5rem; margin: .25rem 0 .75rem; font-weight: 600; }
+.board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.col h2 { font-size: 1rem; margin: 0 0 .4rem; }
+.list { list-style: none; margin: 0; padding: .5rem; height: 68vh; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 8px; }
+.card { position: relative; display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .5rem .7rem; margin-bottom: .4rem; background: var(--card); border: 1px solid var(--line); border-radius: 6px; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+.card .mv { padding: .1rem .5rem; font-size: .8rem; }
+.card.dragging { opacity: .4; }
+/* Glow is an opacity animation on an overlay, so no background-color animation is needed. */
+.card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--accent); opacity: 0; pointer-events: none; }
+.card.glow::after { animation: glow 700ms ease-out; }
+@keyframes glow { from { opacity: .45; } to { opacity: 0; } }
+.ghost { position: fixed; left: 0; top: 0; margin: 0; z-index: 50; pointer-events: none; opacity: .95; box-shadow: 0 6px 18px rgb(0 0 0 / .25); cursor: grabbing; }
+.drop-line { position: fixed; left: 0; top: 0; height: 2px; background: var(--accent); pointer-events: none; z-index: 40; display: none; }
+.drop-line.on { display: block; }
+.menu { position: fixed; z-index: 60; min-width: 11rem; padding: .3rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / .3); }
+.menu h3 { margin: .3rem .5rem .1rem; font-size: .75rem; color: var(--muted); }
+.menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; }
+.menu button:hover, .menu button:focus-visible { background: var(--card); }
+kbd { font: .85em ui-monospace, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 .3rem; }
+
+html.vt-mode .card { view-transition-name: match-element; }
+html.vt-mode::view-transition-group(*) { animation-duration: 240ms; animation-timing-function: cubic-bezier(0.15, 1, 0.3, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card.glow::after { animation: none; }
+  html.vt-mode::view-transition-group(*) { animation-duration: 0.01ms; }
+}

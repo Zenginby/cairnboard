@@ -1,0 +1,30 @@
+/* The aside remains inside the page grid, whose width already clears the pinned rail. */
+.doc-column:has(.doc-aside) { container-type: inline-size; container-name: document; }
+.doc-aside { display: contents; }
+.local-graph { min-width: 0; padding-block: var(--space-md); border-block: var(--space-hairline) solid var(--color-line); }
+.local-graph summary { min-height: calc(var(--space-xl) + var(--space-xs)); cursor: pointer; color: var(--color-text); font-weight: var(--font-title-weight); }
+.local-graph-content { display: grid; gap: var(--space-sm); min-width: 0; }
+.local-graph .graph-canvas { height: calc(var(--space-xl) * 5); }
+.local-graph-links { max-height: calc(var(--space-xl) * 4); overflow-y: auto; list-style: none; padding: 0; margin: 0; font-size: var(--font-caption-size); }
+.local-graph-links :is(a, span), .local-graph-open { overflow-wrap: anywhere; }
+.local-graph-links a { display: inline-block; padding-block: var(--space-xs); }
+.local-graph-open { font-size: var(--font-small-size); }
+/* Container width, rather than viewport width, also covers the space taken by the pinned rail. */
+.doc-column .doc-body-layout:has(.doc-aside) { grid-template-columns: minmax(0, 1fr); }
+.doc-aside .doc-toc:not([hidden]) { display: block; position: static; order: -1; max-height: none; }
+@container document (min-width: 48rem) {
+  .doc-column .doc-body-layout:has(.doc-aside) { grid-template-columns: minmax(0, var(--doc-content-width)) var(--doc-toc-width); }
+  .doc-aside { display: grid; gap: var(--space-lg); position: sticky; top: calc(var(--header-height) + var(--space-lg)); max-height: calc(100dvh - var(--header-height) - var(--space-xl)); overflow-y: auto; }
+  .doc-aside .doc-toc { overflow: visible; }
+  .local-graph { padding-top: var(--space-md); }
+}
+@container document (width < 48rem) {
+  .doc-aside .doc-toc { padding-bottom: var(--space-md); border-bottom: var(--space-hairline) solid var(--color-line); }
+  .doc-aside .doc-toc ul { display: flex; gap: var(--space-xs); overflow-x: auto; border: 0; }
+  .doc-aside .doc-toc li { flex: none; padding: 0; }
+  .doc-aside .doc-toc a { margin: 0; padding: var(--space-xs) var(--space-12); border: 0; border-radius: var(--radius-full); background: var(--color-pill-bg); white-space: nowrap; }
+  .doc-aside .doc-toc a[aria-current="true"] { background: var(--color-surface-inset-2); }
+}
+@media (pointer: coarse) {
+  .local-graph-links a, .local-graph-open { display: flex; align-items: center; min-height: calc(var(--space-xl) + var(--space-xs)); }
+}

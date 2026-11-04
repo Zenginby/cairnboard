@@ -1,0 +1,243 @@
+{
+  "columns": [
+    {
+      "key": "todo",
+      "label": "Bekleyen",
+      "role": "todo"
+    },
+    {
+      "key": "doing",
+      "label": "Yapılıyor",
+      "role": "doing"
+    },
+    {
+      "key": "review",
+      "label": "İncelemede",
+      "role": "doing"
+    },
+    {
+      "key": "done",
+      "label": "Bitti",
+      "role": "done"
+    }
+  ],
+  "cards": [
+    {
+      "id": "card-1",
+      "title": "Mercimek çorbasının ölçülerini netleştir",
+      "projectId": "mutfak-defteri",
+      "column": "todo",
+      "priority": "urgent",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "Mercimek ve su miktarı yazıldı",
+          "done": true
+        },
+        {
+          "text": "İki porsiyonla denendi",
+          "done": true
+        },
+        {
+          "text": "Tuz miktarı tartıldı",
+          "done": false
+        }
+      ],
+      "comments": 3
+    },
+    {
+      "id": "card-2",
+      "title": "Görüşme sorularını danışmana gönder",
+      "projectId": "tez-taslagi",
+      "column": "doing",
+      "priority": "important",
+      "assigneeId": "claude",
+      "criteria": [
+        {
+          "text": "Sorular yöntem taslağına eklendi",
+          "done": true
+        },
+        {
+          "text": "Danışmana e-posta gönderildi",
+          "done": false
+        }
+      ],
+      "comments": 2
+    },
+    {
+      "id": "card-3",
+      "title": "Yürüyüş fotoğraflarını tarihe göre ayır",
+      "projectId": "sonbahar-albumu",
+      "column": "done",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "Dosyalar çekim gününe göre ayrıldı",
+          "done": true
+        }
+      ],
+      "comments": 0
+    },
+    {
+      "id": "card-4",
+      "title": "Cuma akşamı için alışveriş listesi çıkar",
+      "projectId": "haftalik-plan",
+      "column": "todo",
+      "priority": "important",
+      "assigneeId": "deniz",
+      "criteria": [
+        {
+          "text": "Evdeki malzemeler kontrol edildi",
+          "done": false
+        },
+        {
+          "text": "Altı kişilik miktarlar yazıldı",
+          "done": false
+        },
+        {
+          "text": "Pazar alışverişi ayrıldı",
+          "done": false
+        },
+        {
+          "text": "Eksikler Deniz’e iletildi",
+          "done": false
+        }
+      ],
+      "comments": 1
+    },
+    {
+      "id": "card-5",
+      "title": "Haftanın masraflarını topla",
+      "projectId": "haftalik-plan",
+      "column": "todo",
+      "assigneeId": "ada",
+      "criteria": [],
+      "comments": 0
+    },
+    {
+      "id": "card-6",
+      "title": "Nohudu düdüklüde pişirme süresini dene",
+      "projectId": "mutfak-defteri",
+      "column": "doing",
+      "priority": "urgent",
+      "assigneeId": "codex",
+      "criteria": [
+        {
+          "text": "Islatma süresi kaydedildi",
+          "done": true
+        },
+        {
+          "text": "Basınç sonrası süre ölçüldü",
+          "done": false
+        }
+      ],
+      "comments": 5
+    },
+    {
+      "id": "card-7",
+      "title": "Görüşme dökümlerindeki eksik satırları tamamla",
+      "projectId": "tez-taslagi",
+      "column": "review",
+      "priority": "important",
+      "assigneeId": "deniz",
+      "criteria": [
+        {
+          "text": "Anlaşılmayan yerler işaretlendi",
+          "done": true
+        },
+        {
+          "text": "Ses kaydıyla karşılaştırıldı",
+          "done": true
+        },
+        {
+          "text": "Döküm yeniden okundu",
+          "done": false
+        }
+      ],
+      "comments": 2
+    },
+    {
+      "id": "card-8",
+      "title": "Albümün giriş yazısını kısalt",
+      "projectId": "sonbahar-albumu",
+      "column": "review",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "Giriş yazısı yüz sözcüğün altına indi",
+          "done": true
+        },
+        {
+          "text": "Çekim tarihleri doğrulandı",
+          "done": false
+        }
+      ],
+      "comments": 0
+    },
+    {
+      "id": "card-9",
+      "title": "Geçen ayın faturalarını dosyala",
+      "projectId": "haftalik-plan",
+      "column": "todo",
+      "priority": "low",
+      "assigneeId": "deniz",
+      "criteria": [],
+      "comments": 0
+    },
+    {
+      "id": "card-10",
+      "title": "Fırın sebze tarifine süreyi ekle",
+      "projectId": "mutfak-defteri",
+      "column": "done",
+      "assigneeId": "codex",
+      "criteria": [
+        {
+          "text": "Fansız fırın sıcaklığı yazıldı",
+          "done": true
+        },
+        {
+          "text": "Pişirme süresi tarife eklendi",
+          "done": true
+        }
+      ],
+      "comments": 1
+    }
+  ],
+  "notes": [
+    {
+      "id": "note-1",
+      "kind": "note",
+      "pinned": true,
+      "updated": "10.42"
+    },
+    {
+      "id": "note-2",
+      "kind": "note",
+      "pinned": false,
+      "updated": "09.18"
+    },
+    {
+      "id": "note-3",
+      "projectId": "mutfak-defteri",
+      "title": "Tarif kayıt düzeni",
+      "body": "Ölçüleri gramla yazıyorum. Fırın sıcaklığının yanına fanlı mı fansız mı olduğunu da ekle; aynı tarif iki ayarda farklı sonuç veriyor.",
+      "kind": "wiki",
+      "pinned": true,
+      "updated": "Dün"
+    },
+    {
+      "id": "note-4",
+      "projectId": "haftalik-plan",
+      "title": "Cuma hazırlığı",
+      "body": "Akşam yemeğine altı kişi gelecek. Nohut perşembe gecesi suya girecek, salatayı cuma hazırlayacağım.",
+      "kind": "note",
+      "pinned": false,
+      "updated": "Dün"
+    }
+  ],
+  "longText": {
+    "projectName": "Sonbahar yürüyüşlerinden kalan fotoğrafları ayıklama ve albüm hazırlığı",
+    "title": "Yağmurdan önceki son yürüyüşte çekilen fotoğrafları ışığa ve çekim saatine göre ayırıp basılacak albüm için tarih sırasını yeniden düzenle",
+    "english": "Sort the photographs from the last autumn walk by light and time of day, then arrange the selected prints in chronological order for the family album"
+  }
+}

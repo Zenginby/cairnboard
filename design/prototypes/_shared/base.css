@@ -1,0 +1,101 @@
+@import '../../../src/styles/fonts.css';
+@import '../../../src/styles/tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-padding-block-start: calc(var(--header-height) + var(--space-md)); }
+/* In-page jumps (the contents list, #links) glide to their target; with reduced motion they jump. */
+@media (prefers-reduced-motion: no-preference) { html:not([data-motion="less"]) { scroll-behavior: smooth; } }
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-body-family);
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
+  line-height: var(--font-body-line-height);
+}
+h1, h2, h3, p { margin: 0; overflow-wrap: anywhere; }
+h1, .type-display {
+  font-family: var(--font-display-family);
+  font-size: var(--font-display-size);
+  font-weight: var(--font-display-weight);
+  line-height: var(--font-display-line-height);
+  letter-spacing: var(--font-display-letter-spacing);
+}
+h2, h3, .type-title {
+  font-family: var(--font-title-family);
+  font-size: var(--font-title-size);
+  font-weight: var(--font-title-weight);
+  line-height: var(--font-title-line-height);
+  letter-spacing: var(--font-title-letter-spacing);
+}
+.type-label {
+  font-family: var(--font-label-family);
+  font-size: var(--font-label-size);
+  font-weight: var(--font-label-weight);
+  line-height: var(--font-label-line-height);
+}
+code, .type-code {
+  font-family: var(--font-code-family);
+  font-size: var(--font-code-size);
+  font-weight: var(--font-code-weight);
+  line-height: var(--font-code-line-height);
+  overflow-wrap: anywhere;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+button, select { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+/* Links read as text, not web-blue; the app shell gives plain and action links their own look (shell.css). */
+a { color: var(--color-text); text-decoration-color: var(--color-line-strong); text-decoration-thickness: var(--space-hairline); text-underline-offset: var(--space-xs); }
+:focus-visible, .is-focus { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+[hidden] { display: none !important; }
+:root { --header-height: calc(var(--space-xl) + var(--space-lg) + var(--space-md)); }
+.page-frame { padding: var(--space-lg) var(--space-md) var(--space-xl); min-width: 0; }
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-line);
+}
+.topbar a { display: inline-flex; align-items: center; min-height: calc(var(--space-md) * 2); }
+.prose { width: 100%; max-width: 46rem; margin-inline: auto; }
+.stack { display: grid; gap: var(--space-md); min-width: 0; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); min-width: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--space-md); }
+.muted { color: var(--color-text-3); }
+.counter { font-variant-numeric: tabular-nums; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (pointer: coarse) {
+  .topbar a { min-height: calc(var(--space-xl) + var(--space-xs)); }
+}
+
+/* Moving between pages is a cross-document view transition: the top bar and the pinned rail stay put, the tab
+   indicator slides to the new tab, and the page content swaps in one frame. Without support it is a normal load. */
+@view-transition { navigation: auto; }
+.app-shell { view-transition-name: app-shell; }
+.app-tabs [aria-current="page"] .tab-indicator { view-transition-name: tab-indicator; }
+.pinned-rail { view-transition-name: pinned-rail; }
+::view-transition-group(*) { animation-duration: var(--motion-duration-fast); animation-timing-function: var(--motion-ease-smooth-out); }
+/* The page itself swaps at once (as in the original): cross-fading two pages of text reads as text on top of text. */
+::view-transition-old(root), ::view-transition-new(root),
+::view-transition-old(app-shell), ::view-transition-new(app-shell),
+::view-transition-old(pinned-rail), ::view-transition-new(pinned-rail) { animation: none; }
+::view-transition-group(project-cover) { animation-duration: var(--motion-duration-medium); }
+::view-transition-old(project-cover), ::view-transition-new(project-cover) { height: 100%; object-fit: cover; overflow: clip; }
+:root[data-motion="less"]::view-transition-group(*),
+:root[data-motion="less"]::view-transition-old(*),
+:root[data-motion="less"]::view-transition-new(*) { animation: none; }
+@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+
+/* Emphasis and reading details everywhere (DESIGN.md, Typography): headings break into balanced lines, running text
+   avoids a lone last word, and numbers that sit in columns or change in place keep one width. */
+:where(h1, h2, h3, h4) { text-wrap: balance; }
+:where(p, li, dd, figcaption) { text-wrap: pretty; }
+:where(time, td, .counter, .calendar-day, .criterion-date) { font-variant-numeric: tabular-nums; }

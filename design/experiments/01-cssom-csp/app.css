@@ -1,0 +1,6 @@
+.track { border: 1px dashed var(--line); padding: 1rem; margin: .5rem 0; overflow: hidden; }
+.box { width: 4rem; height: 2.5rem; background: var(--accent); color: var(--bg); display: grid; place-items: center; border-radius: 6px; }
+.box.var-target { translate: var(--x, 0px) 0; }
+#buttons { display: contents; }
+td.yes { color: #2b8a3e; font-weight: 600; }
+td.no { color: #c92a2a; font-weight: 600; }

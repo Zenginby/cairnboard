@@ -1,0 +1,5 @@
+{
+  "cards": [],
+  "notes": [],
+  "markdown": "## Pişirme notları\n\nKırmızı mercimeği süzgeçte yıkadım. Soğanı kavurduktan sonra mercimeği ekleyip iki dakika çevirmek kokuyu belirginleştirdi.\n\n- Bir su bardağı mercimek için dört bardak suyla başla.\n- Tuzu **pişirmenin sonunda** ekle.\n- Ölçüleri [[note-3|Tarif kayıt düzeni]] notundaki biçimle kaydet.\n\n## Bir sonraki pişirme\n\n1. Kullandığın mercimeği tart.\n2. Kapağı yarı açık tut.\n3. Blender sonrası kıvamı kontrol et.\n\n### Porsiyon hesabı\n\n```js\nconst portions = 4;\nconst waterCups = portions;\nconsole.log(waterCups);\n```\n\n## Deneme kaydı\n\n| Tarih | Su | Sonuç |\n| --- | --- | --- |\n| 1 Kasım | 5 bardak | Fazla sulu |\n| 3 Kasım | 4 bardak | Kıvamı iyi |\n\nBir kaseyi ertesi gün için ayırdım. Isıtırken eklenecek su miktarı `notes/` altındaki saklama notunda."
+}

@@ -245,3 +245,17 @@ test('ci-scan finds historical content hidden by a blob replacement', (t) => {
   repo.git('replace', original, 'HEAD:fixture.txt');
   check(repo.scan(), 1, 'email', [privateEmail]);
 });
+
+test('reviewed binaries in security/binary-allowlist.txt are not read as text; other files still are', (t) => {
+  const repo = repository(t);
+  mkdirSync(join(repo.cwd, 'security'));
+  // A font-like blob whose bytes happen to spell an address, as real woff2 data does at random.
+  const bytes = Buffer.concat([Buffer.from([0, 1, 2]), Buffer.from(`x ${privateEmail} y`), Buffer.from([0])]);
+  writeFileSync(join(repo.cwd, 'font.woff2'), bytes);
+  repo.write('# reviewed\nfont.woff2\n', 'security/binary-allowlist.txt');
+  repo.commit();
+  check(repo.scan(), 0);
+  repo.write('# reviewed\n', 'security/binary-allowlist.txt');
+  repo.commit();
+  check(repo.scan(), 1, 'email', [privateEmail]);
+});

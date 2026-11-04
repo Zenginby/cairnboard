@@ -1,0 +1,43 @@
+{
+  "notes": [
+    { "id": "graph-1", "kind": "note", "projectId": "okuma-listesi", "title": "Okunacaklar sırası", "body": "Önce kısa yazılar, sonra uzun incelemeler; her birinin altına iki cümlelik bir özet.", "tags": ["okuma"] },
+    { "id": "graph-2", "kind": "note", "projectId": "okuma-listesi", "title": "Alıntı biçimi", "body": "Alıntıların altında kaynak ve tarih; sayfa numarası varsa o da.", "tags": ["okuma", "yazım"] },
+    { "id": "graph-3", "kind": "wiki", "projectId": "tasarim-denemesi", "title": "Renk tonları rehberi", "body": "Sekiz ton yalnız ayırt etmek içindir; durum her zaman bir sözcükle de gösterilir.", "tags": ["tasarım"] },
+    { "id": "graph-4", "kind": "note", "projectId": "tasarim-denemesi", "title": "Kutu gölgeleri", "body": "Koyu temada gölge yerine ince bir açık çizgi.", "tags": ["tasarım"] },
+    { "id": "graph-5", "kind": "note", "projectId": "tasarim-denemesi", "title": "Hareket ilkeleri", "body": "Hareket nereden gelindiğini anlatır; süsleme için kullanılmaz.", "tags": ["tasarım", "erişilebilirlik"] },
+    { "id": "graph-6", "kind": "note", "projectId": "kucuk-araclar", "title": "Kısayol listesi", "body": "N not, C kart, / arama, ? yardım.", "tags": ["klavye"] },
+    { "id": "graph-7", "kind": "note", "projectId": "kucuk-araclar", "title": "Komut satırı ipuçları", "body": "cairn index dizini yeniden kurar; cairn doctor kurulumu denetler.", "tags": ["araç"] },
+    { "id": "graph-8", "kind": "wiki", "projectId": "kucuk-araclar", "title": "Yedekleme düzeni", "body": "Veri klasörü düz Markdown; git ile ya da kopyalayarak yedeklenir.", "tags": ["araç"] },
+    { "id": "graph-9", "kind": "note", "projectId": "bahce-notlari", "title": "Domates fideleri", "body": "Fideler pencere önünde; sulamayı iki günde bir yap.", "tags": ["bahçe"] },
+    { "id": "graph-10", "kind": "note", "projectId": "bahce-notlari", "title": "Kompost denemesi", "body": "Kuru yaprakla yeşil atığı yarı yarıya karıştır.", "tags": ["bahçe"] },
+    { "id": "graph-11", "kind": "note", "projectId": "sonbahar-albumu", "title": "Baskı planı", "body": "Önce mat kağıda iki kare bastıracağım. Renkler uygunsa albümün kalanını aynı yerde bastırırım.", "tags": ["deneme"] },
+    { "id": "graph-12", "kind": "research", "projectId": "sonbahar-albumu", "title": "Mat ve parlak kağıt", "body": "Mat baskıda gökyüzü daha soluk, parlak baskıda gölgeler daha koyu görünüyor.", "tags": ["deneme"] },
+    { "id": "graph-13", "kind": "note", "projectId": "sonbahar-albumu", "title": "Albümün son sayfası", "body": "Son sayfayı boş bırakıp yürüyüş biletini yapıştırabilirim.", "tags": [] },
+    { "id": "graph-14", "kind": "note", "projectId": "bahce-notlari", "title": "Tohum listesi", "body": "Gelecek bahar için.", "tags": [] }
+  ],
+  "tags": {
+    "note-1": ["tarif"], "note-2": ["görüşme"],
+    "note-3": ["tarif"], "note-4": ["plan"], "research-1": ["tarif"], "research-2": ["görüşme"], "research-3": ["alışveriş"],
+    "research-4": ["tarif"], "research-5": ["görüşme"], "research-6": ["plan"], "research-7": ["tarif"], "research-8": ["okuma"],
+    "research-9": ["plan"], "research-10": ["tarif"], "research-11": ["görüşme"], "research-12": ["plan"]
+  },
+  "kinds": { "note-1": "concept", "note-2": "reference", "graph-1": "index", "graph-5": "concept" },
+  "nodes": [
+    { "id": "ghost:storage", "title": "Saklama koşulları", "target_name": "Saklama koşulları", "type": "note", "kind": "note", "project": "mutfak-defteri", "ghost": true },
+    { "id": "ghost:preparation", "title": "Hazırlık", "target_name": "Hazırlık", "type": "note", "kind": "note", "project": "mutfak-defteri", "ghost": true, "ambiguous": true },
+    { "id": "raw:measurements", "title": "Tartım çizelgesi", "type": "raw", "project": "mutfak-defteri", "ignored": true }
+  ],
+  "links": [
+    ["note-1", "note-3"], ["note-1", "note-3"], ["research-1", "note-1"],
+    ["note-1", "ghost:storage"], ["note-1", "ghost:preparation"], ["research-1", "raw:measurements"],
+    ["mutfak-defteri", "note-1"], ["mutfak-defteri", "note-3"], ["mutfak-defteri", "research-1"],
+    ["tez-taslagi", "note-2"], ["tez-taslagi", "research-2"], ["haftalik-plan", "note-4"],
+    ["journal:2026-11-03", "note-1"], ["journal:2026-11-03", "mutfak-defteri"], ["card-1", "note-1"],
+    ["note-1", "note-3"], ["note-1", "research-10"], ["note-1", "note-4"], ["note-2", "research-5"], ["note-3", "research-2"], ["note-3", "research-11"],
+    ["note-3", "research-7"], ["note-4", "research-7"], ["note-4", "research-6"], ["research-1", "research-4"], ["research-1", "research-9"],
+    ["research-2", "research-11"], ["research-3", "graph-6"], ["research-3", "research-5"], ["research-4", "research-8"], ["research-6", "research-12"],
+    ["research-7", "research-12"], ["research-8", "note-2"], ["research-9", "graph-7"], ["research-10", "research-7"], ["graph-1", "graph-2"],
+    ["graph-1", "research-8"], ["graph-3", "graph-4"], ["graph-3", "graph-5"], ["graph-5", "research-5"], ["graph-6", "graph-7"], ["graph-7", "graph-8"],
+    ["graph-8", "research-4"], ["graph-9", "graph-10"], ["graph-11", "graph-12"], ["graph-12", "research-9"], ["graph-2", "note-1"]
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "dataPath": "~/Belgeler/cairn-calisma",
+  "language": "tr",
+  "leaseMinutes": 30,
+  "columns": [
+    { "key": "todo", "label": "Bekleyen", "role": "todo" },
+    { "key": "doing", "label": "Yapılıyor", "role": "doing" },
+    { "key": "review", "label": "İncelemede", "role": "doing" },
+    { "key": "done", "label": "Bitti", "role": "done" }
+  ],
+  "agents": [
+    { "id": "claude", "name": "claude", "skill": "cairn", "path": ".claude/skills/cairn/SKILL.md", "version": "0.4.0", "status": "current" },
+    { "id": "codex", "name": "codex", "skill": "cairn", "path": "AGENTS.md · Cairnboard bölümü", "version": "0.3.2", "status": "outdated" }
+  ]
+}

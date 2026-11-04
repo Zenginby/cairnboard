@@ -1,0 +1,25 @@
+# Board A
+
+Compact inset columns, collapse headers, priority subheads and label-led cards follow the reference's layout. The board has a 72rem content cap through `--space-page-max`, exact 15rem minimum columns and 12px gaps, with stacked columns below 50rem.
+
+- Preview: `npm run design:serve`, then `http://127.0.0.1:4391/prototypes/board/`; the `project` query parameter selects the initial filter.
+- Precision: page-title typography now uses the 46.4px/700/1.06 role, card text uses 14px/1.45, and quiet counts/metadata use 12px. Header/card padding, subhead alignment, footer spacing, chip insets, chevrons and 2px card lifts use the exact tokens or arithmetic, including 13.6px, 5.6px, 6.4px, 8.8px and 1.5-unit strokes. The supplied shared base loads Inter; no font assets or links were added.
+- Shell: identical shell files to Home A, with exact row heights, tab metrics, indicator shadow, material blur/saturation and search width. The collision guard, theme families, light/dark/system controls and supplied theme reveal remain intact. The document-frame header uses the reference's 78% surface mixture.
+- Collapse: manual toggles animate grid rows from 0fr to 1fr and fade through the small blur with the original timing/easing. A clipped inner wrapper enables the transition without `hidden`. Collapsed content is inert and hidden from accessibility APIs immediately; focus returns to the header if needed. Automatic destination expansion is immediate so moved-card focus is visible. Reduced motion removes layout/blur movement and retains the short opacity fade.
+- Cards: project/priority filters, inline **Kart ekle**, person/agent initials, acceptance progress and comments remain. **Taşı…** appears on hover/focus and stays visible on touch or a claimed card. Dragging and menus preserve priority grouping and backing order; counts and position announcements exclude presentation headings. Every move returns focus to the card and announces it through one persistent polite status region.
+- Keyboard: `N` quick note, `C` the active column's inline form, `/`, `⌘K` or `Ctrl+K` search, `?` help. `M` opens the focused card's move menu; arrow keys, Home and End navigate enabled actions. Escape cancels/closes, Tab closes the move menu, and Enter on a card opens details.
+- Motion/states: card shadows transition with the approved default easing; visible-card FLIP, source opacity, insertion line and highlight remain. The pointer ghost follows direct manipulation. Full, empty, loading, error, claimed, conflict, long-text and the one-column 300-card fixtures remain available, with content visibility and visible-card targeting. Data is fictional and per-page only; no Markdown writes or live cross-page synchronization occur.
+
+## Remaining differences
+
+No board geometry, type, spacing, lift or collapse substitutions remain. Shared palette literals and instant hover color changes are the remaining visual differences listed in [Home A's report](../home/README.md#remaining-differences); the supplied palette and animation rules remain authoritative.
+
+Cairn-specific filters, inline forms, move controls, metadata, state controls and larger touch targets occupy additional space as required. A single card list with presentation-only priority headings preserves focused DOM nodes during moves. The reference is not copied into an artifact. Direct served-page visual comparison and physical-device drag smoothness remain coordinator checks.
+
+## Verification
+
+`npm test`: 684 passed, one skipped. `npm run design:lint`: no errors or warnings. The combined isolated browser harness passed 1178 checks at seven viewport widths plus simulated OS-reduced-motion cases, loading both supplied Inter subsets. It checked exact computed metrics, non-overlapping tabs/search, six palettes, all states, animated collapse, reduced-motion hover/press behavior, inline creation, 300-card count, priority reordering through filters, expansion of collapsed move destinations, focus/announcement behavior and a synthetic pointer drop. This does not certify production HTTP/CSP loading, screenshot equality or hardware drag performance. Source/CSP patterns, token references, syntax/bundling, shell parity and changed-folder boundaries were also checked. Changes remain uncommitted.
+
+## Priority
+
+The core accepts only `urgent`, `important` and `low`; an ordinary card has no priority field. The “Diğer” group, filter option and new-card default mean exactly that (empty value, field omitted); there is no `normal` value (`priorityOf` in `_shared/app-ui.js`).

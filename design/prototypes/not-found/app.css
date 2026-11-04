@@ -1,0 +1,41 @@
+/* Page frame shared with home/ and board/ (copied, as those pages keep it locally). */
+.workspace { max-width: var(--workspace-max); margin-inline: auto; padding-bottom: calc(var(--space-xl) * 4); }
+.skip-link { position: fixed; top: var(--space-sm); left: var(--space-md); z-index: 100; transform: translateY(-200%); }
+.skip-link:focus { transform: none; }
+.prototype-controls { position: fixed; bottom: var(--space-md); right: var(--space-md); z-index: 20; max-width: calc(100% - var(--space-md) * 2); padding: var(--space-sm) var(--space-md); border: 0; border-radius: var(--radius-full); background: var(--color-surface); box-shadow: var(--shadow-box); }
+.prototype-controls select { min-width: 0; border: 0; background: var(--color-pill-bg); }
+.modal { width: calc(var(--space-xl) * 15); transition-property: opacity, transform; }
+.modal[open], .modal::backdrop, .modal[open]::backdrop { transition-property: opacity, transform; }
+.skeletons { width: 100%; }
+.lock-message { display: flex; gap: var(--space-sm); align-items: start; }
+.lock-message svg { width: var(--space-md); height: var(--space-md); flex-shrink: 0; fill: none; stroke: var(--color-text-3); stroke-width: 2; }
+#state-content, #conflict { border: 0; border-radius: var(--radius-lg); }
+[id] { scroll-margin-top: var(--space-md); }
+/* Page title row as on board/: title left, small meta or action pills right. */
+.page-title { display: flex; align-items: start; justify-content: space-between; gap: var(--space-md); }
+.page-heading { gap: var(--space-xs); min-width: 0; }
+.page-title h1 { font-size: clamp(var(--font-display-size), 4.4vw, var(--font-page-title-size)); font-weight: var(--font-page-title-weight); line-height: var(--font-page-title-line-height); letter-spacing: var(--font-page-title-letter-spacing); text-wrap: balance; color: var(--color-text); font-family: var(--font-page-title-family); }
+.page-title p { font-size: var(--font-small-size); }
+.page-actions { flex: none; }
+.doc-frame { background: var(--color-surface); }
+.doc-frame .app-shell { background: color-mix(in srgb, var(--color-surface) 78%, transparent); }
+.doc-frame .workspace { padding-top: clamp(var(--space-28), 3vw, var(--space-xl)); }
+@media (max-width: 40rem) {
+  .page-title { flex-direction: column; gap: var(--space-xs); }
+}
+
+/* Status page (404, 500): one centred Bento card with a big number, one sentence and the way back. */
+.workspace { --workspace-max: calc(var(--space-content-max) * 0.62 + var(--space-md) * 2); padding-top: clamp(var(--space-lg), 8vh, calc(var(--space-xl) * 2.5)); }
+.status-ref { font-variant-numeric: tabular-nums; }
+.status-ref:empty { display: none; }
+.status-suggest { display: grid; gap: var(--space-sm); padding: var(--space-lg); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-box); }
+.status-suggest-title { font-family: var(--font-box-title-family); font-size: var(--font-box-title-size); font-weight: var(--font-box-title-weight); letter-spacing: var(--font-box-title-letter-spacing); color: var(--color-text); }
+.suggest-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.suggest-list li + li { border-top: var(--space-hairline) solid var(--color-line); }
+.suggest-link { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-md); padding-block: var(--space-12); color: var(--color-text); font-family: var(--font-row-family); font-size: var(--font-row-size); font-weight: var(--font-title-weight); text-decoration: none; transition: transform var(--motion-duration-medium) var(--motion-ease-spring); }
+.suggest-link span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.suggest-kind { flex: none; color: var(--color-text-3); font-size: var(--font-caption-size); font-weight: var(--font-caption-weight); }
+.suggest-skeletons { display: grid; gap: var(--space-sm); }
+@media (hover: hover) and (pointer: fine) { .suggest-link:hover { transform: translateX(var(--motion-distance-micro)); } }
+[data-motion="less"] .suggest-link { transform: none !important; transition-property: opacity; }
+@media (prefers-reduced-motion: reduce) { .suggest-link { transform: none !important; transition-property: opacity; } }

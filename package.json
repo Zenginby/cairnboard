@@ -17,8 +17,14 @@
     "README.md",
     "LICENSE"
   ],
-  "bin": { "cairn": "dist/cairn.mjs" },
+  "bin": {
+    "cairn": "dist/cairn.mjs"
+  },
   "scripts": {
+    "design:build": "node scripts/design-build.mjs",
+    "design:lint": "node scripts/design-lint.mjs",
+    "design:check": "node scripts/design-check.mjs",
+    "design:serve": "node scripts/design-serve.mjs",
     "build:cli": "node scripts/build-cli.mjs",
     "bench:cli": "node scripts/bench-cli.mjs",
     "cairn": "node cli/cairn.mjs",
@@ -31,6 +37,9 @@
     "yaml": "2.9.1"
   },
   "devDependencies": {
-    "esbuild": "0.28.2"
+    "@google/design.md": "0.4.0",
+    "axe-core": "4.14.0",
+    "esbuild": "0.28.2",
+    "playwright-core": "1.64.1"
   }
 }

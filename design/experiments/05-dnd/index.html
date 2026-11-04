@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 Pointer drag and drop</title>
+<link rel="stylesheet" href="../_shared/base.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="wrap">
+<h1>05 Pointer drag and drop (300 cards)</h1>
+<p><a href="../">← index</a> · Drag a card, or focus one and press <kbd>M</kbd> (or use “Taşı…”).</p>
+<div class="row">
+<label>Layout
+<select id="layout">
+<option value="balanced">3 columns (Todo 90 / Doing 120 / Done 90)</option>
+<option value="single">300 cards, mostly in one column (Todo 5 / Doing 290 / Done 5)</option>
+</select></label>
+<label>Settle mode
+<select id="mode">
+<option value="flip">FLIP (WAAPI, visible cards only)</option>
+<option value="vt">startViewTransition + match-element</option>
+</select></label>
+<span id="support" class="muted"></span>
+</div>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+<div id="board" class="board"></div>
+<h2>Settle times</h2>
+<p id="stats" class="muted">no drops yet</p>
+<h2>Log</h2>
+<ol id="log"></ol>
+</div>
+<div id="drop-line" class="drop-line" aria-hidden="true"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

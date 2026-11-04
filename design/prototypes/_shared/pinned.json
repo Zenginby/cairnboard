@@ -1,0 +1,34 @@
+{
+  "projects": {
+    "mutfak-defteri": {
+      "name": "Mutfak defteri",
+      "tone": 1
+    }
+  },
+  "pinned": [
+    {
+      "id": "note-1",
+      "kind": "note",
+      "title": "Çorbanın kıvamı",
+      "projectId": "mutfak-defteri",
+      "updated": "Bugün 10.42",
+      "body": "Bir su bardağı mercimeğe beş bardak su fazla geldi. Bir sonraki pişirmede dört bardakla başlayacağım; blender sonrası gerekirse sıcak su eklerim."
+    },
+    {
+      "id": "note-3",
+      "kind": "wiki",
+      "title": "Tarif kayıt düzeni",
+      "projectId": "mutfak-defteri",
+      "updated": "Dün",
+      "body": "Ölçüleri gramla yazıyorum. Fırın sıcaklığının yanına fanlı mı fansız mı olduğunu da ekle; aynı tarif iki ayarda farklı sonuç veriyor."
+    },
+    {
+      "id": "research-1",
+      "kind": "research",
+      "title": "Mercimeği kavurmak fark ediyor mu?",
+      "projectId": "mutfak-defteri",
+      "updated": "3 Kasım",
+      "body": "Soğanla iki dakika kavurduğum mercimek daha belirgin kokuyor. Doğrudan su eklediğim tencerede bu tat yoktu; bir sonraki denemede yağ miktarını sabit tutacağım."
+    }
+  ]
+}

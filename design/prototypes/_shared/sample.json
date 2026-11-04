@@ -1,0 +1,149 @@
+{
+  "workspace": "Kuzey masası",
+  "people": [
+    {
+      "id": "ada",
+      "name": "Ada",
+      "initials": "A"
+    },
+    {
+      "id": "deniz",
+      "name": "Deniz",
+      "initials": "D"
+    }
+  ],
+  "projects": [
+    {
+      "id": "mutfak-defteri",
+      "name": "Mutfak defteri",
+      "tone": 1
+    },
+    {
+      "id": "tez-taslagi",
+      "name": "Tez taslağı",
+      "tone": 2
+    },
+    {
+      "id": "haftalik-plan",
+      "name": "Haftalık plan",
+      "tone": 3
+    },
+    {
+      "id": "okuma-listesi",
+      "name": "Okuma listesi",
+      "tone": 4
+    },
+    {
+      "id": "tasarim-denemesi",
+      "name": "Tasarım denemesi",
+      "tone": 5
+    },
+    {
+      "id": "kucuk-araclar",
+      "name": "Küçük araçlar",
+      "tone": 6
+    },
+    {
+      "id": "bahce-notlari",
+      "name": "Bahçe notları",
+      "tone": 7
+    },
+    {
+      "id": "sonbahar-albumu",
+      "name": "Sonbahar yürüyüşlerinden kalan fotoğrafları ayıklama ve albüm hazırlığı",
+      "tone": 8
+    }
+  ],
+  "cards": [
+    {
+      "id": "card-1",
+      "projectId": "mutfak-defteri",
+      "title": "Mercimek çorbasının ölçülerini netleştir",
+      "status": "planned",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "Mercimek ve su miktarı yazıldı",
+          "done": true
+        },
+        {
+          "text": "İki porsiyonla denendi",
+          "done": true
+        },
+        {
+          "text": "Tuz miktarı tartıldı",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "card-2",
+      "projectId": "tez-taslagi",
+      "title": "Görüşme sorularını danışmana gönder",
+      "status": "doing",
+      "assigneeId": "deniz",
+      "criteria": [
+        {
+          "text": "Sorular yöntem taslağına eklendi",
+          "done": true
+        },
+        {
+          "text": "Danışmana e-posta gönderildi",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "card-3",
+      "projectId": "sonbahar-albumu",
+      "title": "Yürüyüş fotoğraflarını tarihe göre ayır",
+      "status": "done",
+      "assigneeId": "ada",
+      "criteria": [
+        {
+          "text": "Dosyalar çekim gününe göre ayrıldı",
+          "done": true
+        }
+      ]
+    }
+  ],
+  "notes": [
+    {
+      "id": "note-1",
+      "projectId": "mutfak-defteri",
+      "title": "Çorbanın kıvamı",
+      "body": "Bir su bardağı mercimeğe beş bardak su fazla geldi. Bir sonraki pişirmede dört bardakla başlayacağım; blender sonrası gerekirse sıcak su eklerim."
+    },
+    {
+      "id": "note-2",
+      "projectId": "tez-taslagi",
+      "title": "Görüşme sonrası notlar",
+      "body": "İkinci görüşmede soruların sırasını değiştirdim. Ulaşım sorusunu başa alınca cevaplar daha ayrıntılı oldu; bu değişikliği yöntem bölümünde açıklamam gerekiyor."
+    }
+  ],
+  "journal": [
+    {
+      "id": "journal-1",
+      "date": "2026-11-03",
+      "title": "Çorba ölçüsü",
+      "label": "tarif",
+      "items": [
+        {
+          "type": "decision",
+          "text": "Su ölçüsünü düzelttim. Kıvamı bu kez tam oldu. [[mutfak-defteri|Mutfak defteri]]"
+        }
+      ]
+    },
+    {
+      "id": "journal-2",
+      "date": "2026-11-03",
+      "title": "Danışman dönüşü",
+      "items": [
+        {
+          "type": "discovery",
+          "text": "Danışmandan dönüş geldi; son iki soruyu birleştirmemi öneriyor. [[tez-taslagi|Tez taslağı]]"
+        }
+      ]
+    }
+  ]
+}

@@ -324,3 +324,18 @@ test('push honours the fixture marker only in test/ files, not in forged message
   assert.equal(result.status, 1);
   assert.match(result.stderr, /email/);
 });
+
+test('push skips reviewed binaries but still reads the next commit message', (t) => {
+  const s = sandbox(t);
+  // The bytes of a reviewed font can spell an address at random; it is on security/binary-allowlist.txt.
+  const font = 'src/styles/fonts/inter-latin-wght-normal.woff2';
+  mkdirSync(join(s.repo, 'src/styles/fonts'), { recursive: true });
+  writeFileSync(join(s.repo, font), Buffer.concat([Buffer.from([0, 1, 2]), Buffer.from(' ali@corp.test '), Buffer.from([0])])); // cairn-scan:allow-fixture
+  s.git('add', '-A');
+  assert.equal(s.git('commit', '-q', '--no-verify', '-m', 'font').status, 0);
+  assert.equal(hook(s, 'push', { input: refInput(s) }).status, 0, 'allowlisted binary passes');
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'about zorblax').status, 0);
+  const result = hook(s, 'push', { input: refInput(s) });
+  assert.equal(result.status, 1, 'the message after a binary section is still scanned');
+  assert.doesNotMatch(result.stdout + result.stderr, /zorblax/);
+});

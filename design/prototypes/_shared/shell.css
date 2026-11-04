@@ -1,0 +1,123 @@
+body { color: var(--color-text-2); font-optical-sizing: auto; -webkit-font-smoothing: antialiased; }
+::selection { background: color-mix(in srgb, var(--color-focus) 25%, transparent); color: var(--color-text); }
+.app-shell { display: block; padding: 0 var(--space-lg); border-bottom-color: transparent; background: var(--color-material); -webkit-backdrop-filter: blur(var(--motion-blur-material)) saturate(var(--motion-saturate-material)); backdrop-filter: blur(var(--motion-blur-material)) saturate(var(--motion-saturate-material)); }
+.shell-top-row { display: flex; align-items: center; justify-content: space-between; max-width: var(--space-page-max); height: var(--space-header-height); margin-inline: auto; gap: var(--space-md); }
+.app-shell .brand { display: inline-flex; gap: calc(var(--space-md) * .6); color: var(--color-text); font-size: var(--font-lead-size); font-weight: var(--font-display-weight); letter-spacing: var(--font-title-letter-spacing); text-decoration: none; }
+.brand::before { content: ''; flex: none; width: var(--space-lg); height: var(--space-lg); background: conic-gradient(from 90deg, var(--color-tone-2) 0 25%, var(--color-tone-3) 0 50%, var(--color-line-strong) 0 75%, var(--color-tone-1) 0); mask: linear-gradient(var(--color-text) 0 0) 0 0 / 44% 44% no-repeat, linear-gradient(var(--color-text) 0 0) 100% 0 / 44% 44% no-repeat, linear-gradient(var(--color-text) 0 0) 0 100% / 44% 44% no-repeat, linear-gradient(var(--color-text) 0 0) 100% 100% / 44% 44% no-repeat; border-radius: var(--radius-xs); }
+.shell-actions { display: flex; align-items: center; flex-shrink: 0; gap: var(--space-sm); }
+.shell-search, .appearance-trigger, .shell-graph { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-sm); min-width: calc(var(--space-md) * 2); min-height: calc(var(--space-md) * 2); border: 0; border-radius: var(--radius-full); padding: var(--space-sm) var(--space-md); background: var(--color-pill-bg); color: var(--color-text-2); font-size: var(--font-ui-size); cursor: pointer; font-weight: var(--font-ui-weight); line-height: var(--font-ui-line-height); }
+.shell-search { width: var(--space-search-width); justify-content: start; }
+.shell-search kbd { margin-inline-start: auto; font-family: var(--font-code-family); font-size: var(--font-label-size); }
+.shell-search svg, .appearance-trigger svg, .shell-graph svg { width: var(--space-md); height: var(--space-md); fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
+.appearance-trigger, .shell-graph { padding: var(--space-xs); }
+/* The graph is its own page, reached from the top bar next to search; on the graph page the button reads as current. */
+.shell-graph { text-decoration: none; transition: color var(--motion-duration-quick) var(--motion-ease-out), background-color var(--motion-duration-quick) var(--motion-ease-out); }
+.shell-graph:hover, .shell-graph[aria-current="page"] { color: var(--color-text); }
+.shell-graph[aria-current="page"] { background: var(--color-pill-indicator); }
+.app-navigation { display: flex; align-items: center; height: var(--space-nav-height); overflow-x: auto; scrollbar-width: none; margin-inline: calc(-1 * var(--space-lg)); padding-inline: var(--space-lg); }
+.app-tabs { position: relative; display: flex; gap: var(--space-2xs); padding: var(--space-xs); border-radius: var(--radius-full); background: var(--color-pill-bg); width: max-content; flex-shrink: 0; }
+.app-tabs a { position: relative; display: flex; align-items: center; min-height: calc(var(--space-md) * 2); padding-inline: calc(var(--space-md) * .9); border-radius: var(--radius-full); white-space: nowrap; font-size: var(--font-ui-size); font-weight: var(--font-ui-weight); color: var(--color-text-2); text-decoration: none; transition: transform var(--motion-duration-quick) var(--motion-ease-out); }
+.app-tabs a:hover, .app-tabs [aria-current] { color: var(--color-text); }
+.app-tabs a:active { transform: scale(var(--motion-scale-press)); }
+.tab-name { position: relative; z-index: 1; }
+.app-tabs .tab-indicator { inset: 0; width: 100%; height: 100%; transform: none; transform-origin: top left; border-radius: inherit; box-shadow: var(--shadow-indicator); }
+.theme-panel { inset-inline-start: auto; inset-inline-end: 0; min-width: calc(var(--space-xl) * 6); gap: var(--space-md); padding: var(--space-md); transform-origin: top right; }
+.motion-toggle { min-height: calc(var(--space-md) * 2); padding: var(--space-xs); }
+@media (min-width: 80rem) {
+  .shell-top-row { height: var(--space-header-height-wide); }
+  .app-navigation { position: absolute; inset: 0 auto auto 50%; height: var(--space-header-height-wide); margin: 0; padding: 0; transform: translateX(-50%); overflow: visible; }
+  .app-shell.is-stacked-nav .app-navigation { position: static; height: var(--space-nav-height); margin-inline: calc(-1 * var(--space-lg)); padding-inline: var(--space-lg); transform: none; overflow-x: auto; }
+}
+.app-shell.is-compact-search .shell-search { width: calc(var(--space-xl) - var(--space-xs) / 2); padding: var(--space-xs); justify-content: center; }
+.app-shell.is-compact-search .search-caption { display: none; }
+@media (max-width: 40rem) {
+  .app-shell { padding-inline: var(--space-md); }
+  .app-navigation { margin-inline: calc(-1 * var(--space-md)); padding-inline: var(--space-md); }
+  .shell-search { width: calc(var(--space-xl) - var(--space-xs) / 2); padding: var(--space-xs); justify-content: center; }
+  .search-caption { display: none; }
+}
+@media (pointer: coarse) {
+  .app-navigation { min-height: calc(var(--space-xl) + var(--space-md)); }
+  .app-tabs a, .shell-search, .appearance-trigger, .shell-graph, .motion-toggle { min-width: calc(var(--space-xl) + var(--space-xs)); min-height: calc(var(--space-xl) + var(--space-xs)); }
+  .app-shell .theme-toggle { inline-size: calc(var(--space-xl) + var(--space-xs)); block-size: calc(var(--space-xl) + var(--space-xs)); }
+}
+[data-motion="less"] .app-tabs a { transform: none; transition-property: opacity; }
+@media (prefers-reduced-motion: reduce) { .app-tabs a, .app-tabs a:active { transform: none; transition-property: opacity; } }
+
+/* Search results (search-results.js): the search page and the top bar's search dialog share these rows. */
+.search-hits { display: grid; gap: var(--space-2xs); margin: 0; padding: 0; list-style: none; }
+.modal .search-hits { max-height: calc(100dvh - var(--space-xl) * 8); overflow-y: auto; padding: var(--space-2xs); }
+.search-hit { display: grid; gap: var(--space-2xs); padding: var(--space-12) var(--space-14); border-radius: var(--radius-sm); color: var(--color-text); cursor: pointer; }
+.search-hit.is-active { background: var(--color-focus-bg); }
+.search-hit-top { display: flex; align-items: start; justify-content: space-between; gap: var(--space-12); min-width: 0; }
+.search-hit-title { min-width: 0; font-family: var(--font-row-family); font-size: var(--font-row-size); font-weight: var(--font-title-weight); line-height: var(--font-row-line-height); overflow-wrap: anywhere; }
+.search-hit-kind { flex: none; padding: var(--space-2xs) var(--space-10); }
+.search-hit-kind--note { background: var(--color-doing-bg); color: var(--color-doing); }
+.search-hit-kind--card { background: var(--color-planned-bg); color: var(--color-planned); }
+.search-hit-kind--wiki { background: var(--color-done-bg); color: var(--color-done); }
+.search-hit-kind--research { background: var(--color-important-bg); color: var(--color-important); }
+.search-hit-kind--journal { background: var(--color-tone-5-bg); color: var(--color-tone-5-text); }
+.search-hit-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs) var(--space-sm); font-family: var(--font-caption-family); font-size: var(--font-caption-size); font-weight: var(--font-caption-weight); line-height: var(--font-caption-line-height); color: var(--color-text-3); }
+.search-hit-dot { width: var(--space-6); height: var(--space-6); border-radius: var(--radius-full); background: var(--hit-tone, var(--color-text-3)); }
+.search-hit-project { margin-inline-start: calc(-1 * var(--space-2xs)); }
+.search-hit-project + .search-hit-date::before { content: '·'; margin-inline-end: var(--space-sm); }
+.search-hit-snippet { font-family: var(--font-small-family); font-size: var(--font-small-size); line-height: var(--font-small-line-height); color: var(--color-text-2); overflow-wrap: anywhere; }
+.search-mark { padding: 0 var(--space-2xs); border-radius: var(--radius-xs); background: var(--color-important-bg); color: var(--color-text); }
+.search-all { justify-self: start; }
+@media (hover: hover) and (pointer: fine) { .search-hit:hover:not(.is-active) { background: var(--color-surface-inset); } }
+
+/* In-app links are not web-blue underlined text. A plain link in the content reads as text with a soft line under it;
+   on hover a quiet tint rises from that line. A link that leads somewhere as an action (.action-link) is a small pill
+   with an arrow that nudges forward. Links with their own class keep their own look. */
+:where(main, .modal) a:where(:not([class]), [class=""]):not(:where(nav *, .doc-sidebar *, .doc-toc *)) {
+  color: var(--color-text);
+  font-weight: var(--font-ui-weight);
+  text-decoration: none;
+  margin-inline: calc(-1 * var(--space-2xs));
+  padding-inline: var(--space-2xs);
+  border-radius: var(--radius-xs);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  background:
+    linear-gradient(var(--color-pill-bg), var(--color-pill-bg)) no-repeat 0 100% / 100% 0,
+    linear-gradient(var(--color-line-strong), var(--color-line-strong)) no-repeat 0 100% / 100% var(--space-hairline);
+  transition: background-size var(--motion-duration-quick) var(--motion-ease-out);
+}
+:where(main, .modal) a:where(:not([class]), [class=""]):not(:where(nav *, .doc-sidebar *, .doc-toc *)):focus-visible { background-size: 100% 100%, 100% var(--space-hairline); }
+.action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: calc(var(--space-md) * 2);
+  padding: var(--space-xs) var(--space-12) var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--color-pill-bg);
+  color: var(--color-text);
+  font-size: var(--font-ui-size);
+  font-weight: var(--font-ui-weight);
+  text-decoration: none;
+  transition: transform var(--motion-duration-press) var(--motion-ease-out), background-color var(--motion-duration-quick) var(--motion-ease-out);
+}
+.action-link::after { content: '→'; color: var(--color-text-3); transition: transform var(--motion-duration-quick) var(--motion-ease-out), color var(--motion-duration-quick) var(--motion-ease-out); }
+.action-link:active { transform: scale(var(--motion-scale-press)); }
+@media (hover: hover) and (pointer: fine) {
+  :where(main, .modal) a:where(:not([class]), [class=""]):not(:where(nav *, .doc-sidebar *, .doc-toc *)):hover { background-size: 100% 100%, 100% var(--space-hairline); }
+  .action-link:hover { background: var(--color-surface-inset-2); }
+  .action-link:hover::after { transform: translateX(var(--space-2xs)); color: var(--color-text); }
+}
+@media (pointer: coarse) { .action-link { min-height: calc(var(--space-xl) + var(--space-xs)); } }
+[data-motion="less"] :is(.action-link, .action-link::after) { transform: none !important; }
+@media (prefers-reduced-motion: reduce) { :is(.action-link, .action-link::after) { transform: none !important; } }
+
+/* Quick note: a floating button on every page, above the prototype controls and clear of the pinned rail. It shows
+   its label on wide screens and becomes a round icon button on phones. */
+.quick-note-fab { position: fixed; right: var(--space-md); bottom: calc(var(--space-xl) * 2 + var(--space-md)); z-index: 21; display: inline-flex; align-items: center; gap: var(--space-sm); min-height: calc(var(--space-xl) + var(--space-md)); padding: 0 var(--space-lg) 0 var(--space-md); border: 0; border-radius: var(--radius-full); background: var(--color-text); color: var(--color-surface); font-size: var(--font-ui-size); font-weight: var(--font-title-weight); box-shadow: var(--shadow-box-raised); cursor: pointer; transition: transform var(--motion-duration-press) var(--motion-ease-out), box-shadow var(--motion-duration-fast) var(--motion-ease-default); }
+.quick-note-fab svg { width: var(--space-lg); height: var(--space-lg); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.quick-note-fab:active { transform: scale(var(--motion-scale-press)); }
+@media (hover: hover) and (pointer: fine) { .quick-note-fab:hover { transform: translateY(calc(-1 * var(--motion-distance-micro))); } }
+@media (min-width: 90rem) { :root[data-pinned-rail="open"] .quick-note-fab { right: calc(var(--pinned-rail-width) + var(--space-md) * 2); } }
+@media (width < 40rem) { .quick-note-fab { width: calc(var(--space-xl) + var(--space-md)); padding: 0; justify-content: center; } .quick-note-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
+[data-motion="less"] .quick-note-fab { transform: none !important; }
+@media (prefers-reduced-motion: reduce) { .quick-note-fab { transform: none !important; } }
+.quick-pin { gap: var(--space-sm); align-items: center; cursor: pointer; }
+.quick-pin input { width: var(--space-md); height: var(--space-md); accent-color: var(--color-text); }
