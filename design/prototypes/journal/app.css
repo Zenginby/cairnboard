@@ -1,4 +1,4 @@
-.workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--space-xl) + var(--space-md) * 2); }
+.workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--doc-toc-width) + var(--space-xl) * 2 + var(--space-md) * 2); }
 .calendar { margin-block: var(--space-md); }
 .calendar-navigation { display: flex; align-items: center; gap: var(--space-12); }
 .calendar-month { min-width: 10ch; text-align: center; font-size: var(--font-project-title-size); font-weight: var(--font-page-title-weight); letter-spacing: var(--font-display-letter-spacing); }

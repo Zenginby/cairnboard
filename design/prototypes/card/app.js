@@ -114,6 +114,6 @@ startDocument({
       ctx.refresh(); ctx.focus('#comment-input'); ctx.toast('Yorum eklendi.');
     });
     comment.control.addEventListener('input', () => comment.control.setCustomValidity(''));
-    comments.append(thread, form); ctx.body.append(comments, link('Panoda gör', `../board/?project=${record.projectId}`, 'type-label'));
+    comments.append(thread, form); ctx.body.append(comments, link('Panoda gör', `../board/?project=${record.projectId}`, 'action-link'));
   }
 });

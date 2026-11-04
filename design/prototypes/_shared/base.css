@@ -43,7 +43,8 @@ code, .type-code {
 button, input, textarea, select { font: inherit; color: inherit; }
 button, select { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
-a { color: var(--color-link); text-underline-offset: var(--space-xs); }
+/* Links read as text, not web-blue; the app shell gives plain and action links their own look (shell.css). */
+a { color: var(--color-text); text-decoration-color: var(--color-line-strong); text-decoration-thickness: var(--space-hairline); text-underline-offset: var(--space-xs); }
 :focus-visible, .is-focus { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 [hidden] { display: none !important; }
 :root { --header-height: calc(var(--space-xl) + var(--space-lg) + var(--space-md)); }

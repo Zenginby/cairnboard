@@ -91,7 +91,7 @@ function render() {
   sections.replaceChildren();
   page.groups.forEach((group) => {
     const projects = data.projects.filter((project) => (page.status[project.id] || 'active') === group.id);
-    const section = el('section', 'project-section');
+    const section = el('section', `project-section project-section--${group.id}`);
     const heading = el('h2', 'project-section-title');
     heading.id = `group-${group.id}`;
     heading.append(document.createTextNode(group.label), el('span', 'project-section-count counter', String(projects.length)));

@@ -51,16 +51,17 @@ export function setupShell(search) {
   let fullSearchWidth = 0;
   const fit = () => {
     if (!header.classList.contains('is-compact-search')) fullSearchWidth = searchButton.getBoundingClientRect().width;
-    const padding = parseFloat(getComputedStyle(header).paddingInlineEnd);
+    // The brand and the actions sit at the ends of the top row, which is capped at the page width and centred.
+    const row = header.querySelector('.shell-top-row').getBoundingClientRect();
     const gap = parseFloat(getComputedStyle(header.querySelector('.shell-top-row')).gap);
-    const navLeft = (innerWidth - bar.getBoundingClientRect().width) / 2;
-    const navRight = innerWidth - navLeft;
+    const navLeft = row.left + (row.width - bar.getBoundingClientRect().width) / 2;
+    const navRight = row.right - (navLeft - row.left);
     const otherActions = actions.getBoundingClientRect().width - searchButton.getBoundingClientRect().width;
     const available = singleRow.matches
-      ? innerWidth - padding - navRight - gap - otherActions
-      : innerWidth - padding * 2 - brand.getBoundingClientRect().width - gap - otherActions;
+      ? row.right - navRight - gap - otherActions
+      : row.width - brand.getBoundingClientRect().width - gap - otherActions;
     header.classList.toggle('is-compact-search', available < fullSearchWidth);
-    const actionsLeft = innerWidth - padding - otherActions - searchButton.getBoundingClientRect().width;
+    const actionsLeft = row.right - otherActions - searchButton.getBoundingClientRect().width;
     header.classList.toggle('is-stacked-nav', singleRow.matches
       && (navLeft < brand.getBoundingClientRect().right + gap || navRight + gap > actionsLeft));
     position();

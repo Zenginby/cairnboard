@@ -297,9 +297,30 @@ export function startDocument(options) {
     const clearance = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-lg'));
     let current = headings[0];
     headings.forEach((heading) => { if (heading.getBoundingClientRect().top <= headerHeight + clearance * 2) current = heading; });
-    $('#doc-toc').querySelectorAll('a').forEach((anchor) => anchor.setAttribute('aria-current', String(anchor.hash === `#${current?.id}`)));
+    const currentId = customToc?.current?.() || current?.id;
+    $('#doc-toc').querySelectorAll('a').forEach((anchor) => anchor.setAttribute('aria-current', String(anchor.hash === `#${currentId}`)));
   }
+  // A page whose content is not a run of headings (the journal calendar) can supply its own contents:
+  // options.toc(ctx) returns { items: [{ title, id, level, select }], current() }.
+  let customToc = null;
   function updateTOC() {
+    customToc = options.toc?.(ctx) || null;
+    if (customToc) {
+      headings = customToc.items.filter((item) => item.level === 2).map((item) => document.getElementById(item.id)).filter(Boolean);
+      const toc = $('#doc-toc'); toc.hidden = !customToc.items.length;
+      const list = el('ul');
+      customToc.items.forEach((entry) => {
+        const item = el('li'); item.dataset.level = String(entry.level);
+        const anchor = link(entry.title, `#${entry.id}`);
+        anchor.addEventListener('click', (event) => {
+          if (!entry.select) return;
+          event.preventDefault(); entry.select();
+        });
+        item.append(anchor); list.append(item);
+      });
+      toc.replaceChildren(el('h2', '', 'Sayfa içeriği'), list); spy();
+      return;
+    }
     headings = [...ctx.body.querySelectorAll('.markdown h2, .markdown h3, .doc-section > h2')].filter((heading) => !heading.closest('.doc-editor'));
     const toc = $('#doc-toc'); toc.hidden = !headings.length;
     const list = el('ul');

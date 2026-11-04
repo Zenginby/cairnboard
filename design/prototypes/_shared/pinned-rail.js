@@ -3,6 +3,8 @@
 const root = document.documentElement;
 const kindNames = { note: 'Not', wiki: 'Wiki', research: 'Araştırma' };
 const storageName = 'prototype-pinned-rail';
+const unpinnedName = 'prototype-unpinned';
+const pinIcon = 'M10 2 14 6l-2.5 1-2 2 .5 3-1 1-3-3-3.5 3.5M6 7 4 6l1-1 3 .5 2-2Z';
 const wide = matchMedia('(min-width: 90rem)');
 
 function el(tag, className, text) {
@@ -25,6 +27,13 @@ function readOpen() {
 }
 function saveOpen(open) {
   try { localStorage.setItem(storageName, open ? 'open' : 'closed'); } catch { /* Still works for this visit. */ }
+}
+// Unpinning is remembered for the session, so the rail matches on every page.
+function readUnpinned() {
+  try { return new Set(JSON.parse(sessionStorage.getItem(unpinnedName) || '[]')); } catch { return new Set(); }
+}
+function saveUnpinned(ids) {
+  try { sessionStorage.setItem(unpinnedName, JSON.stringify([...ids])); } catch { /* Still works on this page. */ }
 }
 function setOpen(open, { focus = false } = {}) {
   root.dataset.pinnedRail = open ? 'open' : 'closed';
@@ -59,9 +68,10 @@ function openNote(note, project) {
   if (!dialog.open) dialog.showModal();
 }
 
-function item(note, projects) {
+function item(note, projects, unpin) {
   const project = projects[note.projectId];
   const li = el('li', 'pinned-rail-item');
+  li.dataset.id = note.id;
   const open = el('button', 'pinned-rail-link');
   open.type = 'button';
   const meta = el('span', 'pinned-rail-meta');
@@ -74,7 +84,13 @@ function item(note, projects) {
   meta.append(el('span', 'pinned-rail-kind', kindNames[note.kind]));
   open.append(meta, el('span', 'pinned-rail-title', note.title), el('span', 'pinned-rail-excerpt', note.body));
   open.addEventListener('click', () => openNote(note, project));
-  li.append(open);
+  const remove = el('button', 'pinned-rail-unpin');
+  remove.type = 'button';
+  remove.setAttribute('aria-label', `Sabitlemeyi kaldır: ${note.title}`);
+  remove.title = 'Sabitlemeyi kaldır';
+  remove.append(icon(`${pinIcon}M2.5 2.5l11 11`));
+  remove.addEventListener('click', () => unpin(note, li));
+  li.append(open, remove);
   return li;
 }
 
@@ -98,7 +114,7 @@ async function start() {
   const tab = el('button', 'pinned-rail-tab');
   tab.type = 'button';
   tab.setAttribute('aria-label', 'Sabitlenenleri göster');
-  tab.append(icon('M10 2 14 6l-2.5 1-2 2 .5 3-1 1-3-3-3.5 3.5M6 7 4 6l1-1 3 .5 2-2Z'));
+  tab.append(icon(pinIcon));
   const tabCount = el('span', 'pinned-rail-tab-count');
   tab.append(tabCount);
   tab.addEventListener('click', () => setOpen(true, { focus: true }));
@@ -109,10 +125,44 @@ async function start() {
     const response = await fetch(new URL('./pinned.json', import.meta.url));
     if (!response.ok) throw new Error('pinned notes unavailable');
     const { projects, pinned } = await response.json();
-    count.textContent = String(pinned.length);
-    tabCount.textContent = String(pinned.length);
-    list.replaceChildren(...pinned.map((note) => item(note, projects)));
-    if (!pinned.length) list.replaceWith(el('p', 'pinned-rail-empty', 'Henüz sabitlenen bir not yok.'));
+    const unpinned = readUnpinned();
+    const empty = el('p', 'pinned-rail-empty', 'Henüz sabitlenen bir not yok.');
+    const status = el('div', 'pinned-rail-status');
+    status.setAttribute('role', 'status');
+    rail.insertBefore(status, rail.querySelector('.pinned-rail-hint'));
+    const sync = () => {
+      const shown = list.children.length;
+      count.textContent = String(shown);
+      tabCount.textContent = String(shown);
+      empty.hidden = shown > 0;
+      list.hidden = shown === 0;
+    };
+    // Removing a note closes its row; a short "Geri al" brings it back in its old place.
+    const unpin = (note, li) => {
+      unpinned.add(note.id); saveUnpinned(unpinned);
+      const next = li.nextElementSibling;
+      const focusTarget = next?.querySelector('.pinned-rail-link') || li.previousElementSibling?.querySelector('.pinned-rail-link') || close;
+      const finish = () => { li.remove(); sync(); };
+      li.classList.add('is-leaving');
+      const reduced = root.dataset.motion === 'less' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduced) finish(); else li.addEventListener('transitionend', (event) => { if (event.target === li && event.propertyName === 'grid-template-rows') finish(); });
+      if (!reduced) setTimeout(() => { if (li.isConnected && li.classList.contains('is-leaving')) finish(); }, 600);
+      focusTarget.focus();
+      const undo = el('button', 'pinned-rail-undo', 'Geri al');
+      undo.type = 'button';
+      undo.addEventListener('click', () => {
+        unpinned.delete(note.id); saveUnpinned(unpinned);
+        const back = item(note, projects, unpin);
+        const anchor = pinned.slice(pinned.indexOf(note) + 1).map((other) => list.querySelector(`[data-id="${other.id}"]`)).find(Boolean);
+        list.insertBefore(back, anchor || null);
+        status.replaceChildren(); sync();
+        back.querySelector('.pinned-rail-link').focus();
+      });
+      status.replaceChildren(el('span', '', `“${note.title}” sabitlenenlerden çıkarıldı.`), undo);
+    };
+    list.replaceChildren(...pinned.filter((note) => !unpinned.has(note.id)).map((note) => item(note, projects, unpin)));
+    list.after(empty);
+    sync();
   } catch {
     list.replaceWith(el('p', 'pinned-rail-empty', 'Sabitlenen notlar yüklenemedi.'));
   }

@@ -3,6 +3,8 @@ import { startDocument, el, button, field, link, projectChip } from '../_shared/
 let month = new Date(2026, 10, 1);
 let selected = '';
 let projectFilter = new URLSearchParams(location.search).get('project') || '';
+let selectDay = () => {};
+let daysWithEntries = [];
 const dateKey = (day) => `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 const monthLabel = () => { const value = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(month); return value[0].toLocaleUpperCase('tr') + value.slice(1); };
 const projectId = (ctx, entry) => entry.projectId || ctx.data.projects[ctx.data.journal.indexOf(entry) % 3].id;
@@ -34,6 +36,14 @@ startDocument({
     if (/^\d{4}-(0[1-9]|1[0-2])$/.test(query || '')) month = new Date(`${query}-01T12:00:00`);
     if (!ctx.data.projects.some((project) => project.id === projectFilter)) projectFilter = '';
   },
+  // Sayfa içeriği: the month, then every day that has entries; choosing a day opens it in the calendar.
+  toc() {
+    const dayName = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
+    return {
+      items: [{ title: monthLabel(), id: 'calendar-month', level: 2 }, ...daysWithEntries.map((date) => ({ title: dayName.format(new Date(`${date}T12:00:00`)), id: `day-${date}`, level: 3, select: () => selectDay(date) }))],
+      current: () => (selected ? `day-${selected}` : 'calendar-month')
+    };
+  },
   render(ctx) {
     ctx.header('Günlük', 'journal/', () => ctx.data.journal.map((entry) => `## ${entry.date} · ${entry.time}\n\n- ${entry.body}`).join('\n\n'));
     const toolbar = el('div', 'row doc-toolbar');
@@ -53,6 +63,7 @@ startDocument({
     const grid = el('table', 'calendar-grid'); grid.setAttribute('aria-labelledby', title.id);
     const head = el('thead'); const days = el('tr');
     ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].forEach((name) => { const cell = el('th', '', name); cell.scope = 'col'; days.append(cell); }); head.append(days); grid.append(head);
+    daysWithEntries = [];
     const body = el('tbody'); const first = (month.getDay() + 6) % 7; const total = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
     const panel = el('div', 'calendar-panel'); panel.dataset.open = 'false'; panel.inert = true; panel.setAttribute('aria-hidden', 'true');
     const panelInner = el('div', 'calendar-panel-inner'); const panelContent = el('div', 'calendar-day-content'); panelInner.append(panelContent); panel.append(panelInner);
@@ -67,17 +78,25 @@ startDocument({
         meta.append(el('strong', '', ctx.text(`${entry.time} · ${ctx.data.people.find((person) => person.id === entry.authorId)?.name || entry.authorId}`)), projectChip(ctx.data.projects.find((project) => project.id === projectId(ctx, entry))));
         const list = el('ul'); list.append(el('li', '', ctx.text(entry.body))); section.append(meta, list); panelContent.append(section);
       });
-      panelContent.append(link('Günün tam günlüğü →', `../journal-day/?date=${date}`));
+      panelContent.append(link('Günün tam günlüğü', `../journal-day/?date=${date}`, 'action-link'));
       panel.classList.toggle('is-instant', instant); panel.dataset.open = 'true'; panel.inert = false; panel.setAttribute('aria-hidden', 'false');
+      if (!instant) ctx.updateTOC();
     }
+    selectDay = (date) => {
+      show(date);
+      const cell = grid.querySelector(`[data-date="${date}"]`);
+      cell?.focus({ preventScroll: true });
+      cell?.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    };
     for (let slot = 0; slot < Math.ceil((first + total) / 7) * 7; slot++) {
       if (slot % 7 === 0) body.append(el('tr'));
       const td = el('td'); body.lastElementChild.append(td);
       const day = slot - first + 1; if (day < 1 || day > total) continue;
       const date = dateKey(day); const count = visible(date).length;
+      if (count) daysWithEntries.push(date);
       let cell;
       if (count) {
-        cell = button('', (event) => show(date, event.detail === 0), 'calendar-day'); cell.dataset.date = date;
+        cell = button('', (event) => show(date, event.detail === 0), 'calendar-day'); cell.dataset.date = date; cell.id = `day-${date}`;
         cell.setAttribute('aria-pressed', String(selected === date)); cell.setAttribute('aria-label', `${day} ${monthLabel()}, ${count} kayıt`);
         cell.append(el('span', '', String(day)), el('i', 'calendar-count', String(count)));
       } else cell = el('span', 'calendar-day', String(day));

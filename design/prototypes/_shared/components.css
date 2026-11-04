@@ -376,8 +376,30 @@
 .pinned-dialog-meta { font-family: var(--font-caption-family); font-size: var(--font-caption-size); font-weight: var(--font-caption-weight); color: var(--color-text-3); }
 .pinned-dialog-title { font-family: var(--font-box-title-family); font-size: var(--font-box-title-size); font-weight: var(--font-box-title-weight); letter-spacing: var(--font-box-title-letter-spacing); }
 .pinned-dialog-body { color: var(--color-text-2); }
+/* Unpin: a small button over the row's top-right corner, where the kind label sits; it shows on hover or focus. */
+.pinned-rail-item { position: relative; display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--motion-duration-fast) var(--motion-ease-smooth-out), opacity var(--motion-duration-quick) var(--motion-ease-out); }
+.pinned-rail-item > .pinned-rail-link { min-height: 0; overflow: hidden; }
+.pinned-rail-item.is-leaving { grid-template-rows: 0fr; opacity: 0; pointer-events: none; }
+.pinned-rail-kind { transition: opacity var(--motion-duration-quick) var(--motion-ease-out); }
+.pinned-rail-unpin { position: absolute; top: var(--space-sm); right: var(--space-sm); display: grid; place-items: center; width: calc(var(--space-md) * 1.5); height: calc(var(--space-md) * 1.5); padding: 0; border: 0; border-radius: var(--radius-full); background: var(--color-pill-bg); color: var(--color-text-2); cursor: pointer; opacity: 0; transition: opacity var(--motion-duration-quick) var(--motion-ease-out), transform var(--motion-duration-press) var(--motion-ease-out); }
+.pinned-rail-unpin svg { width: var(--space-md); height: var(--space-md); fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.pinned-rail-unpin:active { transform: scale(var(--motion-scale-press)); }
+.pinned-rail-item:focus-within .pinned-rail-unpin { opacity: 1; }
+.pinned-rail-item:focus-within .pinned-rail-kind { opacity: 0; }
+.pinned-rail-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); padding: var(--space-sm) var(--space-12) 0; font-family: var(--font-caption-family); font-size: var(--font-caption-size); color: var(--color-text-2); }
+.pinned-rail-status:empty { display: none; }
+.pinned-rail-undo { padding: var(--space-2xs) var(--space-10); border: 0; border-radius: var(--radius-full); background: var(--color-pill-bg); color: var(--color-text); font-weight: var(--font-ui-weight); cursor: pointer; }
 @media (hover: hover) and (pointer: fine) {
   .pinned-rail-link:hover { background: var(--color-surface-inset); }
+  .pinned-rail-item:hover .pinned-rail-unpin { opacity: 1; }
+  .pinned-rail-item:hover .pinned-rail-kind { opacity: 0; }
+  .pinned-rail-unpin:hover { background: var(--color-surface-inset-2); color: var(--color-text); }
 }
+@media (hover: none), (pointer: coarse) {
+  .pinned-rail-unpin { opacity: 1; }
+  .pinned-rail-kind { visibility: hidden; }
+}
+:root[data-motion="less"] .pinned-rail-item { transition-property: opacity; }
+@media (prefers-reduced-motion: reduce) { .pinned-rail-item { transition-property: opacity; } }
 :root[data-motion="less"] .pinned-rail, :root[data-motion="less"] .pinned-rail-tab { transform: none !important; transition-property: opacity; }
 @media (prefers-reduced-motion: reduce) { .pinned-rail, .pinned-rail-tab { transform: none !important; transition-property: opacity; } }

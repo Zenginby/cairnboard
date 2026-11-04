@@ -83,3 +83,8 @@ a.panel:active { transform: scale(var(--motion-scale-press-box)); transition-dur
   a.panel { transition: opacity var(--motion-duration-quick) var(--motion-ease-out); }
   .tone-swatch, .tone-swatch::after, .tone-swatch:has(input:checked)::after { transform: none; transition: none; }
 }
+
+/* Archived projects step back: faded and desaturated until pointed at or focused. */
+.project-section--archived .project-box { opacity: .62; filter: saturate(.35); transition: opacity var(--motion-duration-quick) var(--motion-ease-out), filter var(--motion-duration-quick) var(--motion-ease-out); }
+.project-section--archived .project-box:focus-within { opacity: 1; filter: none; }
+@media (hover: hover) and (pointer: fine) { .project-section--archived .project-box:hover { opacity: 1; filter: none; } }

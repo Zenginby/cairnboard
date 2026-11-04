@@ -68,12 +68,27 @@ function setPickerOpen(open, instant = false, restore = false) {
   panel.inert = !open;
   panel.hidden = !open;
   $('#project-trigger').setAttribute('aria-expanded', String(open));
-  if (open) panel.querySelector('input').focus({ preventScroll: true });
+  if (open) { pickerSummary(); panel.querySelector('input').focus({ preventScroll: true }); }
   else if (restore) $('#project-trigger').focus();
+}
+// The picker shows each project as a token in its own colour: chosen tokens are filled with the project's wash, the
+// rest wait as dashed outlines. The trigger carries a little stack of the chosen colours and a count.
+function pickerSummary() {
+  const trigger = $('#project-trigger');
+  if (!trigger) return;
+  const chosen = data.projects.filter((project) => selectedProjects.has(project.id));
+  const stack = el('span', 'picker-stack');
+  stack.setAttribute('aria-hidden', 'true');
+  chosen.slice(0, 4).forEach((project) => { const swatch = el('span', 'picker-swatch'); swatch.style.setProperty('--swatch', `var(--color-tone-${project.tone})`); stack.append(swatch); });
+  if (!chosen.length) stack.append(el('span', 'picker-swatch is-empty'));
+  trigger.replaceChildren(stack, el('span', '', 'Projeler'), el('span', 'picker-count counter', `${chosen.length}/${data.projects.length}`));
+  trigger.setAttribute('aria-label', `Projeleri seç, ${chosen.length} / ${data.projects.length} gösteriliyor`);
+  const meter = $('#picker-meter');
+  if (meter) meter.textContent = `${chosen.length} / ${data.projects.length} gösteriliyor`;
 }
 function projectPicker() {
   const wrapper = el('div', 'project-picker');
-  const trigger = button('Projeleri seç', (event) => setPickerOpen($('#project-menu').inert, event.detail === 0), 'button');
+  const trigger = button('', (event) => setPickerOpen($('#project-menu').inert, event.detail === 0), 'picker-trigger');
   trigger.id = 'project-trigger';
   trigger.setAttribute('aria-haspopup', 'dialog');
   trigger.setAttribute('aria-controls', 'project-menu');
@@ -85,10 +100,17 @@ function projectPicker() {
   panel.inert = true;
   panel.hidden = true;
   const list = el('fieldset', 'project-checks');
-  list.append(el('legend', '', 'Ana sayfada görünen projeler'));
+  const legend = el('legend', 'picker-legend');
+  const meter = el('span', 'picker-meter counter'); meter.id = 'picker-meter';
+  legend.append(el('span', '', 'Ana sayfada görünen projeler'), meter);
+  list.append(legend);
+  const tokens = el('div', 'picker-tokens');
   data.projects.forEach((project) => {
-    const label = el('label');
-    const input = el('input');
+    const label = el('label', 'picker-token');
+    label.style.setProperty('--token-ink', `var(--color-tone-${project.tone}-text)`);
+    label.style.setProperty('--token-wash', `var(--color-tone-${project.tone}-bg)`);
+    label.style.setProperty('--token-dot', `var(--color-tone-${project.tone})`);
+    const input = el('input', 'sr-only');
     input.type = 'checkbox';
     input.value = project.id;
     input.checked = selectedProjects.has(project.id);
@@ -97,27 +119,41 @@ function projectPicker() {
       else selectedProjects.delete(project.id);
       saveProjects();
       renderProjects();
+      pickerSummary();
       ui.announce(`${selectedProjects.size} proje gösteriliyor.`);
     });
-    label.append(input, el('span', '', state === 'long' ? data.longText.projectName : project.name));
-    list.append(label);
+    const mark = el('span', 'picker-mark');
+    mark.setAttribute('aria-hidden', 'true');
+    const check = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    check.setAttribute('viewBox', '0 0 12 12');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'm3 6.2 2 2L9 4');
+    check.append(path); mark.append(check);
+    label.append(input, mark, el('span', 'picker-name', state === 'long' ? data.longText.projectName : project.name));
+    tokens.append(label);
   });
+  list.append(tokens);
   const choose = (ids) => {
     selectedProjects = new Set(ids);
     panel.querySelectorAll('input').forEach((input) => { input.checked = selectedProjects.has(input.value); });
     saveProjects();
     renderProjects();
+    pickerSummary();
     ui.announce(`${selectedProjects.size} proje gösteriliyor.`);
   };
-  const actions = el('div', 'row');
-  const all = link('Tüm projeler', '#projects');
-  all.addEventListener('click', (event) => { event.preventDefault(); choose(data.projects.map((project) => project.id)); });
-  actions.append(button('Varsayılana dön', () => choose(data.dashboard.defaultProjects)), all);
+  const actions = el('div', 'picker-actions');
+  actions.setAttribute('role', 'group');
+  actions.setAttribute('aria-label', 'Hızlı seçim');
+  actions.append(
+    button('Hepsi', () => choose(data.projects.map((project) => project.id)), 'picker-quick'),
+    button('Varsayılan', () => choose(data.dashboard.defaultProjects), 'picker-quick'),
+    button('Hiçbiri', () => choose([]), 'picker-quick'));
   panel.append(list, actions);
   panel.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setPickerOpen(false, true, true); }
   });
   wrapper.append(trigger, panel);
+  queueMicrotask(pickerSummary);
   return wrapper;
 }
 function hero() {
@@ -234,7 +270,7 @@ function move(record, instant) {
 }
 function ongoing() {
   const { node, header } = box('Sürüyor', 'ongoing');
-  header.append(link('Panoda gör', '../board/'));
+  header.append(link('Panoda gör', '../board/', 'action-link'));
   const list = el('ul', 'summary-list');
   data.cards.filter((record) => roleFor(record) === 'doing').forEach((record, index) => {
     const item = el('li', 'ongoing-item');
@@ -305,7 +341,7 @@ function journalPreview(event) {
 function today() {
   const { node, header } = box(`${dayLabel()} günü yapılanlar`, 'today');
   node.id = 'journal';
-  const open = link('Günü aç', '#journal');
+  const open = link('Günü aç', '#journal', 'action-link');
   open.addEventListener('click', journalPreview);
   header.append(open);
   const list = el('ol', 'numbered-list');
