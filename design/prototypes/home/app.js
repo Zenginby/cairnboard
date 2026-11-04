@@ -221,7 +221,7 @@ function hero() {
   return node;
 }
 function calendar() {
-  const { node, header } = box('Günlük', 'calendar-box', '#journal');
+  const { node, header } = box('Günlük', 'calendar-box', '../journal/');
   header.append(el('span', 'type-label muted', `${new Set(data.dashboard.journalDays).size} gün`));
   node.append(el('p', 'muted type-label', 'Hangi gün ne yapıldı'));
   const grid = el('div', 'month-grid');
@@ -418,15 +418,10 @@ function boardSummary() {
   node.append(bar, legend);
   return node;
 }
-function journalPreview(event) {
-  event.preventDefault();
-  ui.open(`${dayLabel()} günü yapılanlar`, data.journal.length ? data.journal.map((entry) => el('p', '', `${entry.time} · ${entry.body}`)) : [el('p', 'muted', 'Henüz kayıt yok. Bugüne ekle alanından başlayabilirsin.')], null, event.detail === 0);
-}
 function today() {
   const { node, header } = box(`${dayLabel()} günü yapılanlar`, 'today');
   node.id = 'journal';
-  const open = link('Günü aç', '#journal', 'action-link');
-  open.addEventListener('click', journalPreview);
+  const open = link('Günü aç', `../journal-day/?date=${encodeURIComponent(data.dashboard.date)}`, 'action-link');
   header.append(open);
   const list = el('ol', 'numbered-list');
   data.journal.forEach((entry) => {
