@@ -1,0 +1,5 @@
+{
+  "cards": [],
+  "notes": [],
+  "markdown": "## Küçük adımlarla başlamak\n\nHer kararın nedenini kısa bir notla saklayalım. Ada ilk taslağı hazırladı; Deniz gözlemleri ekledi.\n\n- Bir kerede tek bir soruya odaklan.\n- Sonucu **kabul ölçütleriyle** birlikte kaydet.\n- İlgili kararı [[Ajanlarla çalışma anlaşması]] notuna bağla.\n\n## Çalışma düzeni\n\n1. Kartı üstlen ve bağlamı oku.\n2. Küçük bir değişiklik yap.\n3. Sonucu birlikte gözden geçir.\n\n### Kısa örnek\n\n```js\nconst nextStep = 'Birlikte gözden geçir';\nconsole.log(nextStep);\n```\n\n## Kararlar\n\n| Adım | Sorumlu | Durum |\n| --- | --- | --- |\n| İlk taslak | Ada | Hazır |\n| Gözlemler | Deniz | Sırada |\n\nBu notun devamı günlükte. `notes/` klasöründeki dosyalar küçük ve okunabilir kalır."
+}

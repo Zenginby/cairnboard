@@ -1,0 +1,22 @@
+{
+  "cards": [],
+  "notes": [],
+  "body": "## Amaç\n\nİlk taslağı küçük bir örnek üzerinde birlikte gözden geçirelim. Sonucu [[İlk fikirler]] notuna bağlayalım.\n\n## Uygulama notları\n\n- Başlıkların dar ekranda okunabildiğini doğrula.\n- Kabul ölçütlerini tek tek denetle.\n- Kararı günlüğe kısa bir notla ekle.",
+  "commentThread": [
+    {
+      "authorId": "ada",
+      "time": "09:10",
+      "body": "İlk taslak hazır. Dar ekran gözlemlerini de ekledim."
+    },
+    {
+      "authorId": "claude",
+      "time": "09:25",
+      "body": "Kabul ölçütlerini denetledim. Son gözden geçirme için hazır."
+    },
+    {
+      "authorId": "deniz",
+      "time": "10:00",
+      "body": "Birlikte inceleyip sonucu günlüğe bağlayalım."
+    }
+  ]
+}

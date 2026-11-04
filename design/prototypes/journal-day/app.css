@@ -1,0 +1,13 @@
+.workspace { --workspace-max: calc(var(--space-md) * 82); }
+.journal-entry-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-block: var(--space-sm); font-size: var(--font-label-size); color: var(--color-text-3); }
+.journal-entry ul { padding-inline-start: calc(var(--space-md) * 1.5); }
+.journal-pagination { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
+.journal-pagination a { display: grid; gap: var(--space-xs); padding: var(--space-md); border-radius: var(--radius-md); color: var(--color-text); background: var(--color-surface); box-shadow: var(--shadow-box); text-decoration: none; transition: transform var(--motion-duration-slow) var(--motion-ease-spring-bouncy), box-shadow var(--motion-duration-fast) var(--motion-ease-default); }
+.journal-pagination span { color: var(--color-text-3); font-size: var(--font-label-size); }
+.journal-add { margin-top: calc(var(--space-md) * 2.25); padding-top: var(--space-lg); border-top: var(--space-hairline) solid var(--color-line); }
+.journal-add .button { justify-self: start; }
+@media (hover: hover) and (pointer: fine) { .journal-pagination a:hover { transform: translateY(calc(-1 * var(--motion-distance-lift-card))); box-shadow: var(--shadow-box-raised); } }
+.journal-pagination a:active { transform: scale(var(--motion-scale-press-box)); }
+@media (max-width: 40rem) { .journal-pagination { grid-template-columns: minmax(0, 1fr); } }
+[data-motion="less"] .journal-pagination a { transform: none; transition-property: opacity; }
+@media (prefers-reduced-motion: reduce) { .journal-pagination a, .journal-pagination a:hover { transform: none; transition-property: opacity; } }

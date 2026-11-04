@@ -1,0 +1,5 @@
+{
+  "cards": [],
+  "notes": [],
+  "findings": "## Özet\n\nKüçük bir örnekle başladık. Ada ve Deniz sonuçları birlikte inceledi. Başlık, proje ve kısa bir alıntı aynı yerde olduğunda bağlamı korumak daha kolay.\n\n## Bulgular\n\n- Başlık tek başına her zaman yeterli değil.\n- **Proje adı** sonuçların ayırt edilmesini kolaylaştırıyor.\n- Uzun açıklamalar yerine kısa bir alıntı okumayı hızlandırıyor.\n\n### Küçük deney\n\nÜç örnek notu yalnız klavyeyle aradık. Her sonuçtan ilgili nota gidip aynı sorguya dönebildik. Bu gözlem bir başlangıç; daha çok örnekle yeniden denenecek.\n\n## Sonraki adım\n\nKararı [[İlk fikirler]] notuna bağla ve aynı yaklaşımı bir sonraki küçük işte dene."
+}
