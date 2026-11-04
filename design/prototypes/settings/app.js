@@ -1,5 +1,5 @@
 import { lessMotion, tokenTime } from '../_shared/components.js';
-import { families, isDark, setTheme, setMode } from '../_shared/theme.js';
+import { families, isDark, setTheme } from '../_shared/theme.js';
 import { $, el, button, field, lockMessage, loadData, setupUI, renderState } from '../_shared/app-ui.js';
 
 let data;
@@ -83,8 +83,6 @@ function appearance() {
     list.append(option);
   });
   themes.append(list);
-  const modes = group('Görünüm');
-  modes.append(segmented('settings-mode', [['system', 'Sistem'], ['light', 'Açık'], ['dark', 'Koyu']], root.dataset.mode || 'system', (value, origin) => { setMode(value, origin); ui.announce(`Görünüm: ${{ system: 'Sistem', light: 'Açık', dark: 'Koyu' }[value]}.`); }));
   const motion = group('Hareket');
   const toggle = el('label', 'switch');
   const input = el('input');
@@ -101,7 +99,7 @@ function appearance() {
     ui.announce(value === 'en' ? 'Dil: English. Arayüz bir sonraki açılışta İngilizce olur.' : 'Dil: Türkçe.');
   }), el('p', 'settings-hint', 'Notların ve kartların dili değişmez; yalnız arayüz.'));
   const grid = el('div', 'appearance-grid');
-  grid.append(themes, modes, motion, language);
+  grid.append(themes, motion, language);
   node.append(grid);
   return node;
 }
@@ -328,7 +326,6 @@ function initSwitch() {
 }
 function syncAppearance() {
   document.querySelectorAll('input[name="settings-theme"]').forEach((input) => { input.checked = input.value === root.dataset.theme; });
-  document.querySelectorAll('input[name="settings-mode"]').forEach((input) => { input.checked = input.value === (root.dataset.mode || 'system'); });
   document.querySelectorAll('.theme-preview').forEach((node) => { node.dataset.mode = isDark() ? 'dark' : 'light'; });
 }
 function setState(value) {

@@ -1,5 +1,5 @@
 .workspace { --workspace-max: calc(var(--space-page-max) + var(--space-md) * 2); max-width: var(--workspace-max); margin-inline: auto; padding-bottom: calc(var(--space-xl) * 4); }
-.section-heading, .card-footer { justify-content: space-between; }
+.section-heading { justify-content: space-between; }
 .skip-link { position: fixed; top: var(--space-sm); left: var(--space-md); z-index: 100; transform: translateY(-200%); }
 .skip-link:focus { transform: none; }
 .prototype-controls { position: fixed; bottom: var(--space-md); right: var(--space-md); z-index: 20; max-width: calc(100% - var(--space-md) * 2); padding: var(--space-sm) var(--space-md); border: var(--space-hairline) solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-box-raised); }
@@ -45,14 +45,25 @@ body { background: var(--color-surface); }
 .priority-urgent { color: var(--color-urgent); }
 .priority-important { color: var(--color-important); }
 .kanban-card { display: block; padding: var(--space-12) calc(var(--space-md) * .85); border: 0; border-radius: var(--radius-sm); background: var(--color-surface); box-shadow: var(--shadow-box); font-size: var(--font-small-size); line-height: var(--font-small-line-height); content-visibility: auto; contain-intrinsic-size: auto calc(var(--space-xl) * 5); transition: transform var(--motion-duration-slow) var(--motion-ease-spring-bouncy), box-shadow var(--motion-duration-fast) var(--motion-ease-default), opacity var(--motion-duration-quick) var(--motion-ease-out); font-family: var(--font-small-family); }
-.card-title { display: block; min-height: calc(var(--space-md) * 2); width: 100%; padding: 0 calc(var(--space-md) * 4) 0 0; border: 0; background: none; color: var(--color-text); font-size: inherit; font-weight: var(--font-title-weight); line-height: inherit; text-align: start; overflow-wrap: anywhere; cursor: pointer; }
+/* Card anatomy: project on top (clear of the Taşı… button), the copy with the title as the card's only link, then the
+   owner and counters. The link's ::before covers the whole card, so the card reads and behaves as one target. */
+.kanban-card { position: relative; cursor: pointer; }
+.card-top { display: flex; align-items: center; min-height: calc(var(--space-md) * 2); padding-inline-end: calc(var(--space-md) * 4); }
+.card-project-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-link { color: var(--color-text); text-decoration: none; overflow-wrap: anywhere; }
+.card-link::before { content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit; }
+.card-link:focus-visible { outline: none; }
+.kanban-card:has(.card-link:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.kanban-card .drag-handle { position: relative; z-index: 1; }
+.kanban-card .move-trigger { z-index: 1; }
+.kanban-card .lock-message { position: relative; }
+.card-owner { display: inline-grid; place-items: center; min-width: var(--space-lg); height: var(--space-lg); padding-inline: var(--space-2xs); border-radius: var(--radius-full); background: var(--color-surface-inset); color: var(--color-text-2); font-weight: var(--font-label-weight); }
+.card-owner.is-agent { padding-inline: var(--space-sm); }
 .card-copy p { margin: 0; color: var(--color-text); }
 .card-copy b { font-weight: var(--font-title-weight); }
 .is-done .card-copy p { color: var(--color-text-3); }
-.card-footer { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: calc(var(--space-md) * .4); font-size: var(--font-caption-size); }
 .card-project-chip { padding: 0 calc(var(--space-md) * .55); font-size: var(--font-caption-size); font-weight: var(--font-label-weight); line-height: var(--font-small-line-height); }
-.card-metadata { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); color: var(--color-text-3); font-size: var(--font-caption-size); }
-.card-metadata .badge { padding: 0 var(--space-xs); background: var(--color-surface-inset); font-size: inherit; line-height: inherit; }
+.card-metadata { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-top: var(--space-sm); color: var(--color-text-3); font-size: var(--font-caption-size); }
 .move-trigger { position: absolute; top: var(--space-sm); right: var(--space-sm); display: inline-flex; align-items: center; justify-content: center; min-height: calc(var(--space-md) * 2); min-width: calc(var(--space-md) * 2); padding: var(--space-xs) var(--space-sm); border: 0; border-radius: var(--radius-full); background: var(--color-surface-inset); color: var(--color-text-2); font-size: var(--font-label-size); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity var(--motion-duration-quick) var(--motion-ease-out); }
 .kanban-card:hover .move-trigger, .kanban-card:focus-within .move-trigger, .move-trigger:disabled { opacity: 1; pointer-events: auto; }
 .move-trigger:disabled { cursor: not-allowed; }
@@ -65,7 +76,7 @@ body { background: var(--color-surface); }
 .prototype-controls { border: 0; border-radius: var(--radius-full); box-shadow: var(--shadow-box); }
 .prototype-controls select { border: 0; background: var(--color-pill-bg); }
 @media (hover: hover) and (pointer: fine) {
-  .kanban-card { cursor: grab; }
+  .kanban-card:hover .card-link { text-decoration: underline; text-decoration-color: var(--color-line-strong); text-underline-offset: var(--space-2xs); }
   .kanban-card:hover { transform: translateY(calc(-1 * var(--motion-distance-lift-card))); box-shadow: var(--shadow-box-raised); }
 }
 @media (max-width: 50rem) {
@@ -75,7 +86,7 @@ body { background: var(--color-surface); }
   .page-title { flex-direction: column; gap: var(--space-xs); }
 }
 @media (pointer: coarse) {
-  .card-title, .move-trigger, .drag-handle, .column-toggle, .column-add { min-height: calc(var(--space-xl) + var(--space-xs)); }
+  .move-trigger, .drag-handle, .column-toggle, .column-add { min-height: calc(var(--space-xl) + var(--space-xs)); }
   .drag-handle, .move-trigger { min-width: calc(var(--space-xl) + var(--space-xs)); }
 }
 @media (hover: none), (pointer: coarse) { .move-trigger { opacity: 1; pointer-events: auto; } }

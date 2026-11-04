@@ -89,6 +89,13 @@ export function setupUI(data, onCreate, openCard) {
       record.criteria.forEach((criterion) => list.append(el('li', '', `${criterion.done ? '✓' : '○'} ${criterion.text}`)));
       content.push(list);
     }
+    // The quick look always offers the way to the record's own page.
+    if (record.id && (record.criteria || record.kind)) {
+      const page = record.criteria ? 'card' : record.kind === 'research' ? 'research-item' : 'note';
+      const go = el('a', 'action-link', record.criteria ? 'Kartı aç' : 'Sayfayı aç');
+      go.href = `../${page}/?id=${encodeURIComponent(record.id)}`;
+      content.push(go);
+    }
     open(record.title, content, null, instant);
   };
   const create = (kind, instant = false, column = 'todo') => {

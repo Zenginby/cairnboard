@@ -68,7 +68,12 @@ function setPickerOpen(open, instant = false, restore = false) {
   panel.inert = !open;
   panel.hidden = !open;
   $('#project-trigger').setAttribute('aria-expanded', String(open));
-  if (open) { pickerSummary(); panel.querySelector('input').focus({ preventScroll: true }); }
+  if (open) {
+    pickerSummary();
+    // A filter field only earns focus where typing is cheap; on touch screens the keyboard would cover the list.
+    const filter = panel.querySelector('.picker-filter');
+    (filter && matchMedia('(pointer: fine)').matches ? filter : panel.querySelector('.picker-token input')).focus({ preventScroll: true });
+  }
   else if (restore) $('#project-trigger').focus();
 }
 // The picker shows each project as a token in its own colour: chosen tokens are filled with the project's wash, the
@@ -99,6 +104,9 @@ function projectPicker() {
   panel.setAttribute('aria-label', 'Ana sayfada görünen projeler');
   panel.inert = true;
   panel.hidden = true;
+  // Clicking a token's label is not a focusable target, so without this the browser would move focus to <main> and
+  // the focus-out rule below would close the panel before the click reached the checkbox.
+  panel.tabIndex = -1;
   const list = el('fieldset', 'project-checks');
   const legend = el('legend', 'picker-legend');
   const meter = el('span', 'picker-meter counter'); meter.id = 'picker-meter';
@@ -133,6 +141,29 @@ function projectPicker() {
     tokens.append(label);
   });
   list.append(tokens);
+  // Many projects: a filter narrows the tokens and the token area scrolls instead of growing without end.
+  let filter = null;
+  if (data.projects.length > 6) {
+    filter = el('input', 'input picker-filter');
+    filter.type = 'search';
+    filter.placeholder = 'Proje süz…';
+    filter.setAttribute('aria-label', 'Projeleri adına göre süz');
+    filter.setAttribute('aria-controls', 'picker-tokens');
+    tokens.id = 'picker-tokens';
+    const none = el('p', 'picker-none muted type-label', 'Bu adla proje yok.');
+    none.hidden = true;
+    filter.addEventListener('input', () => {
+      const query = filter.value.trim().toLocaleLowerCase('tr');
+      let shown = 0;
+      tokens.querySelectorAll('.picker-token').forEach((token) => {
+        const match = !query || token.textContent.toLocaleLowerCase('tr').includes(query);
+        token.hidden = !match;
+        if (match) shown += 1;
+      });
+      none.hidden = shown > 0;
+    });
+    list.append(none);
+  }
   const choose = (ids) => {
     selectedProjects = new Set(ids);
     panel.querySelectorAll('input').forEach((input) => { input.checked = selectedProjects.has(input.value); });
@@ -148,7 +179,7 @@ function projectPicker() {
     button('Hepsi', () => choose(data.projects.map((project) => project.id)), 'picker-quick'),
     button('Varsayılan', () => choose(data.dashboard.defaultProjects), 'picker-quick'),
     button('Hiçbiri', () => choose([]), 'picker-quick'));
-  panel.append(list, actions);
+  panel.append(...(filter ? [filter] : []), list, actions);
   panel.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setPickerOpen(false, true, true); }
   });

@@ -87,6 +87,18 @@ body { background: var(--color-surface); }
 .skeletons { width: 100%; }
 .lock-message { display: flex; gap: var(--space-sm); align-items: start; }
 .lock-message svg { width: var(--space-md); height: var(--space-md); flex-shrink: 0; fill: none; stroke: var(--color-text-3); stroke-width: 2; }
+/* Narrower than the side column needs: the contents sit above the body as one scrolling row of pills, so they are
+   never simply gone on a laptop or a phone. */
+@media (width < 72rem) {
+  .doc-toc:not([hidden]) { display: block; order: -1; padding-bottom: var(--space-md); border-bottom: var(--space-hairline) solid var(--color-line); }
+  .doc-body-layout:has(.doc-toc:not([hidden])) { gap: var(--space-lg); }
+  .doc-toc h2 { margin-bottom: var(--space-xs); color: var(--color-text-3); }
+  .doc-toc ul { display: flex; gap: var(--space-xs); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; border: 0; }
+  .doc-toc li { flex: none; }
+  .doc-toc li[data-level="3"] { padding-inline-start: 0; }
+  .doc-toc a { margin: 0; padding: var(--space-xs) var(--space-12); border: 0; border-radius: var(--radius-full); background: var(--color-pill-bg); color: var(--color-text-2); white-space: nowrap; }
+  .doc-toc a[aria-current="true"] { background: var(--color-surface-inset-2); color: var(--color-text); }
+}
 @media (min-width: 72rem) {
   .doc-body-layout:has(.doc-toc:not([hidden])) { grid-template-columns: minmax(0, var(--doc-content-width)) var(--doc-toc-width); }
   .doc-heading { margin-inline: 0; }

@@ -10,6 +10,7 @@ let priorityFilter = 'all';
 let activeColumn = 'todo';
 let cards = [];
 let drag = null;
+let draggedAt = 0;
 let menuCard = null;
 let lastMoved = null;
 const mobile = matchMedia('(max-width: 50rem)');
@@ -134,7 +135,12 @@ function updateCounts() {
 function fillCardCopy(copy, record, title) {
   const line = el('p');
   const lead = record.column === 'review' ? 'Senden: ' : record.column === 'doing' ? 'Şimdi: ' : record.column === 'done' ? 'Sonuç: ' : 'Sonra: ';
-  line.append(el('b', '', lead), document.createTextNode(title));
+  // The title is the card's one link; its hit area is stretched over the whole card in CSS, so a click anywhere
+  // that is not a control opens the card page.
+  const open = el('a', 'card-link', title);
+  open.href = `../card/?id=${encodeURIComponent(record.id)}`;
+  open.draggable = false;
+  line.append(el('b', '', lead), open);
   copy.replaceChildren(line);
   if (record.column === 'doing') {
     const next = el('p');
@@ -148,18 +154,16 @@ function makeCard(record, index) {
   card.id = record.id;
   card.dataset.id = record.id;
   card.tabIndex = 0;
-  const title = button(projectFor(record).name, (event) => ui.inspect({ ...record, title: titleFor(record, index) }, event.detail === 0), 'card-title');
-  title.setAttribute('aria-label', `${titleFor(record, index)}: ayrıntıları aç`);
-  const copy = el('div', 'card-copy');
-  fillCardCopy(copy, record, titleFor(record, index));
-  const footer = el('div', 'card-footer');
+  const top = el('div', 'card-top');
   const chip = projectChip(projectFor(record));
   chip.classList.add('card-project-chip');
-  footer.append(chip);
+  top.append(chip);
+  const copy = el('div', 'card-copy');
+  fillCardCopy(copy, record, titleFor(record, index));
   const meta = el('div', 'card-metadata');
   const person = data.people.find((item) => item.id === record.assigneeId);
-  const owner = el('span', person ? '' : 'badge', person?.initials || record.assigneeId || 'Atanmamış');
-  owner.setAttribute('aria-label', person?.name || record.assigneeId || 'Atanmamış');
+  const owner = el('span', `card-owner${person ? '' : ' is-agent'}`, person?.initials || record.assigneeId || 'Atanmamış');
+  owner.setAttribute('aria-label', person?.name || `${record.assigneeId || 'Atanmamış'} · ajan`);
   const progress = `${record.criteria.filter((criterion) => criterion.done).length}/${record.criteria.length}`;
   const criteria = el('span', 'counter', progress);
   criteria.setAttribute('aria-label', `Kabul ölçütleri: ${progress}`);
@@ -174,7 +178,7 @@ function makeCard(record, index) {
   move.setAttribute('aria-controls', menu.id);
   move.setAttribute('aria-label', `${record.title}: taşı`);
   move.disabled = isLocked(record);
-  card.append(title, move, copy, footer, meta);
+  card.append(top, move, copy, meta);
   if (isLocked(record)) {
     const message = lockMessage();
     message.id = `${record.id}-lock`;
@@ -365,7 +369,7 @@ $('#board').addEventListener('focusin', (event) => { const column = event.target
 $('#board').addEventListener('keydown', (event) => {
   if (event.target.closest('input, textarea, select') || event.ctrlKey || event.metaKey || event.altKey) return;
   const card = event.target.closest('.kanban-card');
-  if (card && event.target === card && event.key === 'Enter') { event.preventDefault(); ui.inspect(recordFor(card), true); }
+  if (card && event.target === card && event.key === 'Enter') { event.preventDefault(); card.querySelector('.card-link').click(); }
   if (card && event.key.toLowerCase() === 'm') { event.preventDefault(); openMenu(card, true); }
 });
 // Pointer dragging uses a touch handle so vertical card-list scrolling remains native.
@@ -454,6 +458,7 @@ function endDrag(commit) {
   if (current.card.hasPointerCapture(current.id)) current.card.releasePointerCapture(current.id);
   marker.hidden = true;
   if (!current.started) return;
+  draggedAt = performance.now();
   const rect = current.ghost.getBoundingClientRect();
   current.ghost.remove();
   current.card.classList.remove('is-dragging');
@@ -461,6 +466,16 @@ function endDrag(commit) {
   else { current.card.focus(); ui.announce('Taşıma iptal edildi.'); }
 }
 $('#board').addEventListener('pointerup', (event) => { if (drag?.id === event.pointerId) endDrag(true); });
+// Mouse presses are captured by the card for dragging, so the click lands on the card rather than the link: forward it.
+$('#board').addEventListener('click', (event) => {
+  const card = event.target.closest('.kanban-card');
+  if (!card) return;
+  if (performance.now() - draggedAt < 400) { event.preventDefault(); return; }
+  if (event.target.closest('a, button, .drag-handle')) return;
+  const open = card.querySelector('.card-link');
+  if (event.metaKey || event.ctrlKey) window.open(open.href, '_blank', 'noopener');
+  else open.click();
+}, true);
 $('#board').addEventListener('pointercancel', (event) => { if (drag?.id === event.pointerId) endDrag(false); });
 $('#board').addEventListener('lostpointercapture', () => endDrag(false));
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && drag) { event.preventDefault(); endDrag(false); } });
