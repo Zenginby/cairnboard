@@ -1,3 +1,4 @@
+import { createLocalGraph } from './local-graph.js';
 import { isPinned } from './pins.js';
 import { $, el, button, field, loadData, setupUI, renderState, projectChip, notFoundCard } from './app-ui.js';
 import { resolveWikiLink } from './wiki-links.js';
@@ -237,6 +238,8 @@ export function startDocument(options) {
   let headings = [];
   let scrollFrame;
   let initialized = false;
+  let graphFixture;
+  const localGraph = options.localGraph ? createLocalGraph() : null;
   const ctx = {
     data,
     get state() { return state; },
@@ -372,6 +375,7 @@ export function startDocument(options) {
     sidebar(ctx, navigation.groups, navigation.project);
     options.render(ctx);
     updateTOC();
+    localGraph?.update(data, graphFixture, ctx.record.id);
   }
   function setState(value) {
     state = value; $('#prototype-state').value = value;
@@ -393,11 +397,16 @@ export function startDocument(options) {
   async function load() {
     renderState('loading', load, () => {}, options.copy);
     try {
-      const [base, response] = await Promise.all([loadData(), fetch('../_shared/workspace.json')]);
+      const [base, response, graphResponse] = await Promise.all([loadData(), fetch('../_shared/workspace.json'), options.localGraph ? fetch('../graph/data.json') : null]);
       if (!response.ok) throw new Error('Workspace unavailable');
       const shared = await response.json();
       const merge = (kind) => [...new Map([...base[kind], ...shared[kind]].map((record) => [record.id, { ...base[kind].find((item) => item.id === record.id), ...record }])).values()];
       Object.assign(data, base, shared, { cards: merge('cards'), notes: merge('notes') });
+      if (graphResponse) {
+        if (!graphResponse.ok) throw new Error('Graph data unavailable');
+        graphFixture = await graphResponse.json();
+        data.notes.push(...graphFixture.notes.filter((note) => !data.notes.some((record) => record.id === note.id)).map((note) => ({ updated: '3 Kasım', ...note })));
+      }
       options.prepare?.(ctx);
       fixtures = structuredClone(data); initialized = true; setState('full');
       if (location.hash) requestAnimationFrame(() => document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({ behavior: 'instant' }));

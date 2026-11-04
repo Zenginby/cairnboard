@@ -16,11 +16,23 @@
     { "id": "graph-14", "kind": "note", "projectId": "bahce-notlari", "title": "Tohum listesi", "body": "Gelecek bahar için.", "tags": [] }
   ],
   "tags": {
+    "note-1": ["tarif"], "note-2": ["görüşme"],
     "note-3": ["tarif"], "note-4": ["plan"], "research-1": ["tarif"], "research-2": ["görüşme"], "research-3": ["alışveriş"],
     "research-4": ["tarif"], "research-5": ["görüşme"], "research-6": ["plan"], "research-7": ["tarif"], "research-8": ["okuma"],
     "research-9": ["plan"], "research-10": ["tarif"], "research-11": ["görüşme"], "research-12": ["plan"]
   },
+  "kinds": { "note-1": "concept", "note-2": "reference", "graph-1": "index", "graph-5": "concept" },
+  "nodes": [
+    { "id": "ghost:storage", "title": "Saklama koşulları", "target_name": "Saklama koşulları", "type": "note", "kind": "note", "project": "mutfak-defteri", "ghost": true },
+    { "id": "ghost:preparation", "title": "Hazırlık", "target_name": "Hazırlık", "type": "note", "kind": "note", "project": "mutfak-defteri", "ghost": true, "ambiguous": true },
+    { "id": "raw:measurements", "title": "Tartım çizelgesi", "type": "raw", "project": "mutfak-defteri", "ignored": true }
+  ],
   "links": [
+    ["note-1", "note-3"], ["note-1", "note-3"], ["research-1", "note-1"],
+    ["note-1", "ghost:storage"], ["note-1", "ghost:preparation"], ["research-1", "raw:measurements"],
+    ["mutfak-defteri", "note-1"], ["mutfak-defteri", "note-3"], ["mutfak-defteri", "research-1"],
+    ["tez-taslagi", "note-2"], ["tez-taslagi", "research-2"], ["haftalik-plan", "note-4"],
+    ["journal:2026-11-03", "note-1"], ["journal:2026-11-03", "mutfak-defteri"], ["card-1", "note-1"],
     ["note-1", "note-3"], ["note-1", "research-10"], ["note-1", "note-4"], ["note-2", "research-5"], ["note-3", "research-2"], ["note-3", "research-11"],
     ["note-3", "research-7"], ["note-4", "research-7"], ["note-4", "research-6"], ["research-1", "research-4"], ["research-1", "research-9"],
     ["research-2", "research-11"], ["research-3", "graph-6"], ["research-3", "research-5"], ["research-4", "research-8"], ["research-6", "research-12"],

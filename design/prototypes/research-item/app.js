@@ -10,6 +10,7 @@ const startEdit = (ctx) => {
   editing = true; ctx.refresh(); ctx.focus('.doc-editor textarea');
 };
 startDocument({
+  localGraph: true,
   copy: {
     empty: ['Araştırmanın içeriği boş', 'Kaydedilmiş bulguları görmek için belgeye dön.', 'Araştırmaya dön'],
     loading: ['Araştırma açılıyor', 'Bulgular, kaynak bilgisi ve ilgili notlar okunuyor.'],

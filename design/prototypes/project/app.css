@@ -1,4 +1,4 @@
-.workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--space-xl) + var(--space-md) * 2); }
+.workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--doc-toc-width) + var(--space-xl) * 2 + var(--space-md) * 2); }
 .project-cover { padding: clamp(var(--space-lg), 3.5vw, var(--space-xl)); border-radius: var(--radius-lg); background: var(--project-wash, var(--color-tone-1-bg)); }
 .project-cover h1 { font-size: clamp(calc(var(--font-project-title-size) * 1.5), 5vw, calc(var(--font-page-title-size) * 3.25 / 2.9)); }
 .project-cover .doc-pill { background: color-mix(in srgb, var(--color-surface) 70%, transparent); }

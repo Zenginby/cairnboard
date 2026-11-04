@@ -38,9 +38,6 @@
 .graph-dot { flex: none; width: var(--space-sm); height: var(--space-sm); border-radius: var(--radius-full); background: var(--dot, var(--color-text-3)); }
 .graph-filter-count:empty { display: none; }
 .graph-stage { position: relative; display: grid; gap: var(--space-sm); min-width: 0; }
-.graph-canvas { display: block; width: 100%; height: clamp(calc(var(--space-xl) * 9), 62vh, calc(var(--space-xl) * 16)); border-radius: var(--radius-md); background: var(--color-surface-inset); touch-action: manipulation; }
-.graph-canvas.is-pointing { cursor: pointer; }
-.graph-tooltip { position: absolute; top: 0; left: 0; z-index: 2; max-width: min(calc(var(--space-xl) * 8), 80%); padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-xs); background: var(--color-text); color: var(--color-surface); font-family: var(--font-caption-family); font-size: var(--font-caption-size); font-weight: var(--font-caption-weight); line-height: var(--font-caption-line-height); pointer-events: none; transform: translate(calc(var(--tip-x) - 50%), calc(var(--tip-y) - 100%)); }
 .graph-list-panel { min-width: 0; }
 .graph-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
 .graph-list-item { display: grid; gap: var(--space-xs); padding: var(--space-14) 0; transition: opacity var(--motion-duration-quick) var(--motion-ease-out); }
@@ -59,3 +56,7 @@
 @media (pointer: coarse) {
   .graph-switch { min-height: calc(var(--space-xl) + var(--space-xs)); }
 }
+
+.graph-filters :is(select, input[type="search"]) { min-width: 0; width: 100%; }
+.graph-limit { padding: var(--space-sm) var(--space-md); border-radius: var(--radius-sm); color: var(--color-warning); background: var(--color-warning-bg); }
+.graph-list-title { min-height: calc(var(--space-xl) + var(--space-xs)); }
