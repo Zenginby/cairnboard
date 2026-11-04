@@ -131,9 +131,9 @@ function arrangeGroups(list) {
 }
 function updateCounts() {
   data.columns.forEach((column) => {
-    const count = cards.filter((record) => record.column === column.id && passes(record)).length;
-    $(`#count-${column.id}`).textContent = count;
-    $(`#empty-${column.id}`).hidden = count > 0;
+    const count = cards.filter((record) => record.column === column.key && passes(record)).length;
+    $(`#count-${column.key}`).textContent = count;
+    $(`#empty-${column.key}`).hidden = count > 0;
   });
   $('#board-summary').textContent = `${cards.filter(passes).length} kart · ${data.columns.length} sütun`;
 }
@@ -155,7 +155,7 @@ function fillCardCopy(copy, record, title) {
 }
 function makeCard(record, index) {
   const card = el('li', 'kanban-card');
-  card.classList.toggle('is-done', data.columns.find((column) => column.id === record.column).role === 'done');
+  card.classList.toggle('is-done', data.columns.find((column) => column.key === record.column).role === 'done');
   card.id = record.id;
   card.dataset.id = record.id;
   card.tabIndex = 0;
@@ -198,7 +198,7 @@ function makeCard(record, index) {
 function inlineAdd(column, form, instant = false) {
   form.hidden = false;
   form.querySelector('input').focus();
-  selectColumn(column.id);
+  selectColumn(column.key);
   if (instant) form.classList.add('is-instant');
 }
 function buildBoard() {
@@ -209,11 +209,11 @@ function buildBoard() {
   $('#board').replaceChildren();
   data.columns.forEach((column) => {
     const section = el('section', 'kanban-column');
-    section.id = `column-${column.id}`;
-    section.dataset.column = column.id;
-    section.dataset.open = String(!collapsed.has(column.id));
+    section.id = `column-${column.key}`;
+    section.dataset.column = column.key;
+    section.dataset.open = String(!collapsed.has(column.key));
     section.setAttribute('role', 'region');
-    section.setAttribute('aria-labelledby', `heading-${column.id}`);
+    section.setAttribute('aria-labelledby', `heading-${column.key}`);
     const header = el('div', 'column-header');
     const heading = button('', () => {
       const open = section.dataset.open !== 'true';
@@ -222,13 +222,13 @@ function buildBoard() {
       if (!open && content.contains(document.activeElement)) heading.focus({ preventScroll: true });
       content.inert = !open;
       content.setAttribute('aria-hidden', String(!open));
-      if (open) collapsed.delete(column.id); else collapsed.add(column.id);
+      if (open) collapsed.delete(column.key); else collapsed.add(column.key);
     }, 'column-toggle');
-    heading.id = `heading-${column.id}`;
+    heading.id = `heading-${column.key}`;
     heading.setAttribute('aria-expanded', section.dataset.open);
-    heading.setAttribute('aria-controls', `content-${column.id}`);
+    heading.setAttribute('aria-controls', `content-${column.key}`);
     const count = el('span', 'counter column-count');
-    count.id = `count-${column.id}`;
+    count.id = `count-${column.key}`;
     const chevron = el('span', 'column-chevron');
     chevron.setAttribute('aria-hidden', 'true');
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -249,13 +249,13 @@ function buildBoard() {
     actions.append(save, button('Vazgeç', () => { form.hidden = true; add.focus(); }));
     form.append(title.wrapper, actions);
     const add = button('Kartı ekle', (event) => inlineAdd(column, form, event.detail === 0), 'button column-add');
-    add.dataset.add = column.id;
+    add.dataset.add = column.key;
     form.addEventListener('keydown', (event) => { if (event.key === 'Escape') { form.hidden = true; add.focus(); } });
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       const value = title.control.value.trim();
       if (!value) { title.control.setCustomValidity('Bir başlık yaz.'); title.control.reportValidity(); return; }
-      const record = { id: crypto.randomUUID(), title: value, projectId: projectFilter === 'all' ? data.projects[0].id : projectFilter, column: column.id, ...(priorityFilter !== 'all' && priorityFilter ? { priority: priorityFilter } : {}), assigneeId: 'ada', criteria: [], comments: 0 };
+      const record = { id: crypto.randomUUID(), title: value, projectId: projectFilter === 'all' ? data.projects[0].id : projectFilter, column: column.key, ...(priorityFilter !== 'all' && priorityFilter ? { priority: priorityFilter } : {}), assigneeId: 'ada', criteria: [], comments: 0 };
       data.cards.unshift(record);
       if (cards !== data.cards) cards.unshift(record);
       list.prepend(makeCard(record, 0));
@@ -268,16 +268,16 @@ function buildBoard() {
     });
     header.append(heading, add, form);
     const list = el('ul', 'kanban-list');
-    list.dataset.column = column.id;
+    list.dataset.column = column.key;
     list.dataset.label = column.label;
     list.setAttribute('aria-label', `${column.label} kartları`);
-    cards.filter((record) => record.column === column.id && passes(record)).forEach((record, index) => list.append(makeCard(record, index)));
+    cards.filter((record) => record.column === column.key && passes(record)).forEach((record, index) => list.append(makeCard(record, index)));
     const empty = el('p', 'muted type-label column-empty', `${column.label} sütununda kart yok. Bu sütuna bir kart ekle.`);
-    empty.id = `empty-${column.id}`;
+    empty.id = `empty-${column.key}`;
     arrangeGroups(list);
     const content = el('div', 'column-content');
-    content.id = `content-${column.id}`;
-    content.inert = collapsed.has(column.id);
+    content.id = `content-${column.key}`;
+    content.inert = collapsed.has(column.key);
     content.setAttribute('aria-hidden', String(content.inert));
     const inner = el('div', 'column-content-inner');
     inner.append(list, empty);
@@ -326,7 +326,7 @@ function commitMove(card, list, ref = null, ghostRect = null) {
   card.getAnimations().forEach((animation) => animation.cancel());
   list.insertBefore(card, ref);
   record.column = list.dataset.column;
-  card.classList.toggle('is-done', data.columns.find((column) => column.id === record.column).role === 'done');
+  card.classList.toggle('is-done', data.columns.find((column) => column.key === record.column).role === 'done');
   fillCardCopy(card.querySelector('.card-copy'), record, titleFor(record));
   arrangeGroups(source);
   if (source !== list) arrangeGroups(list);
@@ -513,7 +513,7 @@ async function start() {
     cards = data.cards;
     ui = setupUI(data, (kind) => { if (kind === 'note') return; projectFilter = 'all'; priorityFilter = 'all'; setState('full'); selectColumn(data.cards[0].column); requestAnimationFrame(() => document.getElementById(data.cards[0].id)?.focus()); }, (instant) => {
       if (['empty', 'loading', 'error'].includes(state)) ui.create('card', instant, activeColumn);
-      else { const form = $(`#column-${activeColumn} .inline-add`); inlineAdd(data.columns.find((column) => column.id === activeColumn), form, instant); }
+      else { const form = $(`#column-${activeColumn} .inline-add`); inlineAdd(data.columns.find((column) => column.key === activeColumn), form, instant); }
     });
     $('#priority-filter').addEventListener('change', (event) => { priorityFilter = event.target.value; buildBoard(); ui.announce('Öncelik filtresi uygulandı.'); });
     $('#prototype-state').addEventListener('change', (event) => { Object.assign(data, structuredClone(fixtures)); setState(event.target.value); });

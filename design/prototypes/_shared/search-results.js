@@ -26,7 +26,7 @@ export function hrefFor(record) {
 }
 // One flat list from the page's notes, cards and journal entries.
 export function searchRecords(data) {
-  const column = (id) => data.columns?.find((item) => item.id === id)?.label || '';
+  const column = (key) => data.columns?.find((item) => item.key === key)?.label || '';
   return [
     ...(data.notes || []).map((note) => ({ id: note.id, kind: note.kind || 'note', title: note.title, body: note.body || '', projectId: note.projectId, date: note.updated || '' })),
     ...(data.cards || []).map((card) => ({ id: card.id, kind: 'card', title: card.title, body: (card.criteria || []).map((item) => item.text).join(' · '), projectId: card.projectId, date: column(card.column) })),

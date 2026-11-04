@@ -24,7 +24,7 @@ startDocument({
     ctx.header(record.title, `cards/${record.id}.md`, () => `# ${record.title}\n\n${bodyFor(ctx)}`);
     if (deleted) { ctx.body.replaceChildren(el('p', 'muted', 'Kart çöp kutusuna taşındı.')); return; }
     const locked = ctx.state === 'locked';
-    const column = ctx.data.columns.find((item) => item.id === record.column);
+    const column = ctx.data.columns.find((item) => item.key === record.column);
     const project = ctx.data.projects.find((item) => item.id === record.projectId);
     const toolbar = el('div', 'row doc-toolbar');
     const dropdown = el('div', 'dropdown card-move-dropdown');
@@ -57,9 +57,9 @@ startDocument({
       const item = button(target.label, () => {
         close(true);
         if (!ctx.canWrite()) return;
-        record.column = target.id; ctx.refresh(); ctx.focus('#card-move-trigger'); ctx.toast(`Kart ${target.label} sütununa taşındı.`);
+        record.column = target.key; ctx.refresh(); ctx.focus('#card-move-trigger'); ctx.toast(`Kart ${target.label} sütununa taşındı.`);
       });
-      item.setAttribute('role', 'menuitem'); item.disabled = target.id === record.column; menu.append(item);
+      item.setAttribute('role', 'menuitem'); item.disabled = target.key === record.column; menu.append(item);
     });
     move.id = 'card-move-trigger'; dropdown.append(move, menu);
     const edit = button('Kartı düzenle', () => { if (!ctx.canWrite()) return; editing = true; ctx.refresh(); ctx.focus('.doc-editor textarea'); }); edit.id = 'card-edit';

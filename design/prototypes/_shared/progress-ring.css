@@ -1,0 +1,6 @@
+.progress-ring { flex: none; width: calc(var(--space-xl) + var(--space-lg)); height: calc(var(--space-xl) + var(--space-lg)); }
+.ring-track, .ring-arc { fill: none; stroke-width: calc(var(--space-6) + var(--space-hairline)); }
+.ring-track { stroke: var(--color-surface-inset); }
+.ring-arc { stroke: var(--project-tone); stroke-linecap: round; stroke-dasharray: var(--ring-progress) 100; transform: rotate(-.25turn); transform-origin: center; transform-box: view-box; }
+.ring-mask { mask-type: alpha; }
+.ring-reveal { fill: var(--color-text); transform-box: view-box; transform-origin: center; transform: rotate(.5turn); }

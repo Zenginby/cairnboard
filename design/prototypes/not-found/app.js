@@ -1,5 +1,5 @@
 import { lessMotion, tokenTime } from '../_shared/components.js';
-import { $, el, loadData, setupUI, renderState } from '../_shared/app-ui.js';
+import { $, el, loadData, setupUI, renderState, notFoundCard } from '../_shared/app-ui.js';
 import { hrefFor, searchKinds } from '../_shared/search-results.js';
 
 // 404: the card always shows; the prototype states change only the suggestions below it.
@@ -38,7 +38,7 @@ function suggestions(state) {
 function setState(value) {
   $('#prototype-state').value = value;
   renderState('full', null, null);
-  $('#status-text').textContent = value === 'long'
+  $('.status-text').textContent = value === 'long'
     ? 'Aradığın sayfa taşınmış, adı değişmiş, Çöp’e gitmiş ya da hiç olmamış olabilir. Çöp’teki öğeler kalıcı olarak silinmez; oradan geri yükleyebilirsin. Ana sayfadan ya da aramadan devam edebilirsin.'
     : 'Taşınmış, adı değişmiş ya da hiç olmamış olabilir. Ana sayfadan devam edebilirsin.';
   suggestions(value);
@@ -54,7 +54,7 @@ async function start() {
     data = null;
   }
   ui = setupUI(data || { cards: [], notes: [], journal: [], projects: [], people: [], columns: [] }, () => {}, (instant) => ui.create('card', instant));
-  $('#status-search').addEventListener('click', () => $('#search-open').click());
+  $('#screen-content').prepend(notFoundCard().firstElementChild);
   $('#prototype-state').addEventListener('change', (event) => setState(event.target.value));
   setState(data ? 'full' : 'error');
   entrance();
