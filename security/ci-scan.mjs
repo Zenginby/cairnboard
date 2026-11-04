@@ -2,10 +2,21 @@ import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import { annotatedTags, git } from './git.mjs';
 import { GITHUB_COMMITTER } from './rules.mjs';
 import { fixtureLines, scanLines, scanText, formatFindings } from './scan.mjs';
+import { withoutAllowedBinaries } from './release-check.mjs';
 
 try {
   const findings = [];
   const scan = (text, file, fixtures = false) => findings.push(...scanText(text, { file, fixtures }));
+  // Reviewed binaries (security/binary-allowlist.txt, the same list release:check uses) are bytes, not text: read as
+  // text they match the e-mail and token rules at random. Their contents and diff sections are skipped; their names are
+  // still scanned.
+  let allowed = new Set();
+  try {
+    allowed = new Set(readFileSync('security/binary-allowlist.txt', 'utf8').split(/\r?\n/)
+      .map((line) => line.trim()).filter((line) => line && !line.startsWith('#')));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
   const files = git(['ls-files', '-z']).split('\0').filter(Boolean);
   for (const [index, file] of files.entries()) {
     let stat;
@@ -22,11 +33,11 @@ try {
     }
     // Scan link targets without reading outside the repository; skip submodules.
     if (stat.isSymbolicLink()) scan(readlinkSync(file), `file:${index}`);
-    else if (stat.isFile()) scan(readFileSync(file, 'utf8'), `file:${index}`, file.startsWith('test/'));
+    else if (stat.isFile() && !allowed.has(file)) scan(readFileSync(file, 'utf8'), `file:${index}`, file.startsWith('test/'));
   }
 
-  const patch = git(['-c', 'core.quotePath=false', 'log', '--all', '--root', '--full-history', '-m', '--format=',
-    '--patch', '--text', '--no-renames', '--no-color', '--no-ext-diff', '--no-textconv']);
+  const patch = withoutAllowedBinaries(git(['-c', 'core.quotePath=false', 'log', '--all', '--root', '--full-history', '-m',
+    '--format=', '--patch', '--text', '--no-renames', '--no-color', '--no-ext-diff', '--no-textconv']), allowed);
   let inHunk = false;
   // Keep source names and line positions, excluding Git's structural hashes.
   const payload = patch.split('\n').map((line) => {

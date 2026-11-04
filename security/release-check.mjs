@@ -15,7 +15,7 @@ const lines = (text) => text.split('\n').filter(Boolean);
 // Reviewed binaries (security/binary-allowlist.txt) are exempt by path; their raw bytes, dumped by --text, are not text
 // and would match the text rules at random. Their diff sections are blanked line for line so line numbers stay true;
 // message lines are indented, so they cannot pose as a diff header.
-function withoutAllowedBinaries(text, allowed) {
+export function withoutAllowedBinaries(text, allowed) {
   let skip = false;
   return text.split('\n').map((line) => {
     if (line.startsWith('diff --git ')) {

@@ -115,6 +115,13 @@ test('security review regressions', () => {
   assert.deepEqual(rules('2026-11-01-cairnboard-design-document-version-two'), []);
 });
 
+test('git commit references in messages are not tokens; a bare 40-hex value still is', () => {
+  const rules = (line) => scanText(line, { file: 'x' }).map((f) => f.rule);
+  assert.deepEqual(rules('This reverts commit e8b987e9fef9a07bcb8ec04a99336ae436dc8513.'), []);
+  assert.deepEqual(rules('(cherry picked from commit e8b987e9fef9a07bcb8ec04a99336ae436dc8513)'), []);
+  assert.deepEqual(rules('key e8b987e9fef9a07bcb8ec04a99336ae436dc8513'), ['token']); // cairn-scan:allow-fixture
+});
+
 test('identifier filter does not hide alternating letter-digit tokens', () => {
   assert.deepEqual(scanText('x7k2m9qz4f-p3w8r1t6y0-a9s2d5f8g1h4', { file: 'x' }).map((f) => f.rule), ['token']); // gitleaks:allow (fake test token) cairn-scan:allow-fixture
 });
