@@ -1,9 +1,9 @@
+import { readPins, pinNote, unpinNote } from './pins.js';
 // Pinned notes rail: on wide screens (DESIGN.md, Layout) every page shows the pinned notes in a column on the right,
 // under the top bar. It can be hidden; a small tab at the edge brings it back. The choice is remembered.
 const root = document.documentElement;
 const kindNames = { note: 'Not', wiki: 'Wiki', research: 'Araştırma' };
 const storageName = 'prototype-pinned-rail';
-const unpinnedName = 'prototype-unpinned';
 const pinIcon = 'M10 2 14 6l-2.5 1-2 2 .5 3-1 1-3-3-3.5 3.5M6 7 4 6l1-1 3 .5 2-2Z';
 const wide = matchMedia('(min-width: 90rem)');
 
@@ -29,12 +29,6 @@ function saveOpen(open) {
   try { localStorage.setItem(storageName, open ? 'open' : 'closed'); } catch { /* Still works for this visit. */ }
 }
 // Unpinning is remembered for the session, so the rail matches on every page.
-function readUnpinned() {
-  try { return new Set(JSON.parse(sessionStorage.getItem(unpinnedName) || '[]')); } catch { return new Set(); }
-}
-function saveUnpinned(ids) {
-  try { sessionStorage.setItem(unpinnedName, JSON.stringify([...ids])); } catch { /* Still works on this page. */ }
-}
 function setOpen(open, { focus = false } = {}) {
   root.dataset.pinnedRail = open ? 'open' : 'closed';
   saveOpen(open);
@@ -69,7 +63,7 @@ function openNote(note, project) {
 }
 
 function item(note, projects, unpin) {
-  const project = projects[note.projectId];
+  const project = projects[note.projectId] || note.project;
   const li = el('li', 'pinned-rail-item');
   li.dataset.id = note.id;
   const open = el('button', 'pinned-rail-link');
@@ -125,7 +119,6 @@ async function start() {
     const response = await fetch(new URL('./pinned.json', import.meta.url));
     if (!response.ok) throw new Error('pinned notes unavailable');
     const { projects, pinned } = await response.json();
-    const unpinned = readUnpinned();
     const empty = el('p', 'pinned-rail-empty', 'Henüz sabitlenen bir not yok.');
     const status = el('div', 'pinned-rail-status');
     status.setAttribute('role', 'status');
@@ -139,7 +132,7 @@ async function start() {
     };
     // Removing a note closes its row; a short "Geri al" brings it back in its old place.
     const unpin = (note, li) => {
-      unpinned.add(note.id); saveUnpinned(unpinned);
+      unpinNote(note.id, 'rail');
       const next = li.nextElementSibling;
       const focusTarget = next?.querySelector('.pinned-rail-link') || li.previousElementSibling?.querySelector('.pinned-rail-link') || close;
       const finish = () => { li.remove(); sync(); };
@@ -151,18 +144,25 @@ async function start() {
       const undo = el('button', 'pinned-rail-undo', 'Geri al');
       undo.type = 'button';
       undo.addEventListener('click', () => {
-        unpinned.delete(note.id); saveUnpinned(unpinned);
+        pinNote(note, 'rail');
         const back = item(note, projects, unpin);
-        const anchor = pinned.slice(pinned.indexOf(note) + 1).map((other) => list.querySelector(`[data-id="${other.id}"]`)).find(Boolean);
+        const order = current(); const anchor = order.slice(order.findIndex((other) => other.id === note.id) + 1).map((other) => list.querySelector(`[data-id="${other.id}"]`)).find(Boolean);
         list.insertBefore(back, anchor || null);
         status.replaceChildren(); sync();
         back.querySelector('.pinned-rail-link').focus();
       });
       status.replaceChildren(el('span', '', `“${note.title}” sabitlenenlerden çıkarıldı.`), undo);
     };
-    list.replaceChildren(...pinned.filter((note) => !unpinned.has(note.id)).map((note) => item(note, projects, unpin)));
+    // Notes pinned in this session come first, then the fixture's pinned notes that were not unpinned.
+    const current = () => {
+      const { added, removed } = readPins();
+      return [...added, ...pinned.filter((note) => !removed.includes(note.id) && !added.some((other) => other.id === note.id))];
+    };
+    const render = () => { list.replaceChildren(...current().map((note) => item(note, projects, unpin))); sync(); };
     list.after(empty);
-    sync();
+    render();
+    // Pinning on the page redraws the rail; the rail's own remove/undo animate in place instead.
+    document.addEventListener('pinchange', (event) => { if (event.detail?.source !== 'rail') { status.replaceChildren(); render(); } });
   } catch {
     list.replaceWith(el('p', 'pinned-rail-empty', 'Sabitlenen notlar yüklenemedi.'));
   }

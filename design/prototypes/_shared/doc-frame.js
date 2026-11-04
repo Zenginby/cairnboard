@@ -1,3 +1,4 @@
+import { isPinned } from './pins.js';
 import { $, el, button, field, loadData, setupUI, renderState, projectChip } from './app-ui.js';
 
 export { $, el, button, field, projectChip };
@@ -102,7 +103,7 @@ export function noteGroups(ctx, research = false) {
   const notes = ctx.data.notes.filter((record) => !record.trashed && (research ? record.kind === 'research' : record.kind !== 'research'));
   const entries = (records) => records.map((record) => ({ title: ctx.text(record.title), href: recordHref(record), current: record.id === ctx.record?.id }));
   return [
-    { title: research ? 'Araştırmalar' : 'Sabitlenenler', entries: [{ title: research ? 'Bütün araştırmalar' : 'Bütün notlar', href: `../${research ? 'research' : 'notes'}/`, current: !ctx.record }, ...entries(research ? notes : notes.filter((record) => record.pinned))] },
+    { title: research ? 'Araştırmalar' : 'Sabitlenenler', entries: [{ title: research ? 'Bütün araştırmalar' : 'Bütün notlar', href: `../${research ? 'research' : 'notes'}/`, current: !ctx.record }, ...entries(research ? notes : notes.filter((record) => isPinned(record.id, Boolean(record.pinned))))] },
     ...(!research ? [{ title: 'Son notlar', entries: entries(notes.slice(0, 4)) }] : []),
     ...ctx.data.projects.filter((project) => notes.some((record) => record.projectId === project.id)).map((project) => ({ title: project.name, entries: entries(notes.filter((record) => record.projectId === project.id)) }))
   ];

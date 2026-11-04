@@ -260,7 +260,7 @@ function renderProjects() {
     const records = data.cards.filter((record) => record.projectId === project.id);
     const completed = records.filter((record) => roleFor(record) === 'done').length + summary.completedArchive;
     const total = records.length + summary.completedArchive;
-    const { node, header } = box(state === 'long' ? data.longText.projectName : project.name, 'project-box', `../board/?project=${encodeURIComponent(project.id)}`);
+    const { node, header } = box(state === 'long' ? data.longText.projectName : project.name, 'project-box', `../project/?project=${encodeURIComponent(project.id)}`);
     node.style.setProperty('--project-wash', `var(--color-tone-${project.tone}-bg)`);
     node.style.setProperty('--project-ink', `var(--color-tone-${project.tone}-text)`);
     node.style.setProperty('--project-tone', `var(--color-tone-${project.tone})`);

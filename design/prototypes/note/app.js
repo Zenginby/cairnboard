@@ -1,6 +1,10 @@
+import { isPinned, pinNote, unpinNote } from '../_shared/pins.js';
 import { startDocument, noteGroups, renderMarkdown, markdownEditor, references, section, el, button, projectChip } from '../_shared/doc-frame.js';
 
 let editing = false;
+let pageCtx = null;
+// Removing this note from the pinned rail updates the Sabitle button here.
+document.addEventListener('pinchange', (event) => { if (event.detail?.source === 'rail' && pageCtx && !editing) pageCtx.refresh(); });
 let deleted = false;
 const id = new URLSearchParams(location.search).get('id') || 'note-1';
 const bodyFor = (ctx) => ctx.record.markdown || `${ctx.record.body}\n\n${ctx.data.markdown}`;
@@ -18,13 +22,21 @@ startDocument({
   emptyLabel: 'İlk notu yaz',
   render(ctx) {
     const record = ctx.record;
+    pageCtx = ctx;
+    record.pinned = isPinned(record.id, Boolean(record.pinned));
     if (deleted) { ctx.header(record.title, `notes/${record.id}.md`, () => `# ${record.title}\n\n${bodyFor(ctx)}`); ctx.body.replaceChildren(el('p', 'muted', 'Not çöp kutusuna taşındı. Geri al ile bu oturumda geri getirebilirsiniz.')); return; }
     const toolbar = el('div', 'row doc-toolbar');
     const edit = button('Düzenle', () => startEdit(ctx));
     // Pin sits with the page actions in the title row: a pushpin that fills in when the note is pinned.
     const pin = button('', () => {
       if (!ctx.canWrite()) return;
-      record.pinned = !record.pinned; ctx.refresh(); ctx.focus('#note-pin'); ctx.toast(record.pinned ? 'Not sabitlendi.' : 'Notun sabitlemesi kaldırıldı.');
+      record.pinned = !record.pinned;
+      if (record.pinned) {
+        const project = ctx.data.projects.find((item) => item.id === record.projectId);
+        const body = bodyFor(ctx).replace(/[#*_`>[\]-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 180);
+        pinNote({ id: record.id, kind: record.kind || 'note', title: record.title, projectId: record.projectId, updated: record.updated || 'Şimdi', body, project: project && { name: project.name, tone: project.tone } });
+      } else unpinNote(record.id);
+      ctx.refresh(); ctx.focus('#note-pin'); ctx.toast(record.pinned ? 'Not sabitlendi.' : 'Notun sabitlemesi kaldırıldı.');
     }, `button doc-pill doc-pin${record.pinned ? ' is-pinned' : ''}`);
     const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('aria-hidden', 'true');
