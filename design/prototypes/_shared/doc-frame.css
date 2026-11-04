@@ -75,7 +75,7 @@ body { background: var(--color-surface); }
 .doc-references { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--space-md) * 13)), 1fr)); gap: var(--space-12); margin-block: var(--space-md); }
 .doc-reference { display: flex; flex-direction: column; gap: calc(var(--space-md) * .2); padding: calc(var(--space-md) * .8) calc(var(--space-md) * .9); border: var(--space-hairline) solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-surface); text-decoration: none; transition: transform var(--motion-duration-fast) var(--motion-ease-smooth-out); }
 .doc-reference-kind, .doc-reference-detail { font-size: var(--font-caption-size); color: var(--color-text-3); }
-.doc-reference-kind { color: var(--color-text-2); font-weight: var(--font-title-weight); }
+.doc-reference-kind { color: var(--color-text-3); font-size: var(--font-label-size); font-weight: var(--font-title-weight); letter-spacing: calc(var(--font-page-title-letter-spacing) * -2); text-transform: uppercase; }
 .doc-reference-name { color: var(--color-text); font-weight: var(--font-ui-weight); }
 .skip-link { position: fixed; top: var(--space-sm); left: var(--space-md); z-index: 100; transform: translateY(-200%); }
 .skip-link:focus { transform: none; }

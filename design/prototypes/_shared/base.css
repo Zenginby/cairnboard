@@ -89,3 +89,9 @@ a { color: var(--color-text); text-decoration-color: var(--color-line-strong); t
 :root[data-motion="less"]::view-transition-old(*),
 :root[data-motion="less"]::view-transition-new(*) { animation: none; }
 @media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+
+/* Emphasis and reading details everywhere (DESIGN.md, Typography): headings break into balanced lines, running text
+   avoids a lone last word, and numbers that sit in columns or change in place keep one width. */
+:where(h1, h2, h3, h4) { text-wrap: balance; }
+:where(p, li, dd, figcaption) { text-wrap: pretty; }
+:where(time, td, .counter, .calendar-day, .criterion-date) { font-variant-numeric: tabular-nums; }

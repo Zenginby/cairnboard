@@ -50,6 +50,7 @@ input[type="checkbox"] { width: var(--space-md); height: var(--space-md); margin
 .trash-kind--journal { background: var(--color-tone-5-bg); color: var(--color-tone-5-text); }
 .trash-dot { flex: none; width: var(--space-sm); height: var(--space-sm); border-radius: var(--radius-full); background: var(--dot, var(--color-text-3)); }
 .trash-project-name { min-width: 0; overflow-wrap: anywhere; }
+.trash-item :is(.trash-project-name, .trash-who, time) { color: var(--color-text-3); }
 .trash-who { display: inline-flex; align-items: center; gap: var(--space-sm); min-width: 0; }
 .trash-avatar { width: var(--space-lg); height: var(--space-lg); padding: 0; font-size: var(--font-caption-size); }
 .trash-agent { padding: 0 var(--space-sm); border-radius: var(--radius-full); background: var(--color-tone-1-bg); color: var(--color-tone-1-text); font-family: var(--font-code-family); font-size: var(--font-caption-size); }

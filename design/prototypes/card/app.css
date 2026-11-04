@@ -10,7 +10,8 @@
 .criteria-steps .criterion-date { color: var(--color-text-3); font-variant-numeric: tabular-nums; }
 .criteria-steps label { display: flex; align-items: baseline; gap: var(--space-sm); min-height: calc(var(--space-md) * 2); cursor: pointer; }
 .criteria-steps input { flex: none; accent-color: var(--color-done); }
-.criteria-steps input:checked + span { color: var(--color-text-3); }
+.criteria-steps label > span { color: var(--color-text); }
+.criteria-steps input:checked + span { color: var(--color-text-3); text-decoration: line-through; text-decoration-color: var(--color-line-strong); }
 .comment-thread { list-style: none; padding: 0; margin: 0; }
 .comment-thread > li { padding-block: var(--space-md); border-bottom: var(--space-hairline) solid var(--color-line); }
 .comment-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-xs); font-size: var(--font-label-size); color: var(--color-text-3); }

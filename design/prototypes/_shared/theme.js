@@ -40,6 +40,8 @@ function reveal(origin, apply) {
   root.dataset.themeReveal = '';
   const transition = document.startViewTransition(apply);
   lastReveal = transition;
+  // A newer reveal or a hidden tab skips this one; that is expected, not an error.
+  transition.ready.catch(() => {});
   transition.finished.finally(() => {
     if (lastReveal === transition) delete root.dataset.themeReveal;
   });

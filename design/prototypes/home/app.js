@@ -62,7 +62,11 @@ function saveProjects() {
 function readProjects() {
   try {
     const saved = JSON.parse(localStorage.getItem(preferenceKey));
-    if (Array.isArray(saved)) return new Set(saved.filter((id) => data.projects.some((project) => project.id === id)));
+    if (Array.isArray(saved)) {
+      const known = saved.filter((id) => data.projects.some((project) => project.id === id));
+      // A saved choice that names only projects that no longer exist is stale, not a wish to hide every project.
+      if (known.length || !saved.length) return new Set(known);
+    }
   } catch { /* Use the fixture defaults when storage is unavailable or malformed. */ }
   return new Set(data.dashboard.defaultProjects);
 }
