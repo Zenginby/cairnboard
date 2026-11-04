@@ -220,13 +220,15 @@ function hero() {
   node.append(content, pills);
   return node;
 }
+// Days with at least one journal entry: the calendar marks only these.
+const journalDates = () => new Set(data.journal.filter((entry) => entry.body?.trim()).map((entry) => entry.date));
 function calendar() {
   const { node, header } = box('Günlük', 'calendar-box', '../journal/');
-  header.append(el('span', 'type-label muted', `${new Set(data.dashboard.journalDays).size} gün`));
+  header.append(el('span', 'type-label muted', `${journalDates().size} gün`));
   node.append(el('p', 'muted type-label', 'Hangi gün ne yapıldı'));
   const grid = el('div', 'month-grid');
   const month = data.dashboard.date.slice(0, 7);
-  const days = new Set(data.dashboard.journalDays.filter((value) => value.startsWith(month)));
+  const days = new Set([...journalDates()].filter((value) => value.startsWith(month)));
   const monthName = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(date());
   grid.setAttribute('role', 'img');
   grid.setAttribute('aria-label', `${monthName}: ${days.size} günde kayıt var`);
@@ -446,7 +448,6 @@ function today() {
     if (!value) { input.control.setCustomValidity('Kısa bir not yaz.'); input.control.reportValidity(); return; }
     const entry = { id: crypto.randomUUID(), date: data.dashboard.date, time: new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit' }).format(new Date()), authorId: 'ada', body: value };
     data.journal.push(entry);
-    if (!data.dashboard.journalDays.includes(entry.date)) data.dashboard.journalDays.push(entry.date);
     data.dashboard.updated = entry.time;
     journalDraft = '';
     render();
@@ -500,7 +501,7 @@ function animateFirstLoad() {
 function setState(value) {
   state = value;
   if (value === 'empty') {
-    data.cards = []; data.notes = []; data.journal = []; data.dashboard.journalDays = [];
+    data.cards = []; data.notes = []; data.journal = [];
     data.projectSummaries.forEach((project) => { project.completedArchive = 0; project.noteCount = 0; });
   }
   $('#prototype-state').value = value;
