@@ -44,12 +44,6 @@ a.panel { color: inherit; text-decoration: none; transition: transform var(--mot
 .project-stat { font-size: var(--font-ui-size); color: var(--color-text-2); }
 .project-stat strong { display: block; color: var(--project-ink); font-size: var(--font-stat-size); font-weight: var(--font-stat-weight); line-height: var(--font-stat-line-height); letter-spacing: var(--font-stat-letter-spacing); font-family: var(--font-stat-family); }
 .project-focus { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; margin-top: auto; padding-top: var(--space-14); border-top: var(--space-hairline) solid var(--color-line); font-size: var(--font-ui-size); color: var(--color-text-2); }
-.progress-ring { flex: none; width: calc(var(--space-xl) + var(--space-lg)); height: calc(var(--space-xl) + var(--space-lg)); }
-.ring-track, .ring-arc { fill: none; stroke-width: calc(var(--space-6) + var(--space-hairline)); }
-.ring-track { stroke: var(--color-surface-inset); }
-.ring-arc { stroke: var(--project-tone); stroke-linecap: round; stroke-dasharray: var(--ring-progress) 100; transform: rotate(-.25turn); transform-origin: center; transform-box: view-box; }
-.ring-mask { mask-type: alpha; }
-.ring-reveal { fill: var(--color-text); transform-box: view-box; transform-origin: center; transform: rotate(.5turn); }
 /* Proje ekle dialog: the eight tones as round swatches (radio buttons). */
 .tone-picker { display: grid; gap: var(--space-sm); margin: 0; padding: 0; border: 0; min-width: 0; }
 .tone-picker legend { margin-bottom: var(--space-sm); padding: 0; }

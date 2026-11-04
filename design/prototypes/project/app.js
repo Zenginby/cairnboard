@@ -60,7 +60,7 @@ startDocument({
       if (!records.length) return;
       box.append(el('h3', `project-priority project-priority-${priority || 'none'}`, title));
       const list = el('ul'); records.forEach((record) => {
-        const li = el('li'); const column = ctx.data.columns.find((column) => column.id === record.column);
+        const li = el('li'); const column = ctx.data.columns.find((column) => column.key === record.column);
         const copy = el('div'); copy.append(link(ctx.text(record.title), `../card/?id=${record.id}`), el('p', '', 'Sonra: Kartın kalan ölçütlerini denetle.'));
         li.append(el('span', `chip chip--${column.role === 'todo' ? 'planned' : column.role}`, column.label), copy); list.append(li);
       }); box.append(list);

@@ -1,22 +1,22 @@
 {
   "columns": [
     {
-      "id": "todo",
+      "key": "todo",
       "label": "Bekleyen",
       "role": "todo"
     },
     {
-      "id": "doing",
+      "key": "doing",
       "label": "Yapılıyor",
       "role": "doing"
     },
     {
-      "id": "review",
+      "key": "review",
       "label": "İncelemede",
       "role": "doing"
     },
     {
-      "id": "done",
+      "key": "done",
       "label": "Bitti",
       "role": "done"
     }

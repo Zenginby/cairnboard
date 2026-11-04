@@ -25,7 +25,7 @@ const projectFor = (record) => {
   const project = data.projects.find((item) => item.id === record.projectId);
   return state === 'long' ? { ...project, name: data.longText.projectName } : project;
 };
-const roleFor = (record) => data.columns.find((column) => column.id === record.column).role;
+const roleFor = (record) => data.columns.find((column) => column.key === record.column).role;
 const date = () => new Date(`${data.dashboard.date}T12:00:00`);
 const dayLabel = () => new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long' }).format(date());
 const summaryFor = (project) => data.projectSummaries.find((item) => item.projectId === project.id);
@@ -323,13 +323,13 @@ function renderProjects() {
 }
 function move(record, instant) {
   const target = field('Hedef sütun', 'select');
-  data.columns.forEach((column) => { const option = el('option', '', column.label); option.value = column.id; target.control.append(option); });
+  data.columns.forEach((column) => { const option = el('option', '', column.label); option.value = column.key; target.control.append(option); });
   target.control.value = record.column;
   ui.open('Kartı taşı', [el('p', '', record.title), target.wrapper], () => {
-    const previous = data.columns.find((column) => column.id === record.column).label;
+    const previous = data.columns.find((column) => column.key === record.column).label;
     record.column = target.control.value;
     render();
-    const destination = data.columns.find((column) => column.id === record.column).label;
+    const destination = data.columns.find((column) => column.key === record.column).label;
     ui.announce(`'${record.title}' kartı '${previous}' sütunundan '${destination}' sütununa taşındı.`);
     requestAnimationFrame(() => (document.getElementById(record.id) || $('#main')).focus());
   }, instant, 'Kartı taşı');
@@ -386,8 +386,8 @@ function boardSummary() {
   bar.setAttribute('aria-hidden', 'true');
   const legend = el('ul', 'board-legend');
   data.columns.forEach((column) => {
-    const count = data.cards.filter((record) => record.column === column.id).length + (column.role === 'done' ? archive : 0);
-    const tone = column.id === 'review' ? 'tone-1' : { todo: 'planned', doing: 'doing', done: 'done' }[column.role];
+    const count = data.cards.filter((record) => record.column === column.key).length + (column.role === 'done' ? archive : 0);
+    const tone = column.key === 'review' ? 'tone-1' : { todo: 'planned', doing: 'doing', done: 'done' }[column.role];
     const segment = el('span', 'bar-segment');
     segment.style.setProperty('--segment-count', String(count));
     segment.style.setProperty('--segment-color', `var(--color-${tone})`);

@@ -10,7 +10,7 @@ let ui;
 let state = 'full';
 const animations = new Set();
 const easing = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const roleFor = (record) => data.columns.find((column) => column.id === record.column)?.role;
+const roleFor = (record) => data.columns.find((column) => column.key === record.column)?.role;
 const nameFor = (project) => state === 'long' ? data.longText.projectName : project.name;
 const summaryFor = (project) => data.projectSummaries.find((item) => item.projectId === project.id) || { description: '', noteCount: 0, completedArchive: 0 };
 const copy = {

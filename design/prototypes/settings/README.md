@@ -15,4 +15,4 @@ Workspace settings in Bento boxes on the canvas. Preview: `http://127.0.0.1:4391
 
 ## Data model
 
-The real configuration is `.cairn/config.json` (`core/config.mjs`): `language`, `leaseMinutes` and `columns`, each column `{ key, label, role }` with `key` matching `^[a-z][a-z0-9-]*$` and `role` one of `todo`, `doing`, `done`. The fixture in `data.json` uses exactly these names. The prototype shares `data.columns` from `_shared/` with the board, which still uses an `id` field; stage C maps it to `key`.
+The real configuration is `.cairn/config.json` (`core/config.mjs`): `language`, `leaseMinutes` and `columns`, each column `{ key, label, role }` with `key` matching `^[a-z][a-z0-9-]*$` and `role` one of `todo`, `doing`, `done`. The fixture in `data.json` uses exactly these names. The prototype shares `data.columns` from `_shared/` with the board, and also uses `key`.
