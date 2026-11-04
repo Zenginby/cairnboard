@@ -7,6 +7,35 @@ import { GITHUB_COMMITTER } from './rules.mjs';
 import { fixtureLines, scanLines, scanText, formatFindings } from './scan.mjs';
 
 const ZERO = /^0+$/;
+const COMMIT_MARK = '\u0001cairn-commit';
+
+// Reviewed binaries (security/binary-allowlist.txt, as in release:check and the CI scan) are bytes, not text: read
+// with --text they match the e-mail and token rules at random. Their diff sections are blanked line for line; a commit
+// header (COMMIT_MARK, which an indented message line cannot start with) ends the blanking, so every message is read.
+function allowedBinaries() {
+  try {
+    return new Set(readFileSync(`${git(['rev-parse', '--show-toplevel']).trim()}/security/binary-allowlist.txt`, 'utf8')
+      .split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#')));
+  } catch (error) {
+    if (error.code === 'ENOENT') return new Set();
+    throw error;
+  }
+}
+
+export function blankAllowedBinaries(log, allowed) {
+  let skip = false;
+  return log.split('\n').map((line) => {
+    if (line.startsWith(COMMIT_MARK)) {
+      skip = false;
+      return '';
+    }
+    if (line.startsWith('diff --git ')) {
+      const paths = /^diff --git a\/(.*) b\/(.*)$/.exec(line);
+      skip = Boolean(paths) && allowed.has(paths[1]) && allowed.has(paths[2]);
+    }
+    return skip ? '' : line;
+  }).join('\n');
+}
 
 function stop(message, code) {
   console.error(`blocked: ${message}`);
@@ -58,12 +87,13 @@ function advertisedCommits(remote) {
 function outgoing(ctx, refLines, remote) {
   const findings = [];
   let exclusions;
+  let allowed;
   for (const [index, line] of refLines.split('\n').filter(Boolean).entries()) {
     const [, localSha, remoteRef, remoteSha] = line.split(' ');
     if (ZERO.test(localSha)) continue; // branch deletion
     const file = `push ref #${index + 1}`;
     const range = ZERO.test(remoteSha) ? [localSha, '--not', ...(exclusions ??= advertisedCommits(remote))] : [`${remoteSha}..${localSha}`];
-    const log = git(['-c', 'core.quotePath=false', 'log', '-p', '--text', '--no-textconv', '--no-ext-diff', '--no-color', '--diff-merges=first-parent', '--format=%n%an <%ae>%n%cn <%ce>%n%w(0,4,4)%B%w(0,0,0)', ...range]);
+    const log = blankAllowedBinaries(git(['-c', 'core.quotePath=false', 'log', '-p', '--text', '--no-textconv', '--no-ext-diff', '--no-color', '--diff-merges=first-parent', `--format=${COMMIT_MARK}%n%an <%ae>%n%cn <%ce>%n%w(0,4,4)%B%w(0,0,0)`, ...range]), allowed ??= allowedBinaries());
     // Messages are indented (%w) so a message line can never pass for a diff header and unlock the fixture marker.
     findings.push(...scanLines(log, fixtureLines(log), { ...ctx, file }));
     const identities = git(['log', '--format=%ae%x00%ce%x00', '--no-patch', ...range]);
