@@ -69,7 +69,6 @@
       "title": "Yürüyüş fotoğraflarını tarihe göre ayır",
       "projectId": "sonbahar-albumu",
       "column": "done",
-      "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
@@ -111,7 +110,6 @@
       "title": "Haftanın masraflarını topla",
       "projectId": "haftalik-plan",
       "column": "todo",
-      "priority": "normal",
       "assigneeId": "ada",
       "criteria": [],
       "comments": 0
@@ -163,7 +161,6 @@
       "title": "Albümün giriş yazısını kısalt",
       "projectId": "sonbahar-albumu",
       "column": "review",
-      "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
@@ -192,7 +189,6 @@
       "title": "Fırın sebze tarifine süreyi ekle",
       "projectId": "mutfak-defteri",
       "column": "done",
-      "priority": "normal",
       "assigneeId": "codex",
       "criteria": [
         {
@@ -230,7 +226,6 @@
       "title": "Baskı için on iki fotoğraf seç",
       "projectId": "sonbahar-albumu",
       "column": "doing",
-      "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
@@ -253,7 +248,6 @@
       "title": "Görüşme notlarını konulara göre grupla",
       "projectId": "tez-taslagi",
       "column": "todo",
-      "priority": "normal",
       "assigneeId": "deniz",
       "criteria": [
         {
@@ -297,7 +291,6 @@
       "title": "Albüm kapağı için tarih aralığını yaz",
       "projectId": "sonbahar-albumu",
       "column": "todo",
-      "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
@@ -507,58 +500,77 @@
     {
       "id": "journal-1",
       "date": "2026-11-03",
-      "time": "09:07",
-      "authorId": "ada",
-      "body": "Çorbanın su ölçüsünü düzelttim. Kıvamı bu kez tam oldu."
+      "title": "Çorba ölçüsü",
+      "label": "tarif",
+      "items": [
+        {
+          "type": "decision",
+          "text": "Su ölçüsünü düzelttim. Kıvamı bu kez tam oldu. [[mutfak-defteri|Mutfak defteri]]"
+        }
+      ]
     },
     {
       "id": "journal-2",
       "date": "2026-11-03",
-      "time": "09:43",
-      "authorId": "deniz",
-      "body": "Danışmandan dönüş geldi; son iki soruyu birleştirmemi öneriyor."
+      "title": "Danışman dönüşü",
+      "items": [
+        {
+          "type": "discovery",
+          "text": "Danışmandan dönüş geldi; son iki soruyu birleştirmemi öneriyor. [[tez-taslagi|Tez taslağı]]"
+        }
+      ]
     },
     {
       "id": "journal-3",
       "date": "2026-11-03",
-      "time": "10:26",
-      "authorId": "ada",
-      "body": "Mont temizlemeye bırakıldı."
+      "title": "Haftalık işler",
+      "label": "ev",
+      "items": [
+        {
+          "text": "Mont temizlemeye bırakıldı. [[haftalik-plan|Haftalık plan]]"
+        },
+        {
+          "text": "Cuma için liste hazır. Evde pirinç var, yeniden almaya gerek yok."
+        },
+        {
+          "text": "Elektrik faturası ödendi."
+        },
+        {
+          "type": "lesson",
+          "text": "Yarın pazardan limon ve maydanoz alacağım. Nohut akşamdan ıslanacak."
+        }
+      ]
     },
     {
       "id": "journal-4",
       "date": "2026-11-03",
-      "time": "11:52",
-      "authorId": "deniz",
-      "body": "Cuma için liste hazır. Evde pirinç var, yeniden almaya gerek yok."
+      "title": "Düdüklü tencere",
+      "label": "pişirme",
+      "items": [
+        {
+          "type": "pitfall",
+          "text": "Düdüklünün contası kaçırıyor. [[mutfak-defteri|Mutfak defteri]]"
+        },
+        {
+          "type": "decision",
+          "text": "Nohut denemesini contayı değiştirdikten sonra yapacağım; süreyi bugünkü pişirmeden çıkarmak doğru olmaz."
+        }
+      ]
     },
     {
       "id": "journal-5",
       "date": "2026-11-03",
-      "time": "13:18",
-      "authorId": "ada",
-      "body": "Düdüklünün contası kaçırıyor. Nohut denemesini contayı değiştirdikten sonra yapacağım; süreyi bugünkü pişirmeden çıkarmak doğru olmaz."
-    },
-    {
-      "id": "journal-6",
-      "date": "2026-11-03",
-      "time": "14:41",
-      "authorId": "deniz",
-      "body": "Üçüncü görüşmenin dökümünü bitirdim, iki yerde ses anlaşılmıyor. Ses kaydında 14:32 ve 27:08 işaretli."
-    },
-    {
-      "id": "journal-7",
-      "date": "2026-11-03",
-      "time": "16:30",
-      "authorId": "ada",
-      "body": "Elektrik faturası ödendi."
-    },
-    {
-      "id": "journal-8",
-      "date": "2026-11-03",
-      "time": "17:23",
-      "authorId": "deniz",
-      "body": "Yarın pazardan limon ve maydanoz alacağım. Nohut akşamdan ıslanacak."
+      "title": "Üçüncü görüşme dökümü",
+      "label": "döküm",
+      "items": [
+        {
+          "text": "Dökümü bitirdim. [[tez-taslagi|Tez taslağı]]"
+        },
+        {
+          "type": "pitfall",
+          "text": "İki yerde ses anlaşılmıyor. Ses kaydında 14:32 ve 27:08 işaretli."
+        }
+      ]
     }
   ],
   "dashboard": {

@@ -6,6 +6,8 @@ A rendered Markdown note has metadata, a wiki link and a “Bağlantılar” bac
 
 Reproduces the original tool's document sidebar, page title, source block and reference cards.
 
+An unknown `?id=` shows the shared 404 card (`notFoundCard` in `_shared/app-ui.js`, the copy of the not-found screen) instead of the first note. Wiki links in the Markdown resolve like the core (`_shared/wiki-links.js`): `[[target|Label]]` shows Label and resolves `target`, `[[target#Heading]]` resolves `target`, by file name or path and never by title; an unresolved link renders as a muted ghost with a dashed underline.
+
 Page-specific keyboard behavior: Tab reaches actions and editor controls. Enter and Space activate buttons. The editor keeps normal textarea keys. TOC links focus their heading; Escape closes dialogs.
 
 Page-specific limits: The safe Markdown subset supports headings, paragraphs, bold, inline code, fenced code, flat ordered and unordered lists, tables, ordinary links and wiki links. Raw HTML stays text. Nested Markdown, syntax highlighting and a general Markdown parser are outside this prototype. Pinning does not synchronize the shared pinned rail. Backlinks are fictional fixed examples.

@@ -254,7 +254,7 @@ try {
   });
   createBoard($('#sample-board'), data);
   $('#panel-notes').textContent = data.notes[0].body;
-  $('#panel-journal').textContent = data.journal[0].body;
+  $('#panel-journal').textContent = sectionText(data.journal[0]);
   [...data.cards[0].criteria, { text: 'Sonraki adım henüz açılmadı', done: false, disabled: true }].forEach((criterion) => {
     const item = element('li');
     const label = element('label');

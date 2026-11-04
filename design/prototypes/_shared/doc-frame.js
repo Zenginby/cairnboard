@@ -1,5 +1,6 @@
 import { isPinned } from './pins.js';
-import { $, el, button, field, loadData, setupUI, renderState, projectChip } from './app-ui.js';
+import { $, el, button, field, loadData, setupUI, renderState, projectChip, notFoundCard } from './app-ui.js';
+import { resolveWikiLink } from './wiki-links.js';
 
 export { $, el, button, field, projectChip };
 export function link(text, href, className = '') {
@@ -31,14 +32,20 @@ function safeHref(value) {
     return ['http:', 'https:'].includes(url.protocol) ? url.href : '#';
   } catch { return '#'; }
 }
-function inline(parent, text, notes) {
+// `data` is the page data ({ notes, cards, projects }) that wiki links resolve against.
+export function inline(parent, text, data) {
   const pattern = /\[\[([^\]]+)\]\]|\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`|\*\*([^*]+)\*\*/g;
   let start = 0;
   for (const match of text.matchAll(pattern)) {
     parent.append(document.createTextNode(text.slice(start, match.index)));
     if (match[1]) {
-      const record = notes.find((item) => item.title === match[1]);
-      parent.append(link(match[1], record ? recordHref(record) : `../notes/?q=${encodeURIComponent(match[1])}`));
+      const target = resolveWikiLink(match[1], data);
+      if (target.href) parent.append(link(target.label, target.href));
+      else {
+        const ghost = el('span', 'wiki-ghost', target.label);
+        ghost.title = target.status === 'ambiguous' ? 'Bu adla birden çok sayfa var' : 'Bu adda bir sayfa yok';
+        parent.append(ghost);
+      }
     } else if (match[2]) parent.append(link(match[2], safeHref(match[3])));
     else parent.append(el(match[4] ? 'code' : 'strong', '', match[4] || match[5]));
     start = match.index + match[0].length;
@@ -46,7 +53,7 @@ function inline(parent, text, notes) {
   parent.append(document.createTextNode(text.slice(start)));
 }
 // A deliberately small Markdown subset, built only with DOM nodes; raw HTML stays text.
-export function renderMarkdown(text, notes = []) {
+export function renderMarkdown(text, data = {}) {
   const root = el('div', 'markdown');
   const lines = text.split('\n');
   const cells = (line) => line.trim().replace(/^\||\|$/g, '').split('|').map((value) => value.trim());
@@ -70,19 +77,19 @@ export function renderMarkdown(text, notes = []) {
       const table = el('table');
       const head = el('thead');
       const row = el('tr');
-      cells(line).forEach((text) => { const cell = el('th'); cell.scope = 'col'; inline(cell, text, notes); row.append(cell); });
+      cells(line).forEach((text) => { const cell = el('th'); cell.scope = 'col'; inline(cell, text, data); row.append(cell); });
       head.append(row); table.append(head);
       const body = el('tbody');
       index += 2;
       while (index < lines.length && lines[index].includes('|') && lines[index].trim()) {
         const row = el('tr');
-        cells(lines[index++]).forEach((text) => { const cell = el('td'); inline(cell, text, notes); row.append(cell); });
+        cells(lines[index++]).forEach((text) => { const cell = el('td'); inline(cell, text, data); row.append(cell); });
         body.append(row);
       }
       table.append(body); wrap.append(table); root.append(wrap); continue;
     }
     const heading = line.match(/^(#{1,3})\s+(.+)/);
-    if (heading) { const node = el(heading[1].length < 3 ? 'h2' : 'h3'); inline(node, heading[2], notes); root.append(node); index++; continue; }
+    if (heading) { const node = el(heading[1].length < 3 ? 'h2' : 'h3'); inline(node, heading[2], data); root.append(node); index++; continue; }
     const list = line.match(/^\s*(-|\d+\.)\s+(.+)/);
     if (list) {
       const ordered = list[1] !== '-';
@@ -90,19 +97,19 @@ export function renderMarkdown(text, notes = []) {
       while (index < lines.length) {
         const item = lines[index].match(ordered ? /^\s*\d+\.\s+(.+)/ : /^\s*-\s+(.+)/);
         if (!item) break;
-        const li = el('li'); inline(li, item[1], notes); node.append(li); index++;
+        const li = el('li'); inline(li, item[1], data); node.append(li); index++;
       }
       root.append(node); continue;
     }
     const paragraph = el('p');
-    inline(paragraph, line, notes); root.append(paragraph); index++;
+    inline(paragraph, line, data); root.append(paragraph); index++;
   }
   return root;
 }
 // The journal sidebar lists only days that really have entries, newest first, grouped by month, named the way
 // people say them ("3 Kasım, Salı"). `day` marks the open day page; `month` marks the month view (YYYY-MM).
 export function journalGroups(ctx, { day = '', month = '' } = {}) {
-  const dates = [...new Set(ctx.data.journal.filter((entry) => entry.body?.trim()).map((entry) => entry.date))].sort().reverse();
+  const dates = [...new Set(ctx.data.journal.filter((entry) => entry.title?.trim()).map((entry) => entry.date))].sort().reverse();
   const name = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
   const monthName = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' });
   const viewMonth = month || (day || dates[0] || '').slice(0, 7);
@@ -166,7 +173,7 @@ export function markdownEditor(ctx, value, save, cancel, saveLabel = 'Notu kayde
   const preview = el('section', 'doc-preview stack');
   preview.setAttribute('aria-label', 'Canlı önizleme');
   const content = el('div');
-  const update = () => content.replaceChildren(renderMarkdown(source.control.value, ctx.data.notes));
+  const update = () => content.replaceChildren(renderMarkdown(source.control.value, ctx.data));
   preview.append(el('p', '', 'Canlı önizleme'), content);
   source.control.addEventListener('input', update); update();
   columns.append(source.wrapper, preview);
@@ -348,8 +355,19 @@ export function startDocument(options) {
   }
   addEventListener('scroll', () => { if (!scrollFrame) scrollFrame = requestAnimationFrame(spy); }, { passive: true });
   addEventListener('resize', () => { if (!scrollFrame) scrollFrame = requestAnimationFrame(spy); });
+  // A page whose ?id= names no record shows the 404 card instead of the first record.
+  function notFound(missing) {
+    $('#not-found')?.remove();
+    if (!missing) return;
+    $('#screen-content').hidden = true;
+    sidebar(ctx, [{ title: 'Buradan devam et', entries: [['Notlar', '../notes/'], ['Pano', '../board/'], ['Projeler', '../projects/'], ['Araştırmalar', '../research/'], ['Günlük', '../journal/']].map(([title, href]) => ({ title, href })) }]);
+    $('.doc-column').append(notFoundCard());
+  }
   function render() {
     if (!fixtures) return;
+    const missing = Boolean(options.record) && !ctx.record;
+    notFound(missing && !['empty', 'loading', 'error'].includes(state));
+    if (missing) return;
     const navigation = options.sidebar?.(ctx) || { groups: [] };
     sidebar(ctx, navigation.groups, navigation.project);
     options.render(ctx);

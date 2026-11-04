@@ -1,4 +1,6 @@
-import { startDocument, el, button, field, link, projectChip, journalGroups } from '../_shared/doc-frame.js';
+import { startDocument, el, button, link, projectChip, journalGroups, inline } from '../_shared/doc-frame.js';
+import { journalTypes, sectionHeading, sectionMarkdown, sectionProjectId } from '../_shared/journal.js';
+import { journalFields } from '../_shared/journal-form.js';
 
 let month = new Date(2026, 10, 1);
 let selected = '';
@@ -7,19 +9,19 @@ let selectDay = () => {};
 let daysWithEntries = [];
 const dateKey = (day) => `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 const monthLabel = () => { const value = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(month); return value[0].toLocaleUpperCase('tr') + value.slice(1); };
-const projectId = (ctx, entry) => entry.projectId || ctx.data.projects[ctx.data.journal.indexOf(entry) % 3].id;
+// A section's project is the first [[project-id]] link in its heading or items; '' when there is none.
+const projectId = (ctx, entry) => sectionProjectId(entry, ctx.data.projects);
 function addToday(ctx) {
   if (!ctx.canWrite()) return;
-  const note = field('Bugüne ekle', 'textarea'); note.control.required = true;
-  ctx.ui.open('Bugüne ekle', [note.wrapper], () => {
+  const fields = journalFields(ctx.data, projectFilter);
+  ctx.ui.open('Bugüne iş ekle', fields.nodes, () => {
     if (!ctx.canWrite()) return false;
-    const value = note.control.value.trim();
-    if (!value) { note.control.setCustomValidity('Kısa bir not yaz.'); note.control.reportValidity(); return false; }
-    ctx.data.journal.push({ id: crypto.randomUUID(), date: ctx.data.dashboard.date, time: 'Şimdi', body: value, authorId: 'ada', projectId: projectFilter || ctx.data.projects[0].id });
+    const value = fields.read();
+    if (!value) return false;
+    ctx.data.journal.push({ id: crypto.randomUUID(), date: ctx.data.dashboard.date, ...value });
     month = new Date(`${ctx.data.dashboard.date}T12:00:00`); month.setDate(1); selected = ctx.data.dashboard.date;
     ctx.setState('full'); ctx.toast('Bugünün günlüğüne eklendi.'); ctx.focus('#add-today');
-  }, false, 'Kaydı ekle');
-  note.control.addEventListener('input', () => note.control.setCustomValidity(''));
+  }, false, 'İşi ekle');
 }
 startDocument({
   copy: {
@@ -29,7 +31,7 @@ startDocument({
   },
   firstStep: addToday,
   reset() { selected = ''; },
-  reload(ctx) { ctx.data.journal[0].body += ' Tarihi takvimden doğruladım.'; },
+  reload(ctx) { ctx.data.journal[0].items.push({ text: 'Tarihi takvimden doğruladım.' }); },
   sidebar(ctx) {
     return { groups: journalGroups(ctx, { month: dateKey(1).slice(0, 7) }) };
   },
@@ -47,9 +49,9 @@ startDocument({
     };
   },
   render(ctx) {
-    ctx.header('Günlük', 'journal/', () => ctx.data.journal.map((entry) => `## ${entry.date} · ${entry.time}\n\n- ${entry.body}`).join('\n\n'));
+    ctx.header('Günlük', 'journal/', () => [...new Set(ctx.data.journal.map((entry) => entry.date))].sort().map((date) => `# ${date}\n\n${ctx.data.journal.filter((entry) => entry.date === date).map(sectionMarkdown).join('\n\n')}`).join('\n\n'));
     const toolbar = el('div', 'row doc-toolbar');
-    const add = button('Bugüne kayıt ekle', () => addToday(ctx), 'button button--primary'); add.id = 'add-today'; add.disabled = ctx.state === 'locked'; toolbar.append(add);
+    const add = button('Bugüne iş ekle', () => addToday(ctx), 'button button--primary'); add.id = 'add-today'; add.disabled = ctx.state === 'locked'; toolbar.append(add);
     if (ctx.state === 'locked') toolbar.append(el('span', 'type-label muted', 'claude üzerinde çalışıyor.'));
     const calendar = el('section', 'calendar'); calendar.setAttribute('aria-label', 'Günlük takvimi');
     const navigation = el('div', 'calendar-navigation');
@@ -77,8 +79,16 @@ startDocument({
       const heading = el('h3'); heading.append(link(date, `../journal-day/?date=${date}`)); panelContent.append(heading);
       visible(date).forEach((entry) => {
         const section = el('div', 'calendar-entry'); const meta = el('div', 'row');
-        meta.append(el('strong', '', ctx.text(`${entry.time} · ${ctx.data.people.find((person) => person.id === entry.authorId)?.name || entry.authorId}`)), projectChip(ctx.data.projects.find((project) => project.id === projectId(ctx, entry))));
-        const list = el('ul'); list.append(el('li', '', ctx.text(entry.body))); section.append(meta, list); panelContent.append(section);
+        meta.append(el('strong', '', ctx.text(sectionHeading(entry))));
+        const owner = ctx.data.projects.find((project) => project.id === projectId(ctx, entry));
+        if (owner) meta.append(projectChip(owner));
+        const list = el('ul');
+        entry.items.forEach((item) => {
+          const row = el('li');
+          if (item.type) row.append(el('strong', '', `${journalTypes[item.type]}: `));
+          inline(row, ctx.text(item.text), ctx.data); list.append(row);
+        });
+        section.append(meta, list); panelContent.append(section);
       });
       panelContent.append(link('Günün tam günlüğü', `../journal-day/?date=${date}`, 'action-link'));
       panel.classList.toggle('is-instant', instant); panel.dataset.open = 'true'; panel.inert = false; panel.setAttribute('aria-hidden', 'false');
@@ -99,10 +109,10 @@ startDocument({
       let cell;
       if (count) {
         cell = button('', (event) => show(date, event.detail === 0), 'calendar-day'); cell.dataset.date = date; cell.id = `day-${date}`;
-        cell.setAttribute('aria-pressed', String(selected === date)); cell.setAttribute('aria-label', `${day} ${monthLabel()}, ${count} kayıt`);
+        cell.setAttribute('aria-pressed', String(selected === date)); cell.setAttribute('aria-label', `${day} ${monthLabel()}, ${count} iş`);
         cell.append(el('span', '', String(day)), el('i', 'calendar-count', String(count)));
       } else cell = el('span', 'calendar-day', String(day));
-      if (date === ctx.data.dashboard.date) { cell.classList.add('is-today'); cell.setAttribute('aria-current', 'date'); cell.setAttribute('aria-label', `${day} ${monthLabel()}, bugün, ${count} kayıt`); }
+      if (date === ctx.data.dashboard.date) { cell.classList.add('is-today'); cell.setAttribute('aria-current', 'date'); cell.setAttribute('aria-label', `${day} ${monthLabel()}, bugün, ${count} iş`); }
       td.append(cell);
     }
     grid.append(body); calendar.append(grid, panel);

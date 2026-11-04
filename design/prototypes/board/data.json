@@ -69,7 +69,6 @@
       "title": "Yürüyüş fotoğraflarını tarihe göre ayır",
       "projectId": "sonbahar-albumu",
       "column": "done",
-      "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
@@ -111,7 +110,6 @@
       "title": "Haftanın masraflarını topla",
       "projectId": "haftalik-plan",
       "column": "todo",
-      "priority": "normal",
       "assigneeId": "ada",
       "criteria": [],
       "comments": 0
@@ -163,7 +161,6 @@
       "title": "Albümün giriş yazısını kısalt",
       "projectId": "sonbahar-albumu",
       "column": "review",
-      "priority": "normal",
       "assigneeId": "ada",
       "criteria": [
         {
@@ -192,7 +189,6 @@
       "title": "Fırın sebze tarifine süreyi ekle",
       "projectId": "mutfak-defteri",
       "column": "done",
-      "priority": "normal",
       "assigneeId": "codex",
       "criteria": [
         {

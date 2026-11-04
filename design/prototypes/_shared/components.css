@@ -302,6 +302,9 @@
 .theme-toggle.is-dark .moon { opacity: 1; transform: none; filter: none; }
 :root[data-motion="less"] .theme-toggle svg { transform: none; filter: none; }
 @media (prefers-reduced-motion: reduce) { .theme-toggle svg { transform: none; filter: none; } }
+/* The press scale is spatial movement: no scale with reduced motion (tokens.css only covers the OS setting). */
+:root[data-motion="less"] .theme-toggle:active { transform: none; }
+@media (prefers-reduced-motion: reduce) { .theme-toggle:active { transform: none; } }
 
 /* Pinned notes rail (pinned-rail.js): wide screens only, on every page, right of the content and under the top bar. */
 :root { --pinned-rail-width: calc(var(--space-xl) * 7.2); }
@@ -406,3 +409,11 @@
 @media (prefers-reduced-motion: reduce) { .pinned-rail-item { transition-property: opacity; } }
 :root[data-motion="less"] .pinned-rail, :root[data-motion="less"] .pinned-rail-tab { transform: none !important; transition-property: opacity; }
 @media (prefers-reduced-motion: reduce) { .pinned-rail, .pinned-rail-tab { transform: none !important; transition-property: opacity; } }
+/* Status card (404, 500, and the not-found state of a document page): one centred Bento card with a big number, one sentence and the way back. */
+.status-page { display: grid; gap: var(--space-md); }
+.status-card { display: grid; justify-items: start; gap: var(--space-md); padding: clamp(var(--space-lg), 6vw, calc(var(--space-xl) + var(--space-lg))); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-box); color: var(--color-text); }
+.status-number { font-family: var(--font-hero-family); font-size: clamp(var(--font-hero-size), 22vw, calc(var(--font-hero-size) * 2.2)); font-weight: var(--font-hero-weight); line-height: var(--font-hero-line-height); letter-spacing: var(--font-hero-letter-spacing); font-variant-numeric: tabular-nums; color: var(--status-ink, var(--color-text)); }
+.status-title { font-family: var(--font-display-family); font-size: var(--font-display-size); font-weight: var(--font-display-weight); line-height: var(--font-display-line-height); letter-spacing: var(--font-display-letter-spacing); color: var(--color-text); text-wrap: balance; }
+.status-text { max-width: 46ch; font-family: var(--font-lead-family); font-size: var(--font-lead-size); line-height: var(--font-lead-line-height); color: var(--color-text-2); }
+.status-actions { gap: var(--space-sm); padding-top: var(--space-sm); }
+.status-actions .button { min-height: calc(var(--space-md) * 2 + var(--space-sm)); padding-inline: var(--space-lg); font-size: var(--font-ui-size); }

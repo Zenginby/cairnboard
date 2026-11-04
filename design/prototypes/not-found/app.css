@@ -26,13 +26,6 @@
 
 /* Status page (404, 500): one centred Bento card with a big number, one sentence and the way back. */
 .workspace { --workspace-max: calc(var(--space-content-max) * 0.62 + var(--space-md) * 2); padding-top: clamp(var(--space-lg), 8vh, calc(var(--space-xl) * 2.5)); }
-.status-page { display: grid; gap: var(--space-md); }
-.status-card { display: grid; justify-items: start; gap: var(--space-md); padding: clamp(var(--space-lg), 6vw, calc(var(--space-xl) + var(--space-lg))); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-box); color: var(--color-text); }
-.status-number { font-family: var(--font-hero-family); font-size: clamp(var(--font-hero-size), 22vw, calc(var(--font-hero-size) * 2.2)); font-weight: var(--font-hero-weight); line-height: var(--font-hero-line-height); letter-spacing: var(--font-hero-letter-spacing); font-variant-numeric: tabular-nums; color: var(--status-ink, var(--color-text)); }
-.status-title { font-family: var(--font-display-family); font-size: var(--font-display-size); font-weight: var(--font-display-weight); line-height: var(--font-display-line-height); letter-spacing: var(--font-display-letter-spacing); color: var(--color-text); text-wrap: balance; }
-.status-text { max-width: 46ch; font-family: var(--font-lead-family); font-size: var(--font-lead-size); line-height: var(--font-lead-line-height); color: var(--color-text-2); }
-.status-actions { gap: var(--space-sm); padding-top: var(--space-sm); }
-.status-actions .button { min-height: calc(var(--space-md) * 2 + var(--space-sm)); padding-inline: var(--space-lg); font-size: var(--font-ui-size); }
 .status-ref { font-variant-numeric: tabular-nums; }
 .status-ref:empty { display: none; }
 .status-suggest { display: grid; gap: var(--space-sm); padding: var(--space-lg); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-box); }

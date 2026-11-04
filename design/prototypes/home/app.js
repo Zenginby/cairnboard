@@ -1,5 +1,8 @@
 import { lessMotion, tokenTime } from '../_shared/components.js';
 import { $, el, button, projectChip, lockMessage, field, loadData, setupUI, renderState } from '../_shared/app-ui.js';
+import { sectionText } from '../_shared/journal.js';
+import { isPinned } from '../_shared/pins.js';
+import { svgNode, progressRing } from '../_shared/progress-ring.js';
 
 const copy = {
   empty: ['Çalışma alanında iş yok', 'Yapacağın işi bir karta yaz; proje kutusunda görünsün.', 'Kartı ekle'],
@@ -212,7 +215,7 @@ function hero() {
   const counts = el('p', 'hero-summary');
   counts.append('Bugün ', el('strong', '', `${data.cards.filter((record) => roleFor(record) === 'doing').length} iş sürüyor`), ', ', el('strong', '', `${data.cards.filter((record) => roleFor(record) === 'todo').length} iş sırada`), '.');
   const pills = el('div', 'row hero-pills');
-  const lastEntry = link(`Son kayıt ${dayLabel()}: ${data.journal.length} iş`, '#journal', 'button journal-pill');
+  const lastEntry = link(`Son kayıt ${dayLabel()}: ${todaySections().length} iş`, '#journal', 'button journal-pill');
   lastEntry.prepend(dot('done'));
   pills.append(lastEntry, projectPicker());
   const content = el('div', 'hero-copy');
@@ -221,7 +224,9 @@ function hero() {
   return node;
 }
 // Days with at least one journal entry: the calendar marks only these.
-const journalDates = () => new Set(data.journal.filter((entry) => entry.body?.trim()).map((entry) => entry.date));
+// The jobs (journal sections) written on the dashboard's day.
+const todaySections = () => data.journal.filter((section) => section.date === data.dashboard.date);
+const journalDates = () => new Set(data.journal.filter((entry) => entry.title?.trim()).map((entry) => entry.date));
 function calendar() {
   const { node, header } = box('Günlük', 'calendar-box', '../journal/');
   header.append(el('span', 'type-label muted', `${journalDates().size} gün`));
@@ -244,31 +249,6 @@ function calendar() {
   [...grid.children].forEach((child) => child.setAttribute('aria-hidden', 'true'));
   node.append(grid);
   return node;
-}
-function svgNode(tag, attributes = {}) {
-  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  Object.entries(attributes).forEach(([name, value]) => node.setAttribute(name, String(value)));
-  return node;
-}
-function progressRing(done, total) {
-  const svg = svgNode('svg', { viewBox: '0 0 64 64', class: 'progress-ring', 'aria-hidden': 'true' });
-  const id = `ring-${++sequence}`;
-  const defs = svgNode('defs');
-  const mask = svgNode('mask', { id, class: 'ring-mask' });
-  for (const [half, clipX, revealX] of [['first', 32, 0], ['second', 0, 32]]) {
-    const clip = svgNode('clipPath', { id: `${id}-${half}` });
-    clip.append(svgNode('rect', { x: clipX, y: 0, width: 32, height: 64 }));
-    defs.append(clip);
-    const group = svgNode('g', { 'clip-path': `url(#${id}-${half})` });
-    group.append(svgNode('rect', { x: revealX, y: 0, width: 32, height: 64, class: `ring-reveal ring-reveal--${half}` }));
-    mask.append(group);
-  }
-  defs.append(mask);
-  const arc = svgNode('g', { mask: `url(#${id})` });
-  arc.append(svgNode('circle', { cx: 32, cy: 32, r: 26, pathLength: 100, class: 'ring-arc' }));
-  svg.append(defs, svgNode('circle', { cx: 32, cy: 32, r: 26, class: 'ring-track' }), arc);
-  svg.style.setProperty('--ring-progress', String(total ? done / total * 100 : 0));
-  return svg;
 }
 function renderProjects() {
   const grid = $('#project-grid');
@@ -426,29 +406,32 @@ function today() {
   const open = link('Günü aç', `../journal-day/?date=${encodeURIComponent(data.dashboard.date)}`, 'action-link');
   header.append(open);
   const list = el('ol', 'numbered-list');
-  data.journal.forEach((entry) => {
+  todaySections().forEach((entry) => {
     const row = el('li', 'numbered-row');
     row.dataset.entry = entry.id;
-    row.append(el('span', '', entry.body));
+    const copy = el('span', '');
+    copy.append(el('strong', '', entry.title));
+    if (entry.items.length) copy.append(' · ', el('span', 'muted', sectionText(entry)));
+    row.append(copy);
     list.append(row);
   });
-  if (!data.journal.length) node.append(el('p', 'muted', 'Bugünün günlüğü boş. Yaptığın bir işi aşağıya yaz.'));
+  if (!todaySections().length) node.append(el('p', 'muted', 'Bugünün günlüğü boş. Yaptığın bir işi aşağıya yaz.'));
   const form = el('form', 'row journal-form');
-  const input = field('Bugüne ekle');
-  input.control.placeholder = 'Bugün ne yaptın?';
+  const input = field('Bugüne iş ekle');
+  input.control.placeholder = 'Bugün ne yaptın? (iş başlığı)';
   input.control.required = true;
   input.control.value = journalDraft;
   input.control.addEventListener('input', () => { journalDraft = input.control.value; input.control.setCustomValidity(''); });
-  const save = el('button', 'button button--primary', 'Kaydı ekle');
+  const save = el('button', 'button button--primary', 'İşi ekle');
   save.type = 'submit';
   form.append(input.wrapper, save);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     const value = input.control.value.trim();
     if (!value) { input.control.setCustomValidity('Kısa bir not yaz.'); input.control.reportValidity(); return; }
-    const entry = { id: crypto.randomUUID(), date: data.dashboard.date, time: new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit' }).format(new Date()), authorId: 'ada', body: value };
+    const entry = { id: crypto.randomUUID(), date: data.dashboard.date, title: value, items: [] };
     data.journal.push(entry);
-    data.dashboard.updated = entry.time;
+    data.dashboard.updated = new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit' }).format(new Date());
     journalDraft = '';
     render();
     $('#journal input').focus({ preventScroll: true });
@@ -485,7 +468,7 @@ function render() {
   stopAnimations();
   const projects = el('div', 'project-grid');
   projects.id = 'project-grid';
-  $('#dashboard').replaceChildren(hero(), calendar(), projects, ongoing(), boardSummary(), noteBox('Sabitlenenler', 'pinned', data.notes.filter((note) => note.pinned)), noteBox('Son notlar', 'recent', data.notes.filter((note) => note.kind === 'note')), noteBox('Araştırmalar', 'research', data.notes.filter((note) => note.kind === 'research'), true), today());
+  $('#dashboard').replaceChildren(hero(), calendar(), projects, ongoing(), boardSummary(), noteBox('Sabitlenenler', 'pinned', data.notes.filter((note) => isPinned(note.id, Boolean(note.pinned)))), noteBox('Son notlar', 'recent', data.notes.filter((note) => note.kind === 'note')), noteBox('Araştırmalar', 'research', data.notes.filter((note) => note.kind === 'research'), true), today());
   renderProjects();
 }
 function animateFirstLoad() {
@@ -508,6 +491,8 @@ function setState(value) {
   renderState(value, () => setState('full'), () => ui.create('card'), copy);
   render();
 }
+// Unpinning in the rail updates this box too (the rail itself is hidden below 90rem, where the box shows).
+document.addEventListener('pinchange', (event) => { if (event.detail?.source === 'rail' && data && state !== 'loading') render(); });
 document.addEventListener('pointerdown', (event) => { if ($('#project-menu') && !event.target.closest('.project-picker')) setPickerOpen(false); });
 document.addEventListener('focusin', (event) => { if ($('#project-menu') && !event.target.closest('.project-picker')) setPickerOpen(false); });
 document.documentElement.addEventListener('motionchange', () => { if (lessMotion()) stopAnimations(); });

@@ -1,4 +1,4 @@
-import { priorities, priorityChip, lockMessage } from '../_shared/app-ui.js';
+import { priorities, priorityOf, priorityChip, lockMessage } from '../_shared/app-ui.js';
 import { startDocument, markdownEditor, renderMarkdown, section, el, button, field, link, projectChip } from '../_shared/doc-frame.js';
 
 const id = new URLSearchParams(location.search).get('id') || 'card-1';
@@ -13,7 +13,7 @@ startDocument({
     loading: ['Kart açılıyor', 'Kartın ölçütleri ve yorumları okunuyor.'],
     error: ['Kart okunamadı', 'Kart dosyasına erişimi kontrol et, sonra kartı yeniden yükle.'],
   },
-  record: (ctx) => ctx.data.cards.find((record) => record.id === id) || ctx.data.cards[0],
+  record: (ctx) => ctx.data.cards.find((record) => record.id === id),
   markdown: bodyFor,
   reset(ctx, value) { editing = value === 'conflict'; deleted = false; },
   reload(ctx) { ctx.record.body = `${bodyFor(ctx)}\n\nDışarıda eklenen not: Son değişikliğin tarihini de kaydet.`; editing = false; },
@@ -69,7 +69,7 @@ startDocument({
     [move, edit, remove].forEach((node) => { node.disabled = locked; });
     toolbar.append(dropdown, edit, remove);
     const badges = el('div', 'row card-badges');
-    badges.append(el('span', `chip chip--${column.role === 'todo' ? 'planned' : column.role}`, column.label), priorityChip(record.priority), projectChip(project));
+    badges.append(el('span', `chip chip--${column.role === 'todo' ? 'planned' : column.role}`, column.label), priorityChip(priorityOf(record)), projectChip(project));
     const ownerId = locked ? 'claude' : record.assigneeId;
     const owner = ctx.data.people.find((person) => person.id === ownerId);
     badges.append(el('span', owner ? 'chip' : 'badge', owner ? owner.name : `${ownerId} · ajan`));
@@ -92,14 +92,14 @@ startDocument({
     if (editing) {
       const title = field('Kart başlığı'); title.control.value = record.title; title.control.required = true;
       const priority = field('Öncelik', 'select');
-      Object.entries(priorities).forEach(([value, text]) => { const option = el('option', '', text); option.value = value; priority.control.append(option); }); priority.control.value = record.priority;
+      Object.entries(priorities).forEach(([value, text]) => { const option = el('option', '', text); option.value = value; priority.control.append(option); }); priority.control.value = priorityOf(record);
       const editor = markdownEditor(ctx, bodyFor(ctx), (value) => {
         if (!title.control.value.trim()) { title.control.reportValidity(); return; }
-        record.title = title.control.value.trim(); record.priority = priority.control.value; record.body = value; editing = false;
+        record.title = title.control.value.trim(); if (priority.control.value) record.priority = priority.control.value; else delete record.priority; record.body = value; editing = false;
         ctx.refresh(); ctx.focus('#card-edit'); ctx.toast('Kart kaydedildi.');
       }, () => { editing = false; ctx.refresh(); ctx.focus('#card-edit'); }, 'Kartı kaydet');
       ctx.body.append(title.wrapper, priority.wrapper, editor.node);
-    } else ctx.body.append(renderMarkdown(bodyFor(ctx), ctx.data.notes));
+    } else ctx.body.append(renderMarkdown(bodyFor(ctx), ctx.data));
     const comments = section('Yorumlar', 'comments'); const thread = el('ol', 'comment-thread');
     const commentThread = record.commentThread || (record.id === 'card-1' ? ctx.data.commentThread : []);
     commentThread.forEach((comment) => {

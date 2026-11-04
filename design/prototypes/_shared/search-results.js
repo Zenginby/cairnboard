@@ -1,3 +1,5 @@
+import { sectionProjectId, sectionText } from './journal.js';
+
 // Shared search results: the full search page (search/) and the top bar's search dialog (⌘K) build the same rows.
 // Records come from page data; matched words are wrapped in <mark>. The field is a combobox: arrow keys move the
 // active result while focus stays in the field, Enter opens it.
@@ -28,7 +30,7 @@ export function searchRecords(data) {
   return [
     ...(data.notes || []).map((note) => ({ id: note.id, kind: note.kind || 'note', title: note.title, body: note.body || '', projectId: note.projectId, date: note.updated || '' })),
     ...(data.cards || []).map((card) => ({ id: card.id, kind: 'card', title: card.title, body: (card.criteria || []).map((item) => item.text).join(' · '), projectId: card.projectId, date: column(card.column) })),
-    ...(data.journal || []).map((entry) => ({ id: entry.id, kind: 'journal', title: `${dayLabel(entry.date)} günlüğü`, body: entry.body, projectId: entry.projectId, day: entry.date, date: entry.time ? `${dayLabel(entry.date)} ${entry.time.replace(':', '.')}` : dayLabel(entry.date) })),
+    ...(data.journal || []).map((section) => ({ id: section.id, kind: 'journal', title: `${dayLabel(section.date)} günlüğü · ${section.title}`, body: sectionText(section), projectId: sectionProjectId(section, data.projects || []), day: section.date, date: dayLabel(section.date) })),
   ].filter((record) => record.title);
 }
 export function searchTerms(query) {

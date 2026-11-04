@@ -1,7 +1,12 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readDesignSources } from './lib/design-tokens.mjs';
+import { lintPrototypes } from './lib/prototype-lint.mjs';
 
+// Prototype styles and pages first: they need no DESIGN.md and must report even when the documents cannot be read.
+const violations = lintPrototypes(process.cwd());
+for (const { file, line, rule, detail } of violations) console.error(`${file}:${line} ${rule}: ${detail}`);
+if (violations.length) console.error(`${violations.length} prototype violation(s).`);
 try {
   const cli = fileURLToPath(import.meta.resolve('@google/design.md'));
   let failed = false;
@@ -15,7 +20,7 @@ try {
   }
   const check = spawnSync(process.execPath, [fileURLToPath(new URL('./design-build.mjs', import.meta.url)), '--check'], { stdio: 'inherit' });
   if (check.error) throw check.error;
-  process.exitCode = failed || check.status !== 0 ? 1 : 0;
+  process.exitCode = failed || check.status !== 0 || violations.length ? 1 : 0;
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

@@ -8,6 +8,8 @@ Reproduces the original tool's project cover and project switcher in the sidebar
 
 Page-specific keyboard behavior: Tab reaches the project switcher, title pills, project actions, card links and section boxes. Enter or Space activates dialog actions; Escape closes dialogs.
 
+Deleting a project moves only the project file to the trash (the core does the same); its notes and cards stay where they are and can be moved or deleted separately, and the confirmation says so. An unknown `?project=` shows the shared 404 card.
+
 Page-specific limits: Section counts use the available workspace records, not the separate dashboard archive totals. Low-priority open cards are counted separately and remain accessible on the board. The cover’s overview boxes do not generate document TOC entries. Archive and trash are local reversible simulations.
 
 ## Frame and motion

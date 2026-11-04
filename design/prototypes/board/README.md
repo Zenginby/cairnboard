@@ -19,3 +19,7 @@ Cairn-specific filters, inline forms, move controls, metadata, state controls an
 ## Verification
 
 `npm test`: 684 passed, one skipped. `npm run design:lint`: no errors or warnings. The combined isolated browser harness passed 1178 checks at seven viewport widths plus simulated OS-reduced-motion cases, loading both supplied Inter subsets. It checked exact computed metrics, non-overlapping tabs/search, six palettes, all states, animated collapse, reduced-motion hover/press behavior, inline creation, 300-card count, priority reordering through filters, expansion of collapsed move destinations, focus/announcement behavior and a synthetic pointer drop. This does not certify production HTTP/CSP loading, screenshot equality or hardware drag performance. Source/CSP patterns, token references, syntax/bundling, shell parity and changed-folder boundaries were also checked. Changes remain uncommitted.
+
+## Priority
+
+The core accepts only `urgent`, `important` and `low`; an ordinary card has no priority field. The “Diğer” group, filter option and new-card default mean exactly that (empty value, field omitted); there is no `normal` value (`priorityOf` in `_shared/app-ui.js`).

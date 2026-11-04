@@ -17,8 +17,11 @@ export function button(text, action, className = 'button') {
   node.addEventListener('click', action);
   return node;
 }
-export const priorities = { urgent: 'Acil', important: 'Önemli', normal: 'Diğer', low: 'Düşük' };
-export function priorityChip(priority) {
+// The core accepts only urgent, important and low; an ordinary card simply has no priority field. The empty key is that
+// "Diğer" group, so a priority-less record reads as '' everywhere (see priorityOf).
+export const priorities = { urgent: 'Acil', important: 'Önemli', '': 'Diğer', low: 'Düşük' };
+export const priorityOf = (record) => record.priority || '';
+export function priorityChip(priority = '') {
   return el('span', `chip${['urgent', 'important'].includes(priority) ? ` chip--${priority}` : ''}`, priorities[priority]);
 }
 export function projectChip(project) {
@@ -36,6 +39,25 @@ export function metadata(record, data) {
   criteria.setAttribute('aria-label', `Kabul ölçütleri: ${progress}`);
   row.append(owner, criteria, el('span', 'counter', `${record.comments} yorum`));
   return row;
+}
+// The 404 card of the not-found screen, for a document page whose ?id= names nothing. Same copy and classes.
+export function notFoundCard() {
+  const page = el('div', 'status-page');
+  page.id = 'not-found';
+  const card = el('section', 'status-card');
+  card.setAttribute('aria-labelledby', 'not-found-title');
+  const number = el('p', 'status-number', '404');
+  number.setAttribute('aria-hidden', 'true');
+  const title = el('h1', 'status-title');
+  title.id = 'not-found-title';
+  title.append(el('span', 'sr-only', '404: '), 'Bu sayfa burada değil.');
+  const actions = el('div', 'row status-actions');
+  const home = el('a', 'button button--primary', 'Ana sayfaya dön');
+  home.href = '../home/';
+  actions.append(home, button('Ara', () => $('#search-open')?.click()));
+  card.append(number, title, el('p', 'status-text', 'Taşınmış, adı değişmiş ya da hiç olmamış olabilir. Ana sayfadan devam edebilirsin.'), actions);
+  page.append(card);
+  return page;
 }
 export function lockMessage() {
   const line = el('p', 'type-label muted lock-message');
@@ -95,7 +117,7 @@ export function setupUI(data, onCreate, openCard) {
     if (record.projectId) content.push(projectChip(data.projects.find((project) => project.id === record.projectId)));
     if (record.body) content.push(el('p', '', record.body));
     if (record.criteria) {
-      content.push(priorityChip(record.priority), metadata(record, data));
+      content.push(priorityChip(priorityOf(record)), metadata(record, data));
       const list = el('ul', 'criteria-list');
       record.criteria.forEach((criterion) => list.append(el('li', '', `${criterion.done ? '✓' : '○'} ${criterion.text}`)));
       content.push(list);
@@ -125,7 +147,7 @@ export function setupUI(data, onCreate, openCard) {
       option.value = value;
       priority.control.append(option);
     });
-    priority.control.value = 'normal';
+    priority.control.value = '';
     // A new note can be pinned right away; pinned notes show in the pinned rail and the Sabitlenenler lists.
     const pin = el('label', 'row type-label quick-pin');
     const pinBox = el('input');
@@ -144,7 +166,7 @@ export function setupUI(data, onCreate, openCard) {
           pinNote({ id: note.id, kind: 'note', title: note.title, projectId: note.projectId, updated: note.updated, body: note.body, project: owner && { name: owner.name, tone: owner.tone } });
         }
       }
-      else data.cards.unshift({ ...record, column, priority: priority.control.value, assigneeId: 'ada', criteria: [], comments: 0 });
+      else data.cards.unshift({ ...record, column, ...(priority.control.value ? { priority: priority.control.value } : {}), assigneeId: 'ada', criteria: [], comments: 0 });
       onCreate(kind);
       announce(kind === 'note' ? (pinBox.checked ? 'Not eklendi ve sabitlendi.' : 'Not eklendi.') : 'Kart eklendi.');
     }, instant, kind === 'note' ? 'Not ekle' : 'Kartı ekle');

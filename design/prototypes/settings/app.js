@@ -12,9 +12,9 @@ let saveTimer;
 const roles = { todo: 'Yapılacak', doing: 'Sürüyor', done: 'Bitti' };
 const root = document.documentElement;
 const copy = {
-  empty: ['Ayar dosyası yok', 'Bu çalışma alanında henüz config.yml yok. Varsayılanlarla başlayıp istediğini değiştirebilirsin.', 'Varsayılanları oluştur'],
-  loading: ['Ayarlar yükleniyor', 'config.yml okunuyor.'],
-  error: ['Ayarlar okunamadı', 'config.yml açılamadı ya da bozuk. Dosyayı denetleyip yeniden dene.'],
+  empty: ['Ayar dosyası yok', 'Bu çalışma alanında henüz .cairn/config.json yok. Varsayılanlarla başlayıp istediğini değiştirebilirsin.', 'Varsayılanları oluştur'],
+  loading: ['Ayarlar yükleniyor', '.cairn/config.json okunuyor.'],
+  error: ['Ayarlar okunamadı', '.cairn/config.json açılamadı ya da bozuk. Dosyayı denetleyip yeniden dene.'],
 };
 const easing = (name) => getComputedStyle(root).getPropertyValue(name).trim();
 const locked = () => state === 'locked';
@@ -23,7 +23,7 @@ function saved(message = 'Kaydedildi') {
   const status = $('#save-state');
   status.textContent = 'Kaydediliyor…';
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { status.textContent = `${message} · config.yml`; }, tokenTime('--motion-duration-slow'));
+  saveTimer = setTimeout(() => { status.textContent = `${message} · .cairn/config.json`; }, tokenTime('--motion-duration-slow'));
 }
 function section(title, description, className = '') {
   const node = el('section', `box panel settings-box ${className}`);
@@ -111,31 +111,30 @@ function dataFolder() {
   control.classList.add('path-input');
   const hint = el('p', 'settings-hint');
   hint.id = 'path-hint';
-  hint.append('Değiştirmek için ', el('code', '', 'cairn init'), ' komutunu yeni klasörde çalıştır.');
+  hint.append('Değiştirmek için terminalde ', el('code', '', 'cairn init <yeni-klasör> --set-default'), ' komutunu çalıştır; yeni klasör varsayılan olur.');
   control.setAttribute('aria-describedby', hint.id);
   node.append(wrapper, hint);
   return node;
 }
-function claim() {
+function lease() {
   const node = section('Sahiplenme süresi', 'Bir ajan ya da kişi kartı üstlendiğinde kart bu süre boyunca kilitli kalır; ses gelmezse kilit kendiliğinden kalkar.');
   const { wrapper, control } = field('Süre (dakika)');
   control.type = 'number';
-  control.min = '5';
-  control.max = '240';
-  control.step = '5';
+  control.min = '1';
+  control.step = '1';
   control.inputMode = 'numeric';
-  control.value = String(page.claimMinutes);
+  control.value = String(page.leaseMinutes);
   control.classList.add('minutes-input');
   const error = el('p', 'field-error type-label');
-  error.id = 'claim-error';
+  error.id = 'lease-error';
   error.hidden = true;
   control.addEventListener('change', () => {
     const value = Number(control.value);
-    const valid = Number.isInteger(value) && value >= 5 && value <= 240;
+    const valid = Number.isInteger(value) && value > 0;
     error.hidden = valid;
-    error.textContent = valid ? '' : '5 ile 240 dakika arasında bir sayı yaz.';
+    error.textContent = valid ? '' : '1 ya da daha büyük bir tam sayı yaz.';
     control.setAttribute('aria-invalid', String(!valid));
-    if (valid) { control.removeAttribute('aria-describedby'); page.claimMinutes = value; saved(); ui.announce(`Sahiplenme süresi ${value} dakika.`); } else control.setAttribute('aria-describedby', error.id);
+    if (valid) { control.removeAttribute('aria-describedby'); page.leaseMinutes = value; saved(); ui.announce(`Sahiplenme süresi ${value} dakika.`); } else control.setAttribute('aria-describedby', error.id);
   });
   wrapper.append(error);
   node.append(wrapper);
@@ -162,7 +161,7 @@ function agents() {
 // Board columns: rename, role, reorder (up and down buttons), add, remove with confirmation.
 function columnRow(column, index, total) {
   const item = el('li', 'column-row');
-  item.dataset.id = column.id;
+  item.dataset.key = column.key;
   const number = el('span', 'column-number counter', String(index + 1));
   number.setAttribute('aria-hidden', 'true');
   const name = el('input', 'input column-name');
@@ -220,11 +219,11 @@ function renderColumns() {
 }
 function flip(mutate) {
   const rows = [...document.querySelectorAll('.column-row')];
-  const first = new Map(rows.map((row) => [row.dataset.id, row.getBoundingClientRect().top]));
+  const first = new Map(rows.map((row) => [row.dataset.key, row.getBoundingClientRect().top]));
   mutate();
   if (lessMotion()) return;
   document.querySelectorAll('.column-row').forEach((row) => {
-    const before = first.get(row.dataset.id);
+    const before = first.get(row.dataset.key);
     if (before === undefined) return;
     const delta = before - row.getBoundingClientRect().top;
     if (delta) row.animate([{ transform: `translateY(${delta}px)` }, { transform: 'none' }], { duration: tokenTime('--motion-duration-fast'), easing: easing('--motion-ease-settle') });
@@ -239,7 +238,7 @@ function moveColumn(column, offset, direction) {
     page.columns.splice(to, 0, column);
     renderColumns();
   });
-  const row = document.querySelector(`.column-row[data-id="${column.id}"]`);
+  const row = document.querySelector(`.column-row[data-key="${column.key}"]`);
   (row.querySelector(`[data-dir="${direction}"]:not(:disabled)`) || row.querySelector('[data-dir]:not(:disabled)'))?.focus();
   saved();
   ui.announce(`${column.label} ${to + 1}. sıraya taşındı.`);
@@ -247,23 +246,23 @@ function moveColumn(column, offset, direction) {
 function removeColumn(column, instant) {
   const index = page.columns.indexOf(column);
   const target = page.columns[index === 0 ? 1 : index - 1];
-  const cards = data.cards.filter((card) => card.column === column.id).length;
+  const cards = data.cards.filter((card) => card.column === column.key).length;
   const select = field('Kartları şuraya taşı', 'select');
   page.columns.filter((other) => other !== column).forEach((other) => {
     const option = el('option', '', other.label);
-    option.value = other.id;
+    option.value = other.key;
     select.control.append(option);
   });
-  select.control.value = target.id;
+  select.control.value = target.key;
   const body = [el('p', '', cards ? `“${column.label}” sütununda ${cards} kart var. Kartlar silinmez, seçtiğin sütuna taşınır.` : `“${column.label}” sütunu boş. Kaldırınca panodan çıkar.`)];
   if (cards) body.push(select.wrapper);
   ui.open('Sütunu kaldır', body, () => {
-    const destination = page.columns.find((other) => other.id === select.control.value) || target;
-    data.cards.forEach((card) => { if (card.column === column.id) card.column = destination.id; });
-    const row = document.querySelector(`.column-row[data-id="${column.id}"]`);
+    const destination = page.columns.find((other) => other.key === select.control.value) || target;
+    data.cards.forEach((card) => { if (card.column === column.key) card.column = destination.key; });
+    const row = document.querySelector(`.column-row[data-key="${column.key}"]`);
     const commit = () => {
       flip(() => { page.columns.splice(page.columns.indexOf(column), 1); renderColumns(); });
-      const next = document.querySelector(`.column-row[data-id="${page.columns[Math.min(index, page.columns.length - 1)].id}"] .column-name`);
+      const next = document.querySelector(`.column-row[data-key="${page.columns[Math.min(index, page.columns.length - 1)].key}"] .column-name`);
       next?.focus();
       saved();
       ui.announce(cards ? `${column.label} kaldırıldı; ${cards} kart ${destination.label} sütununa taşındı.` : `${column.label} kaldırıldı.`);
@@ -276,14 +275,14 @@ function removeColumn(column, instant) {
   $('#editor').addEventListener('close', () => { $('#editor-save').classList.add('button--primary'); $('#editor-save').classList.remove('button--danger'); }, { once: true });
 }
 function addColumn() {
-  const id = `column-${crypto.randomUUID().slice(0, 6)}`;
+  const key = `column-${crypto.randomUUID().slice(0, 6)}`;
   let label = 'Yeni sütun';
   for (let index = 2; page.columns.some((column) => column.label === label); index++) label = `Yeni sütun ${index}`;
   const doneIndex = page.columns.findIndex((column) => column.role === 'done');
-  const column = { id, label, role: 'doing' };
+  const column = { key, label, role: 'doing' };
   page.columns.splice(doneIndex === -1 ? page.columns.length : doneIndex, 0, column);
   flip(renderColumns);
-  const row = document.querySelector(`.column-row[data-id="${id}"]`);
+  const row = document.querySelector(`.column-row[data-key="${key}"]`);
   row.animate(lessMotion() ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(var(--motion-distance-base))' }, { opacity: 1, transform: 'none' }], { duration: tokenTime('--motion-duration-fast'), easing: easing('--motion-ease-spring') });
   const input = row.querySelector('.column-name');
   input.focus();
@@ -316,7 +315,7 @@ function boardColumns() {
 }
 function render() {
   sequence = 0;
-  $('#settings').replaceChildren(appearance(), dataFolder(), claim(), boardColumns(), agents());
+  $('#settings').replaceChildren(appearance(), dataFolder(), lease(), boardColumns(), agents());
   renderColumns();
   initSwitch();
 }
@@ -331,7 +330,7 @@ function syncAppearance() {
 function setState(value) {
   state = value;
   $('#prototype-state').value = value;
-  renderState(value, () => setState('full'), () => { setState('full'); $('#save-state').textContent = 'Varsayılanlar oluşturuldu · config.yml'; }, copy);
+  renderState(value, () => setState('full'), () => { setState('full'); $('#save-state').textContent = 'Varsayılanlar oluşturuldu · .cairn/config.json'; }, copy);
   if (!['empty', 'loading', 'error'].includes(value)) render();
   $('#save-state').hidden = ['empty', 'loading', 'error'].includes(value);
   $('#save-state').textContent = 'Tüm değişiklikler kaydedildi';
@@ -348,13 +347,13 @@ async function start() {
     ui = setupUI(data, () => {}, (instant) => ui.create('card', instant));
     $('#reload').addEventListener('click', () => {
       page = structuredClone(fixture);
-      page.columns.splice(3, 0, { id: 'test', label: 'Test', role: 'doing' });
-      page.claimMinutes = 45;
+      page.columns.splice(3, 0, { key: 'test', label: 'Test', role: 'doing' });
+      page.leaseMinutes = 45;
       setState('full');
       $('#main').focus();
       ui.announce('Güncel ayarlar yüklendi: Test sütunu eklendi, sahiplenme süresi 45 dakika.');
     });
-    $('#conflict-diff').addEventListener('click', (event) => ui.open('Dosyadaki fark', [el('p', 'muted', 'config.yml · dışarıdaki değişiklik'), el('p', 'type-code', '+ - { id: test, label: Test, role: doing }'), el('p', 'type-code', '− claimMinutes: 30'), el('p', 'type-code', '+ claimMinutes: 45'), el('p', '', 'Yeniden yükle, dışarıdaki sürümü bu oturumda uygular.')], null, event.detail === 0));
+    $('#conflict-diff').addEventListener('click', (event) => ui.open('Dosyadaki fark', [el('p', 'muted', '.cairn/config.json · dışarıdaki değişiklik'), el('p', 'type-code', '+ { "key": "test", "label": "Test", "role": "doing" }'), el('p', 'type-code', '− "leaseMinutes": 30'), el('p', 'type-code', '+ "leaseMinutes": 45'), el('p', '', 'Yeniden yükle, dışarıdaki sürümü bu oturumda uygular.')], null, event.detail === 0));
     $('#prototype-state').addEventListener('change', (event) => { page = structuredClone(fixture); setState(event.target.value); });
     setState('full');
   } catch {

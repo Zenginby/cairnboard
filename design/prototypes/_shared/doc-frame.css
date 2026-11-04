@@ -153,6 +153,12 @@ a.document-title { display: inline-block; color: var(--color-text); text-decorat
 a.document-title::after { content: '→'; display: inline-block; margin-inline-start: var(--space-sm); color: var(--color-text-3); opacity: 0; transform: translateX(calc(-1 * var(--space-xs))); transition: opacity var(--motion-duration-quick) var(--motion-ease-out), transform var(--motion-duration-quick) var(--motion-ease-out); }
 @media (hover: hover) and (pointer: fine) { a.document-title:hover::after { opacity: 1; transform: none; } }
 a.document-title:focus-visible::after { opacity: 1; transform: none; }
+/* The arrow only fades in with reduced motion; it does not slide. */
+:root[data-motion="less"] a.document-title { transition: none; }
+:root[data-motion="less"] a.document-title::after { transform: none; transition-property: opacity; }
+@media (prefers-reduced-motion: reduce) { a.document-title { transition: none; } a.document-title::after { transform: none; transition-property: opacity; } }
+/* A wiki link that points at no file: muted with a dashed underline, never a link to search. */
+.wiki-ghost { color: var(--color-text-3); text-decoration: underline dashed var(--color-line-strong); text-decoration-thickness: var(--space-hairline); text-underline-offset: var(--space-xs); cursor: help; }
 .document-meta { margin-block: calc(var(--space-md) * .4); font-size: var(--font-small-size); color: var(--color-text-3); gap: calc(var(--space-md) * .65); }
 .document-badge { border: var(--space-hairline) solid var(--color-line); border-radius: var(--radius-full); padding: calc(var(--space-md) * .15) calc(var(--space-md) * .65); font-size: var(--font-caption-size); color: var(--color-text-2); }
 .document-rows p { margin: 0; color: var(--color-text-2); }
