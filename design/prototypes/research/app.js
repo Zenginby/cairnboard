@@ -1,6 +1,9 @@
 import { startDocument, noteGroups, documentList } from '../_shared/doc-frame.js';
 
 startDocument({
+  firstStep(ctx) { ctx.setState('full'); },
+  emptyLabel: 'Araştırmalara dön',
+  emptyMessage: 'Henüz araştırma belgesi yok. Örnek belgelere dönebilirsiniz.',
   sidebar: (ctx) => ({ groups: noteGroups(ctx, true) }),
   prepare(ctx) {
     const types = ['İnceleme', 'Deney', 'Kaynak'];

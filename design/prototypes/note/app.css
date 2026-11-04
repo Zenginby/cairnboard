@@ -1,2 +1,2 @@
-.workspace { --workspace-max: calc(var(--space-md) * 82); }
+.workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--doc-toc-width) + var(--space-xl) * 2 + var(--space-md) * 2); }
 .note-meta { margin-bottom: var(--space-md); }

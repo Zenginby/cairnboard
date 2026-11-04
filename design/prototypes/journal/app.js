@@ -22,10 +22,11 @@ function addToday(ctx) {
 startDocument({
   firstStep: addToday,
   emptyLabel: 'Bugüne ekle',
+  emptyMessage: 'Henüz günlük kaydı yok. Bugünden kısa bir not bırakın.',
   reset() { selected = ''; },
   reload(ctx) { ctx.data.journal[0].body += ' Birlikte yeniden gözden geçirilecek.'; },
   sidebar(ctx) {
-    const dates = [...new Set(ctx.data.journal.map((entry) => entry.date))].sort().reverse();
+    const dates = [...new Set([...ctx.data.dashboard.journalDays, ...ctx.data.journal.map((entry) => entry.date)])].sort().reverse();
     return { groups: [...new Set(dates.map((value) => value.slice(0, 7)))].map((value) => ({ title: new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(new Date(`${value}-01T12:00:00`)), entries: [{ title: 'Ay görünümü', href: `../journal/?month=${value}`, current: dateKey(1).startsWith(value) }, ...dates.filter((date) => date.startsWith(value)).map((date) => ({ title: date, href: `../journal-day/?date=${date}` }))] })) };
   },
   prepare(ctx) {

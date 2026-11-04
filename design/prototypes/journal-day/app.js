@@ -1,7 +1,7 @@
 import { startDocument, section, el, field, link, projectChip } from '../_shared/doc-frame.js';
 
 const requested = new URLSearchParams(location.search).get('date');
-const validDate = /^\d{4}-\d{2}-\d{2}$/.test(requested || '') && Number.isFinite(new Date(`${requested}T12:00:00`).getTime());
+const validDate = /^\d{4}-\d{2}-\d{2}$/.test(requested || '') && Number.isFinite(new Date(`${requested}T12:00:00`).getTime()) && new Date(`${requested}T12:00:00`).getDate() === Number(requested.slice(8));
 const date = validDate ? requested : '2026-11-03';
 const dateValue = new Date(`${date}T12:00:00`);
 const title = (value) => {
@@ -15,9 +15,10 @@ startDocument({
   markdown: bodyFor,
   firstStep(ctx) { ctx.setState('full'); ctx.focus('#journal-input'); },
   emptyLabel: 'Bugüne ekle',
+  emptyMessage: 'Bu gün için henüz kayıt yok. Bugüne kısa bir not ekleyin.',
   reload(ctx) { if (records(ctx)[0]) records(ctx)[0].body += ' Birlikte yeniden gözden geçirilecek.'; },
   sidebar(ctx) {
-    const dates = [...new Set([...ctx.data.journal.map((entry) => entry.date), date])].sort().reverse();
+    const dates = [...new Set([...ctx.data.dashboard.journalDays, ...ctx.data.journal.map((entry) => entry.date), date])].sort().reverse();
     return { groups: [{ title: 'Günlük', entries: [{ title: 'Ay görünümü', href: `../journal/?month=${date.slice(0, 7)}` }] }, ...[...new Set(dates.map((date) => date.slice(0, 7)))].map((month) => ({ title: new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(new Date(`${month}-01T12:00:00`)), entries: dates.filter((day) => day.startsWith(month)).map((day) => ({ title: day, href: `../journal-day/?date=${day}`, current: date === day })) }))] };
   },
   render(ctx) {

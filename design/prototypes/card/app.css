@@ -1,4 +1,4 @@
-.workspace { --workspace-max: calc(var(--space-md) * 82); }
+.workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--doc-toc-width) + var(--space-xl) * 2 + var(--space-md) * 2); }
 .card-badges { margin-block: var(--space-xs) var(--space-md); gap: calc(var(--space-md) * .4); }
 .card-badges .chip { padding: calc(var(--space-md) * .15) calc(var(--space-md) * .65); border: var(--space-hairline) solid var(--color-line); font-size: var(--font-caption-size); }
 .criteria-progress { width: 100%; height: var(--space-sm); accent-color: var(--color-done); border: 0; border-radius: var(--radius-full); overflow: hidden; background: var(--color-surface-inset); }

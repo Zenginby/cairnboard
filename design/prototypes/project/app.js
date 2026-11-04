@@ -4,6 +4,9 @@ const requested = new URLSearchParams(location.search).get('project');
 let deleted = false;
 const selected = (ctx) => ctx.data.projects.find((project) => project.id === requested) || ctx.data.projects[0];
 startDocument({
+  firstStep(ctx) { ctx.setState('full'); },
+  emptyLabel: 'Projeye dön',
+  emptyMessage: 'Henüz proje içeriği yok. Örnek projeye dönebilirsiniz.',
   record: selected,
   reset() { deleted = false; },
   reload(ctx) { ctx.record.description = 'Dışarıda güncellenen proje açıklaması. Küçük adımlar birlikte gözden geçirilecek.'; },

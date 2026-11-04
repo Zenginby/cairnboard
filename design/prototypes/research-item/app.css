@@ -1,4 +1,4 @@
-.workspace { --workspace-max: calc(var(--space-md) * 82); }
+.workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--doc-toc-width) + var(--space-xl) * 2 + var(--space-md) * 2); }
 .research-source { margin-block: var(--space-md); padding: var(--space-md) calc(var(--space-md) * 1.1); border-inline-start: var(--space-2xs) solid var(--color-tone-2); background: var(--color-surface-inset); border-radius: var(--radius-sm); font-size: var(--font-small-size); }
 .research-source > * + * { margin-top: var(--space-sm); }
 .research-source dt { color: var(--color-text-3); font-size: var(--font-label-size); }

@@ -14,7 +14,7 @@ startDocument({
   markdown: bodyFor,
   reset(ctx, value) { editing = value === 'conflict'; deleted = false; },
   reload(ctx) { ctx.record.markdown = `${bodyFor(ctx)}\n\nDışarıda eklenen not: Birlikte yeniden gözden geçir.`; editing = false; },
-  firstStep: startEdit,
+  firstStep(ctx) { ctx.setState('full'); startEdit(ctx); },
   emptyLabel: 'İlk notu yaz',
   render(ctx) {
     const record = ctx.record;
@@ -28,8 +28,8 @@ startDocument({
     });
     pin.id = 'note-pin'; edit.id = 'note-edit';
     const remove = button('Sil', () => ctx.confirm('Notu çöp kutusuna taşı', 'Bu not çöp kutusuna taşınacak. İşlemi geri alabilirsiniz.', () => {
-      deleted = true; editing = false; ctx.refresh(); ctx.focus();
-      ctx.toast('Not çöp kutusuna taşındı.', () => { deleted = false; ctx.refresh(); });
+      deleted = true; record.trashed = true; editing = false; ctx.refresh(); ctx.focus();
+      ctx.toast('Not çöp kutusuna taşındı.', () => { deleted = false; record.trashed = false; ctx.refresh(); });
     }, 'Çöp kutusuna taşı'), 'button button--danger');
     [edit, pin, remove].forEach((node) => { node.disabled = ctx.state === 'locked'; });
     toolbar.append(edit, pin, remove);

@@ -3,6 +3,9 @@ import { startDocument, noteGroups, renderMarkdown, references, section, el, pro
 const id = new URLSearchParams(location.search).get('id') || 'research-1';
 const bodyFor = (ctx) => `${ctx.record.body}\n\n${ctx.data.findings}`;
 startDocument({
+  firstStep(ctx) { ctx.setState('full'); },
+  emptyLabel: 'Araştırmaya dön',
+  emptyMessage: 'Bu araştırma belgesinde henüz içerik yok.',
   record: (ctx) => ctx.data.notes.find((record) => record.id === id && record.kind === 'research') || ctx.data.notes.find((record) => record.kind === 'research'),
   sidebar: (ctx) => ({ groups: noteGroups(ctx, true) }),
   markdown: bodyFor,

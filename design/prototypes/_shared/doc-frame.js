@@ -99,7 +99,7 @@ export function renderMarkdown(text, notes = []) {
   return root;
 }
 export function noteGroups(ctx, research = false) {
-  const notes = ctx.data.notes.filter((record) => research ? record.kind === 'research' : record.kind !== 'research');
+  const notes = ctx.data.notes.filter((record) => !record.trashed && (research ? record.kind === 'research' : record.kind !== 'research'));
   const entries = (records) => records.map((record) => ({ title: ctx.text(record.title), href: recordHref(record), current: record.id === ctx.record?.id }));
   return [
     { title: research ? 'Araştırmalar' : 'Sabitlenenler', entries: [{ title: research ? 'Bütün araştırmalar' : 'Bütün notlar', href: `../${research ? 'research' : 'notes'}/`, current: !ctx.record }, ...entries(research ? notes : notes.filter((record) => record.pinned))] },
@@ -223,7 +223,6 @@ export function startDocument(options) {
   const data = { cards: [], notes: [], people: [], projects: [] };
   let state = 'loading';
   let fixtures;
-  let sequence = 0;
   let headings = [];
   let scrollFrame;
   let initialized = false;
@@ -246,7 +245,7 @@ export function startDocument(options) {
       const row = el('div', `doc-title-row${cover ? ' project-cover' : ''}`);
       const heading = el('h1', '', ctx.text(title)); heading.id = 'doc-title';
       const actions = el('div', 'doc-raw-actions');
-      const raw = () => ctx.ui.open('Ham Markdown', [el('pre', 'doc-raw type-code', markdown())], null, true);
+      const raw = (event) => ctx.ui.open('Ham Markdown', [el('pre', 'doc-raw type-code', markdown())], null, event.detail === 0);
       const copy = button("Markdown'ı kopyala", async () => {
         try { await navigator.clipboard.writeText(markdown()); copy.textContent = 'Kopyalandı'; ctx.toast('Markdown kopyalandı.'); }
         catch { const area = field('Kopyalanacak Markdown', 'textarea'); area.control.value = markdown(); area.control.readOnly = true; ctx.ui.open('Markdown’ı seçip kopyalayın', [area.wrapper], null, true); area.control.select(); }
@@ -256,7 +255,7 @@ export function startDocument(options) {
       const info = el('p', 'doc-source');
       info.append('Kaynak: ', el('code', '', source), ' · değişti: 3 Kasım 2026 · ');
       const open = link('Kaynakta aç', '#');
-      open.addEventListener('click', (event) => { event.preventDefault(); raw(); });
+      open.addEventListener('click', (event) => { event.preventDefault(); raw(event); });
       info.append(open); header.replaceChildren(row, info);
     },
     toast: (text, undo) => {
@@ -271,7 +270,7 @@ export function startDocument(options) {
     updateTOC: () => updateTOC()
   };
   ctx.ui = setupUI(data, (kind) => { setState('full'); options.created?.(ctx, kind); }, (instant) => ctx.ui.create('card', instant));
-  const mobile = matchMedia('(max-width: 50rem)');
+  const mobile = matchMedia('(width < 50rem)');
   const toggle = $('#sidebar-toggle');
   const setSidebar = (open, restore = false) => {
     const sidebar = $('#doc-sidebar');
@@ -284,6 +283,14 @@ export function startDocument(options) {
   mobile.addEventListener('change', () => { const focused = $('#doc-sidebar').contains(document.activeElement); setSidebar(false, focused && mobile.matches); });
   $('#doc-sidebar').addEventListener('keydown', (event) => { if (event.key === 'Escape' && mobile.matches) setSidebar(false, true); });
   setSidebar(false);
+  // The shared shortcuts stay available for search, but cannot bypass document locks.
+  document.addEventListener('keydown', (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.target.closest('input, textarea, select, [contenteditable="true"]') || !['n', 'c'].includes(event.key.toLowerCase())) return;
+    if (!fixtures || ['locked', 'conflict'].includes(state)) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (fixtures) ctx.canWrite();
+    }
+  }, true);
   function spy() {
     scrollFrame = null;
     const headerHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-height'));
@@ -296,8 +303,16 @@ export function startDocument(options) {
     headings = [...ctx.body.querySelectorAll('.markdown h2, .markdown h3, .doc-section > h2')].filter((heading) => !heading.closest('.doc-editor'));
     const toc = $('#doc-toc'); toc.hidden = !headings.length;
     const list = el('ul');
+    const ids = new Set([...document.querySelectorAll('[id]')].map((node) => node.id));
     headings.forEach((heading) => {
-      if (!heading.id) heading.id = `section-${++sequence}`;
+      if (!heading.id) {
+        const slug = heading.textContent.toLocaleLowerCase('tr').normalize('NFD').replace(/\p{M}/gu, '').replace(/ı/g, 'i').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'heading';
+        const base = `section-${slug}`;
+        let id = base;
+        let suffix = 2;
+        while (ids.has(id)) id = `${base}-${suffix++}`;
+        heading.id = id; ids.add(id);
+      }
       heading.tabIndex = -1;
       const item = el('li'); item.dataset.level = heading.tagName.slice(1);
       const anchor = link(heading.textContent, `#${heading.id}`);
@@ -319,7 +334,7 @@ export function startDocument(options) {
     state = value; $('#prototype-state').value = value;
     renderState(value, () => setState('full'), () => options.firstStep ? options.firstStep(ctx) : ctx.ui.create('note'));
     if (value === 'empty') {
-      $('#state-content p')?.replaceChildren('Henüz kayıt yok. İlk notunuzu ekleyerek başlayın.');
+      $('#state-content p')?.replaceChildren(options.emptyMessage || 'Henüz kayıt yok. İlk notunuzu ekleyerek başlayın.');
       const first = $('#state-content button'); if (first) first.textContent = options.emptyLabel || 'Not ekle';
     }
     render();
@@ -330,7 +345,7 @@ export function startDocument(options) {
   });
   $('#diff-open').addEventListener('click', (event) => {
     event.stopImmediatePropagation();
-    const current = options.markdown?.(ctx) || ctx.record?.body || '';
+    const current = $('.doc-editor textarea')?.value ?? options.markdown?.(ctx) ?? ctx.record?.body ?? '';
     ctx.ui.open('Dosyadaki fark', [el('p', 'muted', 'Bu oturumdaki sürüm'), el('pre', 'doc-raw type-code', current), el('p', 'muted', 'Dışarıdaki sürüm'), el('pre', 'doc-raw type-code', `${current}\n\nDışarıda eklenen not: Birlikte yeniden gözden geçir.`), el('p', '', 'Yeniden yükle dışarıdaki örnek sürümü uygular; bu oturumdaki taslak kapanır.')], null, event.detail === 0);
   }, true);
   $('#reload').addEventListener('click', () => {

@@ -1,4 +1,4 @@
-.workspace { --workspace-max: calc(var(--space-md) * 82); }
+.workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--doc-toc-width) + var(--space-xl) * 2 + var(--space-md) * 2); }
 .journal-entry-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-block: var(--space-sm); font-size: var(--font-label-size); color: var(--color-text-3); }
 .journal-entry ul { padding-inline-start: calc(var(--space-md) * 1.5); }
 .journal-pagination { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }

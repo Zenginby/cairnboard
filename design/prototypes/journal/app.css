@@ -1,4 +1,4 @@
-.workspace { --workspace-max: calc(var(--space-md) * 76); }
+.workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--space-xl) + var(--space-md) * 2); }
 .calendar { margin-block: var(--space-md); }
 .calendar-navigation { display: flex; align-items: center; gap: var(--space-12); }
 .calendar-month { min-width: 10ch; text-align: center; font-size: var(--font-project-title-size); font-weight: var(--font-page-title-weight); letter-spacing: var(--font-display-letter-spacing); }
@@ -29,7 +29,7 @@ button.calendar-day:active { transform: scale(var(--motion-scale-enter)); }
 @media (pointer: coarse) { button.calendar-day, .calendar-arrow { min-height: calc(var(--space-xl) + var(--space-xs)); } }
 [data-motion="less"] .calendar-panel { transition: none; }
 [data-motion="less"] .calendar-panel-inner { filter: none; transition: opacity var(--motion-duration-quick) var(--motion-ease-out); }
-[data-motion="less"] .calendar-day { transform: none; transition-property: opacity; }
+[data-motion="less"] :is(.calendar-day, button.calendar-day:hover, button.calendar-day:active) { transform: none; transition-property: opacity; }
 @media (prefers-reduced-motion: reduce) {
   .calendar-panel { transition: none; }
   .calendar-panel-inner { filter: none; transition: opacity var(--motion-duration-quick) var(--motion-ease-out); }
