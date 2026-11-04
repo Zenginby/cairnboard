@@ -6,10 +6,11 @@ body { background: var(--color-surface); }
 .doc-sidebar { position: sticky; top: var(--header-height); height: calc(100dvh - var(--header-height)); overflow-y: auto; overscroll-behavior: contain; min-width: 0; padding: var(--space-lg) var(--space-md); background: var(--color-canvas); }
 .doc-sidebar ul { list-style: none; margin: 0; padding: 0; }
 .doc-sidebar li + li { margin-top: var(--space-2xs); }
-.doc-sidebar a { display: block; padding: var(--space-sm) var(--space-10); border-radius: var(--space-10); color: var(--color-text-2); font-size: var(--font-ui-size); text-decoration: none; overflow-wrap: anywhere; }
+/* A wrapped title keeps its lines tight, so the gap between two entries is always larger than the gap inside one. */
+.doc-sidebar a { display: block; padding: var(--space-sm) var(--space-10); border-radius: var(--space-10); color: var(--color-text-2); font-size: var(--font-ui-size); line-height: var(--font-small-line-height); text-decoration: none; overflow-wrap: anywhere; text-wrap: pretty; transition: color var(--motion-duration-quick) var(--motion-ease-out), background-color var(--motion-duration-quick) var(--motion-ease-out); }
 .doc-sidebar a:hover { background: var(--color-pill-bg); color: var(--color-text); }
 .doc-sidebar a[aria-current="page"] { color: var(--color-text); font-weight: var(--font-title-weight); background: var(--color-surface); box-shadow: var(--shadow-box); }
-.sidebar-group + .sidebar-group { margin-top: var(--space-md); }
+.sidebar-group + .sidebar-group { margin-top: var(--space-lg); }
 .sidebar-group-toggle { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); width: 100%; min-height: calc(var(--space-md) * 2); padding: var(--space-xs) var(--space-10); border: 0; background: none; color: var(--color-text-3); text-align: start; cursor: pointer; font-size: var(--font-caption-size); font-weight: var(--font-title-weight); letter-spacing: calc(var(--font-page-title-letter-spacing) * -2); text-transform: uppercase; }
 .sidebar-chevron { flex: none; transition: transform var(--motion-duration-fast) var(--motion-ease-smooth-out); }
 .sidebar-group[data-open="true"] .sidebar-chevron { transform: rotate(.5turn); }

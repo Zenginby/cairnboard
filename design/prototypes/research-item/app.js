@@ -15,8 +15,12 @@ startDocument({
     const meta = el('div', 'row research-meta type-label muted');
     meta.append(projectChip(ctx.data.projects.find((project) => project.id === record.projectId)), el('span', 'document-badge', 'İnceleme'), el('time', '', record.updated));
     const source = el('aside', 'research-source'); source.setAttribute('aria-label', 'Araştırma kaynağı');
-    const list = el('dl'); const label = el('dt', '', 'Kaynak'); const detail = el('dd', '', 'Yerel örnek notlar · Ada ve Deniz’in gözlemleri'); list.append(label, detail, el('dt', '', 'Yöntem'), el('dd', '', 'Üç notla küçük bir kullanım denemesi · 3 Kasım 2026'));
-    source.append(list, el('p', '', 'Bu belge kurgusal bir çalışma kaydıdır. Bulgular daha geniş bir örnekle doğrulanacak.'));
+    const list = el('dl');
+    // Each fact: the main line at full strength, its detail (who, when) quieter underneath.
+    const fact = (term, main, detail) => { const dd = el('dd', '', main); dd.append(el('span', 'research-source-detail', detail)); list.append(el('dt', '', term), dd); };
+    fact('Kaynak', 'Yerel notlar', 'Ada ve Deniz’in gözlemleri');
+    fact('Yöntem', 'Üç notla kısa bir kullanım denemesi', '3 Kasım 2026');
+    source.append(list, el('p', 'research-source-note', 'Kurgusal bir kayıt; bulgular daha geniş bir örnekle sınanacak.'));
     const links = section('Bağlantılar', 'links');
     links.append(references([{ kind: 'Not', title: 'İlk fikirler', detail: 'Kararın bağlamı', href: '../note/?id=note-1' }, { kind: 'Günlük', title: '3 Kasım 2026', detail: 'Deneyin çalışma kaydı', href: '../journal-day/?date=2026-11-03' }, { kind: 'Proje', title: ctx.data.projects.find((project) => project.id === record.projectId).name, detail: 'Projenin genel görünümü', href: `../project/?project=${record.projectId}` }]));
     ctx.body.replaceChildren(meta, source, renderMarkdown(bodyFor(ctx), ctx.data.notes), links);

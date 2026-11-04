@@ -1,6 +1,11 @@
 .workspace { --workspace-max: calc(var(--doc-content-width) + var(--doc-sidebar-width) + var(--doc-toc-width) + var(--space-xl) * 2 + var(--space-md) * 2); }
-.research-source { margin-block: var(--space-md); padding: var(--space-md) calc(var(--space-md) * 1.1); border-inline-start: var(--space-2xs) solid var(--color-tone-2); background: var(--color-surface-inset); border-radius: var(--radius-sm); font-size: var(--font-small-size); }
-.research-source > * + * { margin-top: var(--space-sm); }
-.research-source dt { color: var(--color-text-3); font-size: var(--font-label-size); }
-.research-source dd { margin: 0; overflow-wrap: anywhere; }
 .research-meta { margin-bottom: var(--space-md); }
+/* Provenance reads like the back of an index card: labels in a quiet column, the facts beside them at full strength,
+   and the caveat set apart below a hairline. No coloured stripe; the facts carry the weight. */
+.research-source { margin-block: var(--space-lg); padding-block: var(--space-md); border-block: var(--space-hairline) solid var(--color-line); }
+.research-source dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-sm) var(--space-lg); margin: 0; }
+.research-source dt { color: var(--color-text-3); font-size: var(--font-label-size); font-weight: var(--font-title-weight); letter-spacing: calc(var(--font-page-title-letter-spacing) * -2); text-transform: uppercase; padding-top: var(--space-2xs); }
+.research-source dd { margin: 0; color: var(--color-text); font-size: var(--font-small-size); font-weight: var(--font-ui-weight); overflow-wrap: anywhere; }
+.research-source dd .research-source-detail { display: block; color: var(--color-text-3); font-weight: var(--font-body-weight); font-variant-numeric: tabular-nums; }
+.research-source-note { margin: var(--space-md) 0 0; color: var(--color-text-3); font-size: var(--font-label-size); font-style: italic; }
+@media (width < 30rem) { .research-source dl { grid-template-columns: minmax(0, 1fr); gap: var(--space-2xs); } .research-source dd + dt { margin-top: var(--space-sm); } }
