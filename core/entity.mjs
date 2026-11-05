@@ -91,22 +91,25 @@ function fromText(ctx, type, path, text) {
 export function resolve(ctx, type, ref) {
   if (typeof ref !== 'string') throw missing();
   ensureFresh(ctx);
-  let path;
+  let path, file;
   if (ref.startsWith('@')) path = refPath(ref);
   else {
     const id = normalizeId(ref);
     if (!id) throw missing();
     path = findById(ctx, id).find((path) => {
-      const file = readFile(ctx, path);
-      return file && classify(ctx.schema, path, parseFile(file.text).data).entity === type;
+      const candidate = readFile(ctx, path);
+      if (!candidate || classify(ctx.schema, path, parseFile(candidate.text).data).entity !== type) return false;
+      file = candidate;
+      return true;
     });
   }
   if (!path) throw missing();
-  const file = readFile(ctx, path);
+  file ??= readFile(ctx, path);
   if (!file) throw missing();
   return fromText(ctx, type, path, file.text);
 }
 
+// Omitting type returns all entity summaries from one index snapshot.
 export function list(ctx, type, filters = {}) {
   ensureFresh(ctx);
   const kind = type === 'note' && !filters.all ? filters.kind ?? 'note' : undefined;
@@ -114,7 +117,7 @@ export function list(ctx, type, filters = {}) {
   const all = rows(ctx);
   const seen = new Map();
   for (const item of all) if (item.id !== null) seen.set(item.id, (seen.get(item.id) ?? 0) + 1);
-  return all.filter((item) => item.type === type && (kind === undefined || item.kind === kind))
+  return all.filter((item) => (type === undefined || item.type === type) && (kind === undefined || item.kind === kind))
     .map((item) => summary(ctx, item, item.revision, seen.get(item.id) > 1));
 }
 

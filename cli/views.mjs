@@ -29,32 +29,34 @@ export function noteLinks(ctx, path, opts) {
 }
 
 export function showView(ctx, type, ref, opts = {}) {
-  const shown = result(ctx, [entity.resolve(ctx, type, ref)], opts, false);
+  const resolved = entity.resolve(ctx, type, ref);
+  const shown = result(ctx, [resolved], opts, false);
   if (type === 'note' && !opts.compact) {
-    const { links, backlinks } = noteLinks(ctx, shown.data.path, opts);
+    const { links, backlinks } = noteLinks(ctx, resolved.path, opts);
     shown.data.meta = { ...shown.data.meta, backlinks };
     // Link text is page text, so it lives under content like the rest of the page.
     Object.defineProperty(shown.data.content, 'links', { value: links, enumerable: true, configurable: true, writable: true });
   }
-  return shown;
+  return { ...shown, entity: resolved };
 }
 
+const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+const titles = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
 const newest = (a, b) => (Date.parse(b.data.updated) || 0) - (Date.parse(a.data.updated) || 0)
-  || a.path.localeCompare(b.path);
-const titleOrder = (a, b) => a.title.localeCompare(b.title) || a.path.localeCompare(b.path);
+  || compare(a.path, b.path);
+const titleOrder = (a, b) => titles.compare(a.title, b.title) || compare(a.path, b.path);
 const priorities = new Map([['urgent', 0], ['important', 1], ['low', 2]]);
 
 export function homeView(ctx, opts = {}) {
-  const all = ['project', 'card', 'note', 'research', 'journal']
-    .flatMap((type) => entity.list(ctx, type, { all: true }));
+  const all = entity.list(ctx);
   const projects = all.filter((item) => item.type === 'project'
     && (item.data.status === undefined || item.data.status === 'active')).sort(titleOrder);
-  const cards = listCards(ctx);
+  const cards = listCards(ctx, {}, all.filter((item) => item.type === 'card'));
   let featuredProject = null;
   const configured = normalizeId(ctx.config.home?.featuredProject);
   if (configured) {
-    try { featuredProject = entity.resolve(ctx, 'project', configured).id; } catch (error) {
-      if (error.code !== 'not_found') throw error;
+    try { featuredProject = entity.resolve(ctx, 'project', configured).id; } catch {
+      // A configured feature is optional; any read failure uses the computed fallback.
     }
   }
   if (featuredProject === null && projects.length) {
@@ -64,11 +66,11 @@ export function homeView(ctx, opts = {}) {
       .filter((ref) => ref !== null).reduce((total, ref) => total + (counts.get(ref) ?? 0), 0);
     featuredProject = [...projects].sort((a, b) => count(b) - count(a) || titleOrder(a, b))[0].id;
   }
+  const warnings = [];
   let today = null;
   try { today = journal.show(ctx); } catch (error) {
-    if (error.code !== 'not_found') throw error;
+    if (error?.code !== 'not_found') warnings.push('journal_unreadable');
   }
-  const warnings = [];
   const shape = (items) => {
     const shown = result(ctx, items, opts);
     warnings.push(...shown.warnings);

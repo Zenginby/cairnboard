@@ -4,7 +4,10 @@ import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
 import { dirname, join } from 'node:path';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, openSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
+import { __setFsHooks } from '../core/fsx.mjs';
+import * as entity from '../core/entity.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { CairnError } from '../core/errors.mjs';
@@ -38,7 +41,9 @@ async function request(app, path, { method = 'GET', signedIn = true } = {}) {
   assert.equal(headers['content-security-policy'], CSP);
   assert.equal(headers['x-content-type-options'], 'nosniff');
   assert.equal(headers['referrer-policy'], 'no-referrer');
-  assert.equal(headers['cache-control'], 'no-store');
+  if (headers['content-type'] === 'application/json; charset=utf-8' || ![404, 500].includes(res.statusCode)) {
+    assert.equal(headers['cache-control'], 'no-store');
+  }
   if (headers['content-type'] === 'application/json; charset=utf-8' && method !== 'HEAD') {
     assert.equal(headers['content-length'], Buffer.byteLength(body));
   }
@@ -147,28 +152,45 @@ test('API renders the full body, skips bodies over 5 MB and resolves ambiguity a
 
 test('API reads original file paths while keeping cleaned CLI output', async (t) => {
   const f = fixture(t);
-  f.put('notes/hidden\u200b.md', { id: 'n-000006', title: 'Hidden path', kind: 'note' }, '**Full body**');
+  f.put('notes/hidden\u200b.md', { id: 'n-000006', title: 'Hidden path', kind: 'note' }, '**Full body** [[quick]]');
+  f.put('notes/referrer.md', { id: 'n-000007', kind: 'note' }, '[[hidden\u200b]]');
   const response = await request(f.app, '/api/notes/n-000006');
   const cli = await f.cli(['note', 'show', 'n-000006']);
   assert.equal(response.status, 200);
-  assert.equal(response.json.data.content.html, '<p><strong>Full body</strong></p>');
+  assert.match(response.json.data.content.html, /<strong>Full body<\/strong>/u);
+  assert.match(response.json.data.content.html, /href="\/notes\/n-000001"/u);
+  assert.equal(response.json.data.path, 'notes/hidden.md');
+  assert.equal(response.json.data.content.links[0].target_path, 'notes/quick.md');
+  assert.equal(response.json.data.meta.backlinks[0].src_path, 'notes/referrer.md');
   const expected = structuredClone(cli.json);
   expected.data.content.html = response.json.data.content.html;
   assert.deepEqual(response.json, expected);
 });
 
-test('API maps validation to 409 and hides all internal or known-error details', async (t) => {
+test('API keeps processing errors generic and opening failures at 409', async (t) => {
   const f = fixture(t);
   const logged = t.mock.method(console, 'error', () => {});
   for (const error of [new Error('/private/secret/page.mjs\nstack trace'),
     new CairnError('internal', '/private/secret/page.mjs', { current: { path: '/private/secret' } }),
-    new CairnError('unsafe_path', '/private/secret/page.mjs')]) {
-    const response = await request(f.appFor(createApi({ open: () => { throw error; } })), '/api/home');
+    new CairnError('unsafe_path', '/private/secret/page.mjs'),
+    new CairnError('validation', '/private/secret/page.mjs'),
+    new CairnError('not_found', '/private/secret/page.mjs')]) {
+    const open = () => {
+      const ctx = f.open();
+      Object.defineProperty(ctx.config, 'columns', { get() { throw error; } });
+      return ctx;
+    };
+    const app = f.appFor(createApi({ open }));
+    const response = await request(app, '/api/home');
     assert.equal(response.status, 500);
     assert.deepEqual(response.json, { v: 1, ok: false, error: { code: 'internal', message: 'An internal error occurred.' }, warnings: [] });
     assert.doesNotMatch(response.body, /private|secret|page\.mjs|stack|Error:/u);
+    const head = await request(app, '/api/home', { method: 'HEAD' });
+    assert.equal(head.status, 500);
+    assert.equal(head.body, '');
+    assert.equal(head.headers['content-length'], response.headers['content-length']);
   }
-  assert.equal(logged.mock.callCount(), 3);
+  assert.equal(logged.mock.callCount(), 10);
   const missing = () => openContext({ mode: 'read', dataDir: join(f.data, 'missing'), home: f.home, env: {} });
   const validation = await request(f.appFor(createApi({ open: missing })), '/api/home');
   assert.equal(validation.status, 409);
@@ -244,4 +266,180 @@ test('home uses title order to break featured ties and returns null when project
   f.put('projects/beta.md', { id: 'p-000002', title: 'Beta' });
   f.put('cards/beta.md', { column: 'doing', project: 'p-000002' });
   assert.equal(homeView(f.open()).data.featuredProject, 'p-000001');
+});
+
+
+test('home treats unreadable journal files and folders as optional with CLI warning parity', async (t) => {
+  for (const kind of ['directory', 'symlink', 'folder symlink', 'unreadable']) {
+    await t.test(kind, async (t) => {
+      const f = fixture(t), path = join(f.data, 'journal/2026-11-01.md');
+      if (kind === 'directory') {
+        rmSync(path);
+        mkdirSync(path);
+      } else if (kind.includes('symlink')) {
+        const link = kind === 'symlink' ? path : dirname(path);
+        rmSync(link, { recursive: true });
+        try { symlinkSync(join(f.data, 'notes', kind === 'symlink' ? 'quick.md' : ''), link,
+          kind === 'symlink' ? 'file' : 'dir'); } catch (error) {
+          if (process.platform !== 'win32') throw error;
+          t.skip(`Symlink privileges unavailable: ${error.code}`);
+          return;
+        }
+      } else {
+        await f.cli(['home']);
+        __setFsHooks({ openSync(file, ...args) {
+          if (file === path) throw Object.assign(new Error('private journal read failure'), { code: 'EACCES' });
+          return openSync(file, ...args);
+        } });
+        t.after(() => __setFsHooks());
+      }
+      const response = await request(f.app, '/api/home');
+      assert.equal(response.status, 200);
+      assert.equal(response.json.data.journal, null);
+      assert.ok(response.json.warnings.includes('journal_unreadable'));
+      const cli = await f.cli(['home']);
+      assert.equal(cli.code, 0, cli.stdout);
+      assert.deepEqual(response.json, cli.json);
+    });
+  }
+});
+
+test('featured project read failures fall back to open-card counts', (t) => {
+  const f = fixture(t);
+  f.put('projects/beta.md', { id: 'p-000002', title: 'Beta' });
+  f.put('cards/beta-1.md', { column: 'doing', project: 'p-000002' });
+  f.put('cards/beta-2.md', { column: 'doing', project: 'p-000002' });
+  const ctx = f.open();
+  entity.list(ctx);
+  ctx.config.home = { featuredProject: 'p-000001' };
+  let attempted = false;
+  __setFsHooks({ openSync(path, ...args) {
+    if (path === join(f.data, 'projects/alpha.md')) {
+      attempted = true;
+      throw new CairnError('unsafe_path', 'private project path');
+    }
+    return openSync(path, ...args);
+  } });
+  t.after(() => __setFsHooks());
+  assert.equal(homeView(ctx).data.featuredProject, 'p-000002');
+  assert.equal(attempted, true);
+});
+
+test('opening and config failures return safe 409 envelopes on every endpoint', async (t) => {
+  for (const kind of ['missing config', 'newer config', 'invalid config', 'open failure']) {
+    await t.test(kind, async (t) => {
+      const f = fixture(t), path = join(f.data, '.cairn/config.json');
+      t.mock.method(console, 'error', () => {});
+      if (kind === 'missing config') rmSync(path);
+      if (kind === 'newer config') {
+        const config = JSON.parse(readFileSync(path, 'utf8'));
+        config.formatVersion++;
+        writeFileSync(path, JSON.stringify(config));
+      }
+      if (kind === 'invalid config') writeFileSync(path, '{}');
+      const app = kind === 'open failure' ? f.appFor(createApi({ open: () => { throw new Error('private open failure'); } })) : f.app;
+      for (const endpoint of ['/api/home', '/api/board', '/api/cards/c-000001', '/api/notes/n-000001']) {
+        const response = await request(app, endpoint);
+        assert.equal(response.status, 409, endpoint);
+        assert.deepEqual(response.json, { v: 1, ok: false,
+          error: { code: 'validation', message: 'The data directory is not ready.' }, warnings: [] });
+      }
+      const unknown = await request(app, '/api/unknown');
+      assert.equal(unknown.status, 404, 'unknown routes do not open data');
+    });
+  }
+});
+
+test('HEAD refusals, query strings and unusual paths never expose data', async (t) => {
+  const f = fixture(t);
+  for (const path of ['/api/unknown', '/api/notes/n-000099']) {
+    const head = await request(f.app, path, { method: 'HEAD' });
+    const get = await request(f.app, path);
+    assert.equal(head.status, 404);
+    assert.equal(head.body, '');
+    assert.equal(head.headers['content-length'], get.headers['content-length']);
+  }
+  const query = await request(f.app, '/api/home?x=1');
+  assert.equal(query.status, 200);
+  assert.deepEqual(query.json, (await f.cli(['home'])).json);
+  const traversal = await request(f.app, '/api/%2e%2e/_astro/x', { signedIn: false });
+  assert.ok([401, 404].includes(traversal.status));
+  assert.equal(traversal.json?.ok ?? false, false);
+  const app = createApp({ root: f.root, api: createApi({ open: f.open }),
+    guard: createGuard({ port, key, instance }), handler: (req, res, next) => next() });
+  const doubled = await request(app, '//api/home');
+  assert.equal(doubled.status, 404);
+  assert.equal(doubled.json, null);
+});
+
+test('journal links prefer valid dates, fall back to date filenames, and leave idless pages as ghosts', async (t) => {
+  const f = fixture(t);
+  f.put('journal/2026-11-02.md', {}, 'No frontmatter date');
+  f.put('journal/2026-11-03.md', { date: '2026-02-30' }, 'Invalid date uses filename');
+  f.put('journal/named-day.md', { date: '2026-11-04' }, 'Date overrides filename');
+  f.put('journal/invalid-day.md', { date: '2026-02-30' }, 'No valid date');
+  f.put('notes/idless-note.md', { kind: 'note' });
+  f.put('research/idless-research.md', {});
+  f.put('cards/idless-card.md', { column: 'doing' });
+  f.put('projects/idless-project.md', {});
+  f.put('notes/links.md', { id: 'n-000008', kind: 'note' },
+    '[[2026-11-01]] [[2026-11-02]] [[2026-11-03]] [[named-day]] [[invalid-day]] '
+      + '[[idless-note]] [[idless-research]] [[idless-card]] [[idless-project]]');
+  const response = await request(f.app, '/api/notes/n-000008');
+  assert.equal(response.status, 200);
+  for (const day of ['01', '02', '03', '04']) {
+    assert.ok(response.json.data.content.html.includes(`href="/journal/2026-11-${day}"`));
+  }
+  for (const name of ['invalid-day', 'idless-note', 'idless-research', 'idless-card', 'idless-project']) {
+    assert.ok(response.json.data.content.html.includes(`class="wikilink wikilink-ghost">${name}</span>`));
+  }
+});
+
+test('home and board preserve CLI warning parity for unknown columns and duplicate ids', async (t) => {
+  const f = fixture(t);
+  f.put('cards/unknown.md', { id: 'c-000002', title: 'Unknown', column: 'absent' });
+  f.put('cards/duplicate.md', { id: 'c-000002', title: 'Duplicate', column: 'doing' });
+  for (const view of ['home', 'board']) {
+    const response = await request(f.app, `/api/${view}`);
+    const cli = await f.cli([view]);
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.json, cli.json);
+    assert.ok(response.json.warnings.includes('unknown_column'));
+    assert.ok(response.json.warnings.includes('duplicate_id'));
+  }
+});
+
+test('home reads one summary snapshot and uses fixed title and path ordering', (t) => {
+  const f = fixture(t);
+  f.put('projects/ten.md', { id: 'p-000002', title: 'Project 10' });
+  f.put('projects/two.md', { id: 'p-000003', title: 'Project 2' });
+  f.put('projects/zeta.md', { id: 'p-000004', title: 'ÁLPHA' });
+  const ctx = f.open();
+  entity.list(ctx);
+  const prepare = DatabaseSync.prototype.prepare;
+  let reads = 0;
+  t.mock.method(DatabaseSync.prototype, 'prepare', function (sql, ...args) {
+    if (sql === 'SELECT * FROM files ORDER BY path') reads++;
+    return prepare.call(this, sql, ...args);
+  });
+  const view = homeView(ctx);
+  assert.equal(reads, 1);
+  assert.deepEqual(view.data.projects.map((item) => item.content.title), ['Alpha', 'ÁLPHA', 'Project 2', 'Project 10']);
+});
+
+test('shown JSON and rendered HTML reuse one full source read', async (t) => {
+  const f = fixture(t), ctx = f.open();
+  entity.list(ctx);
+  const source = join(f.data, 'notes/quick.md');
+  let reads = 0;
+  __setFsHooks({ openSync(path, ...args) {
+    if (path === source) reads++;
+    return openSync(path, ...args);
+  } });
+  t.after(() => __setFsHooks());
+  const response = await request(f.appFor(createApi({ open: () => ctx })), '/api/notes/n-000001');
+  assert.equal(response.status, 200);
+  assert.equal(reads, 1);
+  assert.equal(response.json.data.content.body, 'Quick body');
+  assert.equal(response.json.data.content.html, '<p>Quick body</p>');
 });
