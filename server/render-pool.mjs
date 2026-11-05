@@ -25,6 +25,8 @@ export function createRenderPool({ timeoutMs = 5000, maxQueue = 64, workerUrl = 
     if (!job) return;
     active = null;
     clearTimeout(job.timer);
+    // Idle again: the pool must not keep the process alive.
+    worker?.unref();
     job.resolve(result);
     pump();
   }
@@ -40,7 +42,8 @@ export function createRenderPool({ timeoutMs = 5000, maxQueue = 64, workerUrl = 
   }
 
   function start() {
-    worker = new Worker(workerUrl, { resourceLimits: { maxOldGenerationSizeMb: heapMb } });
+    // No inherited flags: options such as --input-type or test-runner flags would stop the worker from starting.
+    worker = new Worker(workerUrl, { execArgv: [], resourceLimits: { maxOldGenerationSizeMb: heapMb } });
     worker.on('message', (message) => {
       if (!active || message.id !== active.id) return;
       finish({ html: message.html, tooLarge: message.tooLarge, failed: message.failed, timedOut: false });
@@ -73,7 +76,8 @@ export function createRenderPool({ timeoutMs = 5000, maxQueue = 64, workerUrl = 
           stop();
           finish(TIMED_OUT);
         }, timeoutMs);
-        job.timer.unref();
+        // A page in progress keeps the process alive until its answer or its time limit, whichever comes first.
+        worker.ref();
         worker.postMessage({ id: job.id, markdown: job.markdown, links: job.links });
       } catch {
         // A worker that cannot start must fail this page, never leave the queue waiting forever.

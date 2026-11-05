@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { createRenderPool } from '../server/render-pool.mjs';
 import { renderMarkdown } from '../core/render.mjs';
@@ -71,4 +72,14 @@ test('a worker that cannot start fails each page instead of leaving the queue wa
   t.after(() => pool.close());
   const results = await Promise.all([pool.render('a'), pool.render('b')]);
   assert.deepEqual(results.map((result) => result.failed), [true, true]);
+});
+
+test('a page in progress keeps the process alive, and an idle pool lets it exit', () => {
+  // Nothing else holds the event loop here: before the fix the await was cut off and nothing was printed.
+  const pool = new URL('../server/render-pool.mjs', import.meta.url).href;
+  const script = `const { createRenderPool } = await import(${JSON.stringify(pool)});
+    const result = await createRenderPool().render('**ok**');
+    process.stdout.write(result.html);`;
+  const output = execFileSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8', timeout: 20_000 });
+  assert.equal(output, '<p><strong>ok</strong></p>');
 });
