@@ -133,7 +133,17 @@ function safeLinks() {
 const processor = unified().use(remarkParse).use(remarkGfm).use(wikiLinks)
   .use(remarkRehype).use(imageLinks).use(rehypeSanitize, schema).use(safeLinks).use(rehypeStringify).freeze();
 
-export function renderMarkdown(markdown, { resolveLink = () => null } = {}) {
+// Very deep nesting overflows the parser's stack; such a page is shown without its rendered body.
+export function renderMarkdown(markdown, options = {}) {
+  try {
+    return render(markdown, options);
+  } catch (error) {
+    if (error instanceof RangeError) return { html: null, failed: true };
+    throw error;
+  }
+}
+
+function render(markdown, { resolveLink = () => null } = {}) {
   if (Buffer.byteLength(markdown, 'utf8') > MAX_INPUT) return { html: null, tooLarge: true };
   const cleaned = stripHidden(markdown).text;
   const tree = processor.parse(cleaned);

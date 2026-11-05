@@ -78,7 +78,8 @@ export function createApp({ root, handler, guard, api }) {
       }
       if (path === null) return await errorPage(req, res, 404);
       const body = await clientFile(root, path);
-      if (body === false) return await errorPage(req, res, 404);
+      // The guard lets /_astro/ through without a cookie, so a missing asset must never reach page routes.
+      if (body === false || (body === null && path.startsWith('/_astro/'))) return await errorPage(req, res, 404);
       if (body !== null) {
         res.setHeader('Content-Type', types[extname(path).toLowerCase()] ?? 'application/octet-stream');
         res.setHeader('Content-Length', body.length);

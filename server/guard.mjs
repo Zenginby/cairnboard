@@ -51,8 +51,12 @@ export function createGuard({ port, key, instance, now = Date.now }) {
     }
 
     const url = new URL(req.url, `http://${origin}`);
+    // The router reads the raw path, so a path counts only when URL parsing left it unchanged: no `//host`,
+    // dot segments, encoded dots or backslashes that the two could read differently.
+    const raw = req.url.split('?')[0];
+    const plain = url.pathname === raw && !raw.startsWith('//');
     const signedIn = verifyCookie(key, port, readCookie(req.headers.cookie, name), now());
-    if (url.pathname === '/auth') {
+    if (plain && url.pathname === '/auth') {
       if (!signedIn && !useToken(url.searchParams.get('t'), now())) return signedOut(req, res);
       const headers = { Location: '/' };
       if (!signedIn) {
@@ -60,7 +64,7 @@ export function createGuard({ port, key, instance, now = Date.now }) {
       }
       return send(req, res, 303, headers);
     }
-    if (url.pathname.startsWith('/_astro/')) return true;
+    if (plain && url.pathname.startsWith('/_astro/') && !/%2e/iu.test(raw)) return true;
     return signedIn ? true : signedOut(req, res);
   };
 }

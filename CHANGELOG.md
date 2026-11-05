@@ -2,8 +2,9 @@
 
 ## [Unreleased]
 
-- Add shared home/board CLI views, a cookie-protected GET read API and sanitized Markdown rendering.
-
+- Add shared home/board CLI views, a cookie-protected GET read API and sanitized Markdown rendering. Markdown
+  renders in a worker thread with a 5 s limit per page (`render_timeout`), so a slow page never stalls the server.
+- Serve `/_astro/` without a cookie only when the raw path matches the parsed one; missing assets never reach pages.
 - Add the local-only web server skeleton, CSP-safe Astro pages, startup state and `cairn open`.
 - Require a sign-in cookie for every page: one-time 60 s login link from `npm start` / `cairn open`, HttpOnly
   SameSite=Strict cookie, key in the user state folder.

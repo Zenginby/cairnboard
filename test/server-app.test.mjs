@@ -102,6 +102,13 @@ test('createApp guards first and keeps headers on pages, errors, static files an
     }
   }
   assert.equal(logged.mock.callCount(), 3);
+  // The guard lets /_astro/ through without a cookie, so a missing asset must not reach page routes.
+  for (const path of ['/_astro/missing.js', '/_astro/', '/_astro/sub/']) {
+    calls.length = 0;
+    const response = await get(path, 'GET');
+    assert.equal(response.status, 404, path);
+    assert.deepEqual(calls, ['guard'], path);
+  }
 });
 
 test('createApp refuses traversal, malformed paths and symlinks before invoking Astro', async (t) => {
