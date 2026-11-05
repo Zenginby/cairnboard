@@ -32,3 +32,19 @@ test('core and cli never spawn processes, open sockets or fetch', () => {
   }
   assert.deepEqual(violations, [], `forbidden process or network use:\n${violations.join('\n')}`);
 });
+
+test('server keeps process and socket use in its entry points', () => {
+  const violations = [];
+  for (const file of sources(join(repo, 'server'))) {
+    const name = relative(repo, file).replaceAll('\\', '/');
+    const processAllowed = name === 'server/open-browser.mjs';
+    const socketsAllowed = ['server/listen.mjs', 'server/port.mjs'].includes(name);
+    readFileSync(file, 'utf8').split(/\r?\n/u).forEach((line, i) => {
+      const checked = socketsAllowed ? line.replace(/(['"`])(?:node:)?(?:http|net)\1/gu, "''") : line;
+      if ((!processAllowed && FORBIDDEN[0].test(line))
+        || FORBIDDEN[1].test(checked) || FORBIDDEN[2].test(checked)
+        || FORBIDDEN[3].test(line)) violations.push(`${name}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(violations, [], `forbidden process or network use:\n${violations.join('\n')}`);
+});

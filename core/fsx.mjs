@@ -18,7 +18,10 @@ export function afterCheck(path) {
   hooks.afterCheck?.(path);
 }
 
-export const openSync = fs.openSync;
+// Tests inject Windows-only failures (a delete-pending file answers EPERM) through this hook.
+export function openSync(...args) {
+  return (hooks.openSync ?? fs.openSync)(...args);
+}
 export const realpathSync = fs.realpathSync;
 
 // The rename is durable only once its directory entry is flushed; Windows cannot open directories for this.

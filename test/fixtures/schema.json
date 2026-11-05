@@ -2892,6 +2892,56 @@
       "dangerous": false
     },
     {
+      "name": "open",
+      "summary": "Open the running web interface.",
+      "args": [],
+      "options": {
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Filter by project reference."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": false,
+      "dangerous": false
+    },
+    {
       "name": "schema",
       "summary": "Describe commands, fields and error codes.",
       "args": [],

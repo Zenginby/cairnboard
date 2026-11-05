@@ -31,7 +31,7 @@ const healthy = {
 const byName = (checks) => Object.fromEntries(checks.map((c) => [c.name, c]));
 
 test('all checks pass on a healthy setup', (t) => {
-  const checks = doctor({ env: { CAIRN_DENYLIST: list(t) }, exec: fakeExec(healthy), nodeVersion: '22.16.0' });
+  const checks = doctor({ env: { CAIRN_DENYLIST: list(t) }, exec: fakeExec(healthy), nodeVersion: '22.23.4' });
   assert.deepEqual(checks.map((c) => c.name), ['node-version', 'hooks-path', 'denylist', 'gitleaks', 'git-identity', 'sqlite']);
   for (const c of checks) assert.equal(c.ok, true, c.name);
 });
@@ -58,8 +58,9 @@ test('unreadable or invalid denylist fails without printing its content', (t) =>
 
 test('node version comparison is numeric', () => {
   const ok = (v) => byName(doctor({ env: {}, exec: fakeExec(healthy), nodeVersion: v }))['node-version'].ok;
-  assert.equal(ok('22.16.0'), true);
-  assert.equal(ok('22.15.1'), false); // node:sqlite has no FTS5 before 22.16
+  assert.equal(ok('22.23.4'), true);
+  assert.equal(ok('22.23.3'), false); // the Astro 7.4 floor, a 22 LTS security release
+  assert.equal(ok('22.15.1'), false);
   assert.equal(ok('22.100.0'), true);
   assert.equal(ok('23.0.0'), true);
   assert.equal(ok('22.9.0'), false);

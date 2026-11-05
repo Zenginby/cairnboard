@@ -3,13 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { loadDenylist } from './denylist.mjs';
+import { MIN_NODE, nodeAtLeast } from '../core/runtime.mjs';
 
-const MIN_NODE = [22, 16];
-
-function atLeast(version, [major, minor]) {
-  const [a, b] = version.replace(/^v/, '').split('.').map(Number);
-  return a > major || (a === major && b >= minor);
-}
 
 function run(exec, cmd, args) {
   try {
@@ -34,7 +29,7 @@ export function doctor({ env = process.env, exec = (cmd, args) => execFileSync(c
   const checks = [];
   const add = (name, ok, hint) => checks.push({ name, ok, hint: ok ? '' : hint });
 
-  add('node-version', atLeast(nodeVersion, MIN_NODE), `Node ${MIN_NODE.join('.')} or newer is required (found ${nodeVersion}).`);
+  add('node-version', nodeAtLeast(nodeVersion), `Node ${MIN_NODE.join('.')} or newer is required (found ${nodeVersion}).`);
   add('hooks-path', run(exec, 'git', ['config', 'core.hooksPath']) === 'security/hooks', 'Run: npm run hooks:install');
 
   let listOk = false;
@@ -53,7 +48,7 @@ export function doctor({ env = process.env, exec = (cmd, args) => execFileSync(c
   add('gitleaks', run(exec, 'gitleaks', ['version']) !== null, 'Install gitleaks and put it on PATH.');
   const email = run(exec, 'git', ['config', 'user.email']) ?? '';
   add('git-identity', email.endsWith('@users.noreply.github.com'), 'Set a GitHub noreply address: git config --local user.email <id>+<login>@users.noreply.github.com');
-  add('sqlite', sqliteFts5(), 'node:sqlite with FTS5 is required (Node 22.16+).');
+  add('sqlite', sqliteFts5(), `node:sqlite with FTS5 is required (Node ${MIN_NODE.join('.')}+).`);
   return checks;
 }
 

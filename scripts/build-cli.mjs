@@ -7,7 +7,7 @@ const text = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 mkdirSync(new URL('../dist/', import.meta.url), { recursive: true });
 await build({
   absWorkingDir: root, entryPoints: ['cli/main.mjs'], outfile: 'dist/cairn-main.mjs',
-  bundle: true, platform: 'node', format: 'esm', target: 'node22.16',
+  bundle: true, platform: 'node', format: 'esm', target: 'node22.23',
   banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
   define: {
     __CAIRN_VERSION__: JSON.stringify(JSON.parse(text('package.json')).version),

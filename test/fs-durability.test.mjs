@@ -35,7 +35,8 @@ test('claim race: 4 concurrent workers compete for cards over multiple rounds', 
   const workers = [0, 1, 2, 3].map((index) => {
     const actor = `w${index}`;
     const child = spawn(process.execPath, [workerScript, '--actor', actor, '--data', ctx.root, '--ref', card.id], {
-      env: { ...process.env, HOME: home, USERPROFILE: home },
+      // CAIRN_DEBUG puts the stack of an unexpected (internal) error into the worker's result, so a CI failure says why.
+      env: { ...process.env, HOME: home, USERPROFILE: home, CAIRN_DEBUG: '1' },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

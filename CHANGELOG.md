@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- Add the local-only web server skeleton, CSP-safe Astro pages, startup state and `cairn open`.
+- Require a sign-in cookie for every page: one-time 60 s login link from `npm start` / `cairn open`, HttpOnly
+  SameSite=Strict cookie, key in the user state folder.
+- Serve only a private site name (`<label>.cairnboard.localhost`, label derived from the key) on both loopbacks;
+  every other Host gets 421 without a redirect. Login tokens never appear on a command line or in warnings.
+- Skip ports whose IPv6 loopback is taken, so `localhost:<port>` cannot reach another app.
+
 - Reject text mutations of invalid UTF-8 files without changing their bytes; preserve byte mutations.
 - Skip and report unreadable pages and raw sources on indexed and fallback reads.
 - Add mutually exclusive `--pin` / `--unpin` note options and expose research validity and
