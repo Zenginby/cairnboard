@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add the local-only web server skeleton, CSP-safe Astro pages, startup state and `cairn open`.
+
 - Reject text mutations of invalid UTF-8 files without changing their bytes; preserve byte mutations.
 - Skip and report unreadable pages and raw sources on indexed and fallback reads.
 - Add mutually exclusive `--pin` / `--unpin` note options and expose research validity and

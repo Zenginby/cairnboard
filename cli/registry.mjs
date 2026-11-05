@@ -283,6 +283,17 @@ read('doctor', 'Inspect data without migration or recovery.', [], {}, (ctx, args
   return { data: { checks }, exit: checks.every((check) => check.ok) ? 0 : 5 };
 }, false);
 
+read('open', 'Open the running web interface.', [], {}, async (ctx, args, opts, io) => {
+  // Loaded on demand so other commands never load the browser launcher.
+  const { readServerState } = await import('../server/state.mjs');
+  const state = readServerState({ env: io.env, home: io.env.HOME ?? io.env.USERPROFILE });
+  if (!state) throw new CairnError('not_found', 'Cairnboard is not running; start it with npm start.');
+  // The one-time login token is added in the next task.
+  const opener = io.openBrowser ?? (await import('../server/open-browser.mjs')).openBrowser;
+  opener(state.url, { stderr: io.stderr });
+  return { data: { url: state.url } };
+}, false);
+
 read('schema', 'Describe commands, fields and error codes.', [], {}, () => ({ data: {
   cli: packageVersion,
   commands: commands.map(({ name, summary, args, options, mode, actor, writeOption, needsData, dangerous }) => ({

@@ -13,6 +13,7 @@
     "src/",
     "core/",
     "cli/",
+    "server/",
     "agents/",
     "README.md",
     "LICENSE"
@@ -25,6 +26,8 @@
     "design:lint": "node scripts/design-lint.mjs",
     "design:check": "node scripts/design-check.mjs",
     "design:serve": "node scripts/design-serve.mjs",
+    "build:app": "astro build",
+    "start": "astro build && node server/start.mjs",
     "build:cli": "node scripts/build-cli.mjs",
     "bench:cli": "node scripts/bench-cli.mjs",
     "cairn": "node cli/cairn.mjs",

@@ -10,6 +10,11 @@ uses the board as shared state.
 
 **Status:** under development. The board and wiki CLI are available; the graphical interface is planned.
 
+### Web interface
+
+Run `npm start` to build and start the web interface and open your browser. The server uses the first
+free port in 4321–4340 and listens only on `127.0.0.1`. Use `cairn open` to reopen a running instance.
+
 ### CLI
 
 Requires Node.js ≥ 22.23.4. From a fresh clone:
@@ -261,6 +266,11 @@ ilerlemesini yazar ve yaptığını günlüğe kaydeder. Cairnboard ajan başlat
 çalışır ve panoyu ortak durum olarak kullanır.
 
 **Durum:** geliştirme aşamasında. Pano ve wiki komut satırı aracı kullanılabilir; grafik arayüz planlanıyor.
+
+### Web arayüzü
+
+`npm start` web arayüzünü derler, sunucuyu başlatır ve tarayıcıyı açar. Sunucu 4321–4340 aralığındaki
+ilk boş portu kullanır ve yalnızca `127.0.0.1` üzerinde dinler. Çalışan arayüzü yeniden açmak için `cairn open` kullanın.
 
 ### CLI
 

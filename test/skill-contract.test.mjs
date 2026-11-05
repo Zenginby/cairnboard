@@ -5,6 +5,7 @@ import * as fs from '../core/fsx.mjs';
 import { commands } from '../cli/registry.mjs';
 import { cliInvocation, renderSkill, renderAgentsMd } from '../core/agent.mjs';
 import { initDataDir } from '../core/roots.mjs';
+import { writeServerState } from '../server/state.mjs';
 import { runCli } from './support/cli.mjs';
 import { tempDir, fixedClock } from './support/env.mjs';
 import { snapshot } from './support/vault.mjs';
@@ -29,7 +30,8 @@ function split(line) {
 test('every fenced skill command succeeds with real fixtures and dry-run', async (t) => {
   const home = tempDir(t), data = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
   initDataDir(data, { home, env: {}, clock });
-  const opts = { home, data, clock, env: { CAIRN_DEBUG: '1' } };
+  writeServerState({ port: 4321, home, env: {} });
+  const opts = { home, data, clock, env: { CAIRN_DEBUG: '1' }, openBrowser: () => {} };
   const run = async (args, extra) => {
     const response = await runCli(args, { ...opts, ...extra });
     assert.equal(response.code, 0, `${args.join(' ')}\n${response.stdout}${response.stderr}`);

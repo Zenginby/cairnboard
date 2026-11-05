@@ -23,6 +23,7 @@ jobs:
           node-version: '22.23.4'
       - run: npm ci
       - run: npm run build:cli
+      - run: npm run build:app
       - run: npm test
       - run: npm run design:lint
       - run: node security/ci-scan.mjs
@@ -45,6 +46,7 @@ jobs:
           node-version: '22'
       - run: npm ci
       - run: npm run build:cli
+      - run: npm run build:app
       - run: npm test
       - run: node scripts/sqlite-smoke.mjs
 
@@ -59,6 +61,7 @@ jobs:
           node-version: '22'
       - run: npm ci
       - run: npm run build:cli
+      - run: npm run build:app
       - run: npm test
       - run: node scripts/sqlite-smoke.mjs
 

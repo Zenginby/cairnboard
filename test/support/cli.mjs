@@ -24,7 +24,7 @@ export async function runCli(args, opts = {}) {
     env: environment(opts), cwd: opts.cwd ?? opts.home ?? process.cwd(), isTTY: opts.isTTY ?? false,
     stdin: typeof opts.stdin === 'object' && !Buffer.isBuffer(opts.stdin) ? opts.stdin : Readable.from([opts.stdin ?? '']),
     stdout: { write: (text) => { stdout += text; } },
-    stderr: { write: (text) => { stderr += text; } }, clock: opts.clock,
+    stderr: { write: (text) => { stderr += text; } }, clock: opts.clock, openBrowser: opts.openBrowser,
   });
   return result(code, stdout, stderr);
 }
