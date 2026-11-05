@@ -3,11 +3,17 @@ import { fileURLToPath } from 'node:url';
 import { checkRuntime } from '../core/runtime.mjs';
 import { createApp } from './app.mjs';
 import { findPort } from './port.mjs';
-import { writeServerState, removeServerState } from './state.mjs';
+import { isAlive, readServerState, writeServerState } from './state.mjs';
 import { openBrowser } from './open-browser.mjs';
+import { installShutdown } from './shutdown.mjs';
 
-try {
+async function start() {
   await checkRuntime();
+  const previous = readServerState();
+  if (previous && isAlive(previous.pid)) {
+    console.log(`Cairnboard is already running: ${previous.url}`);
+    return;
+  }
   const { handler } = await import('../dist/app/server/entry.mjs');
   const host = '127.0.0.1';
   const server = createServer(createApp({ root: fileURLToPath(new URL('../', import.meta.url)), handler }));
@@ -22,21 +28,11 @@ try {
       });
       break;
     } catch (error) {
-      if (error.code !== 'EADDRINUSE') throw error;
+      if (!['EADDRINUSE', 'EACCES'].includes(error.code)) throw error;
     }
   }
   if (!server.listening) throw new Error('No free port on 127.0.0.1 in 4321–4340; stop another server and try again.');
-  let closing = false;
-  const shutdown = () => {
-    if (closing) return;
-    closing = true;
-    server.close(() => {
-      try { removeServerState(); } catch (error) { console.error(error); process.exitCode = 1; }
-    });
-    server.closeIdleConnections();
-  };
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
+  const shutdown = installShutdown(server);
   try {
     const { url } = writeServerState({ port });
     console.log(`Cairnboard: ${url}`);
@@ -45,7 +41,10 @@ try {
     shutdown();
     throw error;
   }
-} catch (error) {
+}
+
+// Entry point only: always starts. Shared pieces live in other modules so tests never import this file.
+try { await start(); } catch (error) {
   console.error(error.message);
   process.exitCode = 1;
 }

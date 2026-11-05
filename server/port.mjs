@@ -14,7 +14,7 @@ export async function findPort({ from = 4321, to = 4340, host = '127.0.0.1', lis
       await probe(port, host);
       return port;
     } catch (error) {
-      if (error.code !== 'EADDRINUSE') throw error;
+      if (!['EADDRINUSE', 'EACCES'].includes(error.code)) throw error;
     }
   }
   throw new Error(`No free port on ${host} in ${from}–${to}; stop another server and try again.`);

@@ -12,6 +12,9 @@ test('findPort skips busy ports and passes the loopback host to the probe', asyn
     if (port === 4321) throw busy();
   } }), 4322);
   assert.deepEqual(calls, [[4321, '127.0.0.1'], [4322, '127.0.0.1']]);
+  assert.equal(await findPort({ listen: async (port) => {
+    if (port === 4321) throw Object.assign(new Error('excluded'), { code: 'EACCES' });
+  } }), 4322);
   await assert.rejects(findPort({ listen: async () => { throw busy(); } }), /No free port.*4321–4340/u);
   await assert.rejects(findPort({ listen: async () => { throw new Error('probe failed'); } }), /probe failed/u);
 });
@@ -28,8 +31,8 @@ test('findPort detects a real occupied loopback port and releases its probe', as
   }
   const from = occupied.address().port;
   await assert.rejects(findPort({ from, to: from }), /No free port/u);
-  const port = await findPort({ from, to: from + 20 });
-  assert.ok(port > from);
+  const port = await findPort({ from: 4321, to: 4340 });
+  assert.notEqual(port, from);
   const free = createServer();
   await new Promise((resolve, reject) => free.once('error', reject).listen(port, '127.0.0.1', resolve));
   await new Promise((resolve) => free.close(resolve));

@@ -22,6 +22,19 @@ test('.npmrc disables install scripts', () => {
   assert.match(oku('.npmrc'), /^ignore-scripts=true$/m);
 });
 
+test('app builds disable telemetry before importing Astro and never invoke its binary', () => {
+  const { scripts } = JSON.parse(oku('package.json'));
+  for (const script of Object.values(scripts)) assert.doesNotMatch(script, /\bastro(?:\.cmd)?(?:\s|$)/u);
+  assert.equal(scripts['build:app'], 'node scripts/build-app.mjs');
+  assert.equal(scripts.start, 'node scripts/build-app.mjs && node server/start.mjs');
+  const source = oku('scripts/build-app.mjs');
+  const setting = source.indexOf("process.env.ASTRO_TELEMETRY_DISABLED = '1'");
+  const importing = source.indexOf("await import('astro')");
+  assert.ok(setting >= 0 && importing > setting);
+  assert.doesNotMatch(source, /^import\s/mu);
+  assert.match(source, /const \{ build \} = await import\('astro'\);\s*await build\(\{\}\);/u);
+});
+
 test('license and readme', () => {
   assert.equal(oku('LICENSE').split('\n')[0], 'MIT License');
   assert.match(oku('README.md'), /^## Türkçe$/m);

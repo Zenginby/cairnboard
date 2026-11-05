@@ -19,12 +19,15 @@ function requestPath(url) {
     if (!path.startsWith('/') || path.includes('\\') || path.includes('\0')
       || /%[0-9a-f]{2}/iu.test(path) || path.split('/').some((part) => part === '..' || part === '.')) return null;
     // Windows trims trailing dots/spaces and uses colons for alternate data streams.
-    if (process.platform === 'win32' && path.split('/').some((part) => /:|[. ]$/u.test(part))) return null;
+    if (process.platform === 'win32' && path.split('/').some((part) => /[:<>"|?*]|[. ]$/u.test(part)
+      || /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/iu.test(part))) return null;
     return path;
   } catch {
     return null;
   }
 }
+
+const lookupErrors = ['ENOENT', 'ENOTDIR', 'ENAMETOOLONG', 'EINVAL', 'EACCES', 'EPERM'];
 
 async function clientFile(root, path) {
   const parts = ['dist', 'app', 'client', ...path.split('/').filter(Boolean)];
@@ -33,7 +36,7 @@ async function clientFile(root, path) {
     file = join(file, part);
     let stat;
     try { stat = await lstat(file); } catch (error) {
-      if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return null;
+      if (lookupErrors.includes(error.code)) return null;
       throw error;
     }
     if (stat.isSymbolicLink()) return false;
@@ -45,6 +48,7 @@ async function clientFile(root, path) {
     return await handle.readFile();
   } catch (error) {
     if (error.code === 'ELOOP') return false;
+    if (lookupErrors.includes(error.code)) return null;
     throw error;
   } finally {
     await handle?.close();

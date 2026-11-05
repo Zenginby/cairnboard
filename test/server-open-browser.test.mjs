@@ -8,15 +8,23 @@ const url = 'http://127.0.0.1:4321/';
 test('openBrowser uses argument arrays without a shell on each supported platform', () => {
   for (const [platform, command, args] of [
     ['darwin', 'open', [url]], ['linux', 'xdg-open', [url]],
-    ['win32', 'rundll32', ['url.dll,FileProtocolHandler', url]],
+    ['win32', 'C:\\Windows\\System32\\rundll32.exe', ['url.dll,FileProtocolHandler', url]],
   ]) {
     let unref = false;
-    openBrowser(url, { platform, spawn: (...actual) => {
+    openBrowser(url, { platform, env: {}, spawn: (...actual) => {
       assert.deepEqual(actual, [command, args, { shell: false, detached: true, stdio: 'ignore' }]);
       return Object.assign(new EventEmitter(), { unref: () => { unref = true; } });
     } });
     assert.equal(unref, true);
   }
+});
+
+test('Windows browser launching resolves rundll32 from the injected system root', () => {
+  openBrowser(url, { platform: 'win32', env: { SystemRoot: 'D:\\Windows' }, spawn: (command, args) => {
+    assert.equal(command, 'D:\\Windows\\System32\\rundll32.exe');
+    assert.deepEqual(args, ['url.dll,FileProtocolHandler', url]);
+    return Object.assign(new EventEmitter(), { unref() {} });
+  } });
 });
 
 test('openBrowser refuses non-loopback or malformed URLs before spawning', () => {

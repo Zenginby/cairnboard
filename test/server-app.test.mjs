@@ -116,7 +116,11 @@ test('createApp refuses traversal, malformed paths and symlinks before invoking 
     headers(response);
   }
   if (process.platform === 'win32') {
-    for (const path of ['/_astro/..%20/..%20/package.json', '/_astro/app.js:stream']) {
+    const names = ['CON', 'PRN', 'AUX', 'NUL', ...Array.from({ length: 9 }, (_, i) => `COM${i + 1}`),
+      ...Array.from({ length: 9 }, (_, i) => `LPT${i + 1}`)];
+    const paths = names.flatMap((name) => [`/_astro/${name}`, `/_astro/${name.toLowerCase()}.js`]);
+    for (const path of [...paths, '/_astro/..%20/..%20/package.json', '/_astro/app.js:stream',
+      ...['<', '>', '"', '|', '?', '*'].map((char) => `/_astro/file${encodeURIComponent(char)}.js`)]) {
       assert.equal((await get(path)).status, 404, path);
     }
   }
@@ -133,6 +137,18 @@ test('createApp refuses traversal, malformed paths and symlinks before invoking 
     assert.doesNotMatch(response.body, /outside secret/u);
     headers(response);
   }
+});
+
+test('very long static paths return our 404 without logging a stack', async (t) => {
+  const { root } = fixture(t);
+  const logged = t.mock.method(console, 'error', () => {});
+  const get = await serve(t, createApp({ root, handler: (req, res, next) => next() }));
+  const response = await get(`/_astro/${'a'.repeat(1000)}.js`);
+  assert.equal(response.status, 404);
+  assert.match(response.body, /404 — Page not found/u);
+  assert.doesNotMatch(response.body, /Error:|ENAMETOOLONG|stack|dist\/app/u);
+  headers(response);
+  assert.equal(logged.mock.callCount(), 0);
 });
 
 test('real Astro output serves CSP-safe HTML, our 404 body and an external script', async (t) => {
