@@ -3,10 +3,11 @@ import { fileURLToPath } from 'node:url';
 import { checkRuntime } from '../core/runtime.mjs';
 import { createApp } from './app.mjs';
 import { createGuard } from './guard.mjs';
-import { loginUrl, sessionKey } from './session.mjs';
+import { loginUrl, newInstanceId, sessionKey } from './session.mjs';
+import { stateDir } from '../core/roots.mjs';
 import { findPort } from './port.mjs';
 import { isAlive, readServerState, writeServerState } from './state.mjs';
-import { openBrowser } from './open-browser.mjs';
+import { openLogin } from './open-browser.mjs';
 import { installShutdown } from './shutdown.mjs';
 
 async function start() {
@@ -14,9 +15,9 @@ async function start() {
   const open = !process.argv.includes('--no-open') && process.env.CAIRN_NO_OPEN !== '1';
   const key = sessionKey();
   const previous = readServerState();
-  if (previous && isAlive(previous.pid)) {
+  if (previous && typeof previous.instance === 'string' && isAlive(previous.pid)) {
     console.log(`Cairnboard is already running: ${previous.url}`);
-    if (open) openBrowser(loginUrl(previous.port, key));
+    if (open) openLogin(loginUrl(previous.port, key, previous.instance), { dir: stateDir() });
     return;
   }
   const { handler } = await import('../dist/app/server/entry.mjs');
@@ -39,12 +40,13 @@ async function start() {
     }
   }
   if (!server.listening) throw new Error('No free port on 127.0.0.1 in 4321–4340; stop another server and try again.');
-  server.on('request', createApp({ root, handler, guard: createGuard({ port, key }) }));
+  const instance = newInstanceId();
+  server.on('request', createApp({ root, handler, guard: createGuard({ port, key, instance }) }));
   const shutdown = installShutdown(server);
   try {
-    const { url } = writeServerState({ port });
+    const { url } = writeServerState({ port, instance });
     console.log(`Cairnboard: ${url}`);
-    if (open) openBrowser(loginUrl(port, key));
+    if (open) openLogin(loginUrl(port, key, instance), { dir: stateDir() });
     else console.log('Run cairn open to sign this browser in.');
   } catch (error) {
     shutdown();

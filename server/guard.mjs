@@ -37,11 +37,11 @@ export function guard(req, res) {
  * - /auth?t=<one-time token> sets the session cookie and redirects to / so the token leaves the address bar.
  * - Every other request, reads included, needs the cookie; built assets under /_astro/ are public.
  */
-export function createGuard({ port, key, now = Date.now }) {
+export function createGuard({ port, key, instance, now = Date.now }) {
   if (!Number.isSafeInteger(port) || !Buffer.isBuffer(key)) throw new TypeError('createGuard needs a port and a key.');
   const origin = `127.0.0.1:${port}`;
   const name = cookieName(port);
-  const useToken = tokenVerifier(key, port);
+  const useToken = tokenVerifier(key, port, instance);
   const signedOut = (req, res) => send(req, res, 401, { 'Content-Type': 'text/html; charset=utf-8' }, SIGNED_OUT);
 
   return (req, res) => {

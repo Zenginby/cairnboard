@@ -30,7 +30,7 @@ function split(line) {
 test('every fenced skill command succeeds with real fixtures and dry-run', async (t) => {
   const home = tempDir(t), data = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
   initDataDir(data, { home, env: {}, clock });
-  writeServerState({ port: 4321, home, env: {} });
+  writeServerState({ port: 4321, instance: 'run-dddddddddddddddd', home, env: {} });
   const opts = { home, data, clock, env: { CAIRN_DEBUG: '1' }, openBrowser: () => {} };
   const run = async (args, extra) => {
     const response = await runCli(args, { ...opts, ...extra });

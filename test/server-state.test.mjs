@@ -10,7 +10,7 @@ test('server state is private, complete and removed only for its owning pid', (t
   const options = { home: tempDir(t), env: {} };
   assert.equal(readServerState(options), null);
   removeServerState(options);
-  const state = { v: 1, port: 4322, pid: process.pid, url: 'http://127.0.0.1:4322/', startedAt: '2026-11-05T12:00:00.000Z' };
+  const state = { v: 1, port: 4322, pid: process.pid, instance: 'run-eeeeeeeeeeeeeeee', url: 'http://127.0.0.1:4322/', startedAt: '2026-11-05T12:00:00.000Z' };
   assert.deepEqual(writeServerState({ ...options, ...state }), state);
   const dir = stateDir(options), file = join(dir, 'server.json');
   assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), state);

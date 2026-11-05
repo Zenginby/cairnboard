@@ -18,7 +18,7 @@ test('cairn open reports a missing server with the usual envelope and a nonzero 
 
 test('cairn open needs no data directory and sends a one-time login URL only to the opener', async (t) => {
   const home = tempDir(t), opened = [];
-  const { url } = writeServerState({ home, env: {}, port: 4322 });
+  const { url } = writeServerState({ home, env: {}, port: 4322, instance: 'run-cccccccccccccccc' });
   const response = await runCli(['open', '--json', '--data', join(home, 'missing')], {
     home, openBrowser: (target) => opened.push(target),
   });
@@ -29,15 +29,23 @@ test('cairn open needs no data directory and sends a one-time login URL only to 
   assert.equal(login.origin, 'http://127.0.0.1:4322');
   assert.equal(login.pathname, '/auth');
   const token = login.searchParams.get('t');
-  assert.equal(tokenVerifier(sessionKey({ home, env: {} }), 4322)(token), true);
+  assert.equal(tokenVerifier(sessionKey({ home, env: {} }), 4322, 'run-cccccccccccccccc')(token), true);
   assert.doesNotMatch(response.stdout + response.stderr, new RegExp(token.split('.')[2]));
 });
 
 test('cairn open ignores a record whose server process is gone', async (t) => {
   const home = tempDir(t), opened = [];
-  writeServerState({ home, env: {}, port: 4322, pid: 2 ** 30 });
+  writeServerState({ home, env: {}, port: 4322, instance: 'run-cccccccccccccccc', pid: 2 ** 30 });
   const response = await runCli(['open', '--json'], { home, openBrowser: (target) => opened.push(target), isAlive: () => false });
   assert.equal(response.code, 3);
   assert.equal(response.json.error.code, 'not_found');
+  assert.deepEqual(opened, []);
+});
+
+test('cairn open treats a record without a run id (older server) as not running', async (t) => {
+  const home = tempDir(t), opened = [];
+  writeServerState({ home, env: {}, port: 4322 });
+  const response = await runCli(['open', '--json'], { home, openBrowser: (target) => opened.push(target) });
+  assert.equal(response.code, 3);
   assert.deepEqual(opened, []);
 });

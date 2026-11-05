@@ -62,8 +62,19 @@ function verify(key, purpose, port, value, now) {
   return { nonce, expires };
 }
 
-export function mintToken(key, port, now = Date.now()) {
-  return sign(key, 'token', port, now + TOKEN_TTL_MS);
+// Tokens are bound to one server run (a random id in server.json): a token that reached the wrong process, e.g.
+// through a stale record whose pid was reused, is useless to any later Cairnboard server. Cookies are not bound to
+// a run, so they survive restarts.
+const INSTANCE = /^[A-Za-z0-9_-]{16,64}$/u;
+const tokenPurpose = (instance) => {
+  if (typeof instance !== 'string' || !INSTANCE.test(instance)) throw new TypeError('A server instance id is required.');
+  return `token:${instance}`;
+};
+
+export const newInstanceId = () => randomBytes(16).toString('base64url');
+
+export function mintToken(key, port, instance, now = Date.now()) {
+  return sign(key, tokenPurpose(instance), port, now + TOKEN_TTL_MS);
 }
 
 export function mintCookie(key, port, now = Date.now()) {
@@ -74,12 +85,13 @@ export function verifyCookie(key, port, value, now = Date.now()) {
   return verify(key, 'cookie', port, value, now) !== null;
 }
 
-/** One-time use: remembers spent nonces until they expire. A restart forgets them, but tokens live 60 s. */
-export function tokenVerifier(key, port) {
+/** One-time use: remembers spent nonces until they expire; a restart gets a new instance id, so none carry over. */
+export function tokenVerifier(key, port, instance) {
+  const purpose = tokenPurpose(instance);
   const spent = new Map();
   return (value, now = Date.now()) => {
     for (const [nonce, expires] of spent) if (expires <= now) spent.delete(nonce);
-    const token = verify(key, 'token', port, value, now);
+    const token = verify(key, purpose, port, value, now);
     if (!token || spent.has(token.nonce)) return false;
     spent.set(token.nonce, token.expires);
     return true;
@@ -93,6 +105,6 @@ export function readCookie(header, name) {
   return values.length === 1 ? values[0].slice(name.length + 1) : null;
 }
 
-export function loginUrl(port, key) {
-  return `http://127.0.0.1:${port}/auth?t=${mintToken(key, port)}`;
+export function loginUrl(port, key, instance) {
+  return `http://127.0.0.1:${port}/auth?t=${mintToken(key, port, instance)}`;
 }

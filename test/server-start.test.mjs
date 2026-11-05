@@ -52,9 +52,9 @@ test('a second signal removes state before exiting immediately', (t) => {
 
 test('startup with a live recorded pid returns successfully without listening or changing state', (t) => {
   const home = tempDir(t), options = { home, env: {} };
-  const state = writeServerState({ ...options, port: 4321 });
+  const state = writeServerState({ ...options, port: 4321, instance: 'run-ffffffffffffffff' });
   const stdout = execFileSync(process.execPath, ['server/start.mjs'], { encoding: 'utf8',
-    env: { ...process.env, HOME: home, USERPROFILE: home, XDG_STATE_HOME: '', LOCALAPPDATA: '' }, timeout: 10000 });
+    env: { ...process.env, HOME: home, USERPROFILE: home, XDG_STATE_HOME: '', LOCALAPPDATA: '', CAIRN_NO_OPEN: '1' }, timeout: 10000 });
   assert.equal(stdout, `Cairnboard is already running: ${state.url}\n`);
   assert.deepEqual(readServerState(options), state);
 });

@@ -11,6 +11,7 @@ import { tempDir } from './support/env.mjs';
 
 const PORT = 4330;
 const key = Buffer.alloc(32, 7);
+const instance = 'run-aaaaaaaaaaaaaaaa';
 
 /** Runs the guard against a fake request and records what it answered. */
 function call(guardFn, { url = '/', host = `127.0.0.1:${PORT}`, method = 'GET', cookie } = {}) {
@@ -30,14 +31,14 @@ function call(guardFn, { url = '/', host = `127.0.0.1:${PORT}`, method = 'GET', 
 }
 
 function signIn(guardFn, now) {
-  const token = mintToken(key, PORT, now);
+  const token = mintToken(key, PORT, instance, now);
   const response = call(guardFn, { url: `/auth?t=${token}` });
   assert.equal(response.status, 303);
   return response.headers['set-cookie'].split(';')[0];
 }
 
 test('security headers are on every answer, including refusals', () => {
-  const guardFn = createGuard({ port: PORT, key });
+  const guardFn = createGuard({ port: PORT, key, instance });
   for (const options of [{}, { host: 'evil.test' }, { host: `localhost:${PORT}` }, { method: 'POST' }, { url: '/auth?t=x' }]) {
     const { headers } = call(guardFn, options);
     assert.equal(headers['content-security-policy'], CSP);
@@ -48,7 +49,7 @@ test('security headers are on every answer, including refusals', () => {
 });
 
 test('only 127.0.0.1:<port> is served; localhost is redirected before any cookie check', () => {
-  const guardFn = createGuard({ port: PORT, key });
+  const guardFn = createGuard({ port: PORT, key, instance });
   for (const host of ['evil.test', `evil.test:${PORT}`, '127.0.0.1', `127.0.0.1:${PORT + 1}`, `[::1]:${PORT}`,
     `LOCALHOST:${PORT}`, `127.0.0.1:${PORT}.evil.test`, '', null]) {
     assert.equal(call(guardFn, { host }).status, 421, String(host));
@@ -62,7 +63,7 @@ test('only 127.0.0.1:<port> is served; localhost is redirected before any cookie
 });
 
 test('without a cookie every page, reads included, gets the sign-in page; built assets stay public', () => {
-  const guardFn = createGuard({ port: PORT, key });
+  const guardFn = createGuard({ port: PORT, key, instance });
   for (const url of ['/', '/cards/c-1', '/api/board', '/404.html', '/auth']) {
     const response = call(guardFn, { url });
     assert.equal(response.status, 401, url);
@@ -75,8 +76,8 @@ test('without a cookie every page, reads included, gets the sign-in page; built 
 
 test('a token signs the browser in once, sets a strict cookie and clears the address bar', () => {
   let now = 1_800_000_000_000;
-  const guardFn = createGuard({ port: PORT, key, now: () => now });
-  const token = mintToken(key, PORT, now);
+  const guardFn = createGuard({ port: PORT, key, instance, now: () => now });
+  const token = mintToken(key, PORT, instance, now);
   const first = call(guardFn, { url: `/auth?t=${token}` });
   assert.equal(first.status, 303);
   assert.equal(first.headers.location, '/');
@@ -98,22 +99,23 @@ test('a token signs the browser in once, sets a strict cookie and clears the add
 
 test('expired, forged and other-port tokens are refused', () => {
   const now = 1_800_000_000_000;
-  const guardFn = createGuard({ port: PORT, key, now: () => now });
-  const expired = mintToken(key, PORT, now - TOKEN_TTL_MS - 1);
-  const otherPort = mintToken(key, PORT + 1, now);
-  const otherKey = mintToken(Buffer.alloc(32, 8), PORT, now);
-  const [nonce, expires, mac] = mintToken(key, PORT, now).split('.');
+  const guardFn = createGuard({ port: PORT, key, instance, now: () => now });
+  const expired = mintToken(key, PORT, instance, now - TOKEN_TTL_MS - 1);
+  const otherPort = mintToken(key, PORT + 1, instance, now);
+  const otherKey = mintToken(Buffer.alloc(32, 8), PORT, instance, now);
+  const otherRun = mintToken(key, PORT, 'run-bbbbbbbbbbbbbbbb', now);
+  const [nonce, expires, mac] = mintToken(key, PORT, instance, now).split('.');
   const extended = `${nonce}.${Number(expires) + 3_600_000}.${mac}`;
-  for (const token of [expired, otherPort, otherKey, extended, '', 'a.b.c', `${'x'.repeat(300)}`]) {
+  for (const token of [expired, otherPort, otherKey, otherRun, extended, '', 'a.b.c', `${'x'.repeat(300)}`]) {
     assert.equal(call(guardFn, { url: `/auth?t=${encodeURIComponent(token)}` }).status, 401, token.slice(0, 20));
   }
   // A cookie minted for the token purpose, or the token itself as a cookie, is not a session.
-  assert.equal(call(guardFn, { url: '/', cookie: `${cookieName(PORT)}=${mintToken(key, PORT, now)}` }).status, 401);
+  assert.equal(call(guardFn, { url: '/', cookie: `${cookieName(PORT)}=${mintToken(key, PORT, instance, now)}` }).status, 401);
 });
 
 test('a cookie is bound to its port and name; duplicates and copies fail closed', () => {
   const now = 1_800_000_000_000;
-  const guardFn = createGuard({ port: PORT, key, now: () => now });
+  const guardFn = createGuard({ port: PORT, key, instance, now: () => now });
   const other = mintCookie(key, PORT + 1, now);
   assert.equal(call(guardFn, { url: '/', cookie: `${cookieName(PORT + 1)}=${other}` }).status, 401);
   assert.equal(call(guardFn, { url: '/', cookie: `${cookieName(PORT)}=${other}` }).status, 401);
@@ -137,9 +139,9 @@ test('the session key is created once, private and stable across restarts', (t) 
 });
 
 test('helpers: login URL, cookie parsing and the one-time verifier', () => {
-  const url = new URL(loginUrl(PORT, key));
+  const url = new URL(loginUrl(PORT, key, instance));
   assert.equal(url.origin, `http://127.0.0.1:${PORT}`);
-  const verify = tokenVerifier(key, PORT);
+  const verify = tokenVerifier(key, PORT, instance);
   const token = url.searchParams.get('t');
   assert.equal(verify(token), true);
   assert.equal(verify(token), false);
@@ -147,4 +149,6 @@ test('helpers: login URL, cookie parsing and the one-time verifier', () => {
   assert.equal(readCookie('cairn_10=x', 'cairn_1'), null);
   assert.equal(readCookie(undefined, 'cairn_1'), null);
   assert.throws(() => createGuard({ port: PORT }), TypeError);
+  assert.throws(() => createGuard({ port: PORT, key }), TypeError, 'a guard without a run id would accept no tokens');
+  assert.throws(() => mintToken(key, PORT, 'short'), TypeError);
 });

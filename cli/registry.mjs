@@ -286,16 +286,18 @@ read('doctor', 'Inspect data without migration or recovery.', [], {}, (ctx, args
 read('open', 'Open the running web interface.', [], {}, async (ctx, args, opts, io) => {
   // Loaded on demand so other commands never load the browser launcher.
   const { isAlive, readServerState } = await import('../server/state.mjs');
+  const { stateDir } = await import('../core/roots.mjs');
   const { loginUrl, sessionKey } = await import('../server/session.mjs');
   const where = { env: io.env, home: io.env.HOME ?? io.env.USERPROFILE };
   const state = readServerState(where);
   // A record left by a crashed server must not send a login token to whatever took its port.
-  if (!state || !Number.isSafeInteger(state.port) || !(io.isAlive ?? isAlive)(state.pid)) {
+  if (!state || !Number.isSafeInteger(state.port) || typeof state.instance !== 'string' || !(io.isAlive ?? isAlive)(state.pid)) {
     throw new CairnError('not_found', 'Cairnboard is not running; start it with npm start.');
   }
-  const opener = io.openBrowser ?? (await import('../server/open-browser.mjs')).openBrowser;
-  // The token is a secret for 60 s: it goes to the browser only, never to stdout or the JSON envelope.
-  opener(loginUrl(state.port, sessionKey(where)), { stderr: io.stderr });
+  const opener = io.openBrowser ?? (await import('../server/open-browser.mjs')).openLogin;
+  // The token is a secret for 60 s: it goes to the browser through a private file, never to stdout, stderr,
+  // the JSON envelope or a command line. A stale record from an older server has no matching instance id.
+  opener(loginUrl(state.port, sessionKey(where), state.instance), { dir: stateDir(where), stderr: io.stderr });
   return { data: { url: state.url } };
 }, false);
 
