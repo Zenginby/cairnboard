@@ -24,12 +24,12 @@ export function readServerState(options = {}) {
   }
 }
 
-export function writeServerState({ port, instance, pid = process.pid, startedAt = new Date().toISOString(), rename = renameSync, ...options }) {
+export function writeServerState({ port, instance, host = '127.0.0.1', pid = process.pid, startedAt = new Date().toISOString(), rename = renameSync, ...options }) {
   const dir = stateDir(options);
   // On Windows mode bits are ignored; privacy relies on the %LOCALAPPDATA% ACL.
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   chmodSync(dir, 0o700);
-  const state = { v: 1, port, pid, instance, url: `http://127.0.0.1:${port}/`, startedAt };
+  const state = { v: 1, port, pid, instance, url: `http://${host}:${port}/`, startedAt };
   const temp = join(dir, `.server-${randomUUID()}.tmp`);
   try {
     writeFileSync(temp, JSON.stringify(state) + '\n', { mode: 0o600, flag: 'wx' });

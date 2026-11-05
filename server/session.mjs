@@ -105,6 +105,24 @@ export function readCookie(header, name) {
   return values.length === 1 ? values[0].slice(name.length + 1) : null;
 }
 
+// Browsers keep cookies per host name, never per port, and treat every port of a host as the same site. On a fixed
+// name (127.0.0.1, or even cairnboard.localhost) another local account could serve a page on another port of that
+// name and receive our cookie. The site name therefore carries a label derived from the private key: nobody without
+// the key can build a link to it. *.localhost always resolves to the loopback (browsers and the macOS resolver).
+export const SITE_DOMAIN = 'cairnboard.localhost';
+const BASE32 = 'abcdefghijklmnopqrstuvwxyz234567';
+
+export function siteHost(key) {
+  const digest = createHmac('sha256', key).update('cairn-v1|site-name').digest();
+  let label = '';
+  for (let i = 0; i < 26; i += 1) label += BASE32[digest[i] & 31];
+  return `${label}.${SITE_DOMAIN}`;
+}
+
+export function siteOrigin(key, port) {
+  return `http://${siteHost(key)}:${port}`;
+}
+
 export function loginUrl(port, key, instance) {
-  return `http://127.0.0.1:${port}/auth?t=${mintToken(key, port, instance)}`;
+  return `${siteOrigin(key, port)}/auth?t=${mintToken(key, port, instance)}`;
 }

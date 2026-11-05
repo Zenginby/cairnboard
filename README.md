@@ -13,7 +13,14 @@ uses the board as shared state.
 ### Web interface
 
 Run `npm start` to build and start the web interface and open your browser. The server uses the first
-free port in 4321–4340 and listens only on `127.0.0.1`. Use `cairn open` to reopen a running instance.
+free port in 4321–4340 and listens only on the loopback (`127.0.0.1` and `::1`). Use `cairn open` to reopen a
+running instance.
+
+The interface lives at a private address such as `http://<26 letters>.cairnboard.localhost:4321/`. The letters
+come from your key, so they stay the same on this machine and nobody else can guess them; `*.localhost` always
+points at your own machine. Other addresses (`127.0.0.1`, `localhost`) are refused. Browsers share cookies between
+all ports of a name, so a fixed name would let another account on the same machine collect the cookie with a page
+on another port.
 
 Every page, reads included, needs a sign-in cookie. `npm start` and `cairn open` open the browser with a
 one-time link that is valid for 60 seconds; the cookie then lasts 30 days and survives restarts. A browser
@@ -275,7 +282,13 @@ ilerlemesini yazar ve yaptığını günlüğe kaydeder. Cairnboard ajan başlat
 ### Web arayüzü
 
 `npm start` web arayüzünü derler, sunucuyu başlatır ve tarayıcıyı açar. Sunucu 4321–4340 aralığındaki
-ilk boş portu kullanır ve yalnızca `127.0.0.1` üzerinde dinler. Çalışan arayüzü yeniden açmak için `cairn open` kullanın.
+ilk boş portu kullanır ve yalnızca geri döngüde (`127.0.0.1` ve `::1`) dinler. Çalışan arayüzü yeniden açmak için
+`cairn open` kullanın.
+
+Arayüz `http://<26 harf>.cairnboard.localhost:4321/` gibi size özel bir adreste açılır. Harfler anahtarınızdan
+türetilir: bu makinede hep aynıdır, başkası tahmin edemez; `*.localhost` her zaman kendi makinenizi gösterir. Başka
+adresler (`127.0.0.1`, `localhost`) reddedilir. Tarayıcılar çerezi bir adın bütün portlarında paylaştığı için sabit
+bir ad, aynı makinedeki başka bir hesabın başka porttaki bir sayfayla çerezi toplamasına izin verirdi.
 
 Okumalar dahil her sayfa oturum çerezi ister. `npm start` ve `cairn open` tarayıcıyı 60 saniye geçerli, tek
 kullanımlık bir bağlantıyla açar; çerez sonra 30 gün geçerlidir ve sunucu yeniden başlasa da kalır. Çerezi

@@ -1,4 +1,4 @@
-import { cookieName, COOKIE_MAX_AGE_S, mintCookie, readCookie, tokenVerifier, verifyCookie } from './session.mjs';
+import { cookieName, COOKIE_MAX_AGE_S, mintCookie, readCookie, siteHost, tokenVerifier, verifyCookie } from './session.mjs';
 
 export const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
@@ -32,26 +32,23 @@ export function guard(req, res) {
 
 /**
  * The server's access check (spec §5.1–5.2), run before anything else:
- * - Host must be exactly 127.0.0.1:<port>; localhost:<port> is redirected there before any cookie check
- *   (the cookie belongs to 127.0.0.1); any other Host gets 421, which stops DNS rebinding.
+ * - Host must be exactly <site name>:<port> (see siteHost). Anything else, 127.0.0.1 and localhost included, gets 421
+ *   without a redirect: a redirect would tell any local account the private site name. This also stops DNS rebinding.
  * - /auth?t=<one-time token> sets the session cookie and redirects to / so the token leaves the address bar.
  * - Every other request, reads included, needs the cookie; built assets under /_astro/ are public.
  */
 export function createGuard({ port, key, instance, now = Date.now }) {
   if (!Number.isSafeInteger(port) || !Buffer.isBuffer(key)) throw new TypeError('createGuard needs a port and a key.');
-  const origin = `127.0.0.1:${port}`;
+  const origin = `${siteHost(key)}:${port}`;
   const name = cookieName(port);
   const useToken = tokenVerifier(key, port, instance);
   const signedOut = (req, res) => send(req, res, 401, { 'Content-Type': 'text/html; charset=utf-8' }, SIGNED_OUT);
 
   return (req, res) => {
     if (guard(req, res) === false) return false;
-    const host = req.headers.host;
-    if (host === `localhost:${port}`) {
-      const path = typeof req.url === 'string' && req.url.startsWith('/') ? req.url : '/';
-      return send(req, res, 302, { Location: `http://${origin}${path}` });
+    if (req.headers.host !== origin) {
+      return send(req, res, 421, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Open Cairnboard with: cairn open\n');
     }
-    if (host !== origin) return send(req, res, 421, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Misdirected request.');
 
     const url = new URL(req.url, `http://${origin}`);
     const signedIn = verifyCookie(key, port, readCookie(req.headers.cookie, name), now());

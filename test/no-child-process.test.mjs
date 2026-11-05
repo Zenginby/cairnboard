@@ -38,7 +38,7 @@ test('server keeps process and socket use in its entry points', () => {
   for (const file of sources(join(repo, 'server'))) {
     const name = relative(repo, file).replaceAll('\\', '/');
     const processAllowed = name === 'server/open-browser.mjs';
-    const socketsAllowed = ['server/start.mjs', 'server/port.mjs'].includes(name);
+    const socketsAllowed = ['server/listen.mjs', 'server/port.mjs'].includes(name);
     readFileSync(file, 'utf8').split(/\r?\n/u).forEach((line, i) => {
       const checked = socketsAllowed ? line.replace(/(['"`])(?:node:)?(?:http|net)\1/gu, "''") : line;
       if ((!processAllowed && FORBIDDEN[0].test(line))

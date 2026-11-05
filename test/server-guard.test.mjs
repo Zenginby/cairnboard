@@ -5,16 +5,17 @@ import { join } from 'node:path';
 import { CSP, createGuard } from '../server/guard.mjs';
 import { stateDir } from '../core/roots.mjs';
 import {
-  cookieName, loginUrl, mintCookie, mintToken, readCookie, sessionKey, tokenVerifier, verifyCookie, TOKEN_TTL_MS,
+  cookieName, loginUrl, mintCookie, mintToken, readCookie, sessionKey, siteHost, tokenVerifier, verifyCookie, TOKEN_TTL_MS,
 } from '../server/session.mjs';
 import { tempDir } from './support/env.mjs';
 
 const PORT = 4330;
 const key = Buffer.alloc(32, 7);
 const instance = 'run-aaaaaaaaaaaaaaaa';
+const SITE = `${siteHost(key)}:${PORT}`;
 
 /** Runs the guard against a fake request and records what it answered. */
-function call(guardFn, { url = '/', host = `127.0.0.1:${PORT}`, method = 'GET', cookie } = {}) {
+function call(guardFn, { url = '/', host = SITE, method = 'GET', cookie } = {}) {
   const headers = {};
   const res = {
     status: null, body: undefined, ended: false,
@@ -39,7 +40,7 @@ function signIn(guardFn, now) {
 
 test('security headers are on every answer, including refusals', () => {
   const guardFn = createGuard({ port: PORT, key, instance });
-  for (const options of [{}, { host: 'evil.test' }, { host: `localhost:${PORT}` }, { method: 'POST' }, { url: '/auth?t=x' }]) {
+  for (const options of [{}, { host: 'evil.test' }, { host: `127.0.0.1:${PORT}` }, { method: 'POST' }, { url: '/auth?t=x' }]) {
     const { headers } = call(guardFn, options);
     assert.equal(headers['content-security-policy'], CSP);
     assert.equal(headers['x-content-type-options'], 'nosniff');
@@ -48,18 +49,20 @@ test('security headers are on every answer, including refusals', () => {
   }
 });
 
-test('only 127.0.0.1:<port> is served; localhost is redirected before any cookie check', () => {
+test('only the private site name with our port is served; nothing else is redirected or named', () => {
   const guardFn = createGuard({ port: PORT, key, instance });
-  for (const host of ['evil.test', `evil.test:${PORT}`, '127.0.0.1', `127.0.0.1:${PORT + 1}`, `[::1]:${PORT}`,
-    `LOCALHOST:${PORT}`, `127.0.0.1:${PORT}.evil.test`, '', null]) {
-    assert.equal(call(guardFn, { host }).status, 421, String(host));
+  const label = siteHost(key).split('.')[0];
+  assert.match(siteHost(key), /^[a-z2-7]{26}\.cairnboard\.localhost$/u);
+  assert.notEqual(siteHost(Buffer.alloc(32, 8)), siteHost(key), 'the name comes from the key');
+  for (const host of ['evil.test', `evil.test:${PORT}`, `127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PORT}`,
+    `cairnboard.localhost:${PORT}`, `other.cairnboard.localhost:${PORT}`, siteHost(key), `${siteHost(key)}:${PORT + 1}`,
+    `${siteHost(key).toUpperCase()}:${PORT}`, `${siteHost(key)}.:${PORT}`, `x.${siteHost(key)}:${PORT}`, '', null]) {
+    const response = call(guardFn, { host });
+    assert.equal(response.status, 421, String(host));
+    assert.equal(response.headers.location, undefined);
+    assert.ok(!response.body.includes(label), 'a refusal must not reveal the site name');
   }
-  const redirect = call(guardFn, { host: `localhost:${PORT}`, url: '/cards/c-1?x=1' });
-  assert.equal(redirect.status, 302);
-  assert.equal(redirect.headers.location, `http://127.0.0.1:${PORT}/cards/c-1?x=1`);
-  // A scheme-relative request target cannot turn the redirect into another host.
-  const odd = call(guardFn, { host: `localhost:${PORT}`, url: '//evil.test/x' });
-  assert.equal(new URL(odd.headers.location).host, `127.0.0.1:${PORT}`);
+  assert.equal(call(guardFn, { host: SITE }).status, 401);
 });
 
 test('without a cookie every page, reads included, gets the sign-in page; built assets stay public', () => {
@@ -140,7 +143,7 @@ test('the session key is created once, private and stable across restarts', (t) 
 
 test('helpers: login URL, cookie parsing and the one-time verifier', () => {
   const url = new URL(loginUrl(PORT, key, instance));
-  assert.equal(url.origin, `http://127.0.0.1:${PORT}`);
+  assert.equal(url.origin, `http://${SITE}`);
   const verify = tokenVerifier(key, PORT, instance);
   const token = url.searchParams.get('t');
   assert.equal(verify(token), true);

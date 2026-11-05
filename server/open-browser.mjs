@@ -3,7 +3,8 @@ import { randomBytes } from 'node:crypto';
 import { chmodSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join, win32 } from 'node:path';
 
-const LOOPBACK = /^http:\/\/127\.0\.0\.1:([0-9]+)\/[^\s\u0000-\u001f\u007f"'<>]*$/u;
+// Our own origins only: the private site name under cairnboard.localhost, or 127.0.0.1.
+const LOOPBACK = /^http:\/\/(?:127\.0\.0\.1|[a-z2-7]{26}\.cairnboard\.localhost):([0-9]+)\/[^\s\u0000-\u001f\u007f"'<>]*$/u;
 const LAUNCHER = /^open-[0-9a-f]{32}\.html$/u;
 const LAUNCHER_TTL_MS = 2 * 60_000;
 

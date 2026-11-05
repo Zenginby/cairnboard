@@ -1,11 +1,10 @@
-import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { checkRuntime } from '../core/runtime.mjs';
 import { createApp } from './app.mjs';
 import { createGuard } from './guard.mjs';
-import { loginUrl, newInstanceId, sessionKey } from './session.mjs';
+import { loginUrl, newInstanceId, sessionKey, siteHost } from './session.mjs';
 import { stateDir } from '../core/roots.mjs';
-import { findPort } from './port.mjs';
+import { listenLoopback, serverGroup } from './listen.mjs';
 import { isAlive, readServerState, writeServerState } from './state.mjs';
 import { openLogin } from './open-browser.mjs';
 import { installShutdown } from './shutdown.mjs';
@@ -21,30 +20,15 @@ async function start() {
     return;
   }
   const { handler } = await import('../dist/app/server/entry.mjs');
-  const host = '127.0.0.1';
   const root = fileURLToPath(new URL('../', import.meta.url));
-  // The access check needs the port, so requests are attached once listen() has picked one.
-  const server = createServer();
-  // A probe cannot reserve a port: retry if another process wins the race before listen().
-  let port;
-  for (let from = 4321; from <= 4340; from = port + 1) {
-    port = await findPort({ from, to: 4340, host });
-    try {
-      await new Promise((resolve, reject) => {
-        server.once('error', reject);
-        server.listen(port, host, () => { server.removeListener('error', reject); resolve(); });
-      });
-      break;
-    } catch (error) {
-      if (!['EADDRINUSE', 'EACCES'].includes(error.code)) throw error;
-    }
-  }
-  if (!server.listening) throw new Error('No free port on 127.0.0.1 in 4321–4340; stop another server and try again.');
+  const { port, servers } = await listenLoopback();
   const instance = newInstanceId();
-  server.on('request', createApp({ root, handler, guard: createGuard({ port, key, instance }) }));
+  const app = createApp({ root, handler, guard: createGuard({ port, key, instance }) });
+  for (const server of servers) server.on('request', app);
+  const server = serverGroup(servers);
   const shutdown = installShutdown(server);
   try {
-    const { url } = writeServerState({ port, instance });
+    const { url } = writeServerState({ port, instance, host: siteHost(key) });
     console.log(`Cairnboard: ${url}`);
     if (open) openLogin(loginUrl(port, key, instance), { dir: stateDir() });
     else console.log('Run cairn open to sign this browser in.');

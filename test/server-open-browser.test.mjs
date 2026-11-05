@@ -100,3 +100,13 @@ test('openLogin warnings never print the token, and old launcher files are remov
   assert.throws(() => openLogin('http://127.0.0.1:4321/auth?t=x"><script>', { dir }), TypeError);
   assert.throws(() => openLogin(login, {}), TypeError);
 });
+
+test('openLogin accepts the private site name and nothing that only looks like it', (t) => {
+  const dir = tempDir(t);
+  const site = 'http://abcdefghijklmnopqrstuvwxyz.cairnboard.localhost:4321/auth?t=x';
+  openLogin(site, { dir, platform: 'linux', spawn: () => child() });
+  for (const bad of ['http://cairnboard.localhost:4321/auth?t=x', 'http://ABCDEFGHIJKLMNOPQRSTUVWXYZ.cairnboard.localhost:4321/',
+    'http://abcdefghijklmnopqrstuvwxyz.cairnboard.localhost.evil.test:4321/', 'http://evil.test/abcdefghijklmnopqrstuvwxyz.cairnboard.localhost:4321/']) {
+    assert.throws(() => openLogin(bad, { dir, spawn: () => assert.fail('must not spawn') }), TypeError, bad);
+  }
+});

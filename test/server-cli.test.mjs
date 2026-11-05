@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { writeServerState } from '../server/state.mjs';
-import { sessionKey, tokenVerifier } from '../server/session.mjs';
+import { sessionKey, siteHost, tokenVerifier } from '../server/session.mjs';
 import { runCli, spawnCli } from './support/cli.mjs';
 import { tempDir } from './support/env.mjs';
 
@@ -26,7 +26,7 @@ test('cairn open needs no data directory and sends a one-time login URL only to 
   assert.deepEqual(response.json, { v: 1, ok: true, data: { url }, warnings: [] });
   assert.equal(opened.length, 1);
   const login = new URL(opened[0]);
-  assert.equal(login.origin, 'http://127.0.0.1:4322');
+  assert.equal(login.origin, `http://${siteHost(sessionKey({ home, env: {} }))}:4322`);
   assert.equal(login.pathname, '/auth');
   const token = login.searchParams.get('t');
   assert.equal(tokenVerifier(sessionKey({ home, env: {} }), 4322, 'run-cccccccccccccccc')(token), true);
