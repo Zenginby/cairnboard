@@ -15,6 +15,11 @@ uses the board as shared state.
 Run `npm start` to build and start the web interface and open your browser. The server uses the first
 free port in 4321–4340 and listens only on `127.0.0.1`. Use `cairn open` to reopen a running instance.
 
+Every page, reads included, needs a sign-in cookie. `npm start` and `cairn open` open the browser with a
+one-time link that is valid for 60 seconds; the cookie then lasts 30 days and survives restarts. A browser
+without it sees a page that asks you to run `cairn open`. The key behind it is kept in your user state folder,
+never in the data folder.
+
 ### CLI
 
 Requires Node.js ≥ 22.23.4. From a fresh clone:
@@ -271,6 +276,11 @@ ilerlemesini yazar ve yaptığını günlüğe kaydeder. Cairnboard ajan başlat
 
 `npm start` web arayüzünü derler, sunucuyu başlatır ve tarayıcıyı açar. Sunucu 4321–4340 aralığındaki
 ilk boş portu kullanır ve yalnızca `127.0.0.1` üzerinde dinler. Çalışan arayüzü yeniden açmak için `cairn open` kullanın.
+
+Okumalar dahil her sayfa oturum çerezi ister. `npm start` ve `cairn open` tarayıcıyı 60 saniye geçerli, tek
+kullanımlık bir bağlantıyla açar; çerez sonra 30 gün geçerlidir ve sunucu yeniden başlasa da kalır. Çerezi
+olmayan tarayıcı `cairn open` çalıştırmanızı isteyen bir sayfa görür. Anahtar veri klasöründe değil, kullanıcının
+durum klasöründe tutulur.
 
 ### CLI
 

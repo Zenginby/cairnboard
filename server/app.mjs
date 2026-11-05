@@ -1,7 +1,6 @@
 import { constants } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
-import { guard as defaultGuard } from './guard.mjs';
 
 const types = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -55,7 +54,9 @@ async function clientFile(root, path) {
   }
 }
 
-export function createApp({ root, handler, guard = defaultGuard }) {
+export function createApp({ root, handler, guard }) {
+  // Fail closed: a server without its access check must not start.
+  if (typeof guard !== 'function') throw new TypeError('createApp needs a guard.');
   root = resolve(root);
   async function errorPage(req, res, status) {
     // Prerendered Astro error pages also work when middleware calls next() without a body.

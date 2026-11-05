@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 - Add the local-only web server skeleton, CSP-safe Astro pages, startup state and `cairn open`.
+- Require a sign-in cookie for every page: Host check (421, localhost redirect), one-time 60 s login link from
+  `npm start` / `cairn open`, port-bound HttpOnly SameSite=Strict cookie, key in the user state folder.
+- Skip ports whose IPv6 loopback is taken, so `localhost:<port>` cannot reach another app.
 
 - Reject text mutations of invalid UTF-8 files without changing their bytes; preserve byte mutations.
 - Skip and report unreadable pages and raw sources on indexed and fallback reads.

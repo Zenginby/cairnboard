@@ -107,7 +107,7 @@ test('createApp guards first and keeps headers on pages, errors, static files an
 test('createApp refuses traversal, malformed paths and symlinks before invoking Astro', async (t) => {
   const { root, client } = fixture(t);
   writeFileSync(join(root, 'package.json'), 'outside secret');
-  const get = await serve(t, createApp({ root, handler: () => assert.fail('must not reach Astro') }));
+  const get = await serve(t, createApp({ root, guard, handler: () => assert.fail('must not reach Astro') }));
   for (const path of ['/_astro/../../package.json', '/_astro/%2e%2e/%2e%2e/package.json',
     '/_astro/%252e%252e/package.json', '/_astro/%00app.js', '/_astro/%5c..%5cpackage.json', '/bad%']) {
     const response = await get(path);
@@ -142,7 +142,7 @@ test('createApp refuses traversal, malformed paths and symlinks before invoking 
 test('very long static paths return our 404 without logging a stack', async (t) => {
   const { root } = fixture(t);
   const logged = t.mock.method(console, 'error', () => {});
-  const get = await serve(t, createApp({ root, handler: (req, res, next) => next() }));
+  const get = await serve(t, createApp({ root, guard, handler: (req, res, next) => next() }));
   const response = await get(`/_astro/${'a'.repeat(1000)}.js`);
   assert.equal(response.status, 404);
   assert.match(response.body, /404 — Page not found/u);
@@ -158,7 +158,7 @@ test('real Astro output serves CSP-safe HTML, our 404 body and an external scrip
     return;
   }
   const { handler } = await import('../dist/app/server/entry.mjs');
-  const get = await serve(t, createApp({ root, handler }), true);
+  const get = await serve(t, createApp({ root, guard, handler }), true);
   const home = await get('/');
   assert.equal(home.status, 200);
   assert.match(home.body, /<title>Cairnboard<\/title>/u);

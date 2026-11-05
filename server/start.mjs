@@ -2,6 +2,8 @@ import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { checkRuntime } from '../core/runtime.mjs';
 import { createApp } from './app.mjs';
+import { createGuard } from './guard.mjs';
+import { loginUrl, sessionKey } from './session.mjs';
 import { findPort } from './port.mjs';
 import { isAlive, readServerState, writeServerState } from './state.mjs';
 import { openBrowser } from './open-browser.mjs';
@@ -9,14 +11,19 @@ import { installShutdown } from './shutdown.mjs';
 
 async function start() {
   await checkRuntime();
+  const open = !process.argv.includes('--no-open') && process.env.CAIRN_NO_OPEN !== '1';
+  const key = sessionKey();
   const previous = readServerState();
   if (previous && isAlive(previous.pid)) {
     console.log(`Cairnboard is already running: ${previous.url}`);
+    if (open) openBrowser(loginUrl(previous.port, key));
     return;
   }
   const { handler } = await import('../dist/app/server/entry.mjs');
   const host = '127.0.0.1';
-  const server = createServer(createApp({ root: fileURLToPath(new URL('../', import.meta.url)), handler }));
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  // The access check needs the port, so requests are attached once listen() has picked one.
+  const server = createServer();
   // A probe cannot reserve a port: retry if another process wins the race before listen().
   let port;
   for (let from = 4321; from <= 4340; from = port + 1) {
@@ -32,11 +39,13 @@ async function start() {
     }
   }
   if (!server.listening) throw new Error('No free port on 127.0.0.1 in 4321–4340; stop another server and try again.');
+  server.on('request', createApp({ root, handler, guard: createGuard({ port, key }) }));
   const shutdown = installShutdown(server);
   try {
     const { url } = writeServerState({ port });
     console.log(`Cairnboard: ${url}`);
-    if (!process.argv.includes('--no-open') && process.env.CAIRN_NO_OPEN !== '1') openBrowser(url);
+    if (open) openBrowser(loginUrl(port, key));
+    else console.log('Run cairn open to sign this browser in.');
   } catch (error) {
     shutdown();
     throw error;

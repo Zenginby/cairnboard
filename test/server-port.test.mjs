@@ -11,12 +11,21 @@ test('findPort skips busy ports and passes the loopback host to the probe', asyn
     calls.push([port, host]);
     if (port === 4321) throw busy();
   } }), 4322);
-  assert.deepEqual(calls, [[4321, '127.0.0.1'], [4322, '127.0.0.1']]);
+  assert.deepEqual(calls, [[4321, '127.0.0.1'], [4322, '127.0.0.1'], [4322, '::1']]);
   assert.equal(await findPort({ listen: async (port) => {
     if (port === 4321) throw Object.assign(new Error('excluded'), { code: 'EACCES' });
   } }), 4322);
   await assert.rejects(findPort({ listen: async () => { throw busy(); } }), /No free port.*4321–4340/u);
   await assert.rejects(findPort({ listen: async () => { throw new Error('probe failed'); } }), /probe failed/u);
+});
+
+test('a port taken on the IPv6 loopback is skipped; a machine without IPv6 is fine', async () => {
+  assert.equal(await findPort({ listen: async (port, host) => {
+    if (port === 4321 && host === '::1') throw busy();
+  } }), 4322);
+  assert.equal(await findPort({ listen: async (port, host) => {
+    if (host === '::1') throw Object.assign(new Error('no ipv6'), { code: 'EADDRNOTAVAIL' });
+  } }), 4321);
 });
 
 test('findPort detects a real occupied loopback port and releases its probe', async (t) => {
