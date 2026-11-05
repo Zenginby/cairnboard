@@ -20,10 +20,13 @@ async function start() {
     return;
   }
   const { handler } = await import('../dist/app/server/entry.mjs');
+  const { createApi } = await import('./api.mjs');
+  const { openContext } = await import('../core/context.mjs');
   const root = fileURLToPath(new URL('../', import.meta.url));
   const { port, servers } = await listenLoopback();
   const instance = newInstanceId();
-  const app = createApp({ root, handler, guard: createGuard({ port, key, instance }) });
+  const app = createApp({ root, handler, guard: createGuard({ port, key, instance }),
+    api: createApi({ open: () => openContext({ mode: 'read' }) }) });
   for (const server of servers) server.on('request', app);
   const server = serverGroup(servers);
   const shutdown = installShutdown(server);

@@ -32,11 +32,11 @@ function knownColumn(ctx, key) {
 }
 
 export function listCards(ctx, { project, column, columnRole, assignee, unassigned,
-  priority, tag, includeDone = false } = {}) {
+  priority, tag, includeDone = false } = {}, items) {
   const projectEntity = project === undefined ? null : entity.resolve(ctx, 'project', project);
   const projectRefs = projectEntity && [projectEntity.id, `@${projectEntity.path.slice(0, -3)}`, `@${projectEntity.path}`]
     .filter((ref) => ref !== null);
-  return entity.list(ctx, 'card').map((card) => ({ ...card,
+  return (items ?? entity.list(ctx, 'card')).map((card) => ({ ...card,
     warnings: [...card.warnings, ...effectiveColumn(ctx.config, card).warnings],
   })).filter((card) => {
     const effective = effectiveColumn(ctx.config, card);

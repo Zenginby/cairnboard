@@ -77,6 +77,17 @@ test('without a cookie every page, reads included, gets the sign-in page; built 
   assert.equal(call(guardFn, { url: '/_astro/../api/board' }).status, 401);
 });
 
+test('an asset path is public only as written: the guard and the router must read the same path', () => {
+  const guardFn = createGuard({ port: PORT, key, instance });
+  assert.equal(call(guardFn, { url: '/_astro/index.abc.js?v=1' }).passed, true);
+  // URL parsing turns each of these into /_astro/…, while the router sees the raw path.
+  for (const url of ['//host/_astro/x.js', '/api/%2e%2e/_astro/x.js', '/x/%2E%2E/_astro/x.js', '/_astro/%2e%2e/api/board',
+    '/_astro/./x.js', '\\_astro/x.js', '/_astro\\..\\api/board']) {
+    assert.equal(call(guardFn, { url }).status, 401, url);
+  }
+  assert.equal(call(guardFn, { url: '//host/auth?t=x' }).status, 401);
+});
+
 test('a token signs the browser in once, sets a strict cookie and clears the address bar', () => {
   let now = 1_800_000_000_000;
   const guardFn = createGuard({ port: PORT, key, instance, now: () => now });

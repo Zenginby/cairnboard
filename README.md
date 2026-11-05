@@ -27,6 +27,8 @@ one-time link that is valid for 60 seconds; the cookie then lasts 30 days and su
 without it sees a page that asks you to run `cairn open`. The key behind it is kept in your user state folder,
 never in the data folder.
 
+The cookie-protected read API serves `/api/home`, `/api/board`, `/api/cards/:id` and `/api/notes/:id` via GET (HEAD is also supported).
+
 ### CLI
 
 Requires Node.js ≥ 22.23.4. From a fresh clone:
@@ -294,6 +296,8 @@ Okumalar dahil her sayfa oturum çerezi ister. `npm start` ve `cairn open` taray
 kullanımlık bir bağlantıyla açar; çerez sonra 30 gün geçerlidir ve sunucu yeniden başlasa da kalır. Çerezi
 olmayan tarayıcı `cairn open` çalıştırmanızı isteyen bir sayfa görür. Anahtar veri klasöründe değil, kullanıcının
 durum klasöründe tutulur.
+
+Oturum çereziyle korunan okuma API’si `/api/home`, `/api/board`, `/api/cards/:id` ve `/api/notes/:id` yollarında yalnız GET sunar (HEAD de desteklenir).
 
 ### CLI
 

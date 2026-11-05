@@ -1,4 +1,5 @@
 import { stripHidden, oneLine } from '../core/text.mjs';
+import { CairnError } from '../core/errors.mjs';
 import { keyBetween } from '../core/position.mjs';
 
 export const actorPattern = /^[a-z0-9][a-z0-9._-]{0,31}$/u;
@@ -102,4 +103,19 @@ export function human(data) {
     : oneLine(item.content?.title || item.content?.text || item.ref || item.path || JSON.stringify(item))).join('\n');
   if (data?.content) return [oneLine(data.content.title ?? ''), JSON.stringify(data.meta), data.content.body ?? data.content.snippet ?? ''].join('\n');
   return typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+}
+
+export function okEnvelope(data, warnings = [], opts = {}) {
+  return clean({ v: 1, ok: true, data, warnings: [...new Set(warnings)] }, opts);
+}
+
+export function errorEnvelope(error, warnings = [], opts = {}) {
+  const known = error instanceof CairnError;
+  const code = known ? error.code : 'internal';
+  const message = oneLine(clean(known ? error.message : 'An internal error occurred.'));
+  const current = known ? error.details.current : undefined;
+  const rules = known ? error.details.rules : undefined;
+  return { v: 1, ok: false, error: { code, message,
+    ...(current === undefined ? {} : { current: clean(current, opts) }),
+    ...(rules === undefined ? {} : { rules: clean(rules, opts) }) }, warnings: [...new Set(warnings)] };
 }
