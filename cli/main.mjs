@@ -5,7 +5,7 @@ import { CairnError, ERRORS } from '../core/errors.mjs';
 import { findDataDir, findProjectLink } from '../core/roots.mjs';
 import { oneLine } from '../core/text.mjs';
 import { confirm } from './confirm.mjs';
-import { actorPattern, clean, human } from './output.mjs';
+import { actorPattern, clean, human, okEnvelope, errorEnvelope } from './output.mjs';
 
 export async function main(argv, io) {
   let json = argv.includes('--json'), ctx = null, opts = {};
@@ -54,20 +54,15 @@ export async function main(argv, io) {
       return result.exit ?? 0;
     }
     const warnings = [...new Set([...(ctx?.warnings ?? []), ...(result.warnings ?? [])])];
-    const envelope = clean({ v: 1, ok: true, data: result.data, warnings }, opts);
+    const envelope = okEnvelope(result.data, warnings, opts);
     const output = json ? JSON.stringify(envelope) : human(envelope.data);
     if (!json && envelope.warnings.length) io.stderr.write(`warning: ${envelope.warnings.map((item) => oneLine(item)).join(', ')}\n`);
     io.stdout.write(output + (!json && typeof envelope.data === 'string' && output.endsWith('\n') ? '' : '\n'));
     return result.exit ?? 0;
   } catch (error) {
     const known = error instanceof CairnError;
-    const code = known ? error.code : 'internal';
-    const message = oneLine(clean(known ? error.message : 'An internal error occurred.'));
-    const current = known ? error.details.current : undefined;
-    const rules = known ? error.details.rules : undefined;
-    const envelope = { v: 1, ok: false, error: { code, message,
-      ...(current === undefined ? {} : { current: clean(current, opts) }),
-      ...(rules === undefined ? {} : { rules: clean(rules, opts) }) }, warnings: [...new Set(ctx?.warnings ?? [])] };
+    const envelope = errorEnvelope(error, ctx?.warnings ?? [], opts);
+    const { code, message } = envelope.error;
     if (json) io.stdout.write(`${JSON.stringify(envelope)}\n`);
     else io.stderr.write(`${code}: ${message}\n`);
     if (!known && io.env.CAIRN_DEBUG === '1') io.stderr.write(`${error?.stack ?? error}\n`);

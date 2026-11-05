@@ -54,7 +54,7 @@ async function clientFile(root, path) {
   }
 }
 
-export function createApp({ root, handler, guard }) {
+export function createApp({ root, handler, guard, api }) {
   // Fail closed: a server without its access check must not start.
   if (typeof guard !== 'function') throw new TypeError('createApp needs a guard.');
   root = resolve(root);
@@ -72,6 +72,10 @@ export function createApp({ root, handler, guard }) {
     try {
       if (await guard(req, res) === false) return;
       const path = requestPath(req.url);
+      if (path?.startsWith('/api/') || req.url.split('?')[0].startsWith('/api/')) {
+        if (api && await api(req, res, path)) return;
+        return await errorPage(req, res, 404);
+      }
       if (path === null) return await errorPage(req, res, 404);
       const body = await clientFile(root, path);
       if (body === false) return await errorPage(req, res, 404);
