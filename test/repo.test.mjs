@@ -4,14 +4,14 @@ import { readFileSync } from 'node:fs';
 
 const oku = (yol) => readFileSync(new URL(`../${yol}`, import.meta.url), 'utf8');
 
-test('package.json is private, ESM, MIT, Node >= 22.16 with exactly pinned dependencies', () => {
+test('package.json is private, ESM, MIT, Node >= 22.23.4 with exactly pinned dependencies', () => {
   const p = JSON.parse(oku('package.json'));
   assert.equal(p.private, true);
   assert.equal(p.type, 'module');
-  assert.equal(p.engines.node, '>=22.16');
+  assert.equal(p.engines.node, '>=22.23.4');
   assert.equal(p.license, 'MIT');
   assert.ok(Array.isArray(p.files));
-  assert.deepEqual(p.dependencies, { yaml: '2.9.1' });
+  assert.deepEqual(p.dependencies, { '@astrojs/node': '11.1.9', astro: '7.4.5', yaml: '2.9.1' });
   assert.deepEqual(p.devDependencies, { '@google/design.md': '0.4.0', 'axe-core': '4.14.0', esbuild: '0.28.2', 'playwright-core': '1.64.1' });
   for (const version of [...Object.values(p.dependencies), ...Object.values(p.devDependencies)]) {
     assert.match(version, /^\d+\.\d+\.\d+$/);

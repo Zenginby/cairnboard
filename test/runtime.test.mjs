@@ -8,13 +8,13 @@ function unsupported(version) {
     assert.ok(error instanceof CairnError);
     assert.equal(error.code, 'runtime_unsupported');
     assert.equal(error.exit, 5);
-    assert.equal(error.message, `Cairnboard needs Node 22.16 or newer with SQLite FTS5 (found ${version}).`);
+    assert.equal(error.message, `Cairnboard needs Node 22.23.4 or newer with SQLite FTS5 (found ${version}).`);
     return true;
   };
 }
 
 test('old Node versions fail before loading SQLite', async () => {
-  for (const nodeVersion of ['20.19.0', '22.15.1']) {
+  for (const nodeVersion of ['20.19.0', '22.15.1', '22.22.9', '22.23.3']) {
     await assert.rejects(checkRuntime({
       nodeVersion,
       sqlite: () => assert.fail('SQLite must not load on an unsupported Node version'),
@@ -25,7 +25,7 @@ test('old Node versions fail before loading SQLite', async () => {
 test('missing FTS5 fails and closes the in-memory database', async () => {
   let closed = false;
   await assert.rejects(checkRuntime({
-    nodeVersion: '22.16.0',
+    nodeVersion: '22.23.4',
     sqlite: async () => ({
       DatabaseSync: class {
         constructor(path) { assert.equal(path, ':memory:'); }
@@ -36,7 +36,7 @@ test('missing FTS5 fails and closes the in-memory database', async () => {
         close() { closed = true; }
       },
     }),
-  }), unsupported('22.16.0'));
+  }), unsupported('22.23.4'));
   assert.equal(closed, true);
 });
 
@@ -45,12 +45,12 @@ test('SQLite import and database creation failures become runtime errors', async
     async () => { throw new Error('module unavailable'); },
     () => ({ DatabaseSync: class { constructor() { throw new Error('cannot open'); } } }),
   ]) {
-    await assert.rejects(checkRuntime({ nodeVersion: '22.16.0', sqlite }), unsupported('22.16.0'));
+    await assert.rejects(checkRuntime({ nodeVersion: '22.23.4', sqlite }), unsupported('22.23.4'));
   }
 });
 
 test('supported versions create an FTS5 table and close the database', async () => {
-  for (const nodeVersion of ['22.16.0', '22.16.1', '22.17.0', '24.0.0']) {
+  for (const nodeVersion of ['22.23.4', '22.23.10', '22.24.0', '24.0.0']) {
     const calls = [];
     assert.equal(await checkRuntime({
       nodeVersion,
@@ -70,7 +70,7 @@ test('supported versions create an FTS5 table and close the database', async () 
 });
 
 test('minimum version with real SQLite supports FTS5', async () => {
-  assert.equal(await checkRuntime({ nodeVersion: '22.16.0' }), undefined);
+  assert.equal(await checkRuntime({ nodeVersion: '22.23.4' }), undefined);
 });
 
 test('current runtime passes with default options', async () => {

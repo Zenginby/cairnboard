@@ -12,7 +12,7 @@ uses the board as shared state.
 
 ### CLI
 
-Requires Node.js ≥ 22.16. From a fresh clone:
+Requires Node.js ≥ 22.23.4. From a fresh clone:
 
 ```sh
 git clone <repo>
@@ -264,7 +264,7 @@ ilerlemesini yazar ve yaptığını günlüğe kaydeder. Cairnboard ajan başlat
 
 ### CLI
 
-Node.js ≥ 22.16 gerekir. Yeni klonda:
+Node.js ≥ 22.23.4 gerekir. Yeni klonda:
 
 ```sh
 git clone <repo>
