@@ -22,8 +22,21 @@ export function lockName(rel) {
   return 'f-' + createHash('sha1').update(pathKey(rel)).digest('hex').slice(0, 16);
 }
 
+// Windows keeps a deleted file "delete pending" until its last handle closes; opening or creating that name meanwhile
+// fails with EPERM (or EACCES/EBUSY) instead of ENOENT/EEXIST. For a lock file that is plain contention: report it as
+// `locked` so retryWhileLocked backs off and tries again. Elsewhere these codes are real errors.
+function transient(error) {
+  return process.platform === 'win32' && ['EPERM', 'EACCES', 'EBUSY'].includes(error?.code);
+}
+
 function readOwner(ctx, rel) {
-  const text = readChecked(ctx.root, rel, 'utf8');
+  let text;
+  try {
+    text = readChecked(ctx.root, rel, 'utf8');
+  } catch (error) {
+    if (transient(error)) throw locked(undefined);
+    throw error;
+  }
   if (text === null) return undefined;
   let owner = null;
   try {
@@ -68,6 +81,7 @@ function create(ctx, rel) {
       | (fs.constants.O_NOFOLLOW ?? 0), 0o600);
   } catch (error) {
     if (error.code === 'EEXIST') return false;
+    if (transient(error)) throw locked(undefined);
     throw error;
   }
   try {
