@@ -2,7 +2,10 @@ import { basename } from 'node:path';
 import { validateDate } from '../core/dates.mjs';
 import * as index from '../core/index.mjs';
 import { stripHidden } from '../core/text.mjs';
-import { homeView } from '../cli/views.mjs';
+import { CairnError } from '../core/errors.mjs';
+import { normalizeId } from '../core/ids.mjs';
+import { effectiveColumn } from '../core/card.mjs';
+import { homeView, boardView, showView } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
 import { createRenderPool } from './render-pool.mjs';
 
@@ -50,8 +53,63 @@ export function homeResult(ctx, view = homeView(ctx)) {
   return okEnvelope(view.data, [...ctx.warnings, ...(view.warnings ?? [])]);
 }
 
+function projectMap(ctx) {
+  const titles = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+  const projects = index.rows(ctx, 'project').sort((a, b) => titles.compare(a.title, b.title)
+    || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  const refs = new Map();
+  for (const [order, row] of projects.entries()) {
+    const tone = Number.isInteger(row.data.tone) && row.data.tone >= 1 && row.data.tone <= 8 ? row.data.tone : order % 8 + 1;
+    const project = { id: row.id, title: row.title, tone };
+    for (const ref of [row.id, `@${row.path.slice(0, -3)}`, `@${row.path}`]) if (ref) refs.set(ref, project);
+  }
+  return refs;
+}
+
+function joinProjects(view, projects) {
+  for (const column of view.data.columns) {
+    for (const card of column.cards) card.project = projects.get(card.content.project) ?? null;
+  }
+}
+
 export function createRead({ open, render = createRenderPool().render }) {
+  const openRead = async () => {
+    try { return await open(); } catch (error) { throw new DataNotReadyError(error); }
+  };
+  const document = async (type, id) => {
+    if (!normalizeId(id)) throw new CairnError('not_found', 'Entity was not found.');
+    const ctx = await openRead();
+    const view = showView(ctx, type, normalizeId(id));
+    await renderView(ctx, view, render);
+    const projects = projectMap(ctx);
+    const project = projects.get(view.data.content.project) ?? null;
+    view.data.project = project;
+    if (type === 'card') {
+      const { key, label, role } = effectiveColumn(ctx.config, view.entity);
+      view.data.column = { key, label, role };
+      const board = boardView(ctx);
+      view.warnings.push(...board.warnings);
+      view.data.relatedCards = project ? board.data.columns.filter((column) => column.role !== 'done')
+        .flatMap((column) => column.cards).filter((card) => card.id && card.id !== view.data.id
+          && projects.get(card.content.project) === project).slice(0, 8) : [];
+    } else {
+      const rows = new Map(index.rows(ctx).map((row) => [row.path, row]));
+      view.data.meta.backlinks = view.data.meta.backlinks.map((link) => {
+        const row = rows.get(link.src_path);
+        return row ? { ...link, type: row.type, id: row.type === 'journal' ? journalDate(row) : row.id, title: row.title } : link;
+      });
+    }
+    return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
+  };
   return {
+    async board() {
+      const ctx = await openRead();
+      const view = boardView(ctx);
+      joinProjects(view, projectMap(ctx));
+      return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
+    },
+    card(id) { return document('card', id); },
+    note(id) { return document('note', id); },
     async home() {
       let ctx;
       try { ctx = await open(); } catch (error) { throw new DataNotReadyError(error); }

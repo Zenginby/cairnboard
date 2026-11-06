@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, openSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
-import { homeView } from '../cli/views.mjs';
+import { homeView, boardView, showView } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
 import { createRead, DataNotReadyError } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
@@ -110,4 +110,109 @@ test('Home dictionaries share keys and the language is chosen in one place', () 
   assert.equal(language, 'tr');
   assert.equal(translate('shell.home'), tr['shell.home']);
   for (const value of [...Object.values(tr), ...Object.values(en)]) assert.ok(value.trim());
+});
+
+function documentFixture(t) {
+  const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
+  initDataDir(data, { home, env: {}, clock });
+  const put = (path, fields, body = '') => {
+    mkdirSync(dirname(join(data, path)), { recursive: true });
+    writeFileSync(join(data, path), `---\n${Object.entries(fields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n')}\n---\n${body}`);
+  };
+  put('projects/alpha.md', { id: 'p-000001', title: 'Alpha', tone: 3 });
+  put('projects/beta.md', { id: 'p-000002', title: 'Beta' });
+  put('notes/target.md', { id: 'n-000001', title: 'Target', project: '@projects/alpha.md' }, '## Note body');
+  put('cards/work.md', { id: 'c-000001', title: 'Work', column: 'doing', project: 'p-000001' },
+    '## Card body\n\n- [x] First\n- [ ] Second\n\n[[target]]\n\n<script>bodyAttack(1)</script>');
+  put('cards/related.md', { id: 'c-000002', title: 'Related', column: 'planned', project: '@projects/alpha' });
+  put('cards/done.md', { id: 'c-000003', title: 'Done', column: 'done', project: '@projects/alpha.md' });
+  put('cards/unknown.md', { id: 'c-000004', title: 'Unknown', column: 'planned', project: 'missing' });
+  const open = () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock });
+  return { put, open };
+}
+
+test('Board and documents join all project reference forms without changing CLI views', async (t) => {
+  const { open, put } = documentFixture(t);
+  put('notes/other.md', { id: 'n-000002', title: 'Other', project: 'p-000002' });
+  const reader = createRead({ open, render: () => ({ html: '<p>Safe body</p>' }) });
+  const board = await reader.board();
+  const cards = board.data.columns.flatMap((column) => column.cards);
+  const project = { id: 'p-000001', title: 'Alpha', tone: 3 };
+  for (const id of ['c-000001', 'c-000002', 'c-000003']) assert.deepEqual(cards.find((card) => card.id === id).project, project);
+  assert.equal(cards.find((card) => card.id === 'c-000004').project, null);
+  const card = await reader.card('c-000001');
+  assert.deepEqual(card.data.project, project);
+  assert.equal(card.data.column.key, 'doing');
+  assert.equal(card.data.column.label, board.data.columns.find((column) => column.key === 'doing').label);
+  assert.deepEqual(card.data.relatedCards.map((item) => item.id), ['c-000002']);
+  assert.deepEqual((await reader.note('n-000001')).data.project, project);
+  assert.equal((await reader.note('n-000002')).data.project.tone, 2);
+  assert.equal((await reader.card('c-000004')).data.relatedCards.length, 0);
+  const ctx = open();
+  assert.ok(boardView(ctx).data.columns.flatMap((column) => column.cards).every((item) => !Object.hasOwn(item, 'project')));
+  assert.equal(showView(ctx, 'note', 'n-000001').data.content.project, '@projects/alpha.md');
+});
+
+test('Card side panel limits open cards from the same project to eight', async (t) => {
+  const { open, put } = documentFixture(t);
+  for (let index = 10; index < 20; index++) {
+    put(`cards/related-${index}.md`, { id: `c-0000${index}`, title: `Related ${index}`, column: 'planned', project: 'p-000001' });
+  }
+  const result = await createRead({ open, render: () => ({ html: '' }) }).card('c-000001');
+  assert.equal(result.data.relatedCards.length, 8);
+  assert.ok(result.data.relatedCards.every((card) => !['c-000001', 'c-000003', 'c-000004'].includes(card.id)));
+});
+
+test('Note backlinks resolve index titles and journal date ids, retaining unresolved paths', async (t) => {
+  const { open, put } = documentFixture(t);
+  put('notes/source.md', { id: 'n-000002', title: '<img src=x onerror=attack(1)>' }, '[[target]]');
+  put('journal/2026-11-01.md', { date: 'invalid' }, '[[target]]');
+  put('projects/source.md', { id: 'p-000003', title: 'Source project' }, '[[target]]');
+  put('notes/hidden\u200b.md', { id: 'n-000003', title: 'Hidden path' }, '[[target]]');
+  const result = await createRead({ open, render: () => ({ html: '' }) }).note('n-000001');
+  const links = result.data.meta.backlinks;
+  assert.deepEqual(links.find((link) => link.type === 'card'), { src_path: 'cards/work.md', line: 12, type: 'card', id: 'c-000001', title: 'Work' });
+  assert.equal(links.find((link) => link.type === 'note').title, '<img src=x onerror=attack(1)>');
+  assert.equal(links.find((link) => link.type === 'journal').id, '2026-11-01');
+  assert.equal(links.find((link) => link.type === 'project').title, 'Source project');
+  assert.deepEqual(links.find((link) => link.src_path === 'notes/hidden.md'), { src_path: 'notes/hidden.md', line: 5 });
+});
+
+test('Card and Note render sanitized Markdown and retain plain text on every render warning', async (t) => {
+  const { open } = documentFixture(t);
+  const pool = createRenderPool();
+  t.after(() => pool.close());
+  const reader = createRead({ open, render: pool.render });
+  const card = await reader.card('c-000001');
+  assert.match(card.data.content.html, /<h2>Card body<\/h2>/u);
+  assert.match(card.data.content.html, /type="checkbox"/u);
+  assert.match(card.data.content.html, /href="\/notes\/n-000001"/u);
+  assert.doesNotMatch(card.data.content.html, /<script|bodyAttack/u);
+  assert.match((await reader.note('n-000001')).data.content.html, /<h2>Note body<\/h2>/u);
+  for (const method of ['card', 'note']) {
+    const id = method === 'card' ? 'c-000001' : 'n-000001';
+    for (const [flag, code] of [['tooLarge', 'too_large'], ['timedOut', 'render_timeout'], ['failed', 'render_failed']]) {
+      const result = await createRead({ open, render: () => ({ html: null, [flag]: true }) })[method](id);
+      assert.equal(result.data.content.html, null);
+      assert.match(result.data.content.body, /## (?:Card|Note) body/u);
+      assert.ok(result.warnings.includes(code));
+    }
+  }
+});
+
+test('new readers open a fresh context, distinguish unavailable data and reject unknown ids', async (t) => {
+  const { open } = documentFixture(t);
+  let opens = 0;
+  const reader = createRead({ open: () => { opens++; return open(); }, render: () => ({ html: '' }) });
+  await reader.board();
+  await reader.card('c-000001');
+  await reader.note('n-000001');
+  assert.equal(opens, 3);
+  for (const method of ['card', 'note']) {
+    for (const id of ['missing', '@notes/target', 'n-999999']) await assert.rejects(reader[method](id), { code: 'not_found' });
+  }
+  for (const method of ['board', 'card', 'note']) {
+    await assert.rejects(createRead({ open: () => { throw new Error('unavailable'); } })[method]('n-000001'), { code: 'data_not_ready' });
+    await assert.rejects(createRead({ open: () => null })[method]('n-000001'), (error) => error.code !== 'data_not_ready');
+  }
 });

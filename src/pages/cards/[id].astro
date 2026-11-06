@@ -1,0 +1,21 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import PageState from '../../components/PageState.astro';
+import ReadWarnings from '../../components/ReadWarnings.astro';
+import ReadDocument from '../../components/ReadDocument.astro';
+import { t } from '../../i18n/index.mjs';
+
+let result, state;
+try {
+  result = await Astro.locals.cairn.card(Astro.params.id);
+} catch (error) {
+  state = error?.code === 'data_not_ready' ? 'notReady' : error?.code === 'not_found' ? 'notFound' : 'server';
+  Astro.response.status = state === 'notReady' ? 409 : state === 'notFound' ? 404 : 500;
+}
+---
+<AppShell title={result?.data.content.title || t('type.card')} current="/board" surface>
+  {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`} message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'} status={Astro.response.status} /> : <>
+    <ReadWarnings codes={result.warnings} />
+    <ReadDocument item={result.data} />
+  </>}
+</AppShell>

@@ -59,5 +59,21 @@
   "warnings.render_failed": "Günlük biçimlendirilemedi; düz metin gösteriliyor.",
   "warnings.unknown_column": "Bir kartın sütunu tanınmadığı için ilk sütun kullanıldı.",
   "warnings.duplicate_id": "Bazı sayfaların kimlikleri aynı.",
-  "warnings.other": "Bazı veriler tam olarak okunamadı."
+  "warnings.other": "Bazı veriler tam olarak okunamadı.",
+  "board.columns": "Pano sütunları",
+  "board.recent": "son 50",
+  "board.empty": "Bu sütunda kartın yok.",
+  "board.errorTitle": "Pano yüklenemedi",
+  "document.assignee": "Atanan",
+  "document.updated": "Güncellendi",
+  "document.empty": "Bu sayfanın içeriği boş.",
+  "card.related": "Projendeki diğer açık kartlar",
+  "note.backlinks": "Bağlantılar",
+  "note.backlinksEmpty": "Bu nota bağlanan bir sayfan yok.",
+  "status.active": "Etkin",
+  "status.paused": "Duraklatıldı",
+  "status.archived": "Arşivlendi",
+  "warnings.document_too_large": "İçerik, HTML olarak gösterilemeyecek kadar büyük; düz metin gösteriliyor.",
+  "warnings.document_render_timeout": "İçeriğin biçimlendirilmesi çok uzun sürdü; düz metin gösteriliyor.",
+  "warnings.document_render_failed": "İçerik biçimlendirilemedi; düz metin gösteriliyor."
 }

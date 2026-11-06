@@ -5,7 +5,7 @@ import '../styles/app.css';
 import themeBoot from '../scripts/theme-boot.js?url';
 import { language, t } from '../i18n/index.mjs';
 
-const { title = t('shell.home'), current } = Astro.props;
+const { title = t('shell.home'), current, surface = false } = Astro.props;
 const tabs = [
   { href: '/', label: 'shell.home' },
   { href: '/board', label: 'shell.board' },
@@ -19,7 +19,7 @@ const tabs = [
     <script is:inline src={themeBoot}></script>
     <title>{title} · {t('app.name')}</title>
   </head>
-  <body>
+  <body class:list={{ 'surface-page': surface }}>
     <a class="skip-link action-link" href="#main">{t('shell.skip')}</a>
     <header class="app-shell">
       <div class="shell-top-row">
