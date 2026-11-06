@@ -67,6 +67,24 @@ test('closing during a render fails that page at once', async () => {
   assert.ok(Date.now() - started < 1000);
 });
 
+test('the time limit starts when the worker is ready, so a slow start does not fail the page', async (t) => {
+  // A worker that takes longer to load than the page limit: before the fix this page timed out.
+  const workerUrl = new URL('./support/slow-render-worker.mjs', import.meta.url);
+  const pool = createRenderPool({ timeoutMs: 200, workerUrl });
+  t.after(() => pool.close());
+  assert.equal((await pool.render('**ok**')).html, '<p><strong>ok</strong></p>');
+});
+
+test('a worker that never becomes ready fails the page without marking it slow', async (t) => {
+  const workerUrl = new URL('./support/silent-render-worker.mjs', import.meta.url);
+  const pool = createRenderPool({ timeoutMs: 100, startTimeoutMs: 300, workerUrl });
+  t.after(() => pool.close());
+  assert.deepEqual(await pool.render('a'), { html: null, tooLarge: false, failed: true, timedOut: false });
+  const started = Date.now();
+  assert.equal((await pool.render('a')).failed, true);
+  assert.ok(Date.now() - started >= 250, 'a start failure must not be remembered as a slow page');
+});
+
 test('a worker that cannot start fails each page instead of leaving the queue waiting', async (t) => {
   const pool = createRenderPool({ workerUrl: new URL('./does-not-exist.mjs', import.meta.url) });
   t.after(() => pool.close());

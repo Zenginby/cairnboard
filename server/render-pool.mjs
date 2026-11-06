@@ -11,10 +11,15 @@ const MAX_SLOW = 256;
  * Markdown parser seconds (deep emphasis, many wiki links); a page over the time limit stops the worker, which is
  * started again for the next page, and comes back as `{ html: null, timedOut: true }`. Such a page is remembered,
  * so asking for it again answers at once instead of stalling the queue for another full time limit.
+ * The time limit counts rendering only: a fresh worker first loads the Markdown modules, which on a slow or busy
+ * machine can take longer than the limit itself, so the page's clock starts when the worker says it is ready.
+ * Starting has its own, larger limit; a worker that never becomes ready fails the page without marking it slow.
  * `links` are `[key, { type, id } | null]` pairs keyed by JSON `[targetName, heading ?? '']`.
  */
-export function createRenderPool({ timeoutMs = 5000, maxQueue = 64, workerUrl = WORKER, heapMb = 256 } = {}) {
+export function createRenderPool({ timeoutMs = 5000, startTimeoutMs = 30_000, maxQueue = 64, workerUrl = WORKER,
+  heapMb = 256 } = {}) {
   let worker = null;
+  let ready = false;
   let active = null;
   let nextId = 0;
   const queue = [];
@@ -34,6 +39,7 @@ export function createRenderPool({ timeoutMs = 5000, maxQueue = 64, workerUrl = 
   function stop() {
     const stopped = worker;
     worker = null;
+    ready = false;
     if (!stopped) return;
     stopped.removeAllListeners();
     // A late error from the stopped thread must not become an uncaught exception in the server.
@@ -45,6 +51,11 @@ export function createRenderPool({ timeoutMs = 5000, maxQueue = 64, workerUrl = 
     // No inherited flags: options such as --input-type or test-runner flags would stop the worker from starting.
     worker = new Worker(workerUrl, { execArgv: [], resourceLimits: { maxOldGenerationSizeMb: heapMb } });
     worker.on('message', (message) => {
+      if (message.ready === true) {
+        ready = true;
+        if (active) startClock(active);
+        return;
+      }
       if (!active || message.id !== active.id) return;
       finish({ html: message.html, tooLarge: message.tooLarge, failed: message.failed, timedOut: false });
     });
@@ -59,6 +70,16 @@ export function createRenderPool({ timeoutMs = 5000, maxQueue = 64, workerUrl = 
     worker.unref();
   }
 
+  // The page's own time limit; until the worker is ready only the start limit runs.
+  function startClock(job) {
+    clearTimeout(job.timer);
+    job.timer = setTimeout(() => {
+      remember(job.key);
+      stop();
+      finish(TIMED_OUT);
+    }, timeoutMs);
+  }
+
   function remember(key) {
     slow.add(key);
     if (slow.size > MAX_SLOW) slow.delete(slow.values().next().value);
@@ -71,11 +92,14 @@ export function createRenderPool({ timeoutMs = 5000, maxQueue = 64, workerUrl = 
       active = job;
       try {
         if (!worker) start();
-        job.timer = setTimeout(() => {
-          remember(job.key);
-          stop();
-          finish(TIMED_OUT);
-        }, timeoutMs);
+        if (ready) startClock(job);
+        else {
+          job.timer = setTimeout(() => {
+            // Not the page's fault: fail it, but do not remember it as slow.
+            stop();
+            finish(FAILED);
+          }, startTimeoutMs);
+        }
         // A page in progress keeps the process alive until its answer or its time limit, whichever comes first.
         worker.ref();
         worker.postMessage({ id: job.id, markdown: job.markdown, links: job.links });

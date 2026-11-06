@@ -13,3 +13,6 @@ parentPort.on('message', ({ id, markdown, links }) => {
     parentPort.postMessage({ id, html: null, tooLarge: false, failed: true });
   }
 });
+
+// Static imports have loaded by now; the pool starts a page's time limit from this message.
+parentPort.postMessage({ ready: true });

@@ -1,0 +1,44 @@
+---
+import '../styles/tokens.css';
+import '../styles/fonts.css';
+import '../styles/app.css';
+import themeBoot from '../scripts/theme-boot.js?url';
+import { language, t } from '../i18n/index.mjs';
+
+const { title = t('shell.home'), current } = Astro.props;
+const tabs = [
+  { href: '/', label: 'shell.home' },
+  { href: '/board', label: 'shell.board' },
+];
+---
+<!doctype html>
+<html lang={language} data-theme="bento">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline src={themeBoot}></script>
+    <title>{title} · {t('app.name')}</title>
+  </head>
+  <body>
+    <a class="skip-link action-link" href="#main">{t('shell.skip')}</a>
+    <header class="app-shell">
+      <div class="shell-top-row">
+        <a class="brand" href="/">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect class="brand-one" x="1" y="1" width="9" height="9" rx="2"/><rect class="brand-two" x="14" y="1" width="9" height="9" rx="2"/><rect class="brand-three" x="1" y="14" width="9" height="9" rx="2"/><rect class="brand-four" x="14" y="14" width="9" height="9" rx="2"/></svg>
+          {t('app.name')}
+        </a>
+        <button type="button" class="theme-toggle" data-theme-toggle data-dark-label={t('shell.dark')} data-light-label={t('shell.light')} aria-label={t('shell.dark')}>
+          <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg>
+          <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z"/></svg>
+        </button>
+      </div>
+      <nav class="app-navigation" aria-label={t('shell.navigation')}>
+        <div class="app-tabs">
+          {tabs.map(({ href, label }) => <a href={href} aria-current={current === href ? 'page' : undefined}>{t(label)}</a>)}
+        </div>
+      </nav>
+    </header>
+    <main id="main" class="page-frame" tabindex="-1"><slot /></main>
+    <script src="../scripts/theme-toggle.js"></script>
+  </body>
+</html>

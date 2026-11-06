@@ -1,0 +1,25 @@
+---
+import { t } from '../i18n/index.mjs';
+const { items, title, subtitle, empty, className, cards = false } = Astro.props;
+const linkFor = (item) => item.id && ['card', 'note'].includes(item.type)
+  ? `/${item.type === 'card' ? 'cards' : 'notes'}/${encodeURIComponent(item.id)}` : null;
+---
+<section class:list={['panel', className]} aria-label={t(title)}>
+  <header class="panel-header"><h2>{t(title)}</h2><span class="panel-count">{items.length}</span></header>
+  <p class="panel-subtitle">{t(subtitle)}</p>
+  {items.length ? <ul class="summary-list">
+    {items.map((item) => {
+      const href = linkFor(item);
+      const priority = ['urgent', 'important', 'low'].includes(item.meta.priority) ? item.meta.priority : 'other';
+      const type = ['card', 'note', 'project', 'journal', 'research'].includes(item.type) ? item.type : 'other';
+      return <li><div class="summary-row">
+        <div class="row-copy">
+          {href ? <a class="row-title" href={href}>{item.content.title || t('home.untitled')}</a>
+            : <span class="row-title">{item.content.title || t('home.untitled')}</span>}
+          {item.content.snippet && <p class="row-detail">{item.content.snippet}</p>}
+        </div>
+        <span class:list={['chip', cards && `priority-${priority}`]}>{t(cards ? `priority.${priority}` : `type.${type}`)}</span>
+      </div></li>;
+    })}
+  </ul> : <p class="empty-copy">{t(empty)}</p>}
+</section>

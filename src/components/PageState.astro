@@ -1,0 +1,11 @@
+---
+import { t } from '../i18n/index.mjs';
+const { title, message, init = false, status } = Astro.props;
+---
+<section class="panel page-state" aria-labelledby="state-title">
+  {status && <p class="eyebrow">{status}</p>}
+  <h1 id="state-title">{t(title)}</h1>
+  <p>{t(message)}</p>
+  {init && <p><code>{t('state.initCommand')}</code></p>}
+  <a class="action-link" href="/">{t('error.home')}</a>
+</section>
