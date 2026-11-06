@@ -9,8 +9,10 @@ let result, state;
 try {
   result = await Astro.locals.cairn.note(Astro.params.id);
 } catch (error) {
-  state = error?.code === 'data_not_ready' ? 'notReady' : error?.code === 'not_found' ? 'notFound' : 'server';
+  state = error?.code === 'data_not_ready' ? 'notReady' : error?.code === 'entity_not_found' ? 'notFound' : 'server';
   Astro.response.status = state === 'notReady' ? 409 : state === 'notFound' ? 404 : 500;
+  // Match the API: unexpected failures reach the server log, the page shows only a generic message.
+  if (state === 'server') console.error(error);
 }
 ---
 <AppShell title={result?.data.content.title || t('type.note')} surface>

@@ -339,6 +339,7 @@ function boardFixture() {
     { key: 'custom', label: 'Custom column', role: 'doing', total: 1, cards: [documentFixture().data] },
     { key: 'done', label: 'Done column', role: 'done', total: 51, cards: [{ ...documentFixture().data, id: 'c-000002', column: undefined }] },
     { key: 'empty', label: 'Empty column', role: 'planned', total: 0, cards: [] },
+    { key: 'loose', label: 'Loose column', role: 'todo', total: 1, cards: [{ ...documentFixture().data, id: null, content: { ...documentFixture().data.content, title: 'Card without id' } }] },
   ] }, warnings: [] };
 }
 
@@ -371,6 +372,8 @@ test('built Board, Card and Note routes use injected data, safe states and exter
     if (method === 'board') {
       for (const title of ['Custom column', 'card title', 'Empty column', 'son 50']) assert.ok(response.body.includes(title), title);
       assert.match(response.body, /href="\/cards\/c-000001"/u);
+      assert.ok(response.body.includes('Card without id'));
+      assert.doesNotMatch(response.body, /href="\/cards\/(?:null|undefined)?"/u);
       assert.ok(response.body.indexOf('Custom column') < response.body.indexOf('Done column'));
     } else {
       assert.match(response.body, /<h2>Rendered body<\/h2>/u);
@@ -415,7 +418,7 @@ test('built Board, Card and Note routes use injected data, safe states and exter
     for (const result of [notReady, failed]) assert.doesNotMatch(result.body, /private|secret|stack|Error:/u);
 
     if (method !== 'board') {
-      const missing = await render(path, { [method]: () => { throw Object.assign(new Error('/private/missing'), { code: 'not_found' }); } });
+      const missing = await render(path, { [method]: () => { throw Object.assign(new Error('/private/missing'), { code: 'entity_not_found' }); } });
       assert.equal(missing.status, 404);
       assert.match(missing.body, /Sayfa bulunamadı/u);
       assert.doesNotMatch(missing.body, /private|missing|Error:/u);

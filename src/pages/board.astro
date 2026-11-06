@@ -11,6 +11,8 @@ try {
 } catch (error) {
   state = error?.code === 'data_not_ready' ? 'notReady' : 'error';
   Astro.response.status = state === 'notReady' ? 409 : 500;
+  // Match the API: unexpected failures reach the server log, the page shows only a generic message.
+  if (state === 'error') console.error(error);
 }
 ---
 <AppShell title={t('shell.board')} current="/board" surface>
@@ -23,10 +25,13 @@ try {
           {column.role === 'done' && column.total > column.cards.length && <span class="panel-count">{t('board.recent')}</span>}
         </header>
         {column.cards.length ? <ul class="board-cards">{column.cards.map((card) => <li>
-          <a class="board-card" href={`/cards/${encodeURIComponent(card.id)}`}>
+          {card.id ? <a class="board-card" href={`/cards/${encodeURIComponent(card.id)}`}>
             <h3>{card.content.title || t('home.untitled')}</h3>
             <EntityMeta item={card} />
-          </a>
+          </a> : <div class="board-card">
+            <h3>{card.content.title || t('home.untitled')}</h3>
+            <EntityMeta item={card} />
+          </div>}
         </li>)}</ul> : <p class="column-empty">{t('board.empty')}</p>}
       </section>)}
     </div>

@@ -6,10 +6,6 @@ const card = item.type === 'card';
 const backlinks = item.meta.backlinks ?? [];
 ---
 <div class:list={['document-layout', { 'has-sidebar': card && item.relatedCards?.length > 0 }]}>
-  {card && item.relatedCards?.length > 0 && <aside class="document-sidebar" aria-labelledby="related-title">
-    <h2 id="related-title">{t('card.related')}</h2>
-    <ul>{item.relatedCards.map((related) => <li><a href={`/cards/${encodeURIComponent(related.id)}`}>{related.content.title || t('home.untitled')}</a></li>)}</ul>
-  </aside>}
   <article class="document">
     <header class="document-heading">
       <p class="eyebrow">{t(card ? 'type.card' : 'type.note')}</p>
@@ -29,4 +25,8 @@ const backlinks = item.meta.backlinks ?? [];
       })}</ul> : <p class="empty-copy">{t('note.backlinksEmpty')}</p>}
     </section>}
   </article>
+  {card && item.relatedCards?.length > 0 && <aside class="document-sidebar" aria-labelledby="related-title">
+    <h2 id="related-title">{t('card.related')}</h2>
+    <ul>{item.relatedCards.map((related) => <li><a href={`/cards/${encodeURIComponent(related.id)}`}>{related.content.title || t('home.untitled')}</a></li>)}</ul>
+  </aside>}
 </div>

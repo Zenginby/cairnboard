@@ -42,6 +42,13 @@ export async function renderView(ctx, view, render) {
   for (const [flag, warning] of RENDER_WARNINGS) if (rendered[flag]) view.warnings.push(warning);
 }
 
+export class EntityNotFoundError extends Error {
+  constructor() {
+    super('Entity was not found.');
+    this.code = 'entity_not_found';
+  }
+}
+
 export class DataNotReadyError extends Error {
   constructor(cause) {
     super('The data directory is not ready.', { cause });
@@ -77,9 +84,15 @@ export function createRead({ open, render = createRenderPool().render }) {
     try { return await open(); } catch (error) { throw new DataNotReadyError(error); }
   };
   const document = async (type, id) => {
-    if (!normalizeId(id)) throw new CairnError('not_found', 'Entity was not found.');
+    const missing = () => new EntityNotFoundError();
+    if (!normalizeId(id)) throw missing();
     const ctx = await openRead();
-    const view = showView(ctx, type, normalizeId(id));
+    let view;
+    // Only the lookup decides "not found"; a not_found raised later is an internal failure, as in the API.
+    try { view = showView(ctx, type, normalizeId(id)); } catch (error) {
+      if (error instanceof CairnError && error.code === 'not_found') throw missing();
+      throw error;
+    }
     await renderView(ctx, view, render);
     const projects = projectMap(ctx);
     const project = projects.get(view.data.content.project) ?? null;

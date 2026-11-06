@@ -93,6 +93,9 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .column-empty { padding: 0 var(--space-md) var(--space-md); color: var(--color-text-3); font-size: var(--font-small-size); }
 .document-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); align-items: start; }
 .document-layout.has-sidebar { grid-template-columns: var(--space-search-width) minmax(0, 1fr); }
+/* The side list follows the article in the source (heading order), but sits on the left on wide screens. */
+.document-layout.has-sidebar .document-sidebar { grid-column: 1; grid-row: 1; }
+.document-layout.has-sidebar .document { grid-column: 2; grid-row: 1; }
 .document-sidebar { min-width: 0; padding: var(--space-lg) var(--space-md); border-radius: var(--radius-sm); background: var(--color-canvas); }
 .document-sidebar h2 { color: var(--color-text-3); font-size: var(--font-label-size); font-weight: var(--font-label-weight); }
 .document-sidebar ul { list-style: none; margin: var(--space-sm) 0 0; padding: 0; }
@@ -117,6 +120,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .backlink-list li { min-width: 0; padding: var(--space-md); border: var(--space-hairline) solid var(--color-line); border-radius: var(--radius-sm); font-size: var(--font-small-size); overflow-wrap: anywhere; }
 @media (max-width: 50rem) {
   .document-layout.has-sidebar { grid-template-columns: minmax(0, 1fr); }
+  .document-layout.has-sidebar .document-sidebar, .document-layout.has-sidebar .document { grid-column: auto; grid-row: auto; }
 }
 .warnings { margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border: var(--space-hairline) solid var(--color-line); border-radius: var(--radius-sm); color: var(--color-text-2); font-size: var(--font-small-size); }
 .warnings summary { cursor: pointer; }

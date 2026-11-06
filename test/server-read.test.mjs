@@ -209,7 +209,7 @@ test('new readers open a fresh context, distinguish unavailable data and reject 
   await reader.note('n-000001');
   assert.equal(opens, 3);
   for (const method of ['card', 'note']) {
-    for (const id of ['missing', '@notes/target', 'n-999999']) await assert.rejects(reader[method](id), { code: 'not_found' });
+    for (const id of ['missing', '@notes/target', 'n-999999']) await assert.rejects(reader[method](id), { code: 'entity_not_found' });
   }
   for (const method of ['board', 'card', 'note']) {
     await assert.rejects(createRead({ open: () => { throw new Error('unavailable'); } })[method]('n-000001'), { code: 'data_not_ready' });
