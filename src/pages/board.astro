@@ -1,0 +1,39 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import PageState from '../components/PageState.astro';
+import ReadWarnings from '../components/ReadWarnings.astro';
+import EntityMeta from '../components/EntityMeta.astro';
+import { t } from '../i18n/index.mjs';
+
+let result, state;
+try {
+  result = await Astro.locals.cairn.board();
+} catch (error) {
+  state = error?.code === 'data_not_ready' ? 'notReady' : 'error';
+  Astro.response.status = state === 'notReady' ? 409 : 500;
+  // Match the API: unexpected failures reach the server log, the page shows only a generic message.
+  if (state === 'error') console.error(error);
+}
+---
+<AppShell title={t('shell.board')} current="/board" surface>
+  {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'board.errorTitle'} message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'} /> : <>
+    <ReadWarnings codes={result.warnings} />
+    <header class="screen-heading"><h1>{t('shell.board')}</h1></header>
+    <div class="board" role="region" aria-label={t('board.columns')} tabindex="0">
+      {result.data.columns.map((column, index) => <section class="board-column" aria-labelledby={`column-${index}`}>
+        <header class="column-heading"><h2 id={`column-${index}`}>{column.label}</h2><span class="panel-count">{column.total}</span>
+          {column.role === 'done' && column.total > column.cards.length && <span class="panel-count">{t('board.recent')}</span>}
+        </header>
+        {column.cards.length ? <ul class="board-cards">{column.cards.map((card) => <li>
+          {card.id ? <a class="board-card" href={`/cards/${encodeURIComponent(card.id)}`}>
+            <h3>{card.content.title || t('home.untitled')}</h3>
+            <EntityMeta item={card} />
+          </a> : <div class="board-card">
+            <h3>{card.content.title || t('home.untitled')}</h3>
+            <EntityMeta item={card} />
+          </div>}
+        </li>)}</ul> : <p class="column-empty">{t('board.empty')}</p>}
+      </section>)}
+    </div>
+  </>}
+</AppShell>

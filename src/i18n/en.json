@@ -59,5 +59,21 @@
   "warnings.render_failed": "The journal could not be formatted; plain text is shown.",
   "warnings.unknown_column": "A card's column was not recognized, so the first column was used.",
   "warnings.duplicate_id": "Some pages share the same identifier.",
-  "warnings.other": "Some data could not be fully read."
+  "warnings.other": "Some data could not be fully read.",
+  "board.columns": "Board columns",
+  "board.recent": "latest 50",
+  "board.empty": "You have no cards in this column.",
+  "board.errorTitle": "Board could not be loaded",
+  "document.assignee": "Assignee",
+  "document.updated": "Updated",
+  "document.empty": "This page has no content.",
+  "card.related": "Other open cards in your project",
+  "note.backlinks": "Backlinks",
+  "note.backlinksEmpty": "No pages link to this note.",
+  "status.active": "Active",
+  "status.paused": "Paused",
+  "status.archived": "Archived",
+  "warnings.document_too_large": "The content is too large to display as HTML; plain text is shown.",
+  "warnings.document_render_timeout": "Formatting the content took too long; plain text is shown.",
+  "warnings.document_render_failed": "The content could not be formatted; plain text is shown."
 }

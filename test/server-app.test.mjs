@@ -317,3 +317,147 @@ test('built Home inserts only sanitized journal HTML from the in-process reader'
   assert.match(response.body, /wikilink-ghost/u);
   assert.doesNotMatch(response.body, /journalAttack|## Daily work|\[\[missing/u);
 });
+
+function documentFixture(type = 'card') {
+  return { data: {
+    id: type === 'card' ? 'c-000001' : 'n-000001', type,
+    content: { title: `${type} title`, body: 'Plain body', html: '<h2>Rendered body</h2>' },
+    meta: { priority: 'urgent', assignee: 'owner', updated: '2026-11-01T12:00:00Z', acceptance: { done: 1, total: 2 },
+      backlinks: [{ type: 'card', id: 'c-000002', title: 'Backlink card', src_path: 'cards/source.md', line: 1 },
+        { type: 'note', id: 'n-000002', title: 'Backlink note', src_path: 'notes/source.md', line: 2 },
+        { type: 'journal', id: '2026-11-01', title: 'Journal source', src_path: 'journal/2026-11-01.md', line: 1 },
+        { type: 'project', id: 'p-000001', title: 'Project source', src_path: 'projects/source.md', line: 1 },
+        { src_path: 'notes/unresolved.md', line: 1 }] },
+    project: { id: 'p-000001', title: 'Joined project', tone: 3 },
+    ...(type === 'card' ? { column: { key: 'doing', label: 'Working column', role: 'doing' },
+      relatedCards: [{ id: 'c-000002', content: { title: 'Related card' } }] } : {}),
+  }, warnings: [] };
+}
+
+function boardFixture() {
+  return { data: { columns: [
+    { key: 'custom', label: 'Custom column', role: 'doing', total: 1, cards: [documentFixture().data] },
+    { key: 'done', label: 'Done column', role: 'done', total: 51, cards: [{ ...documentFixture().data, id: 'c-000002', column: undefined }] },
+    { key: 'empty', label: 'Empty column', role: 'planned', total: 0, cards: [] },
+    { key: 'loose', label: 'Loose column', role: 'todo', total: 1, cards: [{ ...documentFixture().data, id: null, content: { ...documentFixture().data.content, title: 'Card without id' } }] },
+  ] }, warnings: [] };
+}
+
+test('built Board, Card and Note routes use injected data, safe states and external assets', async (t) => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+    return;
+  }
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const render = async (path, cairn) => {
+    const response = await inProcess(createApp({ root, guard, handler, locals: { cairn } }), path);
+    headers(response);
+    externalAssets(response.body);
+    return response;
+  };
+  for (const [path, method, makeResult] of [
+    ['/board', 'board', boardFixture], ['/cards/c-000001', 'card', documentFixture], ['/notes/n-000001', 'note', () => documentFixture('note')],
+  ]) {
+    const response = await render(path, { [method]: (id) => {
+      if (method !== 'board') assert.equal(id, method === 'card' ? 'c-000001' : 'n-000001');
+      return makeResult();
+    } });
+    assert.equal(response.status, 200, path);
+    assert.match(response.body, /Joined project/u);
+    assert.match(response.body, /tone-3/u);
+    assert.match(response.body, /priority-urgent[^>]*>Acil/u);
+    assert.match(response.body, /Atanan: owner/u);
+    assert.match(response.body, /1\/2 ölçüt tamamlandı/u);
+    if (method === 'board') {
+      for (const title of ['Custom column', 'card title', 'Empty column', 'son 50']) assert.ok(response.body.includes(title), title);
+      assert.match(response.body, /href="\/cards\/c-000001"/u);
+      assert.ok(response.body.includes('Card without id'));
+      assert.doesNotMatch(response.body, /href="\/cards\/(?:null|undefined)?"/u);
+      assert.ok(response.body.indexOf('Custom column') < response.body.indexOf('Done column'));
+    } else {
+      assert.match(response.body, /<h2>Rendered body<\/h2>/u);
+      assert.match(response.body, /1\.11\.2026/u);
+      if (method === 'card') {
+        assert.match(response.body, /Working column/u);
+        assert.match(response.body, /href="\/cards\/c-000002"[^>]*>Related card/u);
+      } else {
+        for (const title of ['Backlink card', 'Backlink note', 'Journal source', 'Project source', 'notes/unresolved.md']) assert.ok(response.body.includes(title), title);
+        assert.match(response.body, /href="\/notes\/n-000002"/u);
+        assert.match(response.body, /href="\/cards\/c-000002"/u);
+        assert.doesNotMatch(response.body, /href="\/(?:journal|projects)\//u);
+        assert.doesNotMatch(response.body, /document-sidebar/u);
+      }
+    }
+    if (method === 'note') assert.doesNotMatch(response.body, /aria-current="page"/u);
+    else assert.match(response.body, /href="\/board" aria-current="page"/u);
+
+    const malicious = '<img src=x onerror=attack(1)>';
+    const escaped = await render(path, { [method]: () => {
+      const result = makeResult();
+      const item = method === 'board' ? result.data.columns[0].cards[0] : result.data;
+      item.content.title = malicious;
+      item.project.title = malicious;
+      item.meta.assignee = malicious;
+      if (method === 'note') {
+        item.meta.backlinks[0].title = malicious;
+        item.meta.backlinks[4].src_path = malicious;
+      }
+      return result;
+    } });
+    assert.equal(escaped.status, 200);
+    assert.ok((escaped.body.match(/&lt;img src=x onerror=attack\(1\)&gt;/gu) ?? []).length >= (method === 'note' ? 5 : 3));
+    assert.doesNotMatch(escaped.body, /<img\b/u);
+
+    const notReady = await render(path, createRead({ open: () => { throw new Error('/private/data missing'); } }));
+    assert.equal(notReady.status, 409, path);
+    assert.match(notReady.body, /Veri klasörün hazır değil/u);
+    assert.match(notReady.body, /cairn init/u);
+    const failed = await render(path, { [method]: () => { throw new Error('/private/data\nsecret stack'); } });
+    assert.equal(failed.status, 500, path);
+    for (const result of [notReady, failed]) assert.doesNotMatch(result.body, /private|secret|stack|Error:/u);
+
+    if (method !== 'board') {
+      const missing = await render(path, { [method]: () => { throw Object.assign(new Error('/private/missing'), { code: 'entity_not_found' }); } });
+      assert.equal(missing.status, 404);
+      assert.match(missing.body, /Sayfa bulunamadı/u);
+      assert.doesNotMatch(missing.body, /private|missing|Error:/u);
+      for (const warning of ['too_large', 'render_timeout', 'render_failed']) {
+        const fallback = await render(path, { [method]: () => {
+          const result = makeResult();
+          result.data.content.html = null;
+          result.data.content.body = '## Plain <script>bodyAttack(1)</script>';
+          result.warnings.push(warning);
+          return result;
+        } });
+        assert.equal(fallback.status, 200);
+        assert.match(fallback.body, /## Plain &lt;script&gt;bodyAttack\(1\)&lt;\/script&gt;/u);
+        assert.match(fallback.body, /düz metin gösteriliyor/u);
+      }
+    }
+  }
+});
+
+test('built Card and Note insert only sanitized Markdown from the reader', async (t) => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+    return;
+  }
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
+  initDataDir(data, { home, env: {}, clock });
+  for (const [folder, id] of [['cards', 'c-000001'], ['notes', 'n-000001']]) {
+    mkdirSync(join(data, folder), { recursive: true });
+    writeFileSync(join(data, folder, 'page.md'), `---\nid: ${id}\ntitle: Read page\n---\n## Safe heading\n\n- [x] Finished\n\n<script>bodyAttack(1)</script>`);
+  }
+  const cairn = createRead({ open: () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock }) });
+  for (const path of ['/cards/c-000001', '/notes/n-000001']) {
+    const response = await inProcess(createApp({ root, guard, handler, locals: { cairn } }), path);
+    assert.equal(response.status, 200);
+    externalAssets(response.body);
+    assert.match(response.body, /<h2>Safe heading<\/h2>/u);
+    assert.match(response.body, /type="checkbox"/u);
+    assert.doesNotMatch(response.body, /bodyAttack|## Safe heading/u);
+  }
+});

@@ -1,0 +1,8 @@
+---
+import { t, warningText } from '../i18n/index.mjs';
+const { codes = [] } = Astro.props;
+const warnings = [...new Set(codes.map((code) => warningText(code.startsWith('render_') || code === 'too_large' ? `document_${code}` : code)))];
+---
+{warnings.length > 0 && <aside class="warnings" aria-label={t('warnings.title')}>
+  <details><summary>{t('warnings.title')}</summary><ul>{warnings.map((warning) => <li>{warning}</li>)}</ul></details>
+</aside>}
