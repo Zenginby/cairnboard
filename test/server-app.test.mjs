@@ -253,11 +253,14 @@ test('built Home uses injected in-process data, escapes titles and renders safe 
   const escaped = await render({ home: () => {
     const result = homeFixture();
     result.data.openCards[0].content.title = '<img src=x onerror=alert(1)>';
+    result.data.projects[0].content.title = '" onmouseover="attrAttack(1)';
     return result;
   } });
   assert.equal(escaped.status, 200);
   assert.match(escaped.body, /&lt;img src=x onerror=alert\(1\)&gt;/u);
   assert.doesNotMatch(escaped.body, /<img\b/u);
+  assert.doesNotMatch(escaped.body, /"\s*onmouseover=/u);
+  assert.match(escaped.body, /&quot; onmouseover=&quot;attrAttack\(1\)|&#34; onmouseover=&#34;attrAttack\(1\)/u);
 
   const fallback = await render({ home: () => {
     const result = homeFixture();

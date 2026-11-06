@@ -9,11 +9,14 @@ try {
   result = await Astro.locals.cairn.home();
 } catch (error) {
   state = error?.code === 'data_not_ready' ? 'notReady' : 'error';
+  // Match the API: unexpected failures reach the server log, the page shows only a generic message.
+  if (state === 'error') console.error(error);
   Astro.response.status = state === 'notReady' ? 409 : 500;
 }
 const data = result?.data;
 const warnings = [...new Set((result?.warnings ?? []).map(warningText))];
-const projects = data ? [...data.projects].sort((a, b) => Number(b.id === data.featuredProject) - Number(a.id === data.featuredProject)) : [];
+const isFeatured = (project) => project.id !== null && project.id === data.featuredProject;
+const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) - Number(isFeatured(a))) : [];
 ---
 <AppShell current="/">
   {state ? <PageState title={`state.${state}Title`} message={`state.${state}Body`} init={state === 'notReady'} /> : <>
