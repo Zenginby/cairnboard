@@ -9,7 +9,7 @@ import { checkCase } from '../scripts/design-check.mjs';
 import { rememberFocusStyles, inspectFocus } from '../scripts/lib/design-check/browser.mjs';
 
 test('design check arguments have conservative defaults and accept documented options', () => {
-  assert.deepEqual(parseArgs([]), { browser: 'chrome', quick: false, only: null, workers: 4, help: false });
+  assert.deepEqual(parseArgs([]), { browser: 'chromium', quick: false, only: null, workers: 4, help: false });
   assert.deepEqual(parseArgs(['--browser', 'brave', '--only', 'board', '--quick', '--workers', '2']), {
     browser: 'brave', quick: true, only: 'board', workers: 2, help: false,
   });
@@ -126,7 +126,7 @@ test('design check browser override takes precedence; downloaded browsers give e
   }
   for (const name of ['chromium', 'webkit', 'firefox']) {
     assert.deepEqual(resolveBrowser(name, { env: {}, downloadedPath: `/cache/${name}`, isExecutable: (file) => file === `/cache/${name}` }), {
-      engine: name, executablePath: `/cache/${name}`,
+      engine: name, executablePath: name === 'chromium' ? undefined : `/cache/${name}`,
     });
     for (const downloadedPath of [undefined, '/missing']) {
       assert.throws(() => resolveBrowser(name, { env: {}, downloadedPath, isExecutable: () => false }), { message: `Missing ${name} browser. Run: npx playwright-core install ${name}` });

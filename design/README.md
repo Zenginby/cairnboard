@@ -54,7 +54,8 @@ inserts styles of its own. The full matrix is about 333 cases and takes 5–6 mi
 
 - `npm run design:check -- --only board --quick` checks one screen at 1280 px in light Bento, including its states.
 - `--only index` and `--only _styleguide` select the prototype directory and style guide.
-- `--browser brave` uses system Brave; `CAIRN_BROWSER_PATH` overrides the executable for any browser.
+- The default browser is Playwright's downloaded Chromium, started as its headless shell, so a check never
+  launches (or crashes) your installed Chrome. `--browser chrome` and `--browser brave` use the system browsers; `CAIRN_BROWSER_PATH` overrides the executable for any browser.
 - `--browser chromium`, `--browser webkit` and `--browser firefox` use Playwright's downloaded browsers. If missing,
   install the selected browser beforehand with `npx playwright-core install chromium` (or `webkit` / `firefox`).
 - `--workers 4` sets the number of parallel contexts (default 4; range 1–16).

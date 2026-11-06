@@ -54,7 +54,7 @@ test('the allowlist hides heading-order only inside the body region', () => {
 // Real browser; skipped cleanly when none is installed (same environment as design:check).
 test('the allowlist works in a real page: body heading hidden, same rule elsewhere reported', async (t) => {
   let executablePath;
-  try { executablePath = resolveBrowser('chrome', { downloadedPath: chromium.executablePath() }).executablePath; } catch (error) {
+  try { executablePath = resolveBrowser('chromium', { downloadedPath: chromium.executablePath() }).executablePath; } catch (error) {
     return t.skip(`no browser: ${error.message}`);
   }
   const server = createServer((req, res) => {
