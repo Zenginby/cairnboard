@@ -104,7 +104,9 @@ test('createApp guards first and keeps headers on pages, errors, static files an
       assert.equal(response.headers['cache-control'], 'public, max-age=31536000, immutable');
     }
   }
-  assert.equal(logged.mock.callCount(), 3,
+  // Count logged errors only: Node 22 prints its SQLite ExperimentalWarning through console.error too.
+  const errors = logged.mock.calls.filter((call) => call.arguments[0] instanceof Error);
+  assert.equal(errors.length, 3,
     logged.mock.calls.map((call) => String(call.arguments[0]?.stack ?? call.arguments[0]).slice(0, 300)).join('\n---\n'));
   // The guard lets /_astro/ through without a cookie, so a missing asset must not reach page routes.
   for (const path of ['/_astro/missing.js', '/_astro/', '/_astro/sub/']) {
@@ -159,7 +161,7 @@ test('very long static paths return our 404 without logging a stack', async (t) 
   assert.match(response.body, /404 — Page not found/u);
   assert.doesNotMatch(response.body, /Error:|ENAMETOOLONG|stack|dist\/app/u);
   headers(response);
-  assert.equal(logged.mock.callCount(), 0);
+  assert.equal(logged.mock.calls.filter((call) => call.arguments[0] instanceof Error).length, 0);
 });
 
 test('real Astro output serves CSP-safe HTML, our 404 body and an external script', async (t) => {
