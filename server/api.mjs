@@ -13,9 +13,10 @@ function send(req, res, status, envelope) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
-export function createApi({ open, render = createRenderPool().render }) {
+export function createApi({ open, events, render = createRenderPool().render }) {
   return async (req, res, path) => {
     if (!path?.startsWith('/api/') && !req.url.split('?')[0].startsWith('/api/')) return false;
+    if (events?.handle(req, res, path)) return true;
     let ctx, phase = 'route';
     try {
       let view;

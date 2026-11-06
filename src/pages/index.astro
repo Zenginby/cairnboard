@@ -18,7 +18,7 @@ const warnings = [...new Set((result?.warnings ?? []).map(warningText))];
 const isFeatured = (project) => project.id !== null && project.id === data.featuredProject;
 const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) - Number(isFeatured(a))) : [];
 ---
-<AppShell current="/">
+<AppShell live="card project note journal board" current="/">
   {state ? <PageState title={`state.${state}Title`} message={`state.${state}Body`} init={state === 'notReady'} /> : <>
     {warnings.length > 0 && <aside class="warnings" aria-label={t('warnings.title')}>
       <details><summary>{t('warnings.title')}</summary><ul>{warnings.map((warning) => <li>{warning}</li>)}</ul></details>

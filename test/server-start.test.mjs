@@ -58,3 +58,14 @@ test('startup with a live recorded pid returns successfully without listening or
   assert.equal(stdout, `Cairnboard is already running: ${state.url}\n`);
   assert.deepEqual(readServerState(options), state);
 });
+
+test('shutdown closes live update resources once', async () => {
+  const runtime = new EventEmitter();
+  let closes = 0;
+  const shutdown = installShutdown({ close: (done) => queueMicrotask(done), closeIdleConnections() {} }, {
+    runtime, removeState() {}, close: async () => { closes++; },
+  });
+  shutdown();
+  await Promise.resolve();
+  assert.equal(closes, 1);
+});

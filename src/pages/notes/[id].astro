@@ -15,7 +15,7 @@ try {
   if (state === 'server') console.error(error);
 }
 ---
-<AppShell title={result?.data.content.title || t('type.note')} surface>
+<AppShell live="note card project journal" title={result?.data.content.title || t('type.note')} surface>
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`} message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'} status={Astro.response.status} /> : <>
     <ReadWarnings codes={result.warnings} />
     <ReadDocument item={result.data} />

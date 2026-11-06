@@ -15,7 +15,7 @@ try {
   if (state === 'error') console.error(error);
 }
 ---
-<AppShell title={t('shell.board')} current="/board" surface>
+<AppShell live="card project board" title={t('shell.board')} current="/board" surface>
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'board.errorTitle'} message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'} /> : <>
     <ReadWarnings codes={result.warnings} />
     <header class="screen-heading"><h1>{t('shell.board')}</h1></header>

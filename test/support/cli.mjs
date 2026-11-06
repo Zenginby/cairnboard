@@ -31,7 +31,15 @@ export async function runCli(args, opts = {}) {
 
 export async function spawnCli(args, opts = {}) {
   const child = spawn(process.execPath, [fileURLToPath(new URL('../../cli/cairn.mjs', import.meta.url)), ...args], {
-    cwd: opts.cwd ?? opts.home ?? process.cwd(), env: environment(opts), stdio: ['pipe', 'pipe', 'pipe'],
+    cwd: opts.cwd ?? opts.home ?? process.cwd(), env: environment(opts), stdio: ['pipe', 'pipe', 'pipe'], signal: opts.signal,
+  });
+  const closed = new Promise((resolve) => child.once('close', resolve));
+  opts.cleanup?.(async () => {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    await closed;
+    child.stdin.destroy();
+    child.stdout.destroy();
+    child.stderr.destroy();
   });
   let stdout = '', stderr = '';
   child.stdout.setEncoding('utf8');
@@ -42,7 +50,8 @@ export async function spawnCli(args, opts = {}) {
   if (!opts.keepStdinOpen) child.stdin.end(opts.stdin ?? '');
   else if (opts.stdin) child.stdin.write(opts.stdin);
   return new Promise((resolve, reject) => {
-    const timer = opts.timeout ? setTimeout(() => child.kill(), opts.timeout) : null;
+    const timer = opts.timeout ? setTimeout(() => child.kill('SIGKILL'), opts.timeout) : null;
+    timer?.unref();
     child.on('error', (error) => { clearTimeout(timer); reject(error); });
     child.on('close', (code) => {
       clearTimeout(timer);

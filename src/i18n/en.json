@@ -1,4 +1,6 @@
 {
+  "live.updated": "Updated",
+  "live.paused": "Live updates paused",
   "app.name": "Cairnboard",
   "shell.skip": "Skip to content",
   "shell.navigation": "Main navigation",

@@ -10,6 +10,8 @@ import { openContext } from '../core/context.mjs';
 import { createApp } from '../server/app.mjs';
 import { createGuard } from '../server/guard.mjs';
 import { createApi } from '../server/api.mjs';
+import { watch } from '../core/watch.mjs';
+import { createEvents } from '../server/events.mjs';
 import { createRead } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
 import { listenLoopback, serverGroup } from '../server/listen.mjs';
@@ -45,6 +47,8 @@ async function main() {
   let group;
   let deadline;
   let temp;
+  let watcher;
+  let events;
   let report = { summary: [], cases: [] };
   let code = 1;
   let help = false;
@@ -82,8 +86,11 @@ async function main() {
     const { port, servers } = await listenLoopback({ from: 43000, to: 43200 });
     group = serverGroup(servers);
     const { render } = createRenderPool();
+    // Same wiring as server/start.mjs, so pages' live-update stream is served too.
+    watcher = watch(openRead());
+    events = createEvents(watcher);
     const app = createApp({ root, handler, guard: createGuard({ port, key, instance }),
-      api: createApi({ open: openRead, render }), locals: { cairn: createRead({ open: openRead, render }) } });
+      api: createApi({ open: openRead, render, events }), locals: { cairn: createRead({ open: openRead, render }) } });
     for (const server of servers) server.on('request', app);
     const session = await signIn(port, key, instance);
     const baseURL = `http://${session.host}`;
@@ -121,6 +128,8 @@ async function main() {
       group.closeAllConnections();
       await new Promise((resolve) => group.close(resolve));
     }
+    events?.close();
+    await watcher?.close();
     if (temp) rmSync(temp, { recursive: true, force: true });
     if (!help) {
       printTable(report);

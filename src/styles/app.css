@@ -48,6 +48,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .priority-important { background: var(--color-important-bg); color: var(--color-important); }
 .priority-low { background: var(--color-done-bg); color: var(--color-done); }
 .empty-copy { margin-top: var(--space-md); color: var(--color-text-2); font-size: var(--font-small-size); }
+.live-status { position: fixed; right: var(--space-md); bottom: var(--space-md); margin: 0; color: var(--color-text-2); font-size: var(--font-small-size); }
 .projects-empty { grid-column: 1 / -1; }
 .project-box { display: flex; flex-direction: column; gap: var(--space-sm); }
 .project-box h2 { font-family: var(--font-project-title-family); font-size: var(--font-project-title-size); font-weight: var(--font-project-title-weight); line-height: var(--font-project-title-line-height); letter-spacing: var(--font-project-title-letter-spacing); }

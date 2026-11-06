@@ -1,7 +1,7 @@
 import { removeServerState } from './state.mjs';
 
 // Ctrl-C closes idle sockets at once and every socket after 2 s; a second signal exits immediately.
-export function installShutdown(server, { runtime = process, removeState = removeServerState } = {}) {
+export function installShutdown(server, { runtime = process, removeState = removeServerState, close = async () => {} } = {}) {
   let closing = false, timer;
   const cleanup = () => {
     try { removeState(); } catch (error) { console.error(error); runtime.exitCode = 1; }
@@ -13,6 +13,7 @@ export function installShutdown(server, { runtime = process, removeState = remov
       return;
     }
     closing = true;
+    Promise.resolve().then(close).catch((error) => { console.error(error); runtime.exitCode = 1; });
     server.close(() => {
       clearTimeout(timer);
       cleanup();

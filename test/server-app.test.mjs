@@ -174,6 +174,12 @@ test('real Astro output serves CSP-safe HTML, our 404 body and an external scrip
   const get = await serve(t, createApp({ root, guard, handler, locals: { cairn: { home: homeFixture } } }), true);
   const home = await get('/');
   assert.equal(home.status, 200);
+  const icon = /<link rel="icon"[^>]*href="([^"]+)"/u.exec(home.body)?.[1];
+  assert.ok(icon, 'Declare an icon so browsers do not request a missing /favicon.ico.');
+  const favicon = await get(icon);
+  assert.equal(favicon.status, 200, icon);
+  assert.equal(favicon.headers['content-type'], 'image/svg+xml');
+
   assert.match(home.body, /<title>Ana sayfa · Cairnboard<\/title>/u);
   const notFound = await get('/does-not-exist');
   assert.equal(notFound.status, 404);
