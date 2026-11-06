@@ -12,3 +12,8 @@ design/check-report.json
 
 # Private reference notes derived from the owner's own UI; never published.
 .ref/
+
+# Fictional sample data folder used by tests and page checks.
+!sample-data/.cairn/
+sample-data/.cairn/*
+!sample-data/.cairn/config.json
