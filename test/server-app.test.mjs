@@ -104,7 +104,8 @@ test('createApp guards first and keeps headers on pages, errors, static files an
       assert.equal(response.headers['cache-control'], 'public, max-age=31536000, immutable');
     }
   }
-  assert.equal(logged.mock.callCount(), 3);
+  assert.equal(logged.mock.callCount(), 3,
+    logged.mock.calls.map((call) => String(call.arguments[0]?.stack ?? call.arguments[0]).slice(0, 300)).join('\n---\n'));
   // The guard lets /_astro/ through without a cookie, so a missing asset must not reach page routes.
   for (const path of ['/_astro/missing.js', '/_astro/', '/_astro/sub/']) {
     calls.length = 0;
