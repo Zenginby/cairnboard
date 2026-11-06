@@ -34,7 +34,13 @@ const projects = data ? [...data.projects].sort((a, b) => Number(b.id === data.f
         return <section class:list={['panel', 'project-box', `tone-${tone}`, { 'project-featured': featured }]} aria-label={project.content.title || t('home.untitled')}>
           <p class="eyebrow">{t(featured ? 'home.featured' : 'type.project')}</p>
           <h2>{project.content.title || t('home.untitled')}</h2>
-          <p class="project-description">{project.content.snippet || project.content.body || t('home.projectEmpty')}</p>
+          {project.meta.acceptance?.total > 0 && <div class="project-progress">
+            <svg class="progress-ring" viewBox="0 0 64 64" aria-hidden="true">
+              <circle class="ring-track" cx="32" cy="32" r="26" />
+              <circle class="ring-arc" cx="32" cy="32" r="26" pathLength="100" stroke-dasharray={`${project.meta.acceptance.done / project.meta.acceptance.total * 100} 100`} />
+            </svg>
+            <p>{project.meta.acceptance.done}/{project.meta.acceptance.total} {t('home.progress')}</p>
+          </div>}
         </section>;
       }) : <section class="panel projects-empty"><h2>{t('home.projects')}</h2><p class="empty-copy">{t('home.projectsEmpty')}</p></section>}
       <HomeList items={data.openCards} title="home.cards" subtitle="home.cardsSubtitle" empty="home.cardsEmpty" className="ongoing" cards />
@@ -43,7 +49,9 @@ const projects = data ? [...data.projects].sort((a, b) => Number(b.id === data.f
         <header class="panel-header"><h2 id="journal-title">{t('home.journal')}</h2></header>
         {data.journal ? <>
           {data.journal.content.title && <h3>{data.journal.content.title}</h3>}
-          <p class="journal-body">{data.journal.content.body || data.journal.content.snippet || t('home.journalEmpty')}</p>
+          {data.journal.content.html != null
+            ? <div class="journal-body journal-content" set:html={data.journal.content.html} />
+            : <p class="journal-body">{data.journal.content.body || data.journal.content.snippet || t('home.journalEmpty')}</p>}
         </> : <p class="empty-copy">{t('home.journalEmpty')}</p>}
       </section>
     </div>

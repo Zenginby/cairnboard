@@ -83,7 +83,7 @@ export function homeView(ctx, opts = {}) {
     openCards: shape(cards.sort((a, b) => (priorities.get(a.data.priority) ?? 3) - (priorities.get(b.data.priority) ?? 3)).slice(0, 50)),
     journal: today ? shape([today])[0] : null,
     projects: shape(projects), featuredProject,
-  }, warnings };
+  }, warnings, journalEntity: today };
 }
 
 export function boardView(ctx, opts = {}) {

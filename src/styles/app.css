@@ -53,7 +53,11 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .project-box h2 { font-family: var(--font-project-title-family); font-size: var(--font-project-title-size); font-weight: var(--font-project-title-weight); line-height: var(--font-project-title-line-height); letter-spacing: var(--font-project-title-letter-spacing); }
 .project-featured { grid-column: span 4; background: linear-gradient(var(--project-wash), var(--color-surface)); }
 .project-featured .eyebrow { color: var(--project-ink); }
-.project-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; color: var(--color-text-2); font-size: var(--font-ui-size); white-space: pre-line; }
+.project-progress { display: flex; align-items: center; gap: var(--space-md); color: var(--project-ink); font-size: var(--font-small-size); font-variant-numeric: tabular-nums; }
+.progress-ring { flex: none; width: calc(var(--space-xl) + var(--space-lg)); height: calc(var(--space-xl) + var(--space-lg)); }
+.ring-track, .ring-arc { fill: none; stroke-width: calc(var(--space-6) + var(--space-hairline)); }
+.ring-track { stroke: var(--color-surface-inset); }
+.ring-arc { stroke: currentColor; stroke-linecap: round; transform: rotate(-.25turn); transform-origin: center; transform-box: view-box; }
 .tone-1 { --project-wash: var(--color-tone-1-bg); --project-ink: var(--color-tone-1-text); }
 .tone-2 { --project-wash: var(--color-tone-2-bg); --project-ink: var(--color-tone-2-text); }
 .tone-3 { --project-wash: var(--color-tone-3-bg); --project-ink: var(--color-tone-3-text); }
@@ -64,6 +68,11 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .tone-8 { --project-wash: var(--color-tone-8-bg); --project-ink: var(--color-tone-8-text); }
 .today h3 { margin-top: var(--space-md); font-size: var(--font-ui-size); font-weight: var(--font-title-weight); }
 .journal-body { margin-top: var(--space-md); color: var(--color-text-2); font-size: var(--font-small-size); white-space: pre-wrap; }
+.journal-content { white-space: normal; overflow-x: auto; }
+.journal-content > * + * { margin-top: var(--space-md); }
+.journal-content :is(h1, h2, h3, h4, h5, h6) { color: var(--color-text); font-size: var(--font-ui-size); line-height: var(--font-ui-line-height); }
+.journal-content :is(ul, ol) { padding-inline-start: var(--space-lg); }
+.journal-content .wikilink-ghost { color: var(--color-text-3); }
 .warnings { margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border: var(--space-hairline) solid var(--color-line); border-radius: var(--radius-sm); color: var(--color-text-2); font-size: var(--font-small-size); }
 .warnings summary { cursor: pointer; }
 .warnings ul { padding-inline-start: var(--space-lg); }

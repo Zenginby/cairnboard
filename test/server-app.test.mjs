@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.mjs';
 import { guard, CSP } from '../server/guard.mjs';
 import { createRead } from '../server/read.mjs';
-import { tempDir } from './support/env.mjs';
+import { initDataDir } from '../core/roots.mjs';
+import { openContext } from '../core/context.mjs';
+import { tempDir, fixedClock } from './support/env.mjs';
 
 // Real Node request/response objects let unit tests run without permission to bind a socket.
 async function inProcess(app, path, method = 'GET') {
@@ -204,8 +206,9 @@ function homeFixture() {
     pinned: [item('note', 'n-000001', 'Pinned title')],
     recentNotes: [item('note', 'n-000002', 'Recent title')],
     openCards: [item('card', 'c-000001', 'Card title', { priority: 'important' })],
-    journal: { meta: {}, content: { title: 'Today title', body: 'Today body' } },
-    projects: [item('project', 'p-000001', 'Project title', { tone: 2 }), item('project', 'p-000002', 'Featured title')],
+    journal: { meta: {}, content: { title: 'Today title', body: 'Today body', html: '<p>Today body</p>' } },
+    projects: [item('project', 'p-000001', 'Project title', { tone: 2 }),
+      item('project', 'p-000002', 'Featured title', { acceptance: { done: 2, total: 5 } })],
     featuredProject: 'p-000002',
   }, warnings: ['pending_recovery', 'journal_unreadable'] };
 }
@@ -236,6 +239,13 @@ test('built Home uses injected in-process data, escapes titles and renders safe 
   assert.match(full.body, /href="\/cards\/c-000001"/u);
   assert.match(full.body, /priority-important[^>]*>Önemli/u);
   assert.match(full.body, /project-featured[^>]*aria-label="Featured title"/u);
+  const projects = [...full.body.matchAll(/<section class="[^"]*\bproject-box\b[^"]*"[^>]*>([\s\S]*?)<\/section>/gu)].map((match) => match[1]);
+  assert.equal(projects.length, 2);
+  for (const box of projects) assert.doesNotMatch(box, /<a\b|project-description|açıklaması yok/u);
+  assert.doesNotMatch(projects.find((box) => box.includes('Project title')), /project-progress/u);
+  const featured = projects.find((box) => box.includes('Featured title'));
+  assert.match(featured, /2\/5 ölçüt tamamlandı/u);
+  assert.match(featured, /stroke-dasharray="40 100"/u);
   assert.match(full.body, /Tamamlanmayı bekleyen bir işlem var/u);
   assert.match(full.body, /Bugünün günlüğü okunamadı/u);
   assert.doesNotMatch(full.body, /href="\/(?:projects|journal|graph|search)\b/u);
@@ -248,6 +258,18 @@ test('built Home uses injected in-process data, escapes titles and renders safe 
   assert.equal(escaped.status, 200);
   assert.match(escaped.body, /&lt;img src=x onerror=alert\(1\)&gt;/u);
   assert.doesNotMatch(escaped.body, /<img\b/u);
+
+  const fallback = await render({ home: () => {
+    const result = homeFixture();
+    result.data.journal.content = { title: 'Today title', body: '## Plain <script>journalAttack(1)</script>', html: null };
+    result.data.projects[1].meta.acceptance = { done: 0, total: 0 };
+    result.warnings.push('render_timeout');
+    return result;
+  } });
+  assert.equal(fallback.status, 200);
+  assert.match(fallback.body, /## Plain &lt;script&gt;journalAttack\(1\)&lt;\/script&gt;/u);
+  assert.match(fallback.body, /Günlüğün biçimlendirilmesi çok uzun sürdü/u);
+  assert.doesNotMatch(fallback.body, /project-progress|<script>journalAttack/u);
 
   const empty = await render({ home: () => ({ data: {
     pinned: [], recentNotes: [], openCards: [], projects: [], featuredProject: null, journal: null,
@@ -267,4 +289,25 @@ test('built Home uses injected in-process data, escapes titles and renders safe 
   assert.equal(failed.status, 500);
   assert.match(failed.body, /Ana sayfa yüklenemedi/u);
   assert.doesNotMatch(failed.body, /private|secret|stack|Error:/u);
+});
+
+test('built Home inserts only sanitized journal HTML from the in-process reader', async (t) => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+    return;
+  }
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
+  initDataDir(data, { home, env: {}, clock });
+  mkdirSync(join(data, 'journal'), { recursive: true });
+  writeFileSync(join(data, 'journal/2026-11-01.md'), '---\ndate: 2026-11-01\n---\n## Daily work\n\n**Finished** [[missing|A page]].\n\n<script>journalAttack(1)</script>');
+  const cairn = createRead({ open: () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock }) });
+  const response = await inProcess(createApp({ root, guard, handler, locals: { cairn } }), '/');
+  assert.equal(response.status, 200);
+  externalAssets(response.body);
+  assert.match(response.body, /<h2>Daily work<\/h2>/u);
+  assert.match(response.body, /<strong>Finished<\/strong>/u);
+  assert.match(response.body, /wikilink-ghost/u);
+  assert.doesNotMatch(response.body, /journalAttack|## Daily work|\[\[missing/u);
 });

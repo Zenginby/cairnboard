@@ -23,7 +23,7 @@
   "home.projects": "Projeler",
   "home.projectsEmpty": "Projelerin eklendiğinde burada görünecek.",
   "home.featured": "Öne çıkan proje",
-  "home.projectEmpty": "Bu projenin henüz açıklaması yok.",
+  "home.progress": "ölçüt tamamlandı",
   "home.untitled": "Başlıksız sayfa",
   "priority.urgent": "Acil",
   "priority.important": "Önemli",
@@ -54,6 +54,9 @@
   "warnings.index_unavailable": "Dizin kullanılamıyor; veriler doğrudan dosyalardan okundu.",
   "warnings.unreadable": "Bazı dosyalar okunamadı.",
   "warnings.too-large": "Bazı dosyalar okunamayacak kadar büyük.",
+  "warnings.too_large": "Günlük, HTML olarak gösterilemeyecek kadar büyük; düz metin gösteriliyor.",
+  "warnings.render_timeout": "Günlüğün biçimlendirilmesi çok uzun sürdü; düz metin gösteriliyor.",
+  "warnings.render_failed": "Günlük biçimlendirilemedi; düz metin gösteriliyor.",
   "warnings.unknown_column": "Bir kartın sütunu tanınmadığı için ilk sütun kullanıldı.",
   "warnings.duplicate_id": "Bazı sayfaların kimlikleri aynı.",
   "warnings.other": "Bazı veriler tam olarak okunamadı."

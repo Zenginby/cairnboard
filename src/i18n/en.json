@@ -23,7 +23,7 @@
   "home.projects": "Projects",
   "home.projectsEmpty": "Your projects will appear here when added.",
   "home.featured": "Featured project",
-  "home.projectEmpty": "This project has no description yet.",
+  "home.progress": "criteria completed",
   "home.untitled": "Untitled page",
   "priority.urgent": "Urgent",
   "priority.important": "Important",
@@ -54,6 +54,9 @@
   "warnings.index_unavailable": "The index is unavailable; data was read directly from files.",
   "warnings.unreadable": "Some files could not be read.",
   "warnings.too-large": "Some files are too large to read.",
+  "warnings.too_large": "The journal is too large to display as HTML; plain text is shown.",
+  "warnings.render_timeout": "Formatting the journal took too long; plain text is shown.",
+  "warnings.render_failed": "The journal could not be formatted; plain text is shown.",
   "warnings.unknown_column": "A card's column was not recognized, so the first column was used.",
   "warnings.duplicate_id": "Some pages share the same identifier.",
   "warnings.other": "Some data could not be fully read."

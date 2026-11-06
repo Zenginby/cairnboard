@@ -22,13 +22,15 @@ async function start() {
   const { handler } = await import('../dist/app/server/entry.mjs');
   const { createApi } = await import('./api.mjs');
   const { createRead } = await import('./read.mjs');
+  const { createRenderPool } = await import('./render-pool.mjs');
   const { openContext } = await import('../core/context.mjs');
   const root = fileURLToPath(new URL('../', import.meta.url));
   const { port, servers } = await listenLoopback();
   const instance = newInstanceId();
   const openRead = () => openContext({ mode: 'read' });
+  const { render } = createRenderPool();
   const app = createApp({ root, handler, guard: createGuard({ port, key, instance }),
-    api: createApi({ open: openRead }), locals: { cairn: createRead({ open: openRead }) } });
+    api: createApi({ open: openRead, render }), locals: { cairn: createRead({ open: openRead, render }) } });
   for (const server of servers) server.on('request', app);
   const server = serverGroup(servers);
   const shutdown = installShutdown(server);
