@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -60,13 +60,15 @@ async function main() {
       code = 2;
       throw new Error(`Cannot start app check: ${error.message}\n${usage}`);
     }
-    // The app is served from dist/app, the same build `npm start` makes.
-    if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
-      console.log('dist/app is missing; building it (node scripts/build-app.mjs).');
-      const built = spawnSync(process.execPath, [join(root, 'scripts/build-app.mjs')], { cwd: root, stdio: 'inherit' });
-      if (built.status !== 0) throw new Error('The app build failed.');
-    }
+    // Always build first, like `npm start`: an older dist/app would check a different UI than the source.
+    const built = spawnSync(process.execPath, [join(root, 'scripts/build-app.mjs')], { cwd: root, stdio: 'inherit' });
+    if (built.status !== 0) throw new Error('The app build failed.');
     temp = realpathSync(mkdtempSync(join(tmpdir(), 'check-app-')));
+    // The temp folder holds a session key; remove it even when the run is interrupted.
+    const dir = temp;
+    for (const signal of ['SIGINT', 'SIGTERM']) {
+      process.once(signal, () => { rmSync(dir, { recursive: true, force: true }); process.exit(130); });
+    }
     const dataDir = join(temp, 'sample');
     const home = join(temp, 'home');
     cpSync(join(root, 'sample-data'), dataDir, { recursive: true });
