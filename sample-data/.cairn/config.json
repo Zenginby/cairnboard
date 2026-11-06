@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "language": "tr",
+  "columns": [
+    {
+      "key": "todo",
+      "label": "Bekleyen",
+      "role": "todo"
+    },
+    {
+      "key": "doing",
+      "label": "Yapılıyor",
+      "role": "doing"
+    },
+    {
+      "key": "review",
+      "label": "İncelemede",
+      "role": "doing"
+    },
+    {
+      "key": "done",
+      "label": "Bitti",
+      "role": "done"
+    }
+  ],
+  "leaseMinutes": 120,
+  "home": {
+    "featuredProject": "p-mfk001"
+  }
+}
