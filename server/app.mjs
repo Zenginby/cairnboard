@@ -54,7 +54,7 @@ async function clientFile(root, path) {
   }
 }
 
-export function createApp({ root, handler, guard, api }) {
+export function createApp({ root, handler, guard, api, locals = {} }) {
   // Fail closed: a server without its access check must not start.
   if (typeof guard !== 'function') throw new TypeError('createApp needs a guard.');
   root = resolve(root);
@@ -88,7 +88,7 @@ export function createApp({ root, handler, guard, api }) {
         return;
       }
       let nextError;
-      await handler(req, res, (error) => { nextError = error; });
+      await handler(req, res, (error) => { nextError = error; }, locals);
       if (nextError) throw nextError;
       if (!res.writableEnded && !res.headersSent) await errorPage(req, res, 404);
     } catch (error) {

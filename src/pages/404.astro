@@ -1,17 +1,10 @@
 ---
-import '../styles/tokens.css';
-import '../styles/fonts.css';
+import AppShell from '../layouts/AppShell.astro';
+import PageState from '../components/PageState.astro';
+import { t } from '../i18n/index.mjs';
 
 export const prerender = true;
 ---
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Page not found · Cairnboard</title>
-  </head>
-  <body>
-    <main><h1>404 — Page not found</h1><a href="/">Home</a></main>
-  </body>
-</html>
+<AppShell title={t('error.notFoundTitle')}>
+  <PageState title="error.notFoundTitle" message="error.notFoundBody" status="404" />
+</AppShell>

@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.mjs';
 import { guard, CSP } from '../server/guard.mjs';
+import { createRead } from '../server/read.mjs';
 import { tempDir } from './support/env.mjs';
 
 // Real Node request/response objects let unit tests run without permission to bind a socket.
@@ -165,25 +166,105 @@ test('real Astro output serves CSP-safe HTML, our 404 body and an external scrip
     return;
   }
   const { handler } = await import('../dist/app/server/entry.mjs');
-  const get = await serve(t, createApp({ root, guard, handler }), true);
+  const get = await serve(t, createApp({ root, guard, handler, locals: { cairn: { home: homeFixture } } }), true);
   const home = await get('/');
   assert.equal(home.status, 200);
-  assert.match(home.body, /<title>Cairnboard<\/title>/u);
+  assert.match(home.body, /<title>Ana sayfa · Cairnboard<\/title>/u);
   const notFound = await get('/does-not-exist');
   assert.equal(notFound.status, 404);
   assert.equal(notFound.body, readFileSync(join(root, 'dist/app/client/404.html'), 'utf8'));
   const error = await get('/500.html');
   for (const response of [home, notFound, error]) {
     headers(response);
-    assert.doesNotMatch(response.body, /<style\b|\bstyle\s*=/iu);
-    for (const [script] of response.body.matchAll(/<script\b[^>]*>/giu)) assert.match(script, /\bsrc=/u);
+    externalAssets(response.body);
   }
-  const script = readdirSync(join(root, 'dist/app/client/_astro')).find((name) => name.endsWith('.js'));
+  for (const name of readdirSync(join(root, 'dist/app'), { recursive: true }).filter((name) => name.endsWith('.html'))) {
+    externalAssets(readFileSync(join(root, 'dist/app', name), 'utf8'));
+  }
+  const script = /<script src="([^"]+)"/u.exec(home.body)?.[1];
   assert.ok(script);
-  assert.ok(home.body.includes(`/_astro/${script}`));
-  const asset = await get(`/_astro/${script}`);
+  const asset = await get(script);
   assert.equal(asset.status, 200);
   headers(asset);
-  assert.match(asset.body, /dataset\.ready/u);
+  assert.match(asset.body, /cairn-mode/u);
   assert.equal(asset.headers['cache-control'], 'public, max-age=31536000, immutable');
+});
+
+function externalAssets(html) {
+  assert.doesNotMatch(html, /<style\b|\bstyle\s*=/iu);
+  for (const [, attributes, body] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/giu)) {
+    assert.match(attributes, /\bsrc=/u);
+    assert.equal(body.trim(), '');
+  }
+}
+
+function homeFixture() {
+  const item = (type, id, title, meta = {}) => ({ type, id, meta, content: { title, snippet: '' } });
+  return { data: {
+    pinned: [item('note', 'n-000001', 'Pinned title')],
+    recentNotes: [item('note', 'n-000002', 'Recent title')],
+    openCards: [item('card', 'c-000001', 'Card title', { priority: 'important' })],
+    journal: { meta: {}, content: { title: 'Today title', body: 'Today body' } },
+    projects: [item('project', 'p-000001', 'Project title', { tone: 2 }), item('project', 'p-000002', 'Featured title')],
+    featuredProject: 'p-000002',
+  }, warnings: ['pending_recovery', 'journal_unreadable'] };
+}
+
+test('built Home uses injected in-process data, escapes titles and renders safe failure states', async (t) => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+    return;
+  }
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const render = async (cairn) => {
+    const response = await inProcess(createApp({ root, guard, handler, locals: { cairn } }), '/');
+    headers(response);
+    externalAssets(response.body);
+    return response;
+  };
+  const full = await render({ home: homeFixture });
+  assert.equal(full.status, 200);
+  for (const title of ['Pinned title', 'Recent title', 'Card title', 'Today title', 'Today body', 'Project title', 'Featured title']) {
+    assert.ok(full.body.includes(title), title);
+  }
+  assert.match(full.body, /<html lang="tr"/u);
+  assert.match(full.body, /href="\/" aria-current="page"/u);
+  assert.match(full.body, /href="\/board"/u);
+  assert.match(full.body, /href="\/notes\/n-000001"/u);
+  assert.match(full.body, /href="\/notes\/n-000002"/u);
+  assert.match(full.body, /href="\/cards\/c-000001"/u);
+  assert.match(full.body, /priority-important[^>]*>Önemli/u);
+  assert.match(full.body, /project-featured[^>]*aria-label="Featured title"/u);
+  assert.match(full.body, /Tamamlanmayı bekleyen bir işlem var/u);
+  assert.match(full.body, /Bugünün günlüğü okunamadı/u);
+  assert.doesNotMatch(full.body, /href="\/(?:projects|journal|graph|search)\b/u);
+
+  const escaped = await render({ home: () => {
+    const result = homeFixture();
+    result.data.openCards[0].content.title = '<img src=x onerror=alert(1)>';
+    return result;
+  } });
+  assert.equal(escaped.status, 200);
+  assert.match(escaped.body, /&lt;img src=x onerror=alert\(1\)&gt;/u);
+  assert.doesNotMatch(escaped.body, /<img\b/u);
+
+  const empty = await render({ home: () => ({ data: {
+    pinned: [], recentNotes: [], openCards: [], projects: [], featuredProject: null, journal: null,
+  }, warnings: [] }) });
+  assert.equal(empty.status, 200);
+  for (const message of ['Henüz sabitlenmiş', 'Notların eklendiğinde', 'Şu anda açık kartın yok', 'Projelerin eklendiğinde', 'Bugün için henüz']) {
+    assert.ok(empty.body.includes(message), message);
+  }
+
+  const notReady = await render(createRead({ open: () => { throw new Error('/private/data missing'); } }));
+  assert.equal(notReady.status, 409);
+  assert.match(notReady.body, /Veri klasörün hazır değil/u);
+  assert.match(notReady.body, /cairn init/u);
+  assert.doesNotMatch(notReady.body, /private|missing|Error:|stack/u);
+
+  const failed = await render({ home: () => { throw new Error('/private/data\nsecret stack text'); } });
+  assert.equal(failed.status, 500);
+  assert.match(failed.body, /Ana sayfa yüklenemedi/u);
+  assert.doesNotMatch(failed.body, /private|secret|stack|Error:/u);
 });

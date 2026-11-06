@@ -5,8 +5,9 @@ import { validateDate } from '../core/dates.mjs';
 import * as index from '../core/index.mjs';
 import { stripHidden } from '../core/text.mjs';
 import { createRenderPool } from './render-pool.mjs';
-import { homeView, boardView, showView } from '../cli/views.mjs';
+import { boardView, showView } from '../cli/views.mjs';
 import { okEnvelope, errorEnvelope } from '../cli/output.mjs';
+import { homeResult } from './read.mjs';
 
 function send(req, res, status, envelope) {
   const body = JSON.stringify(envelope);
@@ -57,8 +58,10 @@ export function createApi({ open, render = createRenderPool().render }) {
       phase = 'open';
       ctx = await open();
       phase = 'view';
-      if (path === '/api/home') view = homeView(ctx);
-      else if (path === '/api/board') view = boardView(ctx);
+      if (path === '/api/home') {
+        send(req, res, 200, homeResult(ctx));
+        return true;
+      } else if (path === '/api/board') view = boardView(ctx);
       else {
         const type = match[1] === 'cards' ? 'card' : 'note', id = normalizeId(match[2]);
         phase = 'lookup';

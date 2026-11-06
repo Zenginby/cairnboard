@@ -1,16 +1,51 @@
 ---
-import '../styles/tokens.css';
-import '../styles/fonts.css';
+import AppShell from '../layouts/AppShell.astro';
+import HomeList from '../components/HomeList.astro';
+import PageState from '../components/PageState.astro';
+import { t, warningText } from '../i18n/index.mjs';
+
+let result, state;
+try {
+  result = await Astro.locals.cairn.home();
+} catch (error) {
+  state = error?.code === 'data_not_ready' ? 'notReady' : 'error';
+  Astro.response.status = state === 'notReady' ? 409 : 500;
+}
+const data = result?.data;
+const warnings = [...new Set((result?.warnings ?? []).map(warningText))];
+const projects = data ? [...data.projects].sort((a, b) => Number(b.id === data.featuredProject) - Number(a.id === data.featuredProject)) : [];
 ---
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Cairnboard</title>
-  </head>
-  <body>
-    <main><h1>Cairnboard</h1></main>
-    <script>document.documentElement.dataset.ready = '1';</script>
-  </body>
-</html>
+<AppShell current="/">
+  {state ? <PageState title={`state.${state}Title`} message={`state.${state}Body`} init={state === 'notReady'} /> : <>
+    {warnings.length > 0 && <aside class="warnings" aria-label={t('warnings.title')}>
+      <details><summary>{t('warnings.title')}</summary><ul>{warnings.map((warning) => <li>{warning}</li>)}</ul></details>
+    </aside>}
+    <div class="bento">
+      <section class="panel hero">
+        <p class="eyebrow">{t('shell.home')}</p>
+        <h1>{t('home.title')}</h1>
+        <p class="hero-summary">{t('home.summary')}</p>
+        <a class="action-link" href="/board">{t('home.board')}</a>
+      </section>
+      <HomeList items={data.pinned} title="home.pinned" subtitle="home.pinnedSubtitle" empty="home.pinnedEmpty" className="pinned" />
+      {projects.length ? projects.map((project, index) => {
+        const featured = project.id !== null && project.id === data.featuredProject;
+        const tone = Number.isInteger(project.meta.tone) && project.meta.tone >= 1 && project.meta.tone <= 8 ? project.meta.tone : index % 8 + 1;
+        return <section class:list={['panel', 'project-box', `tone-${tone}`, { 'project-featured': featured }]} aria-label={project.content.title || t('home.untitled')}>
+          <p class="eyebrow">{t(featured ? 'home.featured' : 'type.project')}</p>
+          <h2>{project.content.title || t('home.untitled')}</h2>
+          <p class="project-description">{project.content.snippet || project.content.body || t('home.projectEmpty')}</p>
+        </section>;
+      }) : <section class="panel projects-empty"><h2>{t('home.projects')}</h2><p class="empty-copy">{t('home.projectsEmpty')}</p></section>}
+      <HomeList items={data.openCards} title="home.cards" subtitle="home.cardsSubtitle" empty="home.cardsEmpty" className="ongoing" cards />
+      <HomeList items={data.recentNotes} title="home.notes" subtitle="home.notesSubtitle" empty="home.notesEmpty" className="recent" />
+      <section class="panel today" aria-labelledby="journal-title">
+        <header class="panel-header"><h2 id="journal-title">{t('home.journal')}</h2></header>
+        {data.journal ? <>
+          {data.journal.content.title && <h3>{data.journal.content.title}</h3>}
+          <p class="journal-body">{data.journal.content.body || data.journal.content.snippet || t('home.journalEmpty')}</p>
+        </> : <p class="empty-copy">{t('home.journalEmpty')}</p>}
+      </section>
+    </div>
+  </>}
+</AppShell>
