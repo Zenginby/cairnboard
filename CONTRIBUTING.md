@@ -6,3 +6,21 @@
 - Prototype acceptance: `npm run design:check` (requires a browser; see [Checking the prototypes](design/README.md#checking-the-prototypes)).
 - Never put personal data (names, e-mail addresses, home paths, machine names) into files, commit messages,
   branch names or pull request descriptions. Use `example.com` and invented names in tests.
+
+## B1.5 live-update acceptance
+
+Run `npm run test:live` alone on a machine with native file watching, loopback access and Chrome.
+It sets `CAIRN_LIVE_STRICT=1`, runs the SSE and browser tests sequentially, and requires a CLI claim
+and the resulting Board update within two seconds. A skipped integration test is not acceptance.
+The normal suite asserts the same event and card movement with a 15-second budget under parallel load.
+Browser failures include every HTTP response with status 400 or above and its URL; console errors are not filtered.
+
+The watcher debounces for 150 ms with a maximum scheduled wait of one second. These timers cannot
+preempt a busy event loop or synchronous index refresh. Chokidar's `atomic` coalesces an unlink/add
+pair for an atomic save into a change; notifications describe the resulting state, not every intermediate
+write. Scheduling and filesystem/index work can delay delivery under load. OS watcher exhaustion or
+lost native notifications can still miss a live update; focus reconciliation and the five-minute refresh
+recover the final state, but do not guarantee two-second delivery in that fallback mode.
+
+Hidden tabs close their SSE stream and reconnect when visible. With HTTP/1.1, six or more visible
+windows on the same origin can still exhaust the browser's connection pool and delay page fetches.

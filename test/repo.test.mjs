@@ -11,7 +11,7 @@ test('package.json is private, ESM, MIT, Node >= 22.23.4 with exactly pinned dep
   assert.equal(p.engines.node, '>=22.23.4');
   assert.equal(p.license, 'MIT');
   assert.ok(Array.isArray(p.files));
-  assert.deepEqual(p.dependencies, { '@astrojs/node': '11.1.9', astro: '7.4.5',
+  assert.deepEqual(p.dependencies, { '@astrojs/node': '11.1.9', astro: '7.4.5', chokidar: '5.0.0',
     'rehype-sanitize': '6.0.0', 'rehype-stringify': '10.0.1', 'remark-gfm': '4.0.1',
     'remark-parse': '11.0.0', 'remark-rehype': '11.1.2', unified: '11.0.5', yaml: '2.9.1' });
   assert.deepEqual(p.devDependencies, { '@google/design.md': '0.4.0', 'axe-core': '4.14.0', esbuild: '0.28.2', 'playwright-core': '1.64.1' });
