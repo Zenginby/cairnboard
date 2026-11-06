@@ -9,7 +9,7 @@ import { linkTarget } from './links.mjs';
 import { normalizeId } from './ids.mjs';
 import { slugify, stripHidden } from './text.mjs';
 
-export const RENDER_POLICY = '1';
+export const RENDER_POLICY = '2';
 const MAX_INPUT = 5 * 1024 * 1024;
 const MAX_ENTRIES = 200;
 const MAX_HTML = 20 * 1024 * 1024;
@@ -26,7 +26,7 @@ const schema = {
     ul: [['className', 'contains-task-list']],
     ol: ['start', ['className', 'contains-task-list']],
     li: [['className', 'task-list-item']],
-    input: [['type', 'checkbox'], ['disabled', true], 'checked'],
+    input: [['type', 'checkbox'], ['disabled', true], 'checked', 'ariaLabel'],
     th: ['align'], td: ['align'],
   },
   protocols: { href: ['http', 'https', 'mailto', 'obsidian'] },
@@ -114,6 +114,21 @@ function textOf(node) {
   return node.type === 'text' ? node.value : (node.children ?? []).map(textOf).join('');
 }
 
+function taskLabels() {
+  return (tree) => {
+    function walk(node, item) {
+      if (node.type === 'element' && node.tagName === 'li') {
+        item = node.properties.className?.includes('task-list-item') ? node : null;
+      }
+      if (item && node.type === 'element' && node.tagName === 'input' && node.properties.type === 'checkbox') {
+        node.properties.ariaLabel = textOf(item).trim().slice(0, 120).trimEnd();
+      }
+      for (const child of node.children ?? []) walk(child, item);
+    }
+    walk(tree, null);
+  };
+}
+
 function safeLinks() {
   return (tree) => {
     function walk(node) {
@@ -131,7 +146,7 @@ function safeLinks() {
 }
 
 const processor = unified().use(remarkParse).use(remarkGfm).use(wikiLinks)
-  .use(remarkRehype).use(imageLinks).use(rehypeSanitize, schema).use(safeLinks).use(rehypeStringify).freeze();
+  .use(remarkRehype).use(imageLinks).use(taskLabels).use(rehypeSanitize, schema).use(safeLinks).use(rehypeStringify).freeze();
 
 // Very deep nesting overflows the parser's stack; such a page is shown without its rendered body.
 export function renderMarkdown(markdown, options = {}) {

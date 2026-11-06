@@ -77,12 +77,12 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .surface-page { background: var(--color-surface); }
 .surface-page .app-shell { background: var(--color-surface); }
 .screen-heading h1, .document-heading h1 { font-family: var(--font-page-title-family); font-size: clamp(var(--font-display-size), 4.4vw, var(--font-page-title-size)); font-weight: var(--font-page-title-weight); line-height: var(--font-page-title-line-height); letter-spacing: var(--font-page-title-letter-spacing); }
-.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(calc(var(--space-md) * 15), 1fr); align-items: start; gap: var(--space-12); max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; margin-top: var(--space-lg); padding: var(--space-xs) var(--space-xs) var(--space-md); }
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(calc(var(--space-md) * 15), 1fr); align-items: start; gap: var(--space-12); max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scroll-padding-inline: var(--space-sm); margin-top: var(--space-lg); padding: var(--space-xs) var(--space-xs) var(--space-md); }
 .board-column { min-width: 0; border-radius: var(--radius-md); background: var(--color-surface-inset); }
 .column-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-sm); padding: var(--space-md); }
 .column-heading h2 { font-size: var(--font-ui-size); font-weight: var(--font-title-weight); }
 .board-cards { display: grid; gap: var(--space-sm); list-style: none; margin: 0; padding: 0 var(--space-sm) var(--space-sm); }
-.board-card { display: block; padding: var(--space-md); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-box); text-decoration: none; }
+.board-card { display: block; scroll-margin-inline: var(--space-sm); padding: var(--space-md); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-box); text-decoration: none; }
 .board-card h3 { font-size: var(--font-small-size); font-weight: var(--font-title-weight); line-height: var(--font-small-line-height); }
 .entity-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-sm); margin-top: var(--space-md); color: var(--color-text-3); font-size: var(--font-caption-size); overflow-wrap: anywhere; }
 .entity-meta > * { min-width: 0; max-width: 100%; }

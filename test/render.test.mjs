@@ -107,13 +107,30 @@ test('wiki syntax in code and existing link labels never resolves or creates nes
 test('GFM tables and disabled task list checkboxes survive the allow-list', () => {
   const tasks = html('- [x] Done\n- [ ] Pending');
   assert.match(tasks, /<ul class="contains-task-list">/u);
-  assert.match(tasks, /<li class="task-list-item"><input type="checkbox" checked disabled>/u);
-  assert.match(tasks, /<input type="checkbox" disabled>/u);
+  assert.match(tasks, /<li class="task-list-item"><input type="checkbox" checked disabled aria-label="Done">/u);
+  assert.match(tasks, /<input type="checkbox" disabled aria-label="Pending">/u);
   assert.doesNotMatch(tasks, /\b(?:style|id|name|on\w+)=/u);
   const table = html('| A | B |\n| - | - |\n| one | two |');
   assert.match(table, /<table>/u);
   assert.match(table, /<th>A<\/th>/u);
   assert.match(table, /<td>two<\/td>/u);
+});
+
+test('task checkbox names use trimmed, bounded plain text, including loose and nested items', () => {
+  const tasks = html('- [ ] **Read** [the guide](https://example.com) and `code`  \n\n- [x] Parent\n  - [ ] Child');
+  assert.match(tasks, /aria-label="Read the guide and code"/u);
+  assert.match(tasks, /checked disabled aria-label="Parent\s+Child"/u);
+  assert.match(tasks, /disabled aria-label="Child"/u);
+  assert.match(html(`- [ ] ${'a'.repeat(121)}`), new RegExp(`aria-label="${'a'.repeat(120)}"`, 'u'));
+});
+
+test('task checkbox names escape text and cannot inject attributes or elements', () => {
+  const tasks = html('- [ ] &quot; autofocus onfocus=&quot;alert(1) &amp; more');
+  assert.match(tasks, /aria-label="&#x22; autofocus onfocus=&#x22;alert\(1\) &#x26; more"/u);
+  assert.equal([...tasks.matchAll(/<input\b[^>]*>/gu)].length, 1);
+  assert.doesNotMatch(tasks.match(/<input\b[^>]*>/u)[0], /" (?:autofocus|onfocus|onerror)\b/u);
+  assert.doesNotMatch(html('- [ ] Safe <input type="checkbox" aria-label="Forged" onfocus="alert(1)">'), /Forged|onfocus/u);
+  assert.doesNotMatch(html('- Ordinary item\n\n<input type="checkbox" aria-label="Forged">'), /<input|aria-label/u);
 });
 
 test('oversized UTF-8 inputs return before parsing or resolving', () => {

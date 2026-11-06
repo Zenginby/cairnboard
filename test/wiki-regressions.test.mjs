@@ -43,7 +43,7 @@ const child = (source, { env = {}, timeout = 10000 } = {}) => spawnSync(process.
 });
 const succeeded = (result) => assert.equal(result.status, 0, `${result.error ?? ''}\n${result.stdout}\n${result.stderr}`);
 
-test('review 1: hook classifies proposed Write and Edit frontmatter before applying note rules', (t) => {
+test('hook classifies proposed Write and Edit frontmatter before applying note rules', (t) => {
   const f = fixture(t, { 'cards/x.md': '---\nkind: project\n---\n# X\n' });
   f.ctx.config = { ...defaultConfig('en'), rules: { required: 'error', links: 'error' } };
   const write = (path, content) => evaluateHook(f.ctx, { tool_name: 'Write', tool_input: { file_path: join(f.data, path), content } });
@@ -56,19 +56,19 @@ test('review 1: hook classifies proposed Write and Edit frontmatter before apply
   assert.equal(write('cards/bad.md', '---\nkind: [\n---\n[[ghost]]\n').decision, 'allow');
 });
 
-test('review 2: journal prefixes fold English capitals and Turkish NFC/NFD alike', () => {
+test('journal prefixes fold English capitals and Turkish NFC/NFD alike', () => {
   const prefixes = ['DECISION', 'PITFALL', 'DISCOVERY', 'KARAR', 'Keşif', 'KEŞİF'.normalize('NFD')];
   assert.deepEqual(parseJournal(`## Work\n${prefixes.map((name) => `- ${name}: x`).join('\n')}`, PRESETS.default.entryTypes)
     .map((entry) => entry.type), ['decision', 'pitfall', 'discovery', 'decision', 'discovery', 'discovery']);
 });
 
-test('review 3: evidence folds all I variants without discarding accents', () => {
+test('evidence folds all I variants without discarding accents', () => {
   assert.deepEqual(unsupported(extractClaims('"it is a useful quote"'), [normalizeForEvidence('It is a useful quote')]), []);
   assert.equal(normalizeForEvidence('I ı İ i I\u0307'), 'i i i i i');
   assert.notEqual(normalizeForEvidence('café'), normalizeForEvidence('cafe'));
 });
 
-test('review 4: context accepts a path reference to an idless project', async (t) => {
+test('context accepts a path reference to an idless project', async (t) => {
   const f = fixture(t, { 'wiki/projeler/x.md': '---\nkind: project\n---\n# X\n',
     'cards/a.md': '---\nproject: "@wiki/projeler/x"\npriority: urgent\n---\n# Task\n' });
   const result = await f.run(['context', '--project', '@wiki/projeler/x']);
@@ -76,7 +76,7 @@ test('review 4: context accepts a path reference to an idless project', async (t
   assert.match(result.stdout, /Task/u);
 });
 
-test('review 5: dot folders supply targets but never pages, links, search, context or lint', (t) => {
+test('dot folders supply targets but never pages, links, search, context or lint', (t) => {
   const paths = ['.trash/a.md', 'wiki/.drafts/b.md', '.obsidian/c.md'];
   const f = fixture(t, Object.fromEntries(paths.map((path) => [path, concept('[[ghost]] secretword\n')])));
   f.put('notes/live.md', '[[a]] [[b]] [[c]]');
@@ -88,7 +88,7 @@ test('review 5: dot folders supply targets but never pages, links, search, conte
   assert.ok(!JSON.stringify(buildContext(f.ctx)).includes('secretword'));
 });
 
-test('review 6: empty folded mention names return no candidates with or without the index', (t) => {
+test('empty folded mention names return no candidates with or without the index', (t) => {
   const f = fixture(t, { 'notes/\u00ad.md': '\u00ad', 'notes/a.md': '# Other' });
   for (const names of [[], ['\u00ad'], ['']]) assert.deepEqual(mentionCandidates(f.ctx, 'notes/\u00ad.md', names), []);
   const fallback = { ...f.ctx, indexPath: join(f.data, 'blocked.db') };
@@ -97,7 +97,7 @@ test('review 6: empty folded mention names return no candidates with or without 
   assert.deepEqual(mentions(f.ctx, '@notes/\u00ad'), []);
 });
 
-test('review 7a: indented code is never a mention or editable, while list continuations remain prose', (t) => {
+test('indented code is never a mention or editable, while list continuations remain prose', (t) => {
   const f = fixture(t, { 'notes/target.md': '# Borealis',
     'notes/a.md': '# Text\n\n    Borealis\n\tBorealis\n\nBorealis\n- item\n\n    Borealis\n\n1. item\n\n\tBorealis\n' });
   assert.deepEqual(mentions(f.ctx, '@notes/target').map((item) => item.line), [6, 9, 13]);
@@ -106,20 +106,20 @@ test('review 7a: indented code is never a mention or editable, while list contin
   assert.equal(fs.readFileSync(join(f.data, 'notes/a.md'), 'utf8'), before);
 });
 
-test('review 7b: mention linking uses a full path when basename trimming would change the target', (t) => {
+test('mention linking uses a full path when basename trimming would change the target', (t) => {
   const f = fixture(t, { 'notes/ topic.md': '# Borealis', 'notes/topic.md': '# Other', 'notes/a.md': 'Borealis' });
   linkMention(f.ctx, '@notes/ topic', 'notes/a.md:1');
   assert.equal(fs.readFileSync(join(f.data, 'notes/a.md'), 'utf8'), '[[notes/ topic|Borealis]]');
   assert.equal(outlinks(f.ctx, 'notes/a.md')[0].target_path, 'notes/ topic.md');
 });
 
-test('review 7b: mention linking preserves a basename ending in whitespace', (t) => {
+test('mention linking preserves a basename ending in whitespace', (t) => {
   const f = fixture(t, { 'notes/topic .md': '# Borealis', 'notes/topic.md': '# Other', 'notes/a.md': 'Borealis' });
   linkMention(f.ctx, '@notes/topic .md', 'notes/a.md:1');
   assert.equal(outlinks(f.ctx, 'notes/a.md')[0].target_path, 'notes/topic .md');
 });
 
-test('review 8: Sources heading matching is equivalent and linear on hostile whitespace', () => {
+test('Sources heading matching is equivalent and linear on hostile whitespace', () => {
   succeeded(child(`
     import assert from 'node:assert/strict';
     import { SOURCE_HEADING } from './core/rules.mjs';
@@ -137,7 +137,7 @@ test('review 8: Sources heading matching is equivalent and linear on hostile whi
   `));
 });
 
-test('review 9: evidence link blanking stays linear on unmatched brackets', () => {
+test('evidence link blanking stays linear on unmatched brackets', () => {
   succeeded(child(`
     import assert from 'node:assert/strict';
     import { analyzePage } from './core/evidence.mjs';
@@ -148,18 +148,18 @@ test('review 9: evidence link blanking stays linear on unmatched brackets', () =
   `));
 });
 
-test('review 9a: CRLF blank lines split claims and CRLF Sources headings suppress them', () => {
+test('CRLF blank lines split claims and CRLF Sources headings suppress them', () => {
   assert.deepEqual(extractClaims('"one two\r\n\r\nthree four"'), []);
   const page = analyzePage('# T\r\n5%\r\n## Sources\r\n99%\r\n');
   assert.deepEqual(extractClaims(page.claimText).map((item) => item.value), ['5%']);
 });
 
-test('review 9b: evidence ignores multi-backtick and multiline code spans', () => {
+test('evidence ignores multi-backtick and multiline code spans', () => {
   const page = analyzePage('# T\n``a ` 90% ` b``\n``across\n80% ` b``\n7%\n');
   assert.deepEqual(extractClaims(page.claimText).map((item) => item.value), ['7%']);
 });
 
-test('review 10: FIFO raw sources are rejected without blocking readers or lint', { skip: process.platform === 'win32' }, (t) => {
+test('FIFO raw sources are rejected without blocking readers or lint', { skip: process.platform === 'win32' }, (t) => {
   const f = fixture(t, { 'research/a.md': '---\nkind: source\nraw: raw/pipe.md\n---\n# A\n5%' });
   fs.mkdirSync(join(f.data, 'raw'), { recursive: true });
   assert.equal(spawnSync('mkfifo', [join(f.data, 'raw/pipe.md')]).status, 0);
@@ -174,7 +174,7 @@ test('review 10: FIFO raw sources are rejected without blocking readers or lint'
   `));
 });
 
-for (const invalid of ['too-large', 'bad_encoding']) test(`review 11: wiki summaries, wakeup and wakeup_budget skip ${invalid} pages`, (t) => {
+for (const invalid of ['too-large', 'bad_encoding']) test(`wiki summaries, wakeup and wakeup_budget skip ${invalid} pages`, (t) => {
   const body = '---\nkind: overview\n---\n# Topic\n## Wake-up\n';
   const text = invalid === 'too-large' ? body + 'word '.repeat(MAX_INPUT / 5 + 1)
     : Buffer.concat([Buffer.from(body + 'word '.repeat(400)), Buffer.from([0xff])]);
@@ -200,7 +200,7 @@ for (const invalid of ['too-large', 'bad_encoding']) test(`review 11: wiki summa
   }
 });
 
-test('review 12a: directories and nonregular code paths are missing', (t) => {
+test('directories and nonregular code paths are missing', (t) => {
   const root = tempDir(t);
   fs.mkdirSync(join(root, 'src'));
   assert.deepEqual(codeFile(root, 'src'), { missing: true });
@@ -213,7 +213,7 @@ test('review 12a: directories and nonregular code paths are missing', (t) => {
 for (const [tz, updated, mtime, expected] of [
   ['Etc/GMT-3', '2026-10-30T23:30:00Z', '2026-10-31T00:30:00Z', false],
   ['Etc/GMT+8', '2026-10-31T01:00:00Z', '2026-10-31T12:00:00Z', true],
-]) test(`review 12b: code drift compares local days in ${tz}`, (t) => {
+]) test(`code drift compares local days in ${tz}`, (t) => {
   const f = fixture(t, { 'projects/x.md': '---\nid: p-abc234\n---\n# X',
     'wiki/a.md': concept('# A', `project: p-abc234\ncode: [code.mjs]\n`).replace('2026-10-30', updated) });
   const root = tempDir(t);
@@ -232,13 +232,13 @@ for (const [tz, updated, mtime, expected] of [
   succeeded(check(true)); // A bare date stays a local calendar date in either zone.
 });
 
-test('review 13: invalid UTF-8 raw sources cannot generate evidence_missing', (t) => {
+test('invalid UTF-8 raw sources cannot generate evidence_missing', (t) => {
   const f = fixture(t, { 'raw/a.txt': Buffer.from([0x63, 0x61, 0x66, 0xe9]),
     'research/a.md': '---\nkind: source\nraw: raw/a.txt\n---\n# A\n"café is a nice word" 99%' });
   assert.deepEqual(findings(f.ctx, ['evidence_missing'], { evidence: true }), []);
 });
 
-test('review 14: ingest bounds stored bytes including the multibyte source header', (t) => {
+test('ingest bounds stored bytes including the multibyte source header', (t) => {
   const f = fixture(t);
   const url = 'https://example.com/é';
   const header = `Source: ${url}\nDate: 2026-11-01\n\n`;
@@ -249,7 +249,7 @@ test('review 14: ingest bounds stored bytes including the multibyte source heade
   assert.equal(search(f.ctx, 'needle', { type: 'raw' })[0].path, result.raw.path);
 });
 
-test('review 15: fallback search excludes invalid UTF-8 titles just like FTS', (t) => {
+test('fallback search excludes invalid UTF-8 titles just like FTS', (t) => {
   const f = fixture(t, { 'notes/a.md': Buffer.concat([Buffer.from('# Needle\n'), Buffer.from([0xff])]) });
   assert.deepEqual(search(f.ctx, 'Needle'), []);
   const fallback = { ...f.ctx, indexPath: join(f.data, 'blocked.db'), warnings: [] };
@@ -258,7 +258,7 @@ test('review 15: fallback search excludes invalid UTF-8 titles just like FTS', (
   assert.deepEqual(fallback.warnings, ['index_unavailable']);
 });
 
-for (const preset of ['default', 'tr-wiki']) test(`review 16: repeated sources and code survive CLI add/update with ${preset} field mapping`, async (t) => {
+for (const preset of ['default', 'tr-wiki']) test(`repeated sources and code survive CLI add/update with ${preset} field mapping`, async (t) => {
   const f = fixture(t, {}, preset);
   for (const type of ['note', 'research']) {
     const added = await f.run([type, 'add', '--title', 'Topic', '--sources', '[[one]]', '--sources', '[[two]]',
@@ -276,7 +276,7 @@ for (const preset of ['default', 'tr-wiki']) test(`review 16: repeated sources a
   }
 });
 
-test('review 17: ambiguous catalog links list no candidate and emit ambiguous_link', (t) => {
+test('ambiguous catalog links list no candidate and emit ambiguous_link', (t) => {
   const f = fixture(t, { 'index.md': '[[same]]', 'wiki/a/same.md': concept(), 'wiki/b/same.md': concept() }, 'tr-wiki');
   const result = findings(f.ctx, ['index_mismatch', 'ambiguous_link']);
   assert.deepEqual(result.filter((item) => item.code === 'index_mismatch').map((item) => item.path), ['wiki/a/same.md', 'wiki/b/same.md']);

@@ -1,0 +1,28 @@
+import * as index from '../../../core/index.mjs';
+
+export const MISSING_PATH = '/no-such-page';
+
+// Pages are picked from the data itself, never by hard-coded id: the first card and first note in id order.
+export function selectAppPages(ctx, only = null) {
+  const first = (type) => index.rows(ctx, type).filter((row) => row.id).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
+  const card = first('card');
+  const note = first('note');
+  if (!card || !note) throw new Error('The data folder needs at least one card and one note with an id.');
+  const pages = [
+    { name: 'home', path: '/' },
+    { name: 'board', path: '/board' },
+    { name: 'card', path: `/cards/${encodeURIComponent(card.id)}` },
+    { name: 'note', path: `/notes/${encodeURIComponent(note.id)}` },
+    { name: 'not-found', path: MISSING_PATH, status: 404 },
+    { name: 'signed-out', path: '/', status: 401, auth: false },
+  ];
+  if (only === null) return pages;
+  const selected = pages.filter((page) => page.name === only);
+  if (!selected.length) throw new Error(`Unknown page: ${only}. Available: ${pages.map((page) => page.name).join(', ')}`);
+  return selected;
+}
+
+export function buildAppMatrix({ quick = false } = {}) {
+  const widths = quick ? [1280] : [375, 1280];
+  return widths.flatMap((width) => (quick ? ['light'] : ['light', 'dark']).map((mode) => ({ width, family: 'app', mode })));
+}
