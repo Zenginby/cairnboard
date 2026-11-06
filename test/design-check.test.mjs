@@ -9,7 +9,7 @@ import { checkCase } from '../scripts/design-check.mjs';
 import { rememberFocusStyles, inspectFocus } from '../scripts/lib/design-check/browser.mjs';
 
 test('design check arguments have conservative defaults and accept documented options', () => {
-  assert.deepEqual(parseArgs([]), { browser: 'chrome', quick: false, only: null, workers: 4, help: false });
+  assert.deepEqual(parseArgs([]), { browser: 'chromium', quick: false, only: null, workers: 4, help: false });
   assert.deepEqual(parseArgs(['--browser', 'brave', '--only', 'board', '--quick', '--workers', '2']), {
     browser: 'brave', quick: true, only: 'board', workers: 2, help: false,
   });
@@ -126,7 +126,7 @@ test('design check browser override takes precedence; downloaded browsers give e
   }
   for (const name of ['chromium', 'webkit', 'firefox']) {
     assert.deepEqual(resolveBrowser(name, { env: {}, downloadedPath: `/cache/${name}`, isExecutable: (file) => file === `/cache/${name}` }), {
-      engine: name, executablePath: `/cache/${name}`,
+      engine: name, executablePath: name === 'chromium' ? undefined : `/cache/${name}`,
     });
     for (const downloadedPath of [undefined, '/missing']) {
       assert.throws(() => resolveBrowser(name, { env: {}, downloadedPath, isExecutable: () => false }), { message: `Missing ${name} browser. Run: npx playwright-core install ${name}` });
@@ -172,7 +172,7 @@ test('design check freezes real console/CSP findings after keyboard and hover, b
         const findings = csp; csp = []; return findings;
       } else if (action.toString().includes('window.axe.run')) {
         emit('axe run');
-        return [{ id: 'example-rule', impact: 'serious', targets: 1 }];
+        return [{ id: 'example-rule', impact: 'serious', nodes: [{ within: [] }] }];
       } else if (action.toString().includes('return { overflow, overlap }')) return { overflow: [], overlap: [] };
       else if (action.toString().includes('window.__motionViolations')) return [];
     },
@@ -270,4 +270,13 @@ test('keyboard waits for long native scrolling and still reports genuinely offsc
   fixture.input.getBoundingClientRect = box;
   fixture.input.rect.y = 950;
   assert.match((await fixture.inspect())[0].message, /y=950.*viewport 1280×900/);
+});
+
+test('keyboard accepts a focused region taller than the viewport only while its top edge is on screen', async () => {
+  const fixture = focusFixture();
+  Object.assign(fixture.input.style, { outlineStyle: 'solid', outlineWidth: '2px', outlineColor: 'rgb(0, 0, 0)' });
+  Object.assign(fixture.input.rect, { y: 0, height: 1100 });
+  assert.equal((await fixture.inspect()).length, 0);
+  fixture.input.rect.y = -1200;
+  assert.match((await fixture.inspect())[0].message, /outside the viewport/);
 });

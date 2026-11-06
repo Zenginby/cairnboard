@@ -6,7 +6,7 @@ export const FAMILIES = ['bento', 'paper', 'graphite'];
 const BROWSERS = ['chrome', 'brave', 'chromium', 'webkit', 'firefox'];
 
 export function parseArgs(args) {
-  const options = { browser: 'chrome', quick: false, only: null, workers: 4, help: false };
+  const options = { browser: 'chromium', quick: false, only: null, workers: 4, help: false };
   for (let i = 0; i < args.length; i++) {
     const flag = args[i];
     if (flag === '--quick') options.quick = true;
@@ -63,6 +63,9 @@ export function resolveBrowser(name, {
   }
   if (!['chrome', 'brave'].includes(name)) {
     if (!downloadedPath || !isExecutable(downloadedPath)) throw new Error(`Missing ${name} browser. Run: npx playwright-core install ${name}`);
+    // Without a path Playwright starts its headless shell, a bare binary with no app bundle: a crash or a
+    // killed run cannot raise the system's "quit unexpectedly" dialog the way an installed Chrome does.
+    if (name === 'chromium') return { engine, executablePath: undefined };
     return { engine, executablePath: downloadedPath };
   }
   let candidates = [];

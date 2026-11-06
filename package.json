@@ -25,6 +25,7 @@
     "design:build": "node scripts/design-build.mjs",
     "design:lint": "node scripts/design-lint.mjs",
     "design:check": "node scripts/design-check.mjs",
+    "check:app": "node scripts/check-app.mjs",
     "design:serve": "node scripts/design-serve.mjs",
     "build:app": "node scripts/build-app.mjs",
     "start": "node scripts/build-app.mjs && node server/start.mjs",
