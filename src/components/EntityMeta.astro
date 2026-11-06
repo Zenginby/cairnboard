@@ -15,6 +15,6 @@ const date = updated && meta.updated && !Number.isNaN(Date.parse(meta.updated)) 
   {priority && <span class:list={['chip', `priority-${priority}`]}>{t(`priority.${priority}`)}</span>}
   {project && <span class:list={['chip', 'project-chip', `tone-${tone}`]}>{project.title || t('home.untitled')}</span>}
   {assignee && <span>{t('document.assignee')}: {assignee}</span>}
-  {meta.acceptance && <span class="acceptance-count">{meta.acceptance.done}/{meta.acceptance.total} {t('home.progress')}</span>}
+  {meta.acceptance?.total > 0 && <span class="acceptance-count">{meta.acceptance.done}/{meta.acceptance.total} {t('home.progress')}</span>}
   {date && <span>{t('document.updated')}: <time datetime={meta.updated}>{date.toLocaleDateString('tr-TR', { timeZone: 'UTC' })}</time></span>}
 </div>
