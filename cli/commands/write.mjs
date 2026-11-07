@@ -138,7 +138,7 @@ async function initDetected(root, opts, io, settings, current) {
   checkRoot();
   const previous = current === null ? null : loadConfig(detectedRoot);
   const existingSchema = previous === null ? null : resolveSchema(previous);
-  let detection = detectSchema(detectedRoot);
+  let detection = detectSchema(detectedRoot, { existingSchema });
   if (existingSchema) detection = extendDetection(detection, existingSchema);
   const config = { ...(previous ?? defaultConfig(opts.language ?? 'en')), schema: detection.schema };
   if (opts.language !== undefined) config.language = defaultConfig(opts.language).language;

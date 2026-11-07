@@ -72,7 +72,7 @@ function metadata(root, path, budget, limits, warnings) {
 }
 
 /** Read a vault and return a schema, evidence and warnings; never creates metadata or discovery state. */
-export function detectSchema(directory, { limits = DETECT_LIMITS } = {}) {
+export function detectSchema(directory, { limits = DETECT_LIMITS, existingSchema = null } = {}) {
   let root;
   try {
     if (!fs.lstatSync(directory).isDirectory()) throw new Error('Not a directory.');
@@ -81,6 +81,8 @@ export function detectSchema(directory, { limits = DETECT_LIMITS } = {}) {
     throw new CairnError('validation', 'Detection requires an existing directory without symlinks.');
   }
   limits = { ...DETECT_LIMITS, ...limits };
+  const kindField = existingSchema?.fields.kind;
+  const kindFields = [...new Set(['type', 'kind', 'tur', ...(kindField ? [kindField] : [])])];
   const warnings = [], suggestions = [], folders = [], ignored = [];
   const budget = { files: 0, entries: 0, bytes: 0, limited: false };
   function walk(path = '', depth = 0) {
@@ -137,7 +139,7 @@ export function detectSchema(directory, { limits = DETECT_LIMITS } = {}) {
     const { path, files } = folder;
     if (!path || [...schema.sourceRoots, ...ambiguous].some((parent) => inside(path, parent))) continue;
     const name = key(basename(path)), count = files.length;
-    const kinds = files.map(({ data }) => ['type', 'kind', 'tur'].map((field) =>
+    const kinds = files.map(({ data }) => kindFields.map((field) =>
       typeof data[field] === 'string' ? key(data[field]) : ''));
     const dates = files.filter(({ name }) => /^\d{4}-\d{2}-\d{2}\.md$/iu.test(name)).length;
     const projectCount = kinds.filter((values) => values.some((kind) => ['project', 'proje'].includes(kind))).length;
@@ -151,7 +153,7 @@ export function detectSchema(directory, { limits = DETECT_LIMITS } = {}) {
     if (majority(dates)) candidates.push(['journal', dates / count, `${dates}/${count} filenames are YYYY-MM-DD.md.`]);
     if (projects.has(name) || majority(projectCount)) candidates.push(['project', projects.has(name) ? 0.9
       : projectCount / count, projects.has(name) ? 'Project folder name.'
-        : `${projectCount}/${count} files declare type/kind/tur project or proje.`]);
+        : `${projectCount}/${count} files declare ${kindFields.join('/')} project or proje.`]);
     if (majority(researchCount)) candidates.push(['research', researchCount / count,
       `${researchCount}/${count} files have research kinds or processing metadata; treated as records.`]);
     if (name === 'cards') candidates.push(['card', 0.95, 'Explicit cards folder.']);
@@ -205,7 +207,7 @@ export function detectSchema(directory, { limits = DETECT_LIMITS } = {}) {
       `${tr}/${tr + en} recognized frontmatter field names are Turkish.`);
   }
   if (!budget.limited) for (const { files } of folders) for (const { data } of files) {
-    const value = data.kind ?? data[schema.fields.kind ?? 'kind'];
+    const value = Object.hasOwn(data, 'kind') ? data.kind : data[kindField ?? schema.fields.kind ?? 'kind'];
     if (typeof value !== 'string') continue;
     const normalized = key(value);
     const aliases = PRESETS['tr-wiki'].values.kind;
@@ -224,12 +226,21 @@ export function detectSchema(directory, { limits = DETECT_LIMITS } = {}) {
 // Extend a configured schema without replacing its roots, mappings or other existing choices.
 export function extendDetection(detection, existing) {
   const schema = resolveSchema({ schema: existing }), warnings = [...detection.warnings];
-  const normalize = (path) => pathKey(safeRelative(path)).replace(/\\/gu, '/');
+  const normalize = (path) => {
+    if (path === '') return '';
+    try {
+      return pathKey(safeRelative(path)).replace(/\\/gu, '/');
+    } catch (error) {
+      if (!(error instanceof CairnError)) throw error;
+      return null;
+    }
+  };
   const paths = (root) => [root.path].flat();
   const occupied = [...Object.values(schema.roots).flatMap(paths), ...schema.sourceRoots,
-    ...Object.values(schema.kindFolders), ...(schema.catalog ? [schema.catalog] : [])];
-  const overlaps = (path) => occupied.some((other) =>
-    inside(normalize(path), normalize(other)) || inside(normalize(other), normalize(path)));
+    ...Object.values(schema.kindFolders), ...(schema.catalog ? [schema.catalog] : []),
+    ...(schema.quickNotes !== undefined ? [schema.quickNotes] : [])];
+  const overlaps = (path) => occupied.some((other) => !normalize(path) || !normalize(other)
+    || inside(normalize(path), normalize(other)) || inside(normalize(other), normalize(path)));
   const accepted = new Set(), blocked = new Set();
   for (const [field, name] of Object.entries(detection.schema.fields)) {
     if (Object.hasOwn(schema.fields, field)) continue;
@@ -279,16 +290,28 @@ export function extendDetection(detection, existing) {
       accepted.add(`sourceRoots:${path}`);
     }
   }
-  for (const pattern of detection.schema.ignore) if (!schema.ignore.includes(pattern)) schema.ignore.push(pattern);
+  for (const pattern of detection.schema.ignore) {
+    if (schema.ignore.includes(pattern)) continue;
+    // Generated ignores are literal folder prefixes. Reject unbounded globs conservatively.
+    const prefix = pattern.endsWith('/**') ? pattern.slice(0, -3) : pattern;
+    if (prefix.includes('*') || overlaps(prefix)) warnings.push(`ignore_conflict:${pattern}`);
+    else schema.ignore.push(pattern);
+  }
   const suggestions = detection.suggestions.filter(({ target, path }) => {
     if (Object.hasOwn(detection.schema.roots, target) || target === 'sourceRoots') {
       return accepted.has(`${target}:${path}`);
     }
-    if (target === 'ignore') return !existing.ignore.includes(`${path}/**`);
+    if (target === 'ignore') return !existing.ignore.includes(`${path}/**`) && schema.ignore.includes(`${path}/**`);
     if (target === 'values.kind') return !Object.hasOwn(existing.values.kind ?? {}, path)
       && schema.values.kind?.[path] === detection.schema.values.kind[path];
     return JSON.stringify(existing.fields) !== JSON.stringify(schema.fields)
       || JSON.stringify(existing.values) !== JSON.stringify(schema.values);
   });
-  return { ...detection, schema: resolveSchema({ schema }), suggestions, warnings: [...new Set(warnings)] };
+  try {
+    return { ...detection, schema: resolveSchema({ schema }), suggestions, warnings: [...new Set(warnings)] };
+  } catch (error) {
+    if (!(error instanceof CairnError) || error.code !== 'validation') throw error;
+    return { ...detection, schema: resolveSchema({ schema: existing }), suggestions: [],
+      warnings: [...new Set([...warnings, 'schema_additions_invalid'])] };
+  }
 }

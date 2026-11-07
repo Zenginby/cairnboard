@@ -304,3 +304,93 @@ for (const [field, value] of [['tur', 'Proje'], ['kind', 'Project']]) {
     assert.equal(classify(result.schema, 'Work/A.md', { [field]: value }).entity, 'project');
   });
 }
+
+for (const [type, path, folder] of [
+  ['note', 'Templates', 'Templates'], ['journal', 'Templates/Days', 'Templates'],
+  ['project', 'Notes', 'Notes/Templates'],
+]) {
+  test(`new ignore ${folder}/** cannot cover preserved ${type} root ${path}`, (t) => {
+    const f = vault(t);
+    f.put(`${folder}/Page.md`);
+    const existing = { ...structuredClone(PRESETS.default), roots: { [type]: { path, flat: false } } };
+    const result = extendDetection(f.detect(), existing);
+    assert.ok(!result.schema.ignore.includes(`${folder}/**`));
+    assert.ok(result.warnings.includes(`ignore_conflict:${folder}/**`));
+    assert.ok(!result.suggestions.some(({ target, path }) => target === 'ignore' && path === folder));
+    assert.deepEqual(resolveSchema({ schema: result.schema }), result.schema);
+  });
+}
+
+for (const settings of [
+  { quickNotes: 'Templates' }, { quickNotes: '' },
+  { kindFolders: { concept: 'Templates/Concepts' } }, { catalog: 'Templates/Index.md' },
+]) {
+  test(`new template ignores respect preserved paths ${JSON.stringify(settings)}`, (t) => {
+    const f = vault(t);
+    f.put('Templates/Page.md');
+    const existing = { ...structuredClone(PRESETS.default), ...settings };
+    const result = extendDetection(f.detect(), existing);
+    assert.ok(!result.schema.ignore.includes('Templates/**'));
+    assert.ok(result.warnings.includes('ignore_conflict:Templates/**'));
+    for (const field of Object.keys(settings)) assert.deepEqual(result.schema[field], existing[field]);
+  });
+}
+
+for (const [settings, folder, type] of [
+  [{ quickNotes: 'Clippings' }, 'Clippings', 'sourceRoots'],
+  [{ quickNotes: 'Clippings/Notes' }, 'Clippings', 'sourceRoots'],
+  [{ kindFolders: { concept: 'Clippings/Concepts' } }, 'Clippings', 'sourceRoots'],
+  [{ catalog: 'Clippings/Index.md' }, 'Clippings', 'sourceRoots'],
+  [{ quickNotes: 'Work' }, 'Work', 'project'],
+  [{ kindFolders: { concept: 'Work/Concepts' } }, 'Work', 'project'],
+  [{ catalog: 'Work/Index.md' }, 'Work', 'project'],
+]) {
+  test(`new ${type} path ${folder} respects ${JSON.stringify(settings)}`, (t) => {
+    const f = vault(t);
+    for (const name of ['A', 'B']) f.put(`${folder}/${name}.md`,
+      type === 'project' ? '---\nkind: project\n---\n' : '# Capture\n');
+    const existing = { ...structuredClone(PRESETS.default),
+      roots: { note: { path: 'Notes', flat: false } }, ...settings };
+    const result = extendDetection(f.detect(), existing);
+    if (type === 'sourceRoots') assert.ok(!result.schema.sourceRoots.includes(folder));
+    else assert.equal(result.schema.roots.project, undefined);
+    assert.ok(result.warnings.includes(`root_conflict:${type}:${folder}`));
+    assert.deepEqual(resolveSchema({ schema: result.schema }), result.schema);
+  });
+}
+
+test('invalid combined additions fall back to the valid configured schema with a warning', (t) => {
+  const f = vault(t);
+  f.put('Projects/A.md');
+  const existing = { ...structuredClone(PRESETS.default), roots: { note: { path: 'Notes', flat: false } } };
+  const detection = f.detect();
+  detection.schema.roots.project.flat = 'invalid';
+  const result = extendDetection(detection, existing);
+  assert.deepEqual(result.schema, existing);
+  assert.deepEqual(result.suggestions, []);
+  assert.ok(result.warnings.includes('schema_additions_invalid'));
+});
+
+test('configured kind fields supply folder evidence and exact observed aliases', (t) => {
+  const f = vault(t);
+  for (const name of ['A', 'B']) f.put(`Work/${name}.md`, '---\ncategory: Project\n---\n');
+  const existing = { ...structuredClone(PRESETS.default), roots: { note: { path: 'Notes', flat: false } },
+    fields: { kind: 'category' } };
+  const detection = f.detect({ existingSchema: existing });
+  assert.equal(detection.schema.roots.project.path, 'Work');
+  assert.equal(detection.schema.values.kind.Project, 'project');
+  const result = extendDetection(detection, existing);
+  assert.equal(result.schema.fields.kind, 'category');
+  assert.equal(classify(result.schema, 'Work/A.md', { category: 'Project' }).entity, 'project');
+});
+
+
+test('unusable ignore prefixes are skipped with a warning instead of aborting extension', (t) => {
+  const f = vault(t);
+  const existing = structuredClone(PRESETS.default), detection = f.detect();
+  detection.schema.ignore.push('Other:Templates/**');
+  assert.deepEqual(resolveSchema({ schema: detection.schema }), detection.schema);
+  const result = extendDetection(detection, existing);
+  assert.deepEqual(result.schema, existing);
+  assert.ok(result.warnings.includes('ignore_conflict:Other:Templates/**'));
+});

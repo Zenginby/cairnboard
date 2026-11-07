@@ -673,3 +673,55 @@ test('detection previews preserved schema separately from non-overlapping additi
   assert.match(result.stderr, /root_conflict:project:Archive\/Projects/u);
   assert.equal(fs.readFileSync(file, 'utf8'), JSON.stringify(config));
 });
+
+test('detection does not ignore an existing Templates content root', async (t) => {
+  const f = fixture(t);
+  const file = join(f.data, '.cairn/config.json'), config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  config.schema = structuredClone(PRESETS.default);
+  config.schema.roots.note = { path: 'Templates', flat: false };
+  fs.writeFileSync(file, JSON.stringify(config));
+  f.put('Templates/Kept.md', '# Kept note\n');
+  const result = await f.run(['init', '--detect', f.data, '--yes', '--actor', 'acme', '--json']);
+  assert.equal(result.code, 0, result.stdout);
+  assert.ok(!result.json.data.schema.ignore.includes('Templates/**'));
+  assert.ok(result.json.warnings.includes('ignore_conflict:Templates/**'));
+  assert.ok(!result.json.data.suggestions.some(({ target, path }) => target === 'ignore' && path === 'Templates'));
+  const notes = await f.run(['note', 'list', '--json']);
+  assert.equal(notes.code, 0, notes.stdout);
+  assert.deepEqual(notes.json.data.items.map(({ path }) => path), ['Templates/Kept.md']);
+  assert.equal(fs.readFileSync(join(f.data, 'Templates/Kept.md'), 'utf8'), '# Kept note\n');
+});
+
+test('detection retains a Clippings quick-note destination and leaves it writable', async (t) => {
+  const f = fixture(t);
+  const file = join(f.data, '.cairn/config.json'), config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  config.schema = { ...structuredClone(PRESETS.default), quickNotes: 'Clippings' };
+  fs.writeFileSync(file, JSON.stringify(config));
+  f.put('Clippings/Existing.md', '# Existing note\n');
+  for (const flags of [['--dry-run'], ['--yes']]) {
+    const result = await f.run(['init', '--detect', f.data, '--actor', 'acme', '--json', ...flags]);
+    assert.equal(result.code, 0, result.stdout);
+    assert.equal(result.json.data.schema.quickNotes, 'Clippings');
+    assert.ok(!result.json.data.schema.sourceRoots.includes('Clippings'));
+    assert.ok(result.json.warnings.includes('root_conflict:sourceRoots:Clippings'));
+  }
+  const added = await f.run(['note', 'add', '--title', 'Fresh note', '--actor', 'acme', '--json']);
+  assert.equal(added.code, 0, added.stdout);
+  assert.equal(added.json.data.path, 'Clippings/fresh-note.md');
+});
+
+test('detection maps Project in a configured category field and lists both projects', async (t) => {
+  const f = fixture(t);
+  const file = join(f.data, '.cairn/config.json'), config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  config.schema = { ...structuredClone(PRESETS.default), fields: { kind: 'category' } };
+  fs.writeFileSync(file, JSON.stringify(config));
+  for (const name of ['A', 'B']) f.put(`Work/${name}.md`, `---\ncategory: Project\n---\n# ${name}\n`);
+  const result = await f.run(['init', '--detect', f.data, '--yes', '--actor', 'acme', '--json']);
+  assert.equal(result.code, 0, result.stdout);
+  assert.equal(result.json.data.schema.fields.kind, 'category');
+  assert.equal(result.json.data.schema.values.kind.Project, 'project');
+  assert.equal(result.json.data.schema.roots.project.path, 'projects');
+  const projects = await f.run(['project', 'list', '--json']);
+  assert.equal(projects.code, 0, projects.stdout);
+  assert.deepEqual(projects.json.data.items.map(({ path }) => path).sort(), ['Work/A.md', 'Work/B.md']);
+});
