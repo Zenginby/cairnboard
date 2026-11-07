@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 import { parseFile, acceptanceCounts } from './frontmatter.mjs';
 import { classify, readCanonical } from './schema.mjs';
+import { entityRef } from './ids.mjs';
 
 const blank = (char) => char === ' ' || char === '\t';
 
@@ -50,7 +51,8 @@ export function extract(schema, path, text) {
     && Object.hasOwn(file.data, field) && Object.hasOwn(file.data, name)).map(([field]) => field);
   return {
     untitled: title === null, conflicts,
-    path, type: classification.entity, kind: classification.kind, id, ref: id ?? `@${path.replace(/\.md$/iu, '')}`,
+    path, type: classification.entity, kind: classification.kind, id,
+    ref: entityRef({ id, type: classification.entity, path }),
     title: title ?? basename(path).replace(/\.md$/iu, ''), data, body: file.body,
     acceptance: acceptanceCounts(file.body), error: file.error ? 'invalid_frontmatter' : null,
     ...(classification.unknownKind === undefined ? {} : { unknownKind: classification.unknownKind }),

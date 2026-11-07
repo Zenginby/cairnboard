@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newId, normalizeId } from '../core/ids.mjs';
+import { createHash } from 'node:crypto';
+import { newId, normalizeId, entityRef, isNoteKey } from '../core/ids.mjs';
 
 test('newId generates prefix and 6-char Crockford base32 ID', () => {
   const id = newId('c');
@@ -54,4 +55,27 @@ test('normalizeId rejects invalid characters and formats', () => {
   assert.equal(normalizeId(''), null);
   assert.equal(normalizeId(null), null);
   assert.equal(normalizeId(12345), null);
+});
+
+test('idless note references hash the indexed relative path as stored, preserving case', () => {
+  const ref = (path, id = null, type = 'note') => entityRef({ id, type, path });
+  const path = 'Ideas/ışık.md';
+  const expected = `n-${createHash('sha256').update(path).digest('hex').slice(0, 16)}`;
+  assert.equal(ref(path), expected);
+  assert.notEqual(ref(path.toUpperCase()), expected);
+  assert.notEqual(ref('Other/ışık.md'), expected);
+  assert.equal(ref(path, 'n-000001'), 'n-000001');
+  assert.equal(ref('cards/manual.md', null, 'card'), '@cards/manual');
+  assert.ok(isNoteKey(expected));
+  for (const value of [null, 1, 'n-000001', 'n-../', 'N-0123456789abcdef', 'n-0123456789abcdeg',
+    'n-0123456789abcdef0', 'n-0123456789abcdef\n', 'n-%30' + '0'.repeat(15)]) {
+    assert.equal(isNoteKey(value), false, String(value));
+  }
+});
+
+test('note keys keep Unicode forms apart, so two distinct files never share a key', () => {
+  const composed = entityRef({ id: null, type: 'note', path: 'notes/caf\u00e9.md' });
+  const decomposed = entityRef({ id: null, type: 'note', path: 'notes/cafe\u0301.md' });
+  assert.ok(isNoteKey(composed) && isNoteKey(decomposed));
+  assert.notEqual(composed, decomposed);
 });

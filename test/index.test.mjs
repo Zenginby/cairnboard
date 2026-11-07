@@ -109,14 +109,28 @@ test('corruption, schema version and schema fingerprint rebuild the cache', (t) 
   assert.equal(refresh(ctx).added, 0);
   assert.deepEqual(rows(ctx), []);
   index = openIndex(ctx);
-  assert.equal(index.db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '8');
+  assert.equal(index.db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '9');
   index.close();
+});
+
+test('version 8 caches reclassify unchanged loose Markdown before the next read', (t) => {
+  const ctx = setup(t);
+  put(ctx, 'Other/deep.md', '# Lantern');
+  refresh(ctx);
+  const index = openIndex(ctx);
+  // Model the old cache: the path is a link target but has no entity or search row.
+  index.db.exec("DELETE FROM files; DELETE FROM fts; UPDATE meta SET value = '8' WHERE key = 'schema_version'");
+  index.close();
+  const fresh = { ...ctx, warnings: [] };
+  assert.equal(rows(fresh, 'note')[0].path, 'Other/deep.md');
+  assert.equal(search(fresh, 'Lantern')[0].ref, rows(fresh, 'note')[0].ref);
 });
 
 test('busy databases fall back to source files and cache hooks never break writes', (t) => {
   const ctx = setup(t);
   put(ctx, 'notes/a.md', '# Old\n[[b]]');
   refresh(ctx);
+  const ref = rows(ctx)[0].ref;
   const before = fs.statSync(ctx.indexPath).ino;
   const blocker = new DatabaseSync(ctx.indexPath);
   // Windows cannot delete an open database, and temp folders are removed by an earlier hook.
@@ -125,7 +139,9 @@ test('busy databases fall back to source files and cache hooks never break write
   put(ctx, 'notes/a.md', '# New\nışık');
   const fresh = { ...ctx, warnings: [] };
   assert.equal(rows(fresh)[0].title, 'New');
+  assert.equal(rows(fresh)[0].ref, ref);
   assert.equal(search(fresh, 'ISIK').length, 1);
+  assert.equal(search(fresh, 'ISIK')[0].ref, ref);
   assert.doesNotThrow(() => indexPath(fresh, 'notes/a.md'));
   assert.doesNotThrow(() => dropPath(fresh, 'notes/a.md'));
   assert.ok(fresh.warnings.includes('index_unavailable'));
@@ -147,6 +163,16 @@ test('non-Markdown, symlinks and oversized Markdown are handled conservatively',
   assert.equal(rows(ctx)[0].title, 'Huge');
   assert.equal(rows(ctx)[0].body, null);
   assert.deepEqual(search(ctx, 'xxxx'), []);
+});
+
+test('a POSIX file name with backslashes cannot alias a hidden file', { skip: process.platform === 'win32' }, (t) => {
+  const ctx = setup(t);
+  put(ctx, 'archive/.cairn/snapshot.md', 'SECRET');
+  fs.writeFileSync(join(ctx.root, 'archive\\.cairn\\snapshot.md'), '');
+  const result = refresh(ctx);
+  assert.deepEqual(result.skipped.map(({ reason }) => reason), ['unsafe-path']);
+  assert.deepEqual(rows(ctx).map((row) => row.path), []);
+  assert.deepEqual(search(ctx, 'secret'), []);
 });
 
 test('verify hashes every source, keeps unchanged rows and clears removed source records', (t) => {

@@ -68,7 +68,7 @@ test('ephemeral root notes use the external cache without writing into the sourc
   const root = tempDir(t), home = tempDir(t);
   fs.writeFileSync(join(root, 'manual.md'), '# Manual\n');
   const ctx = openContext({ mode: 'read', dataDir: root, home, env: {}, preset: 'tr-wiki' });
-  assert.equal(note.list(ctx)[0].ref, '@manual');
+  assert.match(note.list(ctx)[0].ref, /^n-[0-9a-f]{16}$/u);
   assert.equal(note.show(ctx, '@manual').body, '# Manual\n');
   assert.deepEqual(fs.readdirSync(root), ['manual.md']);
 });

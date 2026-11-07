@@ -181,7 +181,7 @@ export function classify(schema, rel, data) {
     const match = key.endsWith('.md') ? rel === key : under(rel, key);
     if (match && (!best || key.length >= best.length)) best = { length: key.length, result: { entity: 'note', kind } };
   }
-  return best?.result ?? (rel.includes('/') ? { unclassified: true } : { entity: 'note', kind: 'note' });
+  return best?.result ?? { entity: 'note', kind: 'note' };
 }
 
 export function destination(schema, entity, kind, slug) {

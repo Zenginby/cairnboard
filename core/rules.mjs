@@ -5,7 +5,8 @@ import { PRESETS } from './presets.mjs';
 // Every code `config.lint` may set (wiki spec §9), including the ones evidence and code checks add later.
 export const LINT_CODES = Object.freeze([
   'orphan', 'broken_link', 'ambiguous_link', 'missing_page', 'missing_frontmatter', 'invalid_frontmatter', 'unknown_kind',
-  'unclassified', 'invalid_encoding', 'alias_conflict', 'stale', 'unprocessed_lesson', 'unprocessed_source', 'raw_missing', 'raw_changed',
+  'invalid_encoding', 'alias_conflict', 'stale', 'unprocessed_lesson', 'unprocessed_source',
+  'raw_missing', 'raw_changed',
   'wakeup_budget', 'overview_multiple', 'superseded_link', 'expired', 'superseded_missing',
   'invalid_validity', 'evidence_missing', 'code_changed', 'code_missing', 'code_unlinked', 'index_mismatch', 'filename',
 ]);

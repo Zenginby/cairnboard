@@ -372,7 +372,7 @@ test('HEAD refusals, query strings and unusual paths never expose data', async (
   assert.equal(doubled.json, null);
 });
 
-test('journal links prefer valid dates, fall back to date filenames, and leave idless pages as ghosts', async (t) => {
+test('journal links use dates; idless notes link by key while other idless entities stay ghosts', async (t) => {
   const f = fixture(t);
   f.put('journal/2026-11-02.md', {}, 'No frontmatter date');
   f.put('journal/2026-11-03.md', { date: '2026-02-30' }, 'Invalid date uses filename');
@@ -390,7 +390,19 @@ test('journal links prefer valid dates, fall back to date filenames, and leave i
   for (const day of ['01', '02', '03', '04']) {
     assert.ok(response.json.data.content.html.includes(`href="/journal/2026-11-${day}"`));
   }
-  for (const name of ['invalid-day', 'idless-note', 'idless-research', 'idless-card', 'idless-project']) {
+  const note = await f.cli(['note', 'show', '@notes/idless-note']);
+  const ref = note.json.data.ref;
+  assert.ok(response.json.data.content.html.includes(`href="/notes/${ref}"`));
+  const page = await request(f.app, `/api/notes/${ref}`);
+  assert.equal(page.status, 200);
+  assert.equal(page.json.data.ref, ref);
+  assert.equal(page.json.data.id, null);
+  assert.equal((await request(f.app, `/api/notes/${ref}`, { signedIn: false })).status, 401);
+  for (const path of [`/api/cards/${ref}`, '/api/notes/n-0000000000000000',
+    '/api/notes/n-ABCDEF0123456789', '/api/notes/n-../', '/api/notes/n-%2e%2e%2f']) {
+    assert.equal((await request(f.app, path)).status, 404, path);
+  }
+  for (const name of ['invalid-day', 'idless-research', 'idless-card', 'idless-project']) {
     assert.ok(response.json.data.content.html.includes(`class="wikilink wikilink-ghost">${name}</span>`));
   }
 });
