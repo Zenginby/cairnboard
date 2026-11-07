@@ -88,8 +88,10 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
     if (closed || ignored(path)) return;
     const rel = relative(path);
     if (!rel) return;
-    // Check every event, including unlink and directory events; never follow a link supplied by chokidar.
-    try { if (stat(resolve(ctx.root, rel)).isSymbolicLink()) return; } catch (error) {
+    // Check every event, including unlink and directory events; never follow a link supplied by chokidar. A link
+    // that replaced an indexed file still schedules a refresh (flush never publishes it), so servers stop reusing
+    // freshness that no longer matches the disk.
+    try { stat(resolve(ctx.root, rel)); } catch (error) {
       if (!['ENOENT', 'ENOTDIR'].includes(error.code)) { log(error); return; }
     }
     pending.add(rel);

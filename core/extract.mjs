@@ -45,7 +45,9 @@ export function extract(schema, path, text) {
     if (!title) title = atxHeading(line);
     if (title) break;
   }
-  const id = normalizeId(data.id);
+  // Notes take only a valid Cairnboard id (stored normalized); other types keep the raw value so card mutations
+  // never replace an external id and stored references such as `project:` still match.
+  const id = classification.entity === 'note' ? normalizeId(data.id) : (typeof data.id === 'string' ? data.id : null);
   // Both the canonical and the physical name in one file (wiki spec §3); `lint` reports it.
   const conflicts = Object.entries(schema.fields).filter(([field, name]) => field !== name && file.data
     && Object.hasOwn(file.data, field) && Object.hasOwn(file.data, name)).map(([field]) => field);

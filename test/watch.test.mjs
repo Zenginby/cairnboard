@@ -209,3 +209,18 @@ test('unused suppressions expire after ten seconds', (t) => {
   f.watcher.reconcile();
   assert.equal(f.changes.length, 1, 'an expired digest cannot suppress a later matching write');
 });
+
+test('a symlink replacing an indexed file blocks freshness reuse until the watcher refreshes', async (t) => {
+  const f = fixture(t, true);
+  f.native.emit('ready');
+  await f.watcher.ready;
+  unlinkSync(join(f.root, 'cards/work.md'));
+  try { symlinkSync(join(f.root, 'cards/missing.md'), join(f.root, 'cards/work.md')); } catch (error) {
+    if (error.code === 'EPERM') { t.skip('Symlinks unavailable'); return; }
+    throw error;
+  }
+  const removed = once(f.watcher, 'change', { signal: AbortSignal.timeout(2000) });
+  f.native.emit('all', 'change', join(f.root, 'cards/work.md'));
+  assert.ok((await removed)[0].ids.includes('c-000001'));
+  assert.ok(!rows(f.ctx).some((row) => row.path === 'cards/work.md'));
+});

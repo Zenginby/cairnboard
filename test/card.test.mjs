@@ -308,3 +308,13 @@ test('update and remove respect a live claim; finished or lease-less cards lock 
   put(ctx, 'cards/manual.md', '---\nassignee: Ali\n---\n# Manual\n');
   assert.doesNotThrow(() => claimCard(bob, '@cards/manual'));
 });
+
+test('card mutations keep external ids and project references keep their stored case', (t) => {
+  const ctx = fixture(t);
+  put(ctx, 'cards/external.md', '---\nid: external-42\ntitle: External\ncolumn: planned\n---\n# External\n');
+  commentCard(ctx, '@cards/external', 'hello');
+  assert.equal(parseFile(readFile(ctx, 'cards/external.md').text).data.id, 'external-42');
+  put(ctx, 'projects/alpha.md', '---\nid: P-ABC123\ntitle: Project Alpha\n---\n# Project Alpha\n');
+  put(ctx, 'cards/alpha.md', '---\nid: c-abc123\ntitle: Alpha work\ncolumn: planned\nproject: P-ABC123\n---\n');
+  assert.deepEqual(listCards(ctx, { project: 'Project Alpha' }).map((card) => card.id), ['c-abc123']);
+});

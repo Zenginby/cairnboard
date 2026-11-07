@@ -86,14 +86,17 @@ for (const preset of ['default', 'tr-wiki']) {
   });
 }
 
-test('other entity updates assign missing ids but refuse to overwrite invalid ids', (t) => {
+test('other entity updates assign missing ids but never overwrite existing ones', (t) => {
   const ctx = fixture(t);
   for (const [type, folder] of [['project', 'projects'], ['card', 'cards'], ['research', 'research']]) {
     const path = `${folder}/manual.md`, ref = `@${folder}/manual`;
     put(ctx, path, '# Manual\n');
     update(ctx, type, ref, { title: 'Updated' });
     assert.ok(resolve(ctx, type, ref).id);
-    for (const value of ['zettel-42', '42', 'null', '']) {
+    put(ctx, path, '---\nid: zettel-42\n---\n# Manual\n');
+    update(ctx, type, ref, { title: 'Updated' });
+    assert.match(readFile(ctx, path).text, /^id: zettel-42$/mu);
+    for (const value of ['42', 'null', '']) {
       const text = `---\nid: ${value}\n---\n# Manual\n`;
       put(ctx, path, text);
       assert.throws(() => update(ctx, type, ref, { title: 'Updated' }), { code: 'validation' });

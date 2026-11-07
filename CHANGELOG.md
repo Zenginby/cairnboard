@@ -5,8 +5,8 @@
 - Fix the login launcher redirect so browsers reach the signed-in home page.
 - Add `cairn help` and resolve `--project` by title or alias, including Turkish case folding.
 - Treat Markdown in every eligible folder as notes and expose path-derived `n-<hash>` keys for notes without IDs.
-- Normalize valid IDs for lookup and use note keys for external IDs while preserving their original frontmatter.
-- Keep note keys stable across updates; reject updates that would overwrite invalid IDs on other entity types.
+- Normalize valid note IDs for lookup and use note keys for external note IDs while preserving their original frontmatter.
+- Keep note keys stable across updates; never overwrite an existing ID on other entity types.
 - Reuse a healthy server watcher's successful index refresh across requests, checking cache generations and
   falling back to request scans when watching fails. Share ignored directories between the watcher and index.
 
