@@ -70,7 +70,8 @@ if (region && status) {
       if (source !== current) return;
       failures = retryStep = 0;
       showStatus('');
-      const refresh = refreshOnOpen;
+      // A not-ready page may have missed the one change sent when the data directory appeared.
+      const refresh = refreshOnOpen || Boolean(region.querySelector('[data-not-ready]'));
       refreshOnOpen = false;
       void reconcile().then(() => { if (refresh && source === current) void update(); });
     });

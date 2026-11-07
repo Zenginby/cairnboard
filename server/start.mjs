@@ -9,6 +9,7 @@ import { isAlive, readServerState, writeServerState } from './state.mjs';
 import { openLogin } from './open-browser.mjs';
 import { watch } from '../core/watch.mjs';
 import { createEvents } from './events.mjs';
+import { createLiveWatcher } from './live.mjs';
 import { installShutdown } from './shutdown.mjs';
 
 async function start() {
@@ -31,13 +32,13 @@ async function start() {
   const instance = newInstanceId();
   const openRead = () => openContext({ mode: 'read' });
   const { render } = createRenderPool();
-  let watcher, events;
-  try { watcher = watch(openRead()); events = createEvents(watcher); } catch (error) { console.error(error); }
+  const watcher = createLiveWatcher(() => watch(openRead()));
+  const events = createEvents(watcher);
   const app = createApp({ root, handler, guard: createGuard({ port, key, instance }),
     api: createApi({ open: openRead, render, events }), locals: { cairn: createRead({ open: openRead, render }) } });
   for (const server of servers) server.on('request', app);
   const server = serverGroup(servers);
-  const shutdown = installShutdown(server, { close: async () => { events?.close(); await watcher?.close(); } });
+  const shutdown = installShutdown(server, { close: async () => { events.close(); await watcher.close(); } });
   try {
     const { url } = writeServerState({ port, instance, host: siteHost(key) });
     console.log(`Cairnboard: ${url}`);

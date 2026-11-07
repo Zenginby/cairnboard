@@ -2,7 +2,7 @@
 import { t } from '../i18n/index.mjs';
 const { title, message, init = false, status } = Astro.props;
 ---
-<section class="panel page-state" aria-labelledby="state-title">
+<section class="panel page-state" aria-labelledby="state-title" data-not-ready={init || undefined}>
   {status && <p class="eyebrow">{status}</p>}
   <h1 id="state-title">{t(title)}</h1>
   <p>{t(message)}</p>
