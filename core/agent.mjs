@@ -44,6 +44,7 @@ function commandLine(command, invocation, actor) {
     if (arg === '[column]') return '<column>';
     if (arg === '[text]') return "'<text>'";
     if (arg === '[path]') return '"<path>"';
+    if (arg === '[command...]') return 'card list';
     if (arg === '<path|->') return '- --path <target-path>';
     return arg;
   });

@@ -5,16 +5,21 @@ import { commands, commonOptions } from './registry.mjs';
 const usage = (message) => new CairnError('usage', message);
 
 function options(definitions) {
-  return Object.fromEntries(Object.entries(definitions).map(([name, { type, multiple }]) => [name, { type, ...(multiple ? { multiple } : {}) }]));
+  return Object.fromEntries(Object.entries(definitions).map(([name, { type, multiple, short }]) => [name, { type, ...(multiple ? { multiple } : {}), ...(short ? { short } : {}) }]));
 }
 
 export function parse(argv) {
   try {
     const all = Object.assign({}, commonOptions, ...commands.map((command) => command.options));
-    const { positionals } = parseArgs({ args: argv, options: options(all), strict: true, allowPositionals: true });
+    const { positionals, values: initial } = parseArgs({ args: argv, options: options(all), strict: true, allowPositionals: true });
+    if (initial.help || positionals[0] === 'help') return {
+      command: commands.find((item) => item.name === 'help'),
+      args: positionals[0] === 'help' && (!initial.help || positionals.length > 1) ? positionals.slice(1) : positionals,
+      opts: { json: initial.json, raw: initial.raw },
+    };
     const command = [...commands].sort((a, b) => b.name.split(' ').length - a.name.split(' ').length)
       .find((item) => item.name.split(' ').every((word, index) => positionals[index] === word));
-    if (!command) throw usage('Unknown or missing command.');
+    if (!command) throw usage('Unknown or missing command. Run `cairn help`');
     const { values, tokens } = parseArgs({ args: argv, options: options({ ...commonOptions, ...command.options }), strict: true, allowPositionals: true, tokens: true });
     const args = positionals.slice(command.name.split(' ').length);
     const required = command.args.filter((arg) => !arg.startsWith('[')).length;

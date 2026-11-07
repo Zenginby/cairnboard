@@ -294,7 +294,7 @@ test('built Home uses injected in-process data, escapes titles and renders safe 
   const notReady = await render(createRead({ open: () => { throw new Error('/private/data missing'); } }));
   assert.equal(notReady.status, 409);
   assert.match(notReady.body, /Veri klasörün hazır değil/u);
-  assert.match(notReady.body, /cairn init/u);
+  assert.match(notReady.body, /npm run cairn -- init/u);
   assert.doesNotMatch(notReady.body, /private|missing|Error:|stack/u);
 
   const failed = await render({ home: () => { throw new Error('/private/data\nsecret stack text'); } });
@@ -418,7 +418,7 @@ test('built Board, Card and Note routes use injected data, safe states and exter
     const notReady = await render(path, createRead({ open: () => { throw new Error('/private/data missing'); } }));
     assert.equal(notReady.status, 409, path);
     assert.match(notReady.body, /Veri klasörün hazır değil/u);
-    assert.match(notReady.body, /cairn init/u);
+    assert.match(notReady.body, /npm run cairn -- init/u);
     const failed = await render(path, { [method]: () => { throw new Error('/private/data\nsecret stack'); } });
     assert.equal(failed.status, 500, path);
     for (const result of [notReady, failed]) assert.doesNotMatch(result.body, /private|secret|stack|Error:/u);

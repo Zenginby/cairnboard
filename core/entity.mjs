@@ -89,23 +89,32 @@ function fromText(ctx, type, path, text) {
 }
 
 export function resolve(ctx, type, ref) {
-  if (typeof ref !== 'string') throw missing();
+  const notFound = () => type === 'project'
+    ? new CairnError('not_found', 'Project was not found. Enter a project id or name.') : missing();
+  if (typeof ref !== 'string') throw notFound();
   ensureFresh(ctx);
   let path, file;
   if (ref.startsWith('@')) path = refPath(ref);
   else {
     const id = normalizeId(ref);
-    if (!id) throw missing();
-    path = findById(ctx, id).find((path) => {
+    path = (id ? findById(ctx, id) : []).find((path) => {
       const candidate = readFile(ctx, path);
       if (!candidate || classify(ctx.schema, path, parseFile(candidate.text).data).entity !== type) return false;
       file = candidate;
       return true;
     });
+    if (!path && type === 'project') {
+      const name = ref.toLowerCase();
+      const matches = list(ctx, 'project').filter((item) => [item.title, ...(Array.isArray(item.data.aliases) ? item.data.aliases : [])]
+        .some((value) => typeof value === 'string' && value.toLowerCase() === name));
+      if (matches.length > 1) throw new CairnError('validation',
+        `Ambiguous project name. Matching projects: ${matches.map((item) => item.id ?? item.ref).join(', ')}. Use a project id.`);
+      path = matches[0]?.path;
+    }
   }
-  if (!path) throw missing();
+  if (!path) throw notFound();
   file ??= readFile(ctx, path);
-  if (!file) throw missing();
+  if (!file) throw notFound();
   return fromText(ctx, type, path, file.text);
 }
 

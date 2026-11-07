@@ -56,6 +56,11 @@ Data discovery order is `--data` > `CAIRN_DATA` > the path registered by `init` 
 The examples below use `--data` explicitly. Reads need no actor; writes require `--actor` or
 `CAIRN_ACTOR` (except `agent install`). Events record `cli:owner`, while card ownership stores `owner`.
 
+Run `cairn help` (or `cairn --help`, `cairn -h`) to list commands, and `cairn help card add`
+or `cairn card add --help` for options. Help works before initialization and supports `--json`.
+`--project` accepts an id, an existing `@path` selector, or an exact title or alias (case-insensitive).
+Ambiguous names report the matching ids; use an id to select one.
+
 Create a project and note, then list them:
 
 ```sh
@@ -325,6 +330,11 @@ Veri keşif sırası: `--data` > `CAIRN_DATA` > `init` ile platformun `state.jso
 > `~/Cairn`. Başlatma klasörü kaydeder; kabuğun ortam değişkenlerini değiştirmez. Aşağıdaki örnekler
 `--data` kullanır. Okumalarda aktör gerekmez; yazmalarda `--actor` ya da `CAIRN_ACTOR` zorunludur
 (`agent install` hariç). Olaylarda `cli:owner`, kartın sahip alanında `owner` tutulur.
+
+`cairn help` (veya `cairn --help`, `cairn -h`) komutları listeler; `cairn help card add`
+ya da `cairn card add --help` seçenekleri gösterir. Yardım başlatmadan önce çalışır ve `--json` destekler.
+`--project` kimlik, mevcut `@path` seçicisi veya büyük/küçük harf duyarsız tam başlık ya da takma ad kabul eder.
+Belirsiz adlarda eşleşen kimlikler listelenir; birini seçmek için kimlik kullanın.
 
 Proje ve not oluşturup listeleyin:
 
