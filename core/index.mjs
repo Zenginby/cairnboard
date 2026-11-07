@@ -328,6 +328,7 @@ function readSource(ctx, item) {
 }
 
 function sourceData(ctx, item, source) {
+  /** @type {ReturnType<typeof extract> & { badEncoding?: boolean }} */
   const row = extract(ctx.schema, item.path, source.text);
   const file = parseFile(source.text);
   if (row && source.invalid) {
@@ -444,7 +445,9 @@ export function resolver(paths) {
   const names = new Map();
   const full = new Map();
   for (const path of paths) {
-    for (const [map, key] of [[names, fileName(path)], [full, nameKey(path)]]) {
+    /** @type {[Map<string, string[]>, string][]} */
+    const entries = [[names, fileName(path)], [full, nameKey(path)]];
+    for (const [map, key] of entries) {
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(path);
     }
@@ -635,6 +638,7 @@ export function findById(ctx, id) {
     (data) => data.rows.filter((row) => row.id === id).map((row) => row.path).sort());
 }
 
+/** @param {*} ctx @param {string} [type] @param {{ kind?: string }} [filters] */
 export function rows(ctx, type, { kind } = {}) {
   const matches = (row) => (type === undefined || row.type === type) && (kind === undefined || row.kind === kind);
   return query(ctx, (db) => db.prepare('SELECT * FROM files ORDER BY path').all().map((row) => rowFrom(ctx, row)).filter(matches),
@@ -681,6 +685,7 @@ export function outlinks(ctx, path) {
   }, (data) => data.links.filter((link) => link.src_path === path).map(({ src_path, ...link }) => link));
 }
 
+/** @param {*} ctx @param {{ type?: string, unprocessed?: boolean, since?: string }} [filters] */
 export function journalEntries(ctx, { type, unprocessed = false, since } = {}) {
   const matches = (entry) => (type === undefined || entry.type === type)
     && (!unprocessed || (['discovery', 'pitfall', 'lesson'].includes(entry.type) && !entry.processed))
@@ -696,6 +701,8 @@ export const SEARCH_TYPES = Object.freeze(['project', 'card', 'note', 'research'
 /**
  * Full-text search. Pages by default (optionally one `type`); `type: 'raw'` searches raw sources instead (wiki spec §5),
  * which are never pages. All terms must match, or any term with `any` (ranked by relevance).
+ * @param {*} ctx @param {string} q
+ * @param {{ type?: string, limit?: number, any?: boolean }} [options]
  */
 export function search(ctx, q, { type, limit = 20, any = false } = {}) {
   const terms = [...new Set(foldTr(q).match(/[\p{L}\p{N}]+/gu) ?? [])];

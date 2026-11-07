@@ -89,6 +89,7 @@ function duplicateResult(ctx, record, digest, dryRun) {
  * `cairn ingest` (wiki spec §12): stores `bytes` under `<into|raw>/<date>-<slug>.md` behind `Source:`/`Date:` lines and
  * creates an unprocessed research record pointing at it, both in one transaction. The same input bytes already
  * ingested return the existing record with `duplicate: true` and write nothing.
+ * @param {*} ctx
  * @param {{ title: string, bytes: Buffer, url?: string, date?: string, into?: string, project?: string, maxBytes?: number }} input
  * @param {MutationOptions} opts
  */

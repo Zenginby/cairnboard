@@ -25,6 +25,8 @@
     "design:build": "node scripts/design-build.mjs",
     "design:lint": "node scripts/design-lint.mjs",
     "design:check": "node scripts/design-check.mjs",
+    "check:style": "node scripts/check-style.mjs",
+    "check:types": "tsc -p tsconfig.json",
     "check:app": "node scripts/check-app.mjs",
     "design:serve": "node scripts/design-serve.mjs",
     "build:app": "node scripts/build-app.mjs",

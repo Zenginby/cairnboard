@@ -23,6 +23,10 @@ export const isUnprocessedSource = (data) => data?.processed === false || data?.
 // Page text in a finding is cleaned of hidden characters and bounded; it only ever lands in `target` and `content`.
 export const clip = (value, max = EXCERPT_MAX) => stripHidden(String(value)).text.replace(/\s+/gu, ' ').trim().slice(0, max);
 
+/**
+ * @param {string} code @param {string} path
+ * @param {{ line?: number, target?: string, candidates?: string[], excerpt?: string }} [details]
+ */
 function finding(code, path, { line, target, candidates, excerpt } = {}) {
   return { code, path: clip(path, 1024), ...(line === undefined ? {} : { line }),
     ...(target === undefined ? {} : { target: clip(target) }), ...(candidates ? { candidates: candidates.map((item) => clip(item, 1024)) } : {}),
@@ -112,6 +116,7 @@ function rawNormalized(ctx, view, raw) {
  * `sourceRoots`, else { sha256 } (null unless `hash`). A digest is recomputed only when the file's stat changed since
  * the cached one, or with `verify`.
  */
+/** @param {*} ctx @param {*} view @param {*} raw @param {{ hash: boolean, verify?: boolean }} options */
 function rawFile(ctx, view, raw, { hash: wanted, verify }) {
   const rel = rawRel(ctx, raw);
   if (rel === null) return { missing: true };

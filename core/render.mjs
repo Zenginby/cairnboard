@@ -17,6 +17,7 @@ const cache = new Map();
 let cachedBytes = 0;
 
 // Retain the default clobber protection, but expose only attributes needed by Markdown.
+/** @type {import('rehype-sanitize').Options} */
 const schema = {
   ...defaultSchema,
   tagNames: defaultSchema.tagNames.filter((tag) => !['img', 'picture', 'source'].includes(tag)),
@@ -158,6 +159,7 @@ export function renderMarkdown(markdown, options = {}) {
   }
 }
 
+/** @param {string} markdown @param {{ resolveLink?: (target: *) => * }} [options] */
 function render(markdown, { resolveLink = () => null } = {}) {
   if (Buffer.byteLength(markdown, 'utf8') > MAX_INPUT) return { html: null, tooLarge: true };
   const cleaned = stripHidden(markdown).text;

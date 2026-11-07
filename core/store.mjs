@@ -308,6 +308,11 @@ function prepare(ctx, options, items, tx) {
       ...(bytes !== null ? { temp: tempPath(item.path, tx) } : before !== null ? { trashTx, trash: { payload, sidecar: `${payload}.json` } } : {}) };
   });
   const first = staged[0];
+  /** @type {{ tx: string, op: string, path: string, target: string, actor: string|null,
+   *   ts: string, extra: Record<string, *>, before: string|null, after: string|null,
+   *   items: Omit<(typeof staged)[number], 'bytes'|'saved'>[],
+   *   trash?: { payload: string, sidecar: string }, undo?: { historyTx: string },
+   *   cleanup?: { payload: string, sidecar: string }[] }} */
   const intent = { tx, op: options.op, path: first.path, target: first.target, actor: ctx.actor ?? null,
     ts: ctx.clock.now().toISOString(), extra: options.extra ?? {}, before: first.before, after: first.after,
     items: staged.map(({ bytes, saved, ...item }) => item), ...(first.trash ? { trash: first.trash } : {}) };

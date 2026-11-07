@@ -275,6 +275,11 @@ function backupSettings(path, stamp, text) {
   }
 }
 
+/**
+ * @param {{ home: string, invocation: string, dryRun?: boolean,
+ *   io?: { env?: NodeJS.ProcessEnv, stderr?: { write: (text: string) => unknown },
+ *     clock?: { now: () => Date } } }} options
+ */
 export function prepareHook({ home, invocation, io = {}, dryRun = false }) {
   const env = io.env ?? {};
   const path = settingsPath(home, env);

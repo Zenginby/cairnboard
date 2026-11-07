@@ -94,6 +94,23 @@ export function openForAppend(root, rel) {
   return openChecked(root, rel, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_APPEND);
 }
 
+/**
+ * @overload
+ * @param {string} root
+ * @param {string} rel
+ * @param {BufferEncoding} encoding
+ * @returns {string|null}
+ */
+/**
+ * @overload
+ * @param {string} root
+ * @param {string} rel
+ * @returns {Buffer|null}
+ */
+/**
+ * @param {string} root @param {string} rel @param {BufferEncoding} [encoding]
+ * @returns {string|Buffer|null}
+ */
 export function readChecked(root, rel, encoding) {
   let fd;
   try {

@@ -43,6 +43,7 @@ export function show(ctx, date = localDate(ctx)) {
   return resolve(ctx, 'journal', `@${destination(ctx.schema, 'journal', null, date).slice(0, -3)}`);
 }
 
+/** @param {*} ctx @param {{ month?: string }} [filters] */
 export function list(ctx, { month } = {}) {
   if (month !== undefined && (typeof month !== 'string' || !/^\d{4}-(?:0[1-9]|1[0-2])$/u.test(month))) throw invalid('Invalid month.');
   return entityList(ctx, 'journal').filter((item) => month === undefined || String(item.data.date ?? basename(item.path, '.md')).startsWith(`${month}-`));

@@ -6,6 +6,7 @@ import { foldTr, oneLine } from './text.mjs';
 export { firstSentence } from './text.mjs';
 
 /** Wiki pages (notes of a kind other than `note`): { path, kind, title, summary, out, in }. */
+/** @param {*} ctx @param {{ kind?: string }} [filters] */
 export function wikiIndex(ctx, { kind } = {}) {
   const language = ctx.config?.language ?? 'en';
   // Everything comes from one strict cache read: no per-row query can fall back to scanning files.

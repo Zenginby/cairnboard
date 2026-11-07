@@ -12,6 +12,10 @@ import { resolveSchema } from './schema.mjs';
 import { recover } from './store.mjs';
 import { dropPath, indexPath } from './index.mjs';
 
+/**
+ * @param {{ mode: string, dataDir?: string, preset?: string, env?: NodeJS.ProcessEnv, home?: string,
+ *   platform?: NodeJS.Platform, cwd?: string, clock?: { now: () => Date }, actor?: string }} options
+ */
 export function openContext({ mode, dataDir, preset, env = process.env, home = homedir(),
   platform = process.platform, cwd = process.cwd(), clock = systemClock, actor = null }) {
   if (!['read', 'dry-run', 'write', 'inspect'].includes(mode)) throw new CairnError('internal', 'Invalid context mode.');

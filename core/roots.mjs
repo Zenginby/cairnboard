@@ -15,6 +15,9 @@ export function stateDir({ platform = process.platform, env = process.env, home 
   return posix.join(env.XDG_STATE_HOME || posix.join(home, '.local', 'state'), 'cairnboard');
 }
 
+/**
+ * @param {{ flag?: string, env?: NodeJS.ProcessEnv, home?: string, platform?: NodeJS.Platform }} [options]
+ */
 export function findDataDir({ flag, env = process.env, home = homedir(), platform = process.platform } = {}) {
   const paths = platform === 'win32' ? win32 : { resolve, join };
   if (flag) return { path: paths.resolve(flag), source: 'flag' };
@@ -50,6 +53,11 @@ function makeDirectory(path) {
 }
 
 // `register`: true replaces the default data directory, 'if-unset' only records the first one, false never records.
+/**
+ * @param {string} path
+ * @param {{ language?: string, preset?: string, home?: string, platform?: NodeJS.Platform,
+ *   env?: NodeJS.ProcessEnv, clock?: { now: () => Date }, register?: boolean|'if-unset' }} [options]
+ */
 export function initDataDir(path, { language = 'en', preset = 'default', home = homedir(), platform = process.platform, env = process.env, clock, register = true } = {}) {
   const config = defaultConfig(language);
   if (!Object.hasOwn(PRESETS, preset)) throw invalid();
