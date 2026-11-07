@@ -34,7 +34,7 @@ function call(guardFn, { url = '/', host = SITE, method = 'GET', cookie } = {}) 
 function signIn(guardFn, now) {
   const token = mintToken(key, PORT, instance, now);
   const response = call(guardFn, { url: `/auth?t=${token}` });
-  assert.equal(response.status, 303);
+  assert.equal(response.status, 200);
   return response.headers['set-cookie'].split(';')[0];
 }
 
@@ -93,8 +93,13 @@ test('a token signs the browser in once, sets a strict cookie and clears the add
   const guardFn = createGuard({ port: PORT, key, instance, now: () => now });
   const token = mintToken(key, PORT, instance, now);
   const first = call(guardFn, { url: `/auth?t=${token}` });
-  assert.equal(first.status, 303);
-  assert.equal(first.headers.location, '/');
+  // A page that refreshes to /, not a redirect: a redirect chain started by the file:// launcher would not carry
+  // the strict cookie (test/login-browser.test.mjs). No script, so the CSP holds.
+  assert.equal(first.status, 200);
+  assert.equal(first.headers.location, undefined);
+  assert.match(first.body, /<meta http-equiv="refresh" content="0;url=\/">/u);
+  assert.doesNotMatch(first.body, /<script|<style|style=/u);
+  assert.ok(!first.body.includes(token), 'the page never repeats the token');
   const cookie = first.headers['set-cookie'];
   assert.match(cookie, new RegExp(`^${cookieName(PORT)}=[^;]+; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000$`));
   // The same token a second time is refused (reload of a stale link, or someone who saw it).
@@ -103,7 +108,7 @@ test('a token signs the browser in once, sets a strict cookie and clears the add
   const value = cookie.split(';')[0];
   assert.equal(call(guardFn, { url: '/', cookie: value }).passed, true);
   const again = call(guardFn, { url: `/auth?t=${token}`, cookie: value });
-  assert.equal(again.status, 303);
+  assert.equal(again.status, 200);
   assert.equal(again.headers['set-cookie'], undefined);
   now += 29 * 24 * 60 * 60 * 1000;
   assert.equal(call(guardFn, { url: '/', cookie: value }).passed, true);

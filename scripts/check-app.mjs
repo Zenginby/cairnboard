@@ -34,7 +34,7 @@ function signIn(port, key, instance) {
     const req = request({ host: '127.0.0.1', port, path: `/auth?t=${mintToken(key, port, instance)}`, headers: { host }, agent: false }, (res) => {
       res.resume();
       const cookie = (res.headers['set-cookie'] ?? []).map((line) => line.split(';')[0]).find((part) => part.startsWith(`${cookieName(port)}=`));
-      if (res.statusCode !== 303 || !cookie) reject(new Error(`Sign-in failed (HTTP ${res.statusCode}).`));
+      if (res.statusCode !== 200 || !cookie) reject(new Error(`Sign-in failed (HTTP ${res.statusCode}).`));
       else resolve({ name: cookieName(port), value: cookie.slice(cookieName(port).length + 1), host });
     });
     req.on('error', reject);
