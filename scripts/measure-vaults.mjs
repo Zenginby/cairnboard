@@ -148,8 +148,8 @@ async function measure(scratch) {
           const before = snapshot(data);
           let envelope, readerError;
           const selected = indexed.find((row) => row.path === source);
-          // Use real IDs when present; otherwise try the CLI's path reference, without inventing an ID.
-          const selector = selected?.id ?? `@${source}`;
+          // Exercise the same opaque note reference exposed by the CLI and Home.
+          const selector = selected?.ref ?? 'n-0000000000000000';
           const route = source ? `/notes/${encodeURIComponent(selector)}` : '/';
           const method = source ? 'note' : 'home';
           const cairn = { [method]: async (...args) => {

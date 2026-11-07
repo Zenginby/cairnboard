@@ -1,17 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createServer, IncomingMessage, request, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
-import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.mjs';
 import { guard, CSP } from '../server/guard.mjs';
 import { createRead } from '../server/read.mjs';
+import { createRenderPool } from '../server/render-pool.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
+import { defaultConfig } from '../core/config.mjs';
+import { PRESETS } from '../core/presets.mjs';
 import { tempDir, fixedClock } from './support/env.mjs';
+import { runCli } from './support/cli.mjs';
 
 // Real Node request/response objects let unit tests run without permission to bind a socket.
 async function inProcess(app, path, method = 'GET') {
@@ -323,6 +328,82 @@ test('built Home inserts only sanitized journal HTML from the in-process reader'
   assert.match(response.body, /wikilink-ghost/u);
   assert.doesNotMatch(response.body, /journalAttack|## Daily work|\[\[missing/u);
 });
+
+for (const [vault, loosePath] of [['plain', 'Ideas/Spark.md'], ['daily', 'Archive/Old.md'],
+  ['tagged', 'Topics/Loose.md']]) {
+  for (const preset of ['default', 'tr-wiki']) {
+    test(`${vault}/${preset}: loose notes have indexed references, Home links and readable pages`, async (t) => {
+      const root = fileURLToPath(new URL('../', import.meta.url));
+      if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+        t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+        return;
+      }
+      const { handler } = await import('../dist/app/server/entry.mjs');
+      const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-07T12:00:00Z');
+      cpSync(join(root, 'test/fixtures/vaults', vault), data, { recursive: true });
+      const schema = structuredClone(PRESETS[preset]);
+      schema.sourceRoots.push('Clippings');
+      schema.ignore.push('Ignored/**');
+      schema.catalog = 'Catalog.md';
+      mkdirSync(join(data, '.cairn'));
+      writeFileSync(join(data, '.cairn/config.json'), JSON.stringify({ ...defaultConfig(), schema }));
+      for (const [path, text] of Object.entries({
+        'raw/hidden.md': '# Hidden lantern raw', 'Clippings/hidden.md': '# Hidden lantern source',
+        'Ignored/hidden.md': '# Hidden lantern ignore', '.obsidian/hidden.md': '# Hidden lantern metadata',
+        'Catalog.md': '# Hidden lantern catalog',
+        'notes/identified.md': '---\nid: n-000001\n---\n# Identified\n[[notes/loose]]',
+        'notes/loose.md': '# Loose backlink\n[[identified]]',
+      })) {
+        mkdirSync(dirname(join(data, path)), { recursive: true });
+        writeFileSync(join(data, path), text);
+      }
+      const cli = (args) => runCli([...args, '--preset', preset, '--json'], { data, home, clock });
+      const listed = await cli(['note', 'list']);
+      assert.equal(listed.code, 0, listed.stdout);
+      const loose = listed.json.data.items.find((item) => item.path === loosePath);
+      assert.ok(loose, loosePath);
+      assert.equal(loose.id, null);
+      assert.equal(loose.ref, `n-${createHash('sha256').update(loosePath).digest('hex').slice(0, 16)}`);
+      const shown = await cli(['note', 'show', loose.ref]);
+      assert.equal(shown.code, 0, shown.stdout);
+      assert.equal(shown.json.data.path, loosePath);
+      assert.equal(shown.json.data.ref, loose.ref);
+      const searched = await cli(['search', 'lantern']);
+      assert.equal(searched.code, 0, searched.stdout);
+      assert.equal(searched.json.data.items.find((item) => item.path === loosePath)?.ref, loose.ref);
+      for (const items of [listed.json.data.items, searched.json.data.items]) {
+        assert.ok(items.every((item) => !/^(?:raw|Clippings|Ignored|\.obsidian)\//u.test(item.path)
+          && item.path !== 'Catalog.md'));
+      }
+
+      const open = () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock, preset });
+      const pool = createRenderPool();
+      t.after(() => pool.close());
+      const cairn = createRead({ open, render: pool.render });
+      const app = createApp({ root, guard, handler, locals: { cairn } });
+      const response = await inProcess(app, '/');
+      assert.equal(response.status, 200);
+      headers(response);
+      assert.ok(response.body.includes(`href="/notes/${loose.ref}"`));
+      assert.ok(response.body.includes(loose.content.title));
+      assert.doesNotMatch(response.body, /Hidden lantern/u);
+      for (const ref of [loose.ref, 'n-000001']) {
+        const page = await inProcess(app, `/notes/${ref}`);
+        assert.equal(page.status, 200, ref);
+        headers(page);
+        assert.match(page.body, /class="document-body"/u);
+      }
+      const identified = await inProcess(app, '/notes/n-000001');
+      const backlink = listed.json.data.items.find((item) => item.path === 'notes/loose.md');
+      assert.ok(identified.body.includes(`class="wikilink" href="/notes/${backlink.ref}"`));
+      assert.ok(identified.body.includes(`class="row-title" href="/notes/${backlink.ref}"`));
+      for (const invalid of ['n-0000000000000000', 'n-ABCDEF0123456789', 'n-123', 'n-../',
+        'n-%2e%2e%2f', 'n-%252e%252e%252f', 'n-%5c..%5c', 'n-%00', `@${loosePath}`]) {
+        assert.equal((await inProcess(app, `/notes/${invalid}`)).status, 404, invalid);
+      }
+    });
+  }
+}
 
 function documentFixture(type = 'card') {
   return { data: {

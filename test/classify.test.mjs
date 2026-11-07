@@ -17,7 +17,7 @@ test('wiki paths, explicit kinds and flat roots follow classification precedence
     ['incelemeler/x/y.md', { tur: 'kavram' }, { ignored: true }],
     ['CLAUDE.md', null, { ignored: true }],
     ['graf/z.md', null, { ignored: true }],
-    ['rastgele/klasor/q.md', null, { unclassified: true }],
+    ['rastgele/klasor/q.md', null, { entity: 'note', kind: 'note' }],
   ]) assert.deepEqual(classify(wiki(), rel, data), expected, rel);
 });
 
@@ -28,7 +28,10 @@ test('default roots and note folders classify with the longest matching path', (
     ['wiki/tools/t.md', { entity: 'note', kind: 'tool' }],
     ['research/r.md', { entity: 'research', kind: null }],
     ['cards/a.md', { entity: 'card', kind: null }],
+    ['cards/a/b.md', { entity: 'note', kind: 'note' }],
     ['journal/a.md', { entity: 'journal', kind: null }],
+    ['journal/a/b.md', { entity: 'note', kind: 'note' }],
+    ['projects/a/b.md', { entity: 'note', kind: 'note' }],
     ['wiki/overview.md', { entity: 'note', kind: 'overview' }],
     ['wiki/overview.md/other.md', { entity: 'note', kind: 'note' }],
     ['notes/image.png', { unclassified: true }],

@@ -3,7 +3,7 @@ import { validateDate } from '../core/dates.mjs';
 import * as index from '../core/index.mjs';
 import { stripHidden } from '../core/text.mjs';
 import { CairnError } from '../core/errors.mjs';
-import { normalizeId } from '../core/ids.mjs';
+import { normalizeId, isNoteKey } from '../core/ids.mjs';
 import { effectiveColumn } from '../core/card.mjs';
 import { homeView, boardView, showView } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
@@ -24,7 +24,7 @@ function renderBody(ctx, { path, body }, render) {
   for (const link of index.outlinks(ctx, path)) {
     const key = JSON.stringify([stripHidden(link.targetName).text, stripHidden(link.heading ?? '').text]);
     const row = link.status === 'resolved' ? rows.get(link.target_path) : null;
-    const id = row && (row.type === 'journal' ? journalDate(row) : row.id);
+    const id = row && (row.type === 'journal' ? journalDate(row) : row.type === 'note' ? row.ref : row.id);
     const resolved = id ? { type: row.type, id } : null;
     // Cleaning must not turn distinct or ambiguous targets into a guessed destination.
     if (links.has(key) && JSON.stringify(links.get(key)) !== JSON.stringify(resolved)) links.set(key, null);
@@ -85,11 +85,12 @@ export function createRead({ open, render = createRenderPool().render }) {
   };
   const document = async (type, id) => {
     const missing = () => new EntityNotFoundError();
-    if (!normalizeId(id)) throw missing();
+    const ref = type === 'note' && isNoteKey(id) ? id : normalizeId(id);
+    if (!ref) throw missing();
     const ctx = await openRead();
     let view;
     // Only the lookup decides "not found"; a not_found raised later is an internal failure, as in the API.
-    try { view = showView(ctx, type, normalizeId(id)); } catch (error) {
+    try { view = showView(ctx, type, ref); } catch (error) {
       if (error instanceof CairnError && error.code === 'not_found') throw missing();
       throw error;
     }
@@ -109,7 +110,9 @@ export function createRead({ open, render = createRenderPool().render }) {
       const rows = new Map(index.rows(ctx).map((row) => [row.path, row]));
       view.data.meta.backlinks = view.data.meta.backlinks.map((link) => {
         const row = rows.get(link.src_path);
-        return row ? { ...link, type: row.type, id: row.type === 'journal' ? journalDate(row) : row.id, title: row.title } : link;
+        return row ? { ...link, type: row.type,
+          id: row.type === 'journal' ? journalDate(row) : row.id, title: row.title,
+          ...(row.type === 'note' ? { ref: row.ref } : {}) } : link;
       });
     }
     return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);

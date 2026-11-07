@@ -291,11 +291,6 @@ export const CHECKS = [
     .map((file) => finding('unknown_kind', file.path, { excerpt: file.unknownKind })) },
   { code: 'invalid_encoding', defaultSeverity: 'info', run: (ctx, { view }) => view.files.filter((file) => file.badEncoding)
     .map((file) => finding('invalid_encoding', file.path)) },
-  { code: 'unclassified', defaultSeverity: 'info', run: (ctx, { view }) => {
-    const indexed = new Set(view.files.map((file) => file.path));
-    return view.targets.filter((path) => !indexed.has(path) && !path.split('/').some((part) => part.startsWith('.'))
-      && classify(ctx.schema, path, null).unclassified).map((path) => finding('unclassified', path));
-  } },
   { code: 'alias_conflict', defaultSeverity: 'error', run: (ctx, { view }) => view.files
     .flatMap((file) => file.conflicts.map((field) => finding('alias_conflict', file.path, { target: field }))) },
   { code: 'stale', defaultSeverity: 'info', run: (ctx, { view, now, staleDays }) => staleDays <= 0 ? [] : pages(view)

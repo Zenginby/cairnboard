@@ -1,5 +1,5 @@
 import { CairnError } from '../core/errors.mjs';
-import { normalizeId } from '../core/ids.mjs';
+import { normalizeId, isNoteKey } from '../core/ids.mjs';
 import { createRenderPool } from './render-pool.mjs';
 import { boardView, showView } from '../cli/views.mjs';
 import { okEnvelope, errorEnvelope } from '../cli/output.mjs';
@@ -22,7 +22,8 @@ export function createApi({ open, events, render = createRenderPool().render }) 
       let view;
       const match = /^\/api\/(cards|notes)\/([^/]+)$/u.exec(path ?? '');
       if (/%(?:2f|5c)/iu.test(req.url.split('?')[0])
-        || (path !== '/api/home' && path !== '/api/board' && (!match || !normalizeId(match[2])))) {
+        || (path !== '/api/home' && path !== '/api/board'
+          && (!match || !(normalizeId(match[2]) || (match[1] === 'notes' && isNoteKey(match[2])))))) {
         throw new CairnError('not_found', 'Entity was not found.');
       }
       phase = 'open';
@@ -33,7 +34,7 @@ export function createApi({ open, events, render = createRenderPool().render }) 
         return true;
       } else if (path === '/api/board') view = boardView(ctx);
       else {
-        const type = match[1] === 'cards' ? 'card' : 'note', id = normalizeId(match[2]);
+        const type = match[1] === 'cards' ? 'card' : 'note', id = normalizeId(match[2]) ?? match[2];
         phase = 'lookup';
         view = showView(ctx, type, id);
         phase = 'render';

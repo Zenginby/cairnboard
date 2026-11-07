@@ -18,8 +18,9 @@ const backlinks = item.meta.backlinks ?? [];
     {!card && <section class="backlinks" aria-labelledby="backlinks-title">
       <h2 id="backlinks-title">{t('note.backlinks')}</h2>
       {backlinks.length ? <ul class="backlink-list">{backlinks.map((link) => {
-        const href = link.id && ['card', 'note'].includes(link.type)
-          ? `/${link.type === 'card' ? 'cards' : 'notes'}/${encodeURIComponent(link.id)}` : null;
+        const ref = link.id ?? (link.type === 'note' ? link.ref : null);
+        const href = ref && ['card', 'note'].includes(link.type)
+          ? `/${link.type === 'card' ? 'cards' : 'notes'}/${encodeURIComponent(ref)}` : null;
         return <li>{href ? <a class="row-title" href={href}>{link.title || t('home.untitled')}</a>
           : <span>{link.title ?? link.src_path}</span>}</li>;
       })}</ul> : <p class="empty-copy">{t('note.backlinksEmpty')}</p>}

@@ -23,7 +23,7 @@ test('extract canonicalizes the schema, preserves malformed pages and excludes i
   assert.equal(row.kind, 'concept');
   assert.deepEqual(row.data, { kind: 'concept', tags: ['acme'] });
   assert.equal(extract(schema, 'raw/a.md', '# Hidden'), null);
-  assert.equal(extract(schema, 'other/a.md', '# Hidden'), null);
+  assert.equal(extract(schema, 'other/a.md', '# Visible').type, 'note');
   assert.equal(extract(schema, 'notes/a.png', 'image'), null);
   const broken = extract(schema, 'notes/a.md', '---\nsources: ["[[x]]"\n---\n# Still visible');
   assert.equal(broken.title, 'Still visible');

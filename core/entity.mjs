@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { dirname } from 'node:path';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
-import { newId, normalizeId, slugify, uniqueName, pathKey } from './ids.mjs';
+import { newId, normalizeId, isNoteKey, slugify, uniqueName, pathKey } from './ids.mjs';
 import { checkedPath, safeRelative } from './paths.mjs';
 import { parseFile, setFields, replaceBody } from './frontmatter.mjs';
 import { classify, readCanonical, physicalPatch, destination, isRawPath } from './schema.mjs';
@@ -94,7 +94,10 @@ export function resolve(ctx, type, ref) {
   if (typeof ref !== 'string') throw notFound();
   ensureFresh(ctx);
   let path, file;
-  if (ref.startsWith('@')) path = refPath(ref);
+  if (type === 'note' && isNoteKey(ref)) {
+    const matches = rows(ctx, 'note').filter((row) => row.id === null && row.ref === ref);
+    if (matches.length === 1) path = matches[0].path;
+  } else if (ref.startsWith('@')) path = refPath(ref);
   else {
     const id = normalizeId(ref);
     path = (id ? findById(ctx, id) : []).find((path) => {

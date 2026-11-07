@@ -10,11 +10,12 @@ import { revision } from './store.mjs';
 import { checkRuntime } from './runtime.mjs';
 import { CairnError } from './errors.mjs';
 import { extract } from './extract.mjs';
+import { entityRef } from './ids.mjs';
 import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 
 await checkRuntime();
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 const UNREADABLE_FS = new Set(['EACCES', 'EPERM', 'EISDIR', 'ELOOP']);
 const MAX_SIZE = 5 * 1024 * 1024;
 const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
@@ -561,7 +562,7 @@ export function dropPath(ctx, path) {
 function rowFrom(ctx, item) {
   const data = JSON.parse(item.data_json);
   const classification = classify(ctx.schema, item.path, data);
-  return { path: item.path, type: item.type, kind: item.kind, id: item.id, ref: item.id ?? `@${item.path.replace(/\.md$/iu, '')}`,
+  return { path: item.path, type: item.type, kind: item.kind, id: item.id, ref: entityRef(item),
     title: item.title, data, body: null, revision: item.hash, acceptance: { done: item.acc_done, total: item.acc_total }, error: item.error,
     ...(item.bad_encoding ? { badEncoding: true } : {}),
     ...(classification.unknownKind === undefined ? {} : { unknownKind: classification.unknownKind }) };
@@ -724,7 +725,7 @@ export function search(ctx, q, { type, limit = 20, any = false } = {}) {
   return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.id, files.title, snippet(fts, 3, '', '', '…', 24) AS snippet
     FROM fts JOIN files ON files.path = fts.path WHERE fts MATCH ? AND fts.type IS NOT 'raw' AND (? IS NULL OR files.type = ?)
     ORDER BY rank, files.path LIMIT ?`).all(match, type ?? null, type ?? null, limit)
-    .map((row) => ({ ...row, ref: row.id ?? `@${row.path.replace(/\.md$/iu, '')}` })), (data) => data.rows.filter((row) =>
+    .map((row) => ({ ...row, ref: entityRef(row) })), (data) => data.rows.filter((row) =>
     !row.badEncoding && (type === undefined || row.type === type) && hit(row.title, row.body))
     .slice(0, limit).map(({ path, type, id, ref, title, body }) => ({ path, type, id, ref, title, snippet: foldTr(body ?? '').slice(0, 160) })));
 }

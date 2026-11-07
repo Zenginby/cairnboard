@@ -6,7 +6,7 @@ import remarkRehype from 'remark-rehype';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { linkTarget } from './links.mjs';
-import { normalizeId } from './ids.mjs';
+import { normalizeId, isNoteKey } from './ids.mjs';
 import { slugify, stripHidden } from './text.mjs';
 
 export const RENDER_POLICY = '2';
@@ -55,6 +55,7 @@ function wikiHref(resolved, heading) {
   const routes = { note: 'notes', research: 'research', card: 'cards', project: 'projects', journal: 'journal' };
   if (!resolved || !Object.hasOwn(routes, resolved.type)) return null;
   const id = normalizeId(resolved.id)
+    ?? (resolved.type === 'note' && isNoteKey(resolved.id) ? resolved.id : null)
     ?? (resolved.type === 'journal' && /^\d{4}-\d{2}-\d{2}$/u.test(resolved.id) ? resolved.id : null);
   if (!id) return null;
   return `/${routes[resolved.type]}/${id}${heading ? `#${slugify(heading)}` : ''}`;

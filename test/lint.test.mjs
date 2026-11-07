@@ -41,7 +41,7 @@ test('CHECKS lists every spec code with its default severity', () => {
   const table = Object.fromEntries(CHECKS.map((check) => [check.code, check.defaultSeverity]));
   assert.deepEqual(table, {
     orphan: 'warn', broken_link: 'warn', ambiguous_link: 'warn', missing_page: 'info', missing_frontmatter: 'warn',
-    invalid_frontmatter: 'warn', unknown_kind: 'info', invalid_encoding: 'info', unclassified: 'info', alias_conflict: 'error', stale: 'info',
+    invalid_frontmatter: 'warn', unknown_kind: 'info', invalid_encoding: 'info', alias_conflict: 'error', stale: 'info',
     unprocessed_lesson: 'info', unprocessed_source: 'info', raw_missing: 'error', raw_changed: 'error',
     wakeup_budget: 'warn', overview_multiple: 'warn', index_mismatch: 'info', filename: 'off',
     superseded_link: 'warn', expired: 'warn', superseded_missing: 'warn', invalid_validity: 'warn',
@@ -133,7 +133,7 @@ test('missing_frontmatter reads physical tr-wiki names and skips unreadable fron
   assert.deepEqual(paths(result, 'invalid_frontmatter'), ['wiki/kavramlar/bozuk.md']);
 });
 
-test('invalid_frontmatter, unknown_kind, unclassified and alias_conflict', (t) => {
+test('invalid_frontmatter, unknown_kind and alias_conflict; loose notes are classified', (t) => {
   const { ctx } = make(t, {
     'notes/bad.md': '---\ntitle: [unclosed\n---\n# Bad\n[[notes/good]]\n',
     'notes/good.md': '---\nkind: pano\n---\n# Good\n',
@@ -143,7 +143,8 @@ test('invalid_frontmatter, unknown_kind, unclassified and alias_conflict', (t) =
   const result = lint(ctx);
   assert.deepEqual(paths(result, 'invalid_frontmatter'), ['notes/bad.md']);
   assert.deepEqual(found(result, 'unknown_kind').map((f) => [f.path, f.content.excerpt]), [['notes/good.md', 'pano']]);
-  assert.deepEqual(paths(result, 'unclassified'), ['docs/loose.md']);
+  assert.deepEqual(paths(result, 'unclassified'), []);
+  assert.ok(search(ctx, 'Loose').some((item) => item.path === 'docs/loose.md'));
   const tr = make(t, {
     'wiki/kavramlar/c.md': '---\ntur: kavram\nkind: concept\ntags: [a]\netiketler: [b]\nupdated: 2026-10-01\n---\n# C\n',
   }, { preset: 'tr-wiki' });
