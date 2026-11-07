@@ -17,6 +17,22 @@ const data = result?.data;
 const warnings = [...new Set((result?.warnings ?? []).map(warningText))];
 const isFeatured = (project) => project.id !== null && project.id === data.featuredProject;
 const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) - Number(isFeatured(a))) : [];
+// A panel renders only when it has data; the empty guidance stays for a data folder with nothing at all.
+const hasJournal = (data?.journalCount ?? (data?.journal ? 1 : 0)) > 0 || Boolean(data?.journal);
+const hasContent = Boolean(data)
+  && (data.pinned.length || data.openCards.length || data.recentNotes.length || hasJournal);
+const showEmpty = Boolean(data) && !projects.length && !hasContent;
+// Cells (columns x rows) per panel, in render order, to widen the last panel when its row would be left short.
+const cells = data ? [4, data.pinned.length && 2, ...projects.map((p) => isFeatured(p) ? 4 : 2), showEmpty && 6,
+  data.openCards.length && 8, data.recentNotes.length && 2, hasJournal && 2].filter(Boolean) : [];
+const lastTall = Boolean(data?.openCards.length) && !data.recentNotes.length && !hasJournal;
+const rest = cells.reduce((a, b) => a + b, 0) % 6;
+const fill = rest !== 0 && !lastTall && !showEmpty;
+const lastKey = hasJournal ? 'journal' : data?.recentNotes.length ? 'recent' : data?.openCards.length ? 'cards'
+  : projects.length ? 'project' : data?.pinned.length ? 'pinned' : 'hero';
+// Last panel's own width is 2 columns, except the hero or a featured project (4); pick the width that closes the row.
+const lastOwn = lastKey === 'hero' || (lastKey === 'project' && isFeatured(projects[projects.length - 1])) ? 4 : 2;
+const fillClass = lastOwn === 4 || rest === 2 ? 'fill-wide' : 'fill-mid';
 ---
 <AppShell live="card project note journal board" current="/">
   {state ? <PageState title={`state.${state}Title`} message={`state.${state}Body`} init={state === 'notReady'} /> : <>
@@ -24,17 +40,21 @@ const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) 
       <details><summary>{t('warnings.title')}</summary><ul>{warnings.map((warning) => <li>{warning}</li>)}</ul></details>
     </aside>}
     <div class="bento">
-      <section class="panel hero">
+      <section class:list={['panel', 'hero', fill && lastKey === 'hero' && fillClass]}>
         <p class="eyebrow">{t('shell.home')}</p>
         <h1>{t('home.title')}</h1>
         <p class="hero-summary">{t('home.summary')}</p>
         <a class="action-link" href="/board">{t('home.board')}</a>
       </section>
-      <HomeList items={data.pinned} title="home.pinned" subtitle="home.pinnedSubtitle" empty="home.pinnedEmpty" className="pinned" />
+      <HomeList items={data.pinned} title="home.pinned" subtitle="home.pinnedSubtitle"
+        className={['pinned', fill && lastKey === 'pinned' && fillClass]} />
       {projects.length ? projects.map((project, index) => {
         const featured = project.id !== null && project.id === data.featuredProject;
         const tone = Number.isInteger(project.meta.tone) && project.meta.tone >= 1 && project.meta.tone <= 8 ? project.meta.tone : index % 8 + 1;
-        return <section class:list={['panel', 'project-box', `tone-${tone}`, { 'project-featured': featured }]} aria-label={project.content.title || t('home.untitled')}>
+        const widen = fill && lastKey === 'project' && index === projects.length - 1;
+        const classes = ['panel', 'project-box', `tone-${tone}`, { 'project-featured': featured, [fillClass]: widen }];
+        return <section class:list={classes}
+          aria-label={project.content.title || t('home.untitled')}>
           <p class="eyebrow">{t(featured ? 'home.featured' : 'type.project')}</p>
           <h2>{project.content.title || t('home.untitled')}</h2>
           {project.meta.acceptance?.total > 0 && <div class="project-progress">
@@ -45,10 +65,14 @@ const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) 
             <p>{project.meta.acceptance.done}/{project.meta.acceptance.total} {t('home.progress')}</p>
           </div>}
         </section>;
-      }) : <section class="panel projects-empty"><h2>{t('home.projects')}</h2><p class="empty-copy">{t('home.projectsEmpty')}</p></section>}
-      <HomeList items={data.openCards} title="home.cards" subtitle="home.cardsSubtitle" empty="home.cardsEmpty" className="ongoing" cards />
-      <HomeList items={data.recentNotes} title="home.notes" subtitle="home.notesSubtitle" empty="home.notesEmpty" className="recent" />
-      <section class="panel today" aria-labelledby="journal-title">
+      }) : showEmpty && <section class="panel projects-empty">
+        <h2>{t('home.projects')}</h2><p class="empty-copy">{t('home.projectsEmpty')}</p>
+      </section>}
+      <HomeList items={data.openCards} title="home.cards" subtitle="home.cardsSubtitle" className="ongoing" cards />
+      <HomeList items={data.recentNotes} title="home.notes" subtitle="home.notesSubtitle"
+        className={['recent', fill && lastKey === 'recent' && fillClass]} />
+      {hasJournal && <section class:list={['panel', 'today', fill && lastKey === 'journal' && fillClass]}
+        aria-labelledby="journal-title">
         <header class="panel-header"><h2 id="journal-title">{t('home.journal')}</h2></header>
         {data.journal ? <>
           {data.journal.content.title && <h3>{data.journal.content.title}</h3>}
@@ -56,7 +80,7 @@ const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) 
             ? <div class="journal-body journal-content" set:html={data.journal.content.html} />
             : <p class="journal-body">{data.journal.content.body || data.journal.content.snippet || t('home.journalEmpty')}</p>}
         </> : <p class="empty-copy">{t('home.journalEmpty')}</p>}
-      </section>
+      </section>}
     </div>
   </>}
 </AppShell>

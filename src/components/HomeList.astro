@@ -1,16 +1,16 @@
 ---
 import { t } from '../i18n/index.mjs';
-const { items, title, subtitle, empty, className, cards = false } = Astro.props;
+const { items, title, subtitle, className, cards = false } = Astro.props;
 const linkFor = (item) => {
   const ref = item.id ?? (item.type === 'note' ? item.ref : null);
   return ref && ['card', 'note'].includes(item.type)
     ? `/${item.type === 'card' ? 'cards' : 'notes'}/${encodeURIComponent(ref)}` : null;
 };
 ---
-<section class:list={['panel', className]} aria-label={t(title)}>
+{items.length > 0 && <section class:list={['panel', className]} aria-label={t(title)}>
   <header class="panel-header"><h2>{t(title)}</h2><span class="panel-count">{items.length}</span></header>
   <p class="panel-subtitle">{t(subtitle)}</p>
-  {items.length ? <ul class="summary-list">
+  <ul class="summary-list">
     {items.map((item) => {
       const href = linkFor(item);
       const priority = ['urgent', 'important', 'low'].includes(item.meta.priority) ? item.meta.priority : 'other';
@@ -24,5 +24,5 @@ const linkFor = (item) => {
         <span class:list={['chip', cards && `priority-${priority}`]}>{t(cards ? `priority.${priority}` : `type.${type}`)}</span>
       </div></li>;
     })}
-  </ul> : <p class="empty-copy">{t(empty)}</p>}
-</section>
+  </ul>
+</section>}

@@ -216,3 +216,11 @@ test('new readers open a fresh context, distinguish unavailable data and reject 
     await assert.rejects(createRead({ open: () => null })[method]('n-000001'), (error) => error.code !== 'data_not_ready');
   }
 });
+
+test('Home view counts journal entries additively so the page can hide an empty journal panel', (t) => {
+  assert.equal(homeView(fixture(t).ctx).data.journalCount, 0);
+  const { ctx } = fixture(t, '## Entry');
+  const view = homeView(ctx);
+  assert.equal(view.data.journalCount, 1);
+  assert.ok(view.data.journal);
+});
