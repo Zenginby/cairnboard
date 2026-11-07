@@ -1,5 +1,5 @@
 import { platform } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import * as fs from '../../core/fsx.mjs';
 import * as entity from '../../core/entity.mjs';
 import * as card from '../../core/card.mjs';
@@ -15,7 +15,11 @@ import { defaultConfig, loadConfig } from '../../core/config.mjs';
 import { PRESETS } from '../../core/presets.mjs';
 import { exportBoard } from '../../core/export.mjs';
 import { CairnError } from '../../core/errors.mjs';
-import { toJson } from '../output.mjs';
+import { clean, toJson } from '../output.mjs';
+import { oneLine } from '../../core/text.mjs';
+import { confirm } from '../confirm.mjs';
+import { detectSchema, extendDetection } from '../../core/detect.mjs';
+import { destination, resolveSchema } from '../../core/schema.mjs';
 import { readBody, readFileBytes, readStdinBytes } from '../body.mjs';
 import { ingest, MAX_INPUT } from '../../core/ingest.mjs';
 
@@ -64,6 +68,124 @@ function patchFields(ctx, type, opts) {
     throw new CairnError('validation', 'Unknown card column.');
   }
   return patch;
+}
+
+function configChangeLines(field, before, after) {
+  if (JSON.stringify(before) === JSON.stringify(after)) return [];
+  const display = (value) => value == null ? '(none)' : typeof value === 'string' ? value : JSON.stringify(value);
+  if (field === 'schema.roots') {
+    const describe = (root, type) => root
+      ? `${[root.path].flat().join(', ')} (flat: ${root.flat ?? type !== 'note'})` : '(none)';
+    return [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])].flatMap((type) =>
+      JSON.stringify(before?.[type]) === JSON.stringify(after?.[type]) ? []
+        : [`  ${type} → ${describe(after?.[type], type)}; was ${describe(before?.[type], type)}`]);
+  }
+  if (Array.isArray(before) || Array.isArray(after)) {
+    const lines = [...(before ?? []).filter((value) => !(after ?? []).includes(value))
+      .map((value) => `  ${field} - ${display(value)}`),
+    ...(after ?? []).filter((value) => !(before ?? []).includes(value))
+      .map((value) => `  ${field} + ${display(value)}`)];
+    return lines.length ? lines : [`  ${field}: ${display(before)} → ${display(after)}`];
+  }
+  if ((before && typeof before === 'object') || (after && typeof after === 'object')) {
+    return [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])].flatMap((key) =>
+      configChangeLines(`${field}.${key}`, before?.[key], after?.[key]));
+  }
+  return [`  ${field}: ${display(before)} → ${display(after)}`];
+}
+
+function detectionPreview(detection, changes, existingSchema) {
+  const rows = [['Target', 'Path', 'Confidence', 'Reason'], ...detection.suggestions.map((item) =>
+    [item.target, item.path, `${Math.round(item.confidence * 100)}%`, item.reason])];
+  const table = rows.map((row) => row.map((cell) => oneLine(clean(cell))).join('\t')).join('\n');
+  const diff = changes.flatMap(({ field, before, after }) =>
+    configChangeLines(field, field === 'schema' ? existingSchema ?? before : before, after))
+    .map((line) => oneLine(clean(line))).join('\n');
+  const folder = detection.schema.roots.note && dirname(destination(detection.schema, 'note', 'note', 'new-note'));
+  const notes = `New notes: ${folder ? folder === '.' ? './' : `${folder}/` : '(not configured)'}\n`;
+  const preserved = existingSchema ? ['Preserved schema:',
+    ...configChangeLines('schema.roots', null, existingSchema.roots).map((line) => line.replace('; was (none)', '')),
+    ...['kindFolders', 'fields', 'values', 'sourceRoots', 'catalog', 'ignore', 'quickNotes', 'entryTypes']
+      .filter((field) => Object.hasOwn(existingSchema, field))
+      .map((field) => `  schema.${field}: existing settings preserved`),
+  ].map((line) => oneLine(clean(line))).join('\n') + '\n' : '';
+  const added = existingSchema ? `Added schema entries:\n${diff || '  (none)'}\n` : diff && `${diff}\n`;
+  return `${table}\n${notes}${preserved}${added ? `Config changes:\n${added}` : ''}`;
+}
+
+async function initDetected(root, opts, io, settings, current) {
+  let detectedRoot, identity;
+  try {
+    identity = fs.lstatSync(root, { bigint: true });
+    if (!identity.isDirectory()) throw new Error('Invalid root.');
+    detectedRoot = realRoot(root);
+  } catch {
+    throw new CairnError('validation', 'Detection requires an existing directory without symlinks.');
+  }
+  const checkRoot = () => {
+    try {
+      const now = fs.lstatSync(root, { bigint: true });
+      if (!now.isDirectory() || realRoot(root) !== detectedRoot
+        || now.dev !== identity.dev || now.ino !== identity.ino) throw new Error('Root changed.');
+      const saved = fs.lstatSync(detectedRoot, { bigint: true });
+      if (!saved.isDirectory() || saved.dev !== identity.dev || saved.ino !== identity.ino) {
+        throw new Error('Root changed.');
+      }
+    } catch {
+      throw new CairnError('conflict', 'Data directory changed during detection.');
+    }
+  };
+  checkRoot();
+  const previous = current === null ? null : loadConfig(detectedRoot);
+  const existingSchema = previous === null ? null : resolveSchema(previous);
+  let detection = detectSchema(detectedRoot, { existingSchema });
+  if (existingSchema) detection = extendDetection(detection, existingSchema);
+  const config = { ...(previous ?? defaultConfig(opts.language ?? 'en')), schema: detection.schema };
+  if (opts.language !== undefined) config.language = defaultConfig(opts.language).language;
+  const changes = ['schema', 'language'].filter((field) =>
+    JSON.stringify(previous?.[field]) !== JSON.stringify(config[field])).map((field) =>
+    ({ field, before: previous?.[field] ?? null, after: config[field] }));
+  const preview = detectionPreview(detection, changes, existingSchema);
+  const text = JSON.stringify(config, null, 2) + '\n';
+  const currentRevision = current === null ? null : revision(current);
+  if (!opts['dry-run']) {
+    // The proposal and config diff must be visible before any confirmation or metadata write.
+    io.stderr.write(opts.json ? JSON.stringify(clean({ ...detection, changes })) + '\n' : preview);
+    if (!opts.yes) {
+      if (!io.isTTY) throw new CairnError('confirmation_required',
+        'Detection writes require confirmation; use --yes in a non-interactive environment.',
+        { current: { revision: currentRevision, ...detection, changes } });
+      if (!await confirm(io, `Apply detected schema to ${root}/.cairn/config.json?`)) {
+        throw new CairnError('confirmation_required', 'Confirmation was declined.');
+      }
+    }
+    const checkCurrent = () => {
+      checkRoot();
+      const bytes = readChecked(detectedRoot, '.cairn/config.json');
+      if ((bytes === null ? null : revision(bytes)) !== currentRevision) {
+        throw new CairnError('conflict', 'Configuration has changed.',
+          { current: { revision: bytes === null ? null : revision(bytes) } });
+      }
+    };
+    checkCurrent();
+    checkRoot();
+    // Reuse init's path validation and private metadata layout, without writing outside the vault.
+    initDataDir(detectedRoot, { ...settings, language: opts.language, register: false });
+    checkRoot();
+    const expected = current ?? Buffer.from(JSON.stringify(defaultConfig(opts.language ?? 'en'), null, 2) + '\n');
+    fs.writeFileAtomic(checkedPath(detectedRoot, '.cairn/config.json'), text, () => {
+      checkRoot();
+      const bytes = readChecked(detectedRoot, '.cairn/config.json');
+      if (bytes === null || !bytes.equals(expected)) {
+        throw new CairnError('conflict', 'Configuration changed during detection.');
+      }
+    });
+  }
+  const data = { path: root, config, revision: opts['dry-run'] ? currentRevision : revision(text),
+    ...detection, changes, written: !opts['dry-run'] };
+  return opts.json ? { data, warnings: detection.warnings }
+    : { data: `${preview}${opts['dry-run'] ? 'Dry run; no files written.' : 'Detected schema saved.'}`,
+      warnings: detection.warnings };
 }
 
 export function writeCommands({ string, boolean }) {
@@ -177,11 +299,13 @@ export function writeCommands({ string, boolean }) {
       (first.text ?? before) === null ? undefined : extract(ctx.schema, first.path, first.text ?? before));
   });
   add('init', 'Initialize a data directory.', ['[path]'], {
+    detect: string('Detect an existing vault schema; preview with --dry-run, confirm with --yes.'),
+    yes: boolean('Apply a detected schema without prompting; only with --detect.'),
     language: string('Use tr or en (default: en).'), preset: string('Use default or tr-wiki (default: default).'),
     'set-default': boolean('Make this the default data directory, replacing an existing default.'),
-  }, (ctx, [path], opts, io) => {
+  }, async (ctx, [path], opts, io) => {
     const settings = environment(io);
-    const root = resolve(io.cwd, path ?? findDataDir({ ...settings,
+    const root = resolve(io.cwd, opts.detect ?? path ?? findDataDir({ ...settings,
       flag: opts.data && resolve(io.cwd, opts.data), env: { ...io.env,
         ...(io.env.CAIRN_DATA ? { CAIRN_DATA: resolve(io.cwd, io.env.CAIRN_DATA) } : {}) } }).path);
     const config = defaultConfig(opts.language ?? 'en');
@@ -197,6 +321,7 @@ export function writeCommands({ string, boolean }) {
     if (opts['if-revision'] !== undefined && opts['if-revision'] !== (current === null ? null : revision(current))) {
       throw new CairnError('conflict', 'Configuration has changed.', { current: { revision: current === null ? null : revision(current) } });
     }
+    if (opts.detect !== undefined) return initDetected(root, opts, io, settings, current);
     if (opts['dry-run']) {
       // Validate existing config without running initialization or writing discovery state.
       loaded = current === null ? config : loadConfig(realRoot(root));
@@ -210,6 +335,13 @@ export function writeCommands({ string, boolean }) {
       ? [`not_default:${recorded.path}`] : [];
     return { data: { path: root, config: loaded, revision: revision(current ?? JSON.stringify(loaded, null, 2) + '\n') }, warnings };
   }, { needsData: false, dangerous: { option: 'set-default' } });
+  commands.at(-1).prepare = (args, opts, io) => {
+    const [path] = args;
+    if (opts.detect !== undefined && (opts.preset !== undefined || path !== undefined || opts['set-default'])) {
+      throw new CairnError('validation', 'Use --detect without --preset, a positional path or --set-default.');
+    }
+    if (opts.yes && opts.detect === undefined) throw new CairnError('validation', '--yes requires --detect.');
+  };
   add('link', 'Link a git repository to a project.', ['<project>'], { gitignore: boolean('Ignore the project link in git.') }, (ctx, [ref], opts, io) => {
     const root = findRepoRoot(io.cwd);
     if (!root || !fs.lstatSync(checkedPath(realRoot(root), '.git'), { throwIfNoEntry: false })) throw new CairnError('validation', 'A git repository is required.');

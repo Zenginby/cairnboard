@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Add `init --detect` with bounded read-only vault scanning, explained schema previews and confirmed config writes.
 - Home shows a panel only when it has data; a folder with no content keeps the getting-started guidance.
 - Fix the login launcher redirect so browsers reach the signed-in home page.
 - Add `cairn help` and resolve `--project` by title or alias, including Turkish case folding.

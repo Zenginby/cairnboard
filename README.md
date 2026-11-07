@@ -51,6 +51,24 @@ Initialize a data folder (quote paths containing spaces):
 node dist/cairn.mjs init "./cairn-data" --language en --actor owner
 ```
 
+For an existing Markdown/Obsidian vault, preview folder mappings without writing a schema by hand:
+
+```sh
+cairn init --detect "./vault" --dry-run --json --actor owner
+cairn init --detect "./vault" --language en --yes --actor owner
+```
+
+Detection reports a table with confidence and reasons (`--json` returns structured data). Without
+`--dry-run`, review the config diff and confirm in a terminal, or use `--yes` for unattended writes.
+`--if-revision` protects an existing config. `--detect` cannot be combined with `--preset`, a positional
+path or `--set-default`. It changes only `.cairn` metadata and does not register a default;
+use `--data "./vault"` for subsequent commands. Vault Markdown files remain untouched.
+Hidden folders, symlinks and templates are skipped; scanning reads names and bounded Markdown prefixes
+and parses only frontmatter. Uncertain mappings produce warnings; remaining Markdown stays notes.
+Vault-root note paths are unsupported, so default note folders are retained; preview shows the new-note destination.
+For initialized vaults, detection only adds missing schema entries; existing roots and mappings are preserved.
+Overlapping roots warn and are skipped. Observed kind spellings are stored as exact aliases, including letter case.
+
 Data discovery order is `--data` > `CAIRN_DATA` > the path registered by `init` in the platform's
 `state.json` > `~/Cairn`. Initialization registers the folder; it does not change your shell's environment.
 The examples below use `--data` explicitly. Reads need no actor; writes require `--actor` or
@@ -325,6 +343,24 @@ Veri klasörünü başlatın (boşluklu yolları tırnaklayın):
 ```sh
 node dist/cairn.mjs init "./cairn-data" --language tr --actor owner
 ```
+
+Var olan Markdown/Obsidian kasasında elle şema yazmadan klasör eşlemelerini önizleyin:
+
+```sh
+cairn init --detect "./vault" --dry-run --json --actor owner
+cairn init --detect "./vault" --language tr --yes --actor owner
+```
+
+Tespit, güven ve gerekçe içeren tablo gösterir (`--json` yapılandırılmış veri döndürür).
+`--dry-run` yoksa config farkını inceleyip terminalde onaylayın; etkileşimsiz yazma için `--yes` kullanın.
+`--if-revision` mevcut config'i korur. `--detect`, `--preset`, konumsal yol veya `--set-default` ile
+birlikte kullanılamaz. Yalnız `.cairn` üst verisini değiştirir; varsayılan kasa kaydetmez.
+Sonraki komutlarda `--data "./vault"` kullanın. Kasanın Markdown dosyalarına dokunulmaz.
+Gizli klasörler, sembolik bağlar ve şablonlar atlanır; tarama adları ve Markdown dosyalarının sınırlı
+başlangıcını okur, yalnız ön bilgiyi ayrıştırır. Belirsiz eşlemeler uyarı üretir; kalan Markdown not sayılır.
+Kasa kökü not yolu olamadığı için varsayılan not klasörleri korunur; önizleme yeni notların yazılacağı yeri gösterir.
+Başlatılmış kasalarda tespit yalnız eksik şema girdilerini ekler; mevcut kökler ve eşlemeler korunur.
+Çakışan kökler uyarıyla atlanır. Görülen tür yazımları büyük/küçük harfleriyle birebir değer eşlemesine eklenir.
 
 Veri keşif sırası: `--data` > `CAIRN_DATA` > `init` ile platformun `state.json` dosyasına kaydedilen yol
 > `~/Cairn`. Başlatma klasörü kaydeder; kabuğun ortam değişkenlerini değiştirmez. Aşağıdaki örnekler
