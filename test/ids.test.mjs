@@ -57,13 +57,11 @@ test('normalizeId rejects invalid characters and formats', () => {
   assert.equal(normalizeId(12345), null);
 });
 
-test('idless note references hash the NFC relative path with forward slashes, preserving case', () => {
+test('idless note references hash the indexed relative path as stored, preserving case', () => {
   const ref = (path, id = null, type = 'note') => entityRef({ id, type, path });
   const path = 'Ideas/ışık.md';
   const expected = `n-${createHash('sha256').update(path).digest('hex').slice(0, 16)}`;
   assert.equal(ref(path), expected);
-  assert.equal(ref(path.normalize('NFD')), expected);
-  assert.equal(ref(path.replace('/', '\\')), expected);
   assert.notEqual(ref(path.toUpperCase()), expected);
   assert.notEqual(ref('Other/ışık.md'), expected);
   assert.equal(ref(path, 'n-000001'), 'n-000001');
@@ -73,4 +71,11 @@ test('idless note references hash the NFC relative path with forward slashes, pr
     'n-0123456789abcdef0', 'n-0123456789abcdef\n', 'n-%30' + '0'.repeat(15)]) {
     assert.equal(isNoteKey(value), false, String(value));
   }
+});
+
+test('note keys keep Unicode forms apart, so two distinct files never share a key', () => {
+  const composed = entityRef({ id: null, type: 'note', path: 'notes/caf\u00e9.md' });
+  const decomposed = entityRef({ id: null, type: 'note', path: 'notes/cafe\u0301.md' });
+  assert.ok(isNoteKey(composed) && isNoteKey(decomposed));
+  assert.notEqual(composed, decomposed);
 });

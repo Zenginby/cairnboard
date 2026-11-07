@@ -165,6 +165,16 @@ test('non-Markdown, symlinks and oversized Markdown are handled conservatively',
   assert.deepEqual(search(ctx, 'xxxx'), []);
 });
 
+test('a POSIX file name with backslashes cannot alias a hidden file', { skip: process.platform === 'win32' }, (t) => {
+  const ctx = setup(t);
+  put(ctx, 'archive/.cairn/snapshot.md', 'SECRET');
+  fs.writeFileSync(join(ctx.root, 'archive\\.cairn\\snapshot.md'), '');
+  const result = refresh(ctx);
+  assert.deepEqual(result.skipped.map(({ reason }) => reason), ['unsafe-path']);
+  assert.deepEqual(rows(ctx).map((row) => row.path), []);
+  assert.deepEqual(search(ctx, 'secret'), []);
+});
+
 test('verify hashes every source, keeps unchanged rows and clears removed source records', (t) => {
   const ctx = setup(t, 'tr-wiki');
   put(ctx, 'a.md', '[[b]]');

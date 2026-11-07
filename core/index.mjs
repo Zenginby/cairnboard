@@ -218,6 +218,10 @@ function inventory(ctx, skipped, raw = []) {
       if (entry.isDirectory() && SKIPPED_DIRS.has(entry.name)) {
         // Never link targets, and large enough (objects, packages) to make every refresh slow.
         continue;
+      } else if (entry.name.includes('\\')) {
+        // A POSIX name may contain a backslash, which path handling reads as a separator: `a\.cairn\x.md` would
+        // become an alias of the hidden `a/.cairn/x.md`. Windows cannot create such names, so skip them everywhere.
+        if (!quiet) skipped.push({ path, reason: 'unsafe-path' });
       } else if (entry.isSymbolicLink()) {
         skipped.push({ path, reason: 'symlink' });
       } else if (entry.isDirectory()) {

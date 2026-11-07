@@ -40,7 +40,7 @@ export function isNoteKey(input) {
 export function entityRef({ id, type, path }) {
   if (id != null) return id;
   return type === 'note'
-    ? `n-${createHash('sha256').update(path.replace(/\\/gu, '/').normalize('NFC')).digest('hex').slice(0, 16)}`
+    ? `n-${createHash('sha256').update(path).digest('hex').slice(0, 16)}`
     : `@${path.replace(/\.md$/iu, '')}`;
 }
 
