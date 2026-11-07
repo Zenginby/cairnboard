@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import * as fs from '../core/fsx.mjs';
-import { detectSchema } from '../core/detect.mjs';
+import { DETECT_LIMITS, detectSchema } from '../core/detect.mjs';
 import { PRESETS } from '../core/presets.mjs';
-import { classify } from '../core/schema.mjs';
+import { classify, destination, resolveSchema } from '../core/schema.mjs';
 import { tempDir } from './support/env.mjs';
 
 function vault(t) {
@@ -16,16 +16,15 @@ function vault(t) {
   return { root, put, detect: (options) => detectSchema(root, options) };
 }
 
-for (const [name, notePaths, files] of [
-  ['plain', ['Ideas', 'notes', 'Reading/books', 'wiki'], 11],
-  ['tagged', ['notes', 'Topics', 'wiki'], 8],
+for (const [name, files] of [
+  ['plain', 11], ['tagged', 8],
 ]) test(`${name} fixture proposes only notes, without interpreting tags or task bodies`, () => {
   const result = detectSchema(new URL(`./fixtures/vaults/${name}`, import.meta.url));
-  assert.deepEqual(result.schema.roots, { note: { path: notePaths, flat: false } });
+  assert.deepEqual(result.schema.roots, { note: { path: ['notes', 'wiki'], flat: false } });
   assert.deepEqual(result.schema.fields, {});
   assert.deepEqual(result.schema.values, {});
   assert.deepEqual(result.schema.sourceRoots, []);
-  assert.deepEqual(result.suggestions.map(({ target, path }) => [target, path]), [['note', '.']]);
+  assert.deepEqual(result.suggestions.map(({ target, path }) => [target, path]), [['note', 'notes'], ['note', 'wiki']]);
   assert.deepEqual(result.warnings, []);
   assert.equal(result.scanned.files, files);
   assert.equal(classify(result.schema, 'Root.md', {}).entity, 'note');
@@ -35,11 +34,12 @@ test('daily fixture maps dates, projects and templates with explicit evidence', 
   const result = detectSchema(new URL('./fixtures/vaults/daily', import.meta.url));
   assert.deepEqual(result.schema.roots, {
     journal: { path: 'Daily', flat: true }, project: { path: 'Projects', flat: true },
-    note: { path: 'Archive', flat: false },
+    note: { path: ['notes', 'wiki'], flat: false },
   });
   assert.deepEqual(result.schema.ignore, [...PRESETS.default.ignore, 'Templates/**']);
   assert.deepEqual(result.suggestions.map(({ target, path, confidence }) => [target, path, confidence]), [
-    ['ignore', 'Templates', 0.95], ['journal', 'Daily', 1], ['project', 'Projects', 0.9], ['note', '.', 1],
+    ['ignore', 'Templates', 0.95], ['journal', 'Daily', 1], ['project', 'Projects', 0.9],
+    ['note', 'notes', 1], ['note', 'wiki', 1],
   ]);
   assert.match(result.suggestions.find(({ target }) => target === 'journal').reason, /3\/3/u);
   assert.deepEqual(result.warnings, []);
@@ -141,12 +141,16 @@ test('hidden folders, skipped directories, templates and symlinks are never trav
   assert.ok(result.schema.ignore.includes('templates/**'));
 });
 
-test('frontmatter reads stop at the delimiter and do not read Markdown bodies or non-Markdown files', (t) => {
+test('reads a bounded Markdown prefix and parses only frontmatter, never body or non-Markdown metadata', (t) => {
   const f = vault(t);
   const prefix = '---\ntags: [a]\n---\n';
-  f.put('Page.md', prefix + 'x'.repeat(100000));
+  f.put('Page.md', prefix + '---\ntur: proje\n---\n' + 'x'.repeat(100000));
   f.put('Blob.txt', 'x'.repeat(100000));
-  assert.equal(f.detect().scanned.bytes, Buffer.byteLength(prefix));
+  const result = f.detect();
+  assert.equal(result.scanned.bytes, DETECT_LIMITS.frontmatterBytes);
+  assert.deepEqual(result.schema.fields, {});
+  assert.deepEqual(result.warnings, []);
+  assert.equal(f.detect({ limits: { frontmatterBytes: 32 } }).scanned.bytes, 32);
 });
 
 test('scan limits warn and suppress specialized inferences instead of trusting a partial sample', (t) => {
@@ -193,4 +197,43 @@ test('detection rejects missing directories, files and a symlink root', (t) => {
   for (const name of ['Missing', 'Page.md', 'Link']) {
     assert.throws(() => detectSchema(join(f.root, name)), { code: 'validation' });
   }
+});
+
+test('root note paths are unsupported; default folders and the note destination stay consistent', () => {
+  for (const path of ['', '.']) {
+    const schema = structuredClone(PRESETS.default);
+    schema.roots.note = { path, flat: false };
+    assert.throws(() => resolveSchema({ schema }), { code: 'validation' });
+  }
+  for (const name of ['daily', 'plain', 'tagged']) {
+    const { schema, suggestions } = detectSchema(new URL(`./fixtures/vaults/${name}`, import.meta.url));
+    assert.deepEqual(schema.roots.note, PRESETS.default.roots.note);
+    assert.equal(schema.quickNotes, 'notes');
+    assert.equal(destination(schema, 'note', 'note', 'new-note'), 'notes/new-note.md');
+    assert.deepEqual(suggestions.filter(({ target }) => target === 'note').map(({ path }) => path),
+      schema.roots.note.path);
+  }
+});
+
+test('block reads preserve BOM, Unicode, CRLF and closing delimiters at EOF', (t) => {
+  const f = vault(t);
+  const text = '\uFEFF---\r\n# ' + 'x'.repeat(8192) + '\r\ntur: proje\r\netiketler: [ışık]\r\n---';
+  f.put('Page.md', text);
+  const result = f.detect();
+  assert.deepEqual(result.schema.fields, PRESETS['tr-wiki'].fields);
+  assert.equal(result.scanned.bytes, Buffer.byteLength(text));
+  assert.deepEqual(result.warnings, []);
+});
+
+test('block reads honor the total byte budget and reject a delimiter cut at the prefix boundary', (t) => {
+  const f = vault(t);
+  const text = '---\ntur: proje\n---unfinished\n';
+  f.put('Page.md', text);
+  const total = f.detect({ limits: { totalBytes: 2 } });
+  assert.equal(total.scanned.bytes, 2);
+  assert.equal(total.scanned.limited, true);
+  assert.deepEqual(total.warnings, ['total_bytes_limit']);
+  const frontmatter = f.detect({ limits: { frontmatterBytes: Buffer.byteLength('---\ntur: proje\n---') } });
+  assert.deepEqual(frontmatter.schema.fields, {});
+  assert.deepEqual(frontmatter.warnings, ['frontmatter_limit_or_unclosed:Page.md']);
 });

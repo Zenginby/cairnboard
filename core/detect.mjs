@@ -20,49 +20,47 @@ const sources = new Set(['raw', 'sources', 'kaynaklar', 'references', 'clippings
 const strongRaw = new Set(['raw', 'clippings']);
 const researchKinds = new Set(['source', 'review', 'analysis', 'kaynak']);
 
-// Read through the closing frontmatter delimiter only. Bodies and non-Markdown contents are never loaded.
+// Read a bounded prefix in one block (retry short reads); parse only the frontmatter within it.
 function metadata(root, path, budget, limits, warnings) {
   const fd = openForRead(root, path);
   try {
-    if (fs.fstatSync(fd).size > limits.fileBytes) {
+    const size = fs.fstatSync(fd).size;
+    if (size > limits.fileBytes) {
       warnings.push(`file_size_limit:${path}`);
       return {};
     }
-    const byte = Buffer.alloc(1);
-    let text = '', line = '', opened = false;
-    for (let count = 0; count < limits.frontmatterBytes; count++) {
-      if (budget.bytes >= limits.totalBytes) {
-        budget.limited = true;
-        warnings.push('total_bytes_limit');
-        return {};
-      }
-      if (!fs.readSync(fd, byte, 0, 1, null)) break;
-      budget.bytes++;
-      const char = String.fromCharCode(byte[0]);
-      text += char;
-      line += char;
-      // An opening delimiter (optionally BOM-prefixed) must be on the first line.
-      if (!opened && line.length >= 3) {
-        const prefix = Buffer.from(line, 'latin1').toString('utf8').replace(/^\uFEFF/u, '');
-        if (prefix.length >= 3 && !prefix.startsWith('---')) return {};
-      }
-      if (char !== '\n') continue;
-      const decoded = Buffer.from(line, 'latin1').toString('utf8').replace(/^\uFEFF/u, '');
-      if (!opened) {
-        if (!/^---[\t ]*\r?\n$/u.test(decoded)) return {};
-        opened = true;
-      } else if (/^---[\t ]*\r?\n$/u.test(decoded)) {
-        const parsed = parseFile(Buffer.from(text, 'latin1').toString('utf8'));
-        if (parsed.error) warnings.push(`invalid_frontmatter:${path}`);
-        return parsed.data ?? {};
-      }
-      line = '';
+    const available = limits.totalBytes - budget.bytes;
+    if (available <= 0) {
+      budget.limited = true;
+      warnings.push('total_bytes_limit');
+      return {};
     }
-    if (opened && /^---[\t ]*\r?$/u.test(line)) {
-      const parsed = parseFile(Buffer.from(text, 'latin1').toString('utf8'));
-      if (!parsed.error) return parsed.data ?? {};
+    const wanted = Math.min(size, limits.frontmatterBytes);
+    const buffer = Buffer.alloc(Math.min(wanted, available));
+    let length = 0;
+    while (length < buffer.length) {
+      const count = fs.readSync(fd, buffer, length, buffer.length - length, null);
+      if (!count) break;
+      length += count;
+      budget.bytes += count;
     }
-    if (opened) warnings.push(`frontmatter_limit_or_unclosed:${path}`);
+    const limited = available < wanted && length === available;
+    if (limited) {
+      budget.limited = true;
+      warnings.push('total_bytes_limit');
+    }
+    const text = buffer.subarray(0, length).toString('utf8');
+    const opening = /^\uFEFF?---[\t ]*\r?\n/u.exec(text);
+    if (!opening) return {};
+    const delimiter = /^---[\t ]*\r?(?:\n|$)/gmu;
+    delimiter.lastIndex = opening[0].length;
+    const closing = delimiter.exec(text);
+    if (closing && (closing[0].endsWith('\n') || length === size)) {
+      const parsed = parseFile(text.slice(0, closing.index + closing[0].length));
+      if (parsed.error) warnings.push(`invalid_frontmatter:${path}`);
+      return parsed.data ?? {};
+    }
+    if (!limited) warnings.push(`frontmatter_limit_or_unclosed:${path}`);
     return {};
   } finally {
     fs.closeSync(fd);
@@ -175,16 +173,18 @@ export function detectSchema(directory, { limits = DETECT_LIMITS } = {}) {
     }
     propose(target, path, confidence, reason);
   }
-  // The existing classifier treats unmatched Markdown, including root files, as notes.
-  // quickNotes: '' also keeps newly created quick notes at the vault root.
-  const notePaths = folders.filter(({ path, files }) => path && files.length && !assigned.has(path)
-    && ![...schema.sourceRoots, ...ambiguous, 'raw'].some((parent) => inside(path, parent))).map(({ path }) => path);
+  // Root paths '' and '.' are invalid. Keep the default note roots rather than selecting an archive
+  // or another arbitrary content folder; unmatched Markdown still uses the existing note fallback.
+  const reserved = [...assigned.keys(), ...ambiguous];
+  const notePaths = PRESETS.default.roots.note.path.filter((path) =>
+    !reserved.some((parent) => key(path) === key(parent))
+    && !schema.sourceRoots.some((parent) => inside(key(path), key(parent))));
   let fallback = 'notes', suffix = 2;
-  while ([...assigned.keys(), ...ambiguous].some((path) => key(path) === key(fallback))) {
-    fallback = `notes-${suffix++}`;
-  }
+  while (reserved.some((path) => key(path) === key(fallback))) fallback = `notes-${suffix++}`;
   schema.roots.note = { path: notePaths.length ? notePaths : [fallback], flat: false };
-  propose('note', '.', 1, 'Remaining Markdown, including root files, uses the note fallback; flat: false.');
+  schema.quickNotes = schema.roots.note.path[0];
+  for (const path of schema.roots.note.path) propose('note', path, 1,
+    'Default note folder; vault-root roots are unsupported. Unmatched Markdown remains notes.');
   for (const root of Object.values(schema.roots)) if (root.path.length === 1) root.path = root.path[0];
   const trFields = Object.values(PRESETS['tr-wiki'].fields);
   const enFields = Object.keys(PRESETS['tr-wiki'].fields);

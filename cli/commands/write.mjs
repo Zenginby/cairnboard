@@ -1,5 +1,5 @@
 import { platform } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import * as fs from '../../core/fsx.mjs';
 import * as entity from '../../core/entity.mjs';
 import * as card from '../../core/card.mjs';
@@ -19,6 +19,7 @@ import { clean, toJson } from '../output.mjs';
 import { oneLine } from '../../core/text.mjs';
 import { confirm } from '../confirm.mjs';
 import { detectSchema } from '../../core/detect.mjs';
+import { destination } from '../../core/schema.mjs';
 import { readBody, readFileBytes, readStdinBytes } from '../body.mjs';
 import { ingest, MAX_INPUT } from '../../core/ingest.mjs';
 
@@ -69,13 +70,39 @@ function patchFields(ctx, type, opts) {
   return patch;
 }
 
+function configChangeLines(field, before, after) {
+  if (JSON.stringify(before) === JSON.stringify(after)) return [];
+  const display = (value) => value == null ? '(none)' : typeof value === 'string' ? value : JSON.stringify(value);
+  if (field === 'schema.roots') {
+    const describe = (root, type) => root
+      ? `${[root.path].flat().join(', ')} (flat: ${root.flat ?? type !== 'note'})` : '(none)';
+    return [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])].flatMap((type) =>
+      JSON.stringify(before?.[type]) === JSON.stringify(after?.[type]) ? []
+        : [`  ${type} → ${describe(after?.[type], type)}; was ${describe(before?.[type], type)}`]);
+  }
+  if (Array.isArray(before) || Array.isArray(after)) {
+    const lines = [...(before ?? []).filter((value) => !(after ?? []).includes(value))
+      .map((value) => `  ${field} - ${display(value)}`),
+    ...(after ?? []).filter((value) => !(before ?? []).includes(value))
+      .map((value) => `  ${field} + ${display(value)}`)];
+    return lines.length ? lines : [`  ${field}: ${display(before)} → ${display(after)}`];
+  }
+  if ((before && typeof before === 'object') || (after && typeof after === 'object')) {
+    return [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])].flatMap((key) =>
+      configChangeLines(`${field}.${key}`, before?.[key], after?.[key]));
+  }
+  return [`  ${field}: ${display(before)} → ${display(after)}`];
+}
+
 function detectionPreview(detection, changes) {
   const rows = [['Target', 'Path', 'Confidence', 'Reason'], ...detection.suggestions.map((item) =>
     [item.target, item.path, `${Math.round(item.confidence * 100)}%`, item.reason])];
   const table = rows.map((row) => row.map((cell) => oneLine(clean(cell))).join('\t')).join('\n');
-  const diff = changes.map(({ field, before, after }) =>
-    `${field}: ${JSON.stringify(clean(before))} -> ${JSON.stringify(clean(after))}`).join('\n');
-  return `${table}\n${diff ? `Config changes:\n${diff}\n` : ''}`;
+  const diff = changes.flatMap(({ field, before, after }) => configChangeLines(field, before, after))
+    .map((line) => oneLine(clean(line))).join('\n');
+  const folder = dirname(destination(detection.schema, 'note', 'note', 'new-note'));
+  const notes = `New notes: ${folder === '.' ? './' : `${folder}/`} (--title determines the filename)\n`;
+  return `${table}\n${notes}${diff ? `Config changes:\n${diff}\n` : ''}`;
 }
 
 async function initDetected(root, opts, io, settings, current) {

@@ -432,7 +432,7 @@ function detectionTree(root, prefix = '') {
 }
 
 for (const name of ['daily', 'plain', 'tagged']) {
-  test(`init --detect ${name} dry-run leaves the entire vault and home unchanged`, async (t) => {
+  test(`init --detect ${name} preview is read-only and new notes use the default folder`, async (t) => {
     const f = fixture(t, false);
     fs.cpSync(new URL(`./fixtures/vaults/${name}`, import.meta.url), f.data, { recursive: true });
     const before = detectionTree(f.data), home = detectionTree(f.home);
@@ -445,9 +445,21 @@ for (const name of ['daily', 'plain', 'tagged']) {
     const table = await f.run(['init', '--actor', 'acme', '--detect', f.data, '--dry-run']);
     assert.equal(table.code, 0, table.stderr);
     assert.match(table.stdout, /Target\tPath\tConfidence\tReason/u);
+    assert.match(table.stdout, /^New notes: notes\//mu);
+    assert.match(table.stdout, /^  note → notes, wiki \(flat: false\)/mu);
     assert.match(table.stdout, /Dry run; no files written/u);
+    assert.deepEqual(response.json.data.schema.roots.note, { path: ['notes', 'wiki'], flat: false });
+    assert.equal(response.json.data.schema.quickNotes, 'notes');
     assert.deepEqual(detectionTree(f.data), before);
     assert.deepEqual(detectionTree(f.home), home);
+    const initialized = await f.run(['init', '--actor', 'acme', '--detect', f.data, '--yes', '--json']);
+    assert.equal(initialized.code, 0, initialized.stdout);
+    assert.deepEqual(initialized.json.data.config.schema.roots.note, { path: ['notes', 'wiki'], flat: false });
+    const added = await f.run(['note', 'add', '--title', 'Fresh note', '--actor', 'acme', '--json']);
+    assert.equal(added.code, 0, added.stdout);
+    assert.equal(added.json.data.path, 'notes/fresh-note.md');
+    assert.equal(fs.existsSync(join(f.data, 'notes/fresh-note.md')), true);
+    assert.equal(fs.existsSync(join(f.data, 'Archive/fresh-note.md')), false);
   });
 }
 
@@ -554,4 +566,23 @@ test('detection validates incompatible flags and preserves init actor requiremen
   assert.match(help.stdout, /--detect <value>/u);
   assert.match(help.stdout, /--yes/u);
   assert.deepEqual(detectionTree(f.data), before);
+});
+
+test('human detection diff separates roots, ignores and fields while JSON keeps structured changes', async (t) => {
+  const f = fixture(t, false);
+  for (const name of ['A', 'B']) f.put(`Work/${name}.md`, '---\ntur: proje\netiketler: [a]\n---\n');
+  f.put('Templates/Example.md', '# Template\n');
+  const args = ['init', '--actor', 'acme', '--detect', f.data, '--dry-run'];
+  const json = await f.run([...args, '--json']);
+  const human = await f.run(args);
+  assert.equal(json.code, 0, json.stdout);
+  assert.equal(human.code, 0, human.stderr);
+  assert.deepEqual(json.json.data.changes.map(({ field }) => field), ['schema', 'language']);
+  assert.equal(json.json.data.changes[0].after.roots.project.path, 'Work');
+  assert.equal(json.json.data.changes[0].after.fields.kind, 'tur');
+  assert.match(human.stdout, /^  project → Work \(flat: true\); was \(none\)$/mu);
+  assert.match(human.stdout, /^  schema.ignore \+ Templates\/\*\*$/mu);
+  assert.match(human.stdout, /^  schema.fields.kind: \(none\) → tur$/mu);
+  assert.match(human.stdout, /^  schema.fields.tags: \(none\) → etiketler$/mu);
+  assert.ok(!human.stdout.includes('"schemaVersion"'));
 });
