@@ -18,8 +18,8 @@ import { CairnError } from '../../core/errors.mjs';
 import { clean, toJson } from '../output.mjs';
 import { oneLine } from '../../core/text.mjs';
 import { confirm } from '../confirm.mjs';
-import { detectSchema } from '../../core/detect.mjs';
-import { destination } from '../../core/schema.mjs';
+import { detectSchema, extendDetection } from '../../core/detect.mjs';
+import { destination, resolveSchema } from '../../core/schema.mjs';
 import { readBody, readFileBytes, readStdinBytes } from '../body.mjs';
 import { ingest, MAX_INPUT } from '../../core/ingest.mjs';
 
@@ -94,26 +94,58 @@ function configChangeLines(field, before, after) {
   return [`  ${field}: ${display(before)} → ${display(after)}`];
 }
 
-function detectionPreview(detection, changes) {
+function detectionPreview(detection, changes, existingSchema) {
   const rows = [['Target', 'Path', 'Confidence', 'Reason'], ...detection.suggestions.map((item) =>
     [item.target, item.path, `${Math.round(item.confidence * 100)}%`, item.reason])];
   const table = rows.map((row) => row.map((cell) => oneLine(clean(cell))).join('\t')).join('\n');
-  const diff = changes.flatMap(({ field, before, after }) => configChangeLines(field, before, after))
+  const diff = changes.flatMap(({ field, before, after }) =>
+    configChangeLines(field, field === 'schema' ? existingSchema ?? before : before, after))
     .map((line) => oneLine(clean(line))).join('\n');
-  const folder = dirname(destination(detection.schema, 'note', 'note', 'new-note'));
-  const notes = `New notes: ${folder === '.' ? './' : `${folder}/`} (--title determines the filename)\n`;
-  return `${table}\n${notes}${diff ? `Config changes:\n${diff}\n` : ''}`;
+  const folder = detection.schema.roots.note && dirname(destination(detection.schema, 'note', 'note', 'new-note'));
+  const notes = `New notes: ${folder ? folder === '.' ? './' : `${folder}/` : '(not configured)'}\n`;
+  const preserved = existingSchema ? ['Preserved schema:',
+    ...configChangeLines('schema.roots', null, existingSchema.roots).map((line) => line.replace('; was (none)', '')),
+    ...['kindFolders', 'fields', 'values', 'sourceRoots', 'catalog', 'ignore', 'quickNotes', 'entryTypes']
+      .filter((field) => Object.hasOwn(existingSchema, field))
+      .map((field) => `  schema.${field}: existing settings preserved`),
+  ].map((line) => oneLine(clean(line))).join('\n') + '\n' : '';
+  const added = existingSchema ? `Added schema entries:\n${diff || '  (none)'}\n` : diff && `${diff}\n`;
+  return `${table}\n${notes}${preserved}${added ? `Config changes:\n${added}` : ''}`;
 }
 
 async function initDetected(root, opts, io, settings, current) {
-  const detection = detectSchema(root);
-  const previous = current === null ? null : loadConfig(realRoot(root));
+  let detectedRoot, identity;
+  try {
+    identity = fs.lstatSync(root, { bigint: true });
+    if (!identity.isDirectory()) throw new Error('Invalid root.');
+    detectedRoot = realRoot(root);
+  } catch {
+    throw new CairnError('validation', 'Detection requires an existing directory without symlinks.');
+  }
+  const checkRoot = () => {
+    try {
+      const now = fs.lstatSync(root, { bigint: true });
+      if (!now.isDirectory() || realRoot(root) !== detectedRoot
+        || now.dev !== identity.dev || now.ino !== identity.ino) throw new Error('Root changed.');
+      const saved = fs.lstatSync(detectedRoot, { bigint: true });
+      if (!saved.isDirectory() || saved.dev !== identity.dev || saved.ino !== identity.ino) {
+        throw new Error('Root changed.');
+      }
+    } catch {
+      throw new CairnError('conflict', 'Data directory changed during detection.');
+    }
+  };
+  checkRoot();
+  const previous = current === null ? null : loadConfig(detectedRoot);
+  const existingSchema = previous === null ? null : resolveSchema(previous);
+  let detection = detectSchema(detectedRoot);
+  if (existingSchema) detection = extendDetection(detection, existingSchema);
   const config = { ...(previous ?? defaultConfig(opts.language ?? 'en')), schema: detection.schema };
   if (opts.language !== undefined) config.language = defaultConfig(opts.language).language;
   const changes = ['schema', 'language'].filter((field) =>
     JSON.stringify(previous?.[field]) !== JSON.stringify(config[field])).map((field) =>
     ({ field, before: previous?.[field] ?? null, after: config[field] }));
-  const preview = detectionPreview(detection, changes);
+  const preview = detectionPreview(detection, changes, existingSchema);
   const text = JSON.stringify(config, null, 2) + '\n';
   const currentRevision = current === null ? null : revision(current);
   if (!opts['dry-run']) {
@@ -128,18 +160,22 @@ async function initDetected(root, opts, io, settings, current) {
       }
     }
     const checkCurrent = () => {
-      const bytes = readChecked(realRoot(root), '.cairn/config.json');
+      checkRoot();
+      const bytes = readChecked(detectedRoot, '.cairn/config.json');
       if ((bytes === null ? null : revision(bytes)) !== currentRevision) {
         throw new CairnError('conflict', 'Configuration has changed.',
           { current: { revision: bytes === null ? null : revision(bytes) } });
       }
     };
     checkCurrent();
+    checkRoot();
     // Reuse init's path validation and private metadata layout, without writing outside the vault.
-    initDataDir(root, { ...settings, language: opts.language, register: false });
+    initDataDir(detectedRoot, { ...settings, language: opts.language, register: false });
+    checkRoot();
     const expected = current ?? Buffer.from(JSON.stringify(defaultConfig(opts.language ?? 'en'), null, 2) + '\n');
-    fs.writeFileAtomic(checkedPath(realRoot(root), '.cairn/config.json'), text, () => {
-      const bytes = readChecked(realRoot(root), '.cairn/config.json');
+    fs.writeFileAtomic(checkedPath(detectedRoot, '.cairn/config.json'), text, () => {
+      checkRoot();
+      const bytes = readChecked(detectedRoot, '.cairn/config.json');
       if (bytes === null || !bytes.equals(expected)) {
         throw new CairnError('conflict', 'Configuration changed during detection.');
       }

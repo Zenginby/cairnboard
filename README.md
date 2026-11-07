@@ -66,6 +66,8 @@ use `--data "./vault"` for subsequent commands. Vault Markdown files remain unto
 Hidden folders, symlinks and templates are skipped; scanning reads names and bounded Markdown prefixes
 and parses only frontmatter. Uncertain mappings produce warnings; remaining Markdown stays notes.
 Vault-root note paths are unsupported, so default note folders are retained; preview shows the new-note destination.
+For initialized vaults, detection only adds missing schema entries; existing roots and mappings are preserved.
+Overlapping roots warn and are skipped. Observed kind spellings are stored as exact aliases, including letter case.
 
 Data discovery order is `--data` > `CAIRN_DATA` > the path registered by `init` in the platform's
 `state.json` > `~/Cairn`. Initialization registers the folder; it does not change your shell's environment.
@@ -357,6 +359,8 @@ Sonraki komutlarda `--data "./vault"` kullanın. Kasanın Markdown dosyalarına 
 Gizli klasörler, sembolik bağlar ve şablonlar atlanır; tarama adları ve Markdown dosyalarının sınırlı
 başlangıcını okur, yalnız ön bilgiyi ayrıştırır. Belirsiz eşlemeler uyarı üretir; kalan Markdown not sayılır.
 Kasa kökü not yolu olamadığı için varsayılan not klasörleri korunur; önizleme yeni notların yazılacağı yeri gösterir.
+Başlatılmış kasalarda tespit yalnız eksik şema girdilerini ekler; mevcut kökler ve eşlemeler korunur.
+Çakışan kökler uyarıyla atlanır. Görülen tür yazımları büyük/küçük harfleriyle birebir değer eşlemesine eklenir.
 
 Veri keşif sırası: `--data` > `CAIRN_DATA` > `init` ile platformun `state.json` dosyasına kaydedilen yol
 > `~/Cairn`. Başlatma klasörü kaydeder; kabuğun ortam değişkenlerini değiştirmez. Aşağıdaki örnekler

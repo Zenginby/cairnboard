@@ -11,6 +11,7 @@ import { commands } from '../cli/registry.mjs';
 import { confirm } from '../cli/confirm.mjs';
 import { toJson } from '../cli/output.mjs';
 import { revision } from '../core/store.mjs';
+import { PRESETS } from '../core/presets.mjs';
 import { CairnError, ERRORS } from '../core/errors.mjs';
 
 function fixture(t, initialized = true) {
@@ -516,7 +517,8 @@ test('detection shows config differences before confirmation and preserves unrel
   assert.equal(preview.code, 0, preview.stdout);
   assert.deepEqual(preview.json.data.changes.map(({ field }) => field), ['schema']);
   assert.deepEqual(preview.json.data.changes[0].before, null);
-  assert.equal(preview.json.data.changes[0].after.roots.journal.path, 'Daily');
+  assert.equal(preview.json.data.changes[0].after.roots.journal.path, 'journal');
+  assert.ok(preview.json.warnings.includes('existing_type:journal:Daily'));
   assert.deepEqual(detectionTree(f.data), before);
   for (const dry of [[], ['--dry-run']]) {
     const stale = await f.run(['init', '--actor', 'acme', '--detect', f.data,
@@ -534,7 +536,7 @@ test('detection shows config differences before confirmation and preserves unrel
   assert.equal(loaded.leaseMinutes, 45);
   assert.deepEqual(loaded.columns, config.columns);
   assert.deepEqual(loaded.custom, config.custom);
-  assert.equal(loaded.schema.roots.journal.path, 'Daily');
+  assert.equal(loaded.schema.roots.journal.path, 'journal');
 });
 
 test('detection rejects a config changed while confirmation is pending', async (t) => {
@@ -585,4 +587,89 @@ test('human detection diff separates roots, ignores and fields while JSON keeps 
   assert.match(human.stdout, /^  schema.fields.kind: \(none\) → tur$/mu);
   assert.match(human.stdout, /^  schema.fields.tags: \(none\) → etiketler$/mu);
   assert.ok(!human.stdout.includes('"schemaVersion"'));
+});
+
+
+for (const replacement of ['symlink', 'directory']) {
+  test(`detection rejects a root replaced by a ${replacement} during confirmation without writes`, async (t) => {
+    const f = fixture(t, false), holder = tempDir(t), target = tempDir(t);
+    const moved = join(holder, 'moved');
+    f.put('Projects/A.md', '# Project\n');
+    const before = detectionTree(f.data), untouched = detectionTree(target), home = detectionTree(f.home);
+    let replacementBefore;
+    const stdin = new Readable({ read() {
+      fs.renameSync(f.data, moved);
+      if (replacement === 'symlink') fs.symlinkSync(target, f.data, 'dir');
+      else fs.mkdirSync(f.data);
+      replacementBefore = detectionTree(replacement === 'symlink' ? target : f.data);
+      this.push('yes\n');
+      this.push(null);
+    } });
+    const result = await f.run(['init', '--detect', f.data, '--actor', 'acme', '--json'], { isTTY: true, stdin });
+    assert.equal(result.code, 4, result.stdout);
+    assert.equal(result.json.error.code, 'conflict');
+    assert.match(result.json.error.message, /directory changed/u);
+    assert.deepEqual(detectionTree(moved), before);
+    assert.deepEqual(detectionTree(replacement === 'symlink' ? target : f.data), replacementBefore);
+    assert.deepEqual(detectionTree(target), untouched);
+    assert.deepEqual(detectionTree(f.home), home);
+  });
+}
+
+test('detection retains the effective default schema and a single journal day across later writes', async (t) => {
+  const f = fixture(t);
+  const first = await f.run(['journal', 'add', '--title', 'Before detection', '--date', '2026-11-01',
+    '--item', 'Keep this entry', '--actor', 'acme', '--json']);
+  assert.equal(first.code, 0, first.stdout);
+  const bytes = fs.readFileSync(join(f.data, 'journal/2026-11-01.md'));
+  const saved = await f.run(['init', '--detect', f.data, '--yes', '--actor', 'acme', '--json']);
+  assert.equal(saved.code, 0, saved.stdout);
+  assert.equal(saved.json.data.schema.roots.journal.path, 'journal');
+  assert.deepEqual(fs.readFileSync(join(f.data, 'journal/2026-11-01.md')), bytes);
+  const days = await f.run(['journal', 'list', '--json']);
+  assert.equal(days.code, 0, days.stdout);
+  assert.deepEqual(days.json.data.items.map(({ path }) => path), ['journal/2026-11-01.md']);
+  const second = await f.run(['journal', 'add', '--title', 'After detection', '--date', '2026-11-02',
+    '--item', 'New entry', '--actor', 'acme', '--json']);
+  assert.equal(second.code, 0, second.stdout);
+  assert.equal(second.json.data.path, 'journal/2026-11-02.md');
+});
+
+for (const [field, value] of [['tur', 'Proje'], ['kind', 'Project']]) {
+  test(`detection writes exact aliases for ${field}: ${value} and lists both projects`, async (t) => {
+    const f = fixture(t, false);
+    for (const name of ['A', 'B']) f.put(`Work/${name}.md`, `---\n${field}: ${value}\n---\n# ${name}\n`);
+    const before = detectionTree(f.data);
+    const saved = await f.run(['init', '--detect', f.data, '--yes', '--actor', 'acme', '--json']);
+    assert.equal(saved.code, 0, saved.stdout);
+    assert.equal(saved.json.data.schema.values.kind[value], 'project');
+    const projects = await f.run(['project', 'list', '--json']);
+    assert.equal(projects.code, 0, projects.stdout);
+    assert.deepEqual(projects.json.data.items.map(({ path }) => path).sort(), ['Work/A.md', 'Work/B.md']);
+    assert.deepEqual(detectionTree(f.data).filter(([path]) => path && !path.startsWith('.cairn')),
+      before.filter(([path]) => path));
+  });
+}
+
+
+test('detection previews preserved schema separately from non-overlapping additions', async (t) => {
+  const f = fixture(t);
+  const file = join(f.data, '.cairn/config.json'), config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  config.schema = { ...structuredClone(PRESETS.default),
+    roots: { note: { path: 'Archive', flat: false }, journal: { path: 'Log', flat: true } } };
+  fs.writeFileSync(file, JSON.stringify(config));
+  f.put('Projects/A.md', '# Project\n');
+  f.put('Archive/Projects/B.md', '# Nested project\n');
+  f.put('Templates/Example.md', '# Template\n');
+  const result = await f.run(['init', '--detect', f.data, '--dry-run', '--actor', 'acme']);
+  assert.equal(result.code, 0, result.stderr);
+  const preserved = result.stdout.indexOf('Preserved schema:');
+  const added = result.stdout.indexOf('Added schema entries:');
+  assert.ok(preserved >= 0 && added > preserved);
+  assert.match(result.stdout.slice(preserved, added), /^  journal → Log \(flat: true\)$/mu);
+  assert.match(result.stdout.slice(preserved, added), /^  note → Archive \(flat: false\)$/mu);
+  assert.match(result.stdout.slice(added), /^  project → Projects \(flat: true\)/mu);
+  assert.match(result.stdout.slice(added), /^  schema.ignore \+ Templates\/\*\*$/mu);
+  assert.match(result.stderr, /root_conflict:project:Archive\/Projects/u);
+  assert.equal(fs.readFileSync(file, 'utf8'), JSON.stringify(config));
 });

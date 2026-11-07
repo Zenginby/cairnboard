@@ -1,11 +1,12 @@
 import { basename } from 'node:path';
 import * as fs from './fsx.mjs';
-import { checkedPath, openForRead, realRoot } from './paths.mjs';
+import { checkedPath, openForRead, realRoot, safeRelative } from './paths.mjs';
 import { parseFile } from './frontmatter.mjs';
 import { SKIPPED_DIRS } from './index.mjs';
 import { PRESETS } from './presets.mjs';
 import { resolveSchema } from './schema.mjs';
 import { CairnError } from './errors.mjs';
+import { pathKey } from './text.mjs';
 
 export const DETECT_LIMITS = {
   files: 10000, entries: 50000, depth: 64, fileBytes: 5 * 1024 * 1024,
@@ -19,6 +20,9 @@ const projects = new Set(['projects', 'projeler']);
 const sources = new Set(['raw', 'sources', 'kaynaklar', 'references', 'clippings']);
 const strongRaw = new Set(['raw', 'clippings']);
 const researchKinds = new Set(['source', 'review', 'analysis', 'kaynak']);
+const canonicalKinds = new Set([
+  'note', 'concept', 'tool', 'query', 'overview', 'project', 'journal', 'source', 'review', 'analysis',
+]);
 
 // Read a bounded prefix in one block (retry short reads); parse only the frontmatter within it.
 function metadata(root, path, budget, limits, warnings) {
@@ -200,6 +204,91 @@ export function detectSchema(directory, { limits = DETECT_LIMITS } = {}) {
     propose('fields/values', 'tr-wiki', tr / (tr + en),
       `${tr}/${tr + en} recognized frontmatter field names are Turkish.`);
   }
+  if (!budget.limited) for (const { files } of folders) for (const { data } of files) {
+    const value = data.kind ?? data[schema.fields.kind ?? 'kind'];
+    if (typeof value !== 'string') continue;
+    const normalized = key(value);
+    const aliases = PRESETS['tr-wiki'].values.kind;
+    const canonical = Object.hasOwn(aliases, normalized) ? aliases[normalized]
+      : canonicalKinds.has(normalized) ? normalized : null;
+    if (!canonical || value === canonical || Object.hasOwn(schema.values.kind ?? {}, value)) continue;
+    schema.values.kind ??= {};
+    schema.values.kind[value] = canonical;
+    propose('values.kind', value, 1, `Observed spelling maps exactly to ${canonical}.`);
+  }
   return { schema: resolveSchema({ schema }), suggestions, warnings: [...new Set(warnings)],
     scanned: { files: budget.files, entries: budget.entries, bytes: budget.bytes, limited: budget.limited } };
+}
+
+
+// Extend a configured schema without replacing its roots, mappings or other existing choices.
+export function extendDetection(detection, existing) {
+  const schema = resolveSchema({ schema: existing }), warnings = [...detection.warnings];
+  const normalize = (path) => pathKey(safeRelative(path)).replace(/\\/gu, '/');
+  const paths = (root) => [root.path].flat();
+  const occupied = [...Object.values(schema.roots).flatMap(paths), ...schema.sourceRoots,
+    ...Object.values(schema.kindFolders), ...(schema.catalog ? [schema.catalog] : [])];
+  const overlaps = (path) => occupied.some((other) =>
+    inside(normalize(path), normalize(other)) || inside(normalize(other), normalize(path)));
+  const accepted = new Set(), blocked = new Set();
+  for (const [field, name] of Object.entries(detection.schema.fields)) {
+    if (Object.hasOwn(schema.fields, field)) continue;
+    if (Object.values(schema.fields).includes(name) || Object.values(schema.fields).includes(field)
+      || (name !== field && Object.hasOwn(schema.fields, name))) {
+      warnings.push(`field_conflict:${field}:${name}`);
+    } else schema.fields[field] = name;
+  }
+  for (const [field, aliases] of Object.entries(detection.schema.values)) {
+    schema.values[field] ??= {};
+    for (const [alias, value] of Object.entries(aliases)) {
+      if (!Object.hasOwn(schema.values[field], alias)) schema.values[field][alias] = value;
+      else if (schema.values[field][alias] !== value) {
+        warnings.push(`value_conflict:${field}:${alias}`);
+        if (field === 'kind') blocked.add(['project', 'journal'].includes(value) ? value
+          : researchKinds.has(value) ? 'research' : 'note');
+      }
+    }
+  }
+  for (const [type, root] of Object.entries(detection.schema.roots)) {
+    if (Object.hasOwn(schema.roots, type)) {
+      for (const path of paths(root)) if (!paths(schema.roots[type])
+        .some((old) => normalize(old) === normalize(path))) {
+        warnings.push(`existing_type:${type}:${path}`);
+      }
+      continue;
+    }
+    const additions = paths(root).filter((path) => {
+      if (blocked.has(type) || overlaps(path)) {
+        warnings.push(`root_conflict:${type}:${path}`);
+        return false;
+      }
+      accepted.add(`${type}:${path}`);
+      return true;
+    });
+    if (!additions.length) continue;
+    schema.roots[type] = { ...root, path: additions.length === 1 ? additions[0] : additions };
+    occupied.push(...additions);
+    if (type === 'note' && schema.quickNotes === undefined) schema.quickNotes = additions[0];
+  }
+  for (const path of detection.schema.sourceRoots) {
+    if (schema.sourceRoots.some((old) => normalize(old) === normalize(path))) continue;
+    if (overlaps(path)) warnings.push(`root_conflict:sourceRoots:${path}`);
+    else {
+      schema.sourceRoots.push(path);
+      occupied.push(path);
+      accepted.add(`sourceRoots:${path}`);
+    }
+  }
+  for (const pattern of detection.schema.ignore) if (!schema.ignore.includes(pattern)) schema.ignore.push(pattern);
+  const suggestions = detection.suggestions.filter(({ target, path }) => {
+    if (Object.hasOwn(detection.schema.roots, target) || target === 'sourceRoots') {
+      return accepted.has(`${target}:${path}`);
+    }
+    if (target === 'ignore') return !existing.ignore.includes(`${path}/**`);
+    if (target === 'values.kind') return !Object.hasOwn(existing.values.kind ?? {}, path)
+      && schema.values.kind?.[path] === detection.schema.values.kind[path];
+    return JSON.stringify(existing.fields) !== JSON.stringify(schema.fields)
+      || JSON.stringify(existing.values) !== JSON.stringify(schema.values);
+  });
+  return { ...detection, schema: resolveSchema({ schema }), suggestions, warnings: [...new Set(warnings)] };
 }

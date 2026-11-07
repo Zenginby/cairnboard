@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import * as fs from '../core/fsx.mjs';
-import { DETECT_LIMITS, detectSchema } from '../core/detect.mjs';
+import { DETECT_LIMITS, detectSchema, extendDetection } from '../core/detect.mjs';
 import { PRESETS } from '../core/presets.mjs';
 import { classify, destination, resolveSchema } from '../core/schema.mjs';
 import { tempDir } from './support/env.mjs';
@@ -237,3 +237,70 @@ test('block reads honor the total byte budget and reject a delimiter cut at the 
   assert.deepEqual(frontmatter.schema.fields, {});
   assert.deepEqual(frontmatter.warnings, ['frontmatter_limit_or_unclosed:Page.md']);
 });
+
+
+test('extending detection preserves configured entries and adds only missing roots and aliases', (t) => {
+  const f = vault(t);
+  for (const name of ['A', 'B']) f.put(`Work/${name}.md`, '---\ntur: Proje\netiketler: [a]\n---\n');
+  f.put('Clippings/Source.md');
+  f.put('Archive/Clippings/Hidden.md');
+  f.put('Templates/Example.md');
+  const existing = { ...structuredClone(PRESETS.default),
+    roots: { note: { path: 'Archive', flat: false }, journal: { path: 'Log', flat: true } },
+    kindFolders: { concept: 'Concepts' }, fields: { tags: 'labels' }, values: { kind: { custom: 'concept' } },
+    sourceRoots: ['Captures'], catalog: 'Index.md', ignore: ['Private/**'], quickNotes: 'Archive',
+  };
+  const original = structuredClone(existing);
+  const result = extendDetection(f.detect(), existing);
+  assert.deepEqual(existing, original);
+  assert.deepEqual(result.schema.roots.note, existing.roots.note);
+  assert.deepEqual(result.schema.roots.journal, existing.roots.journal);
+  assert.equal(result.schema.roots.project.path, 'Work');
+  assert.deepEqual(result.schema.kindFolders, existing.kindFolders);
+  assert.equal(result.schema.fields.tags, 'labels');
+  assert.equal(result.schema.fields.kind, 'tur');
+  assert.equal(result.schema.values.kind.custom, 'concept');
+  assert.equal(result.schema.values.kind.Proje, 'project');
+  assert.deepEqual(result.schema.sourceRoots, ['Captures', 'Clippings']);
+  assert.equal(result.schema.catalog, 'Index.md');
+  assert.equal(result.schema.quickNotes, 'Archive');
+  assert.ok(result.schema.ignore.includes('Private/**'));
+  assert.ok(result.schema.ignore.includes('Templates/**'));
+  assert.ok(result.warnings.includes('root_conflict:sourceRoots:Archive/Clippings'));
+  assert.ok(!result.suggestions.some(({ target }) => ['note', 'journal'].includes(target)));
+});
+
+for (const [reserved, proposed] of [['Work', 'Work'], ['Work', 'Work/Projects'], ['Work/Nested', 'Work']]) {
+  test(`extending detection rejects overlap between ${reserved} and ${proposed}`, (t) => {
+    const f = vault(t);
+    for (const name of ['A', 'B']) f.put(`${proposed}/${name}.md`, '---\nkind: project\n---\n');
+    const existing = { ...structuredClone(PRESETS.default), roots: { note: { path: reserved, flat: false } } };
+    const result = extendDetection(f.detect(), existing);
+    assert.equal(result.schema.roots.project, undefined);
+    assert.ok(result.warnings.includes(`root_conflict:project:${proposed}`));
+    assert.ok(!result.suggestions.some(({ target }) => target === 'project'));
+  });
+}
+
+test('existing kind aliases win conflicts and conflicting type suggestions are suppressed', (t) => {
+  const f = vault(t);
+  for (const name of ['A', 'B']) f.put(`Work/${name}.md`, '---\nkind: Project\n---\n');
+  const existing = { ...structuredClone(PRESETS.default), roots: { note: { path: 'notes', flat: false } },
+    values: { kind: { Project: 'concept' } } };
+  const result = extendDetection(f.detect(), existing);
+  assert.equal(result.schema.values.kind.Project, 'concept');
+  assert.equal(result.schema.roots.project, undefined);
+  assert.ok(result.warnings.includes('value_conflict:kind:Project'));
+  assert.ok(!result.suggestions.some(({ path }) => path === 'Project'));
+});
+
+for (const [field, value] of [['tur', 'Proje'], ['kind', 'Project']]) {
+  test(`observed ${field}: ${value} spelling classifies exactly through the detected schema`, (t) => {
+    const f = vault(t);
+    for (const name of ['A', 'B']) f.put(`Work/${name}.md`, `---\n${field}: ${value}\n---\n`);
+    const result = f.detect();
+    assert.equal(result.schema.roots.project.path, 'Work');
+    assert.equal(result.schema.values.kind[value], 'project');
+    assert.equal(classify(result.schema, 'Work/A.md', { [field]: value }).entity, 'project');
+  });
+}
