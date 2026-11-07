@@ -352,7 +352,7 @@ for (const [vault, loosePath] of [['plain', 'Ideas/Spark.md'], ['daily', 'Archiv
         'Ignored/hidden.md': '# Hidden lantern ignore', '.obsidian/hidden.md': '# Hidden lantern metadata',
         'Catalog.md': '# Hidden lantern catalog',
         'notes/identified.md': '---\nid: n-000001\n---\n# Identified\n[[notes/loose]]',
-        'notes/loose.md': '# Loose backlink\n[[identified]]',
+        'notes/loose.md': '---\nid: zettel-42\n---\n# Loose backlink\n[[identified]]',
       })) {
         mkdirSync(dirname(join(data, path)), { recursive: true });
         writeFileSync(join(data, path), text);
@@ -395,6 +395,10 @@ for (const [vault, loosePath] of [['plain', 'Ideas/Spark.md'], ['daily', 'Archiv
       }
       const identified = await inProcess(app, '/notes/n-000001');
       const backlink = listed.json.data.items.find((item) => item.path === 'notes/loose.md');
+      assert.equal(backlink.id, null);
+      const external = await inProcess(app, `/notes/${backlink.ref}`);
+      assert.equal(external.status, 200);
+      assert.match(external.body, /Loose backlink/u);
       assert.ok(identified.body.includes(`class="wikilink" href="/notes/${backlink.ref}"`));
       assert.ok(identified.body.includes(`class="row-title" href="/notes/${backlink.ref}"`));
       for (const invalid of ['n-0000000000000000', 'n-ABCDEF0123456789', 'n-123', 'n-../',

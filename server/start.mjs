@@ -30,9 +30,17 @@ async function start() {
   const root = fileURLToPath(new URL('../', import.meta.url));
   const { port, servers } = await listenLoopback();
   const instance = newInstanceId();
-  const openRead = () => openContext({ mode: 'read' });
+  let readWatcher;
+  const openRead = () => {
+    const ctx = openContext({ mode: 'read' });
+    readWatcher?.reuseFresh(ctx);
+    return ctx;
+  };
   const { render } = createRenderPool();
-  const watcher = createLiveWatcher(() => watch(openRead()));
+  const watcher = createLiveWatcher(() => {
+    readWatcher = watch(openRead());
+    return readWatcher;
+  });
   const events = createEvents(watcher);
   const app = createApp({ root, handler, guard: createGuard({ port, key, instance }),
     api: createApi({ open: openRead, render, events }), locals: { cairn: createRead({ open: openRead, render }) } });

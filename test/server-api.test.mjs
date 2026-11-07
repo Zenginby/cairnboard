@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { EventEmitter, once } from 'node:events';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
@@ -10,6 +11,8 @@ import { __setFsHooks } from '../core/fsx.mjs';
 import * as entity from '../core/entity.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
+import { openIndex } from '../core/index.mjs';
+import { watch } from '../core/watch.mjs';
 import { CairnError } from '../core/errors.mjs';
 import { createApp } from '../server/app.mjs';
 import { createApi } from '../server/api.mjs';
@@ -128,6 +131,87 @@ test('unknown and malformed routes fail with not_found before reading data', asy
     setHeader() {}, removeHeader() {}, end() { status = this.statusCode; },
   });
   assert.equal(status, 404);
+});
+
+test('external and noncanonical note ids have readable pages and live wiki links', async (t) => {
+  const f = fixture(t);
+  f.put('notes/external.md', { id: 'zettel-42', title: 'External' }, '**External body**');
+  f.put('notes/upper.md', { id: 'N-ABC123', title: 'Upper' });
+  f.put('notes/links.md', { id: 'n-000008' }, '[[external]] [[upper]]');
+  const external = entity.resolve(f.open(), 'note', '@notes/external');
+  assert.equal(external.id, null);
+  const links = await request(f.app, '/api/notes/n-000008');
+  assert.equal(links.status, 200);
+  assert.ok(links.json.data.content.html.includes(`href="/notes/${external.ref}"`));
+  assert.match(links.json.data.content.html, /href="\/notes\/n-abc123"/u);
+  const page = await request(f.app, `/api/notes/${external.ref}`);
+  assert.equal(page.status, 200);
+  assert.equal(page.json.data.ref, external.ref);
+  assert.match(page.json.data.content.html, /<strong>External body<\/strong>/u);
+  assert.equal((await request(f.app, '/api/notes/n-abc123')).status, 200);
+});
+
+test('server reads reuse healthy watcher freshness, notice cache generations and fall back on failure', async (t) => {
+  const f = fixture(t), native = new EventEmitter();
+  native.close = async () => {};
+  const watcher = watch(f.open(), { createWatcher: () => native, log: () => {} });
+  t.after(() => watcher.close());
+  let opened = 0, scans = 0;
+  const prepare = DatabaseSync.prototype.prepare;
+  t.mock.method(DatabaseSync.prototype, 'prepare', function (sql, ...args) {
+    if (sql === 'SELECT * FROM targets') scans++;
+    return prepare.call(this, sql, ...args);
+  });
+  const open = () => {
+    opened++;
+    const ctx = f.open();
+    watcher.reuseFresh(ctx);
+    return ctx;
+  };
+  const app = f.appFor(createApi({ open }));
+  assert.equal((await request(app, '/api/board')).status, 200);
+  assert.equal(scans, 1, 'before native readiness each new context refreshes');
+  native.emit('ready');
+  assert.equal(await watcher.ready, true);
+  const readyScans = scans;
+  for (let i = 0; i < 2; i++) assert.equal((await request(app, '/api/board')).status, 200);
+  assert.equal(opened, 3, 'each request still opens a separate context');
+  assert.equal(scans, readyScans, 'successive ready requests do not scan the vault');
+
+  const changed = once(watcher, 'change', { signal: AbortSignal.timeout(5000) });
+  f.put('cards/work.md', { id: 'c-000001', title: 'External edit', column: 'doing' }, 'New body');
+  native.emit('all', 'change', join(f.data, 'cards/work.md'));
+  const pending = await request(app, '/api/board');
+  assert.equal(pending.status, 200);
+  assert.equal(scans, readyScans + 1, 'pending watcher events prevent freshness reuse');
+  await changed;
+  const changedScans = scans;
+  const page = await request(app, '/api/cards/c-000001');
+  assert.equal(page.status, 200);
+  assert.equal(page.json.data.content.title, 'External edit');
+  assert.equal(page.json.data.content.body, 'New body');
+  assert.equal(scans, changedScans, 'the watcher already refreshed the external edit');
+
+  // Model another process rebuilding the cache without populating it.
+  const db = new DatabaseSync(f.open().indexPath);
+  db.exec("UPDATE meta SET value = '9' WHERE key = 'schema_version'");
+  db.close();
+  openIndex(f.open()).close();
+  assert.equal((await request(app, '/api/cards/c-000001')).status, 200);
+  assert.equal(scans, changedScans + 1, 'a new cache generation requires a full refresh');
+  assert.equal((await request(app, '/api/board')).status, 200);
+  assert.equal(scans, changedScans + 1, 'the refreshed generation is reused by later requests');
+
+  entity.list(f.open());
+  assert.equal(scans, changedScans + 2, 'ordinary contexts retain CLI freshness behavior');
+  native.emit('error', { code: 'ENOSPC' });
+  for (const title of ['Polling fallback', 'Another fallback']) {
+    f.put('cards/work.md', { id: 'c-000001', title, column: 'doing' });
+    const page = await request(app, '/api/cards/c-000001');
+    assert.equal(page.status, 200);
+    assert.equal(page.json.data.content.title, title);
+  }
+  assert.equal(scans, changedScans + 4, 'failed watching restores one refresh per new request context');
 });
 
 test('API renders the full body, skips bodies over 5 MB and resolves ambiguity as a ghost', async (t) => {

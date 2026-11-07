@@ -1,7 +1,7 @@
 import { basename } from 'node:path';
 import { parseFile, acceptanceCounts } from './frontmatter.mjs';
 import { classify, readCanonical } from './schema.mjs';
-import { entityRef } from './ids.mjs';
+import { entityRef, normalizeId } from './ids.mjs';
 
 const blank = (char) => char === ' ' || char === '\t';
 
@@ -45,7 +45,7 @@ export function extract(schema, path, text) {
     if (!title) title = atxHeading(line);
     if (title) break;
   }
-  const id = typeof data.id === 'string' ? data.id : null;
+  const id = normalizeId(data.id);
   // Both the canonical and the physical name in one file (wiki spec §3); `lint` reports it.
   const conflicts = Object.entries(schema.fields).filter(([field, name]) => field !== name && file.data
     && Object.hasOwn(file.data, field) && Object.hasOwn(file.data, name)).map(([field]) => field);

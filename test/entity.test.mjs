@@ -73,7 +73,7 @@ test('hostile titles stay in the destination and reserve unindexed names', (t) =
   assert.equal(create(ctx, 'note', { title: 'Acme' }).path, 'notes/acme-2.md');
 });
 
-test('manual selectors gain an id and updates preserve unrelated bytes and body', (t) => {
+test('manual note updates preserve their key, unrelated bytes and body', (t) => {
   const ctx = fixture(t);
   const before = '\uFEFF---\r\n# keep\r\ntitle: Old # inline\r\nx-extra: "acme"\r\ncustom: [a, b]\r\n---\r\n# Body\r\nİş 😀\r\n';
   put(ctx, 'notes/manual.md', before);
@@ -85,7 +85,8 @@ test('manual selectors gain an id and updates preserve unrelated bytes and body'
   const after = readFile(ctx, manual.path).text;
   assert.ok(after.startsWith('\uFEFF---\r\n# keep\r\ntitle: New # inline\r\nx-extra: "acme"\r\ncustom: [a, b]\r\n'));
   assert.equal(parseFile(after).body, parseFile(before).body);
-  assert.match(resolve(ctx, 'note', '@notes/manual').id, /^n-/u);
+  assert.equal(resolve(ctx, 'note', manual.ref).id, null);
+  assert.doesNotMatch(after, /^id:/mu);
   assert.equal(changed.revision, revision(after));
   assert.throws(() => update(ctx, 'note', '@notes/manual', { title: 'Lost' }, { ifRevision: manual.revision }), { code: 'conflict' });
   update(ctx, 'note', '@notes/manual', {}, { body: '# Replacement\n' });

@@ -109,7 +109,7 @@ test('corruption, schema version and schema fingerprint rebuild the cache', (t) 
   assert.equal(refresh(ctx).added, 0);
   assert.deepEqual(rows(ctx), []);
   index = openIndex(ctx);
-  assert.equal(index.db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '9');
+  assert.equal(index.db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '10');
   index.close();
 });
 
@@ -124,6 +124,27 @@ test('version 8 caches reclassify unchanged loose Markdown before the next read'
   const fresh = { ...ctx, warnings: [] };
   assert.equal(rows(fresh, 'note')[0].path, 'Other/deep.md');
   assert.equal(search(fresh, 'Lantern')[0].ref, rows(fresh, 'note')[0].ref);
+});
+
+test('version 9 caches normalize ids and recover note keys without file changes', (t) => {
+  const ctx = setup(t);
+  put(ctx, 'notes/external.md', '---\nid: zettel-42\n---\n# External');
+  put(ctx, 'notes/upper.md', '---\nid: N-ABC123\n---\n# Upper');
+  refresh(ctx);
+  const index = openIndex(ctx);
+  index.db.exec("UPDATE files SET id = 'zettel-42' WHERE path = 'notes/external.md';"
+    + "UPDATE files SET id = 'N-ABC123' WHERE path = 'notes/upper.md';"
+    + "UPDATE meta SET value = '9' WHERE key = 'schema_version'");
+  index.close();
+  // Reuse the already-fresh context too: the schema reset must invalidate its old stamp.
+  const [external, upper] = rows(ctx, 'note');
+  assert.equal(external.id, null);
+  assert.equal(external.data.id, 'zettel-42');
+  assert.match(external.ref, /^n-[0-9a-f]{16}$/u);
+  assert.equal(search(ctx, 'External')[0].ref, external.ref);
+  assert.equal(upper.id, 'n-abc123');
+  assert.deepEqual(findById(ctx, 'n-abc123'), ['notes/upper.md']);
+  assert.deepEqual(findById(ctx, 'zettel-42'), []);
 });
 
 test('busy databases fall back to source files and cache hooks never break writes', (t) => {

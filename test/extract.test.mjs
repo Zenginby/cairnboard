@@ -5,6 +5,16 @@ import { PRESETS } from '../core/presets.mjs';
 
 const schema = PRESETS.default;
 
+test('only normalized Cairnboard ids become selectors; raw frontmatter stays intact', () => {
+  for (const [raw, id] of [['N-ABC123', 'n-abc123'], ['N-OOI1L0', 'n-001110'], ['zettel-42', null],
+    ['n-0123456789abcdef', null], [42, null], [null, null]]) {
+    const row = extract(schema, 'notes/a.md', `---\nid: ${JSON.stringify(raw)}\n---\n# A`);
+    assert.equal(row.id, id);
+    assert.equal(row.data.id, raw);
+    assert.equal(row.ref, id ?? extract(schema, 'notes/a.md', '# A').ref);
+  }
+});
+
 test('extract uses visible headings and acceptance items, with stable references', () => {
   const row = extract(schema, 'cards/acme.md', '```md\n# Hidden\n```\n# Visible\n## Acceptance\n- [x] Done\n~~~\n- [ ] Hidden\n~~~\n- [ ] Open\n');
   assert.deepEqual(row, {
