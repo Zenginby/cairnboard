@@ -37,7 +37,8 @@ test('watch ignores metadata anywhere and rejects symlink events', async (t) => 
   assert.equal(f.settings.atomic, true);
   assert.equal(f.settings.awaitWriteFinish, false);
   assert.equal(f.settings.usePolling, false);
-  for (const path of ['.cairn/x.md', '.git/x.md', 'cards/.git/x.md', 'notes/.cairn/x.md']) {
+  for (const path of ['.cairn/x.md', '.git/x.md', 'cards/.git/x.md', 'notes/.cairn/x.md',
+    'node_modules/x.md', 'notes/node_modules/x.md']) {
     assert.equal(f.settings.ignored(join(f.root, path)), true);
     f.put(path);
     f.native.emit('all', 'add', join(f.root, path));
@@ -151,6 +152,21 @@ test('ready reconciles a change hidden by ignoreInitial during startup', async (
   assert.deepEqual(f.changes, [{ kinds: ['card', 'board'], ids: ['c-000001'] }]);
 });
 
+test('pending, closed and failed watchers never lend freshness to new contexts', async (t) => {
+  for (const state of ['pending', 'closed', 'error', 'startup error']) {
+    const f = fixture(t, true, { log: () => {} });
+    if (state === 'startup error') f.native.emit('error', { code: 'EIO' });
+    f.native.emit('ready');
+    if (state === 'error') f.native.emit('error', { code: 'EIO' });
+    if (state === 'closed') await f.watcher.close();
+    f.put('cards/work.md', '---\nid: c-000001\ntitle: Unseen edit\n---\n');
+    if (state === 'pending') f.native.emit('all', 'change', join(f.root, 'cards/work.md'));
+    const ctx = { ...f.ctx, warnings: [] };
+    f.watcher.reuseFresh(ctx);
+    assert.equal(rows(ctx, 'card')[0].title, 'Unseen edit', state);
+  }
+});
+
 test('a failed path stat does not block other paths in the batch', async (t) => {
   const logs = [], calls = new Map();
   const f = fixture(t, true, { log: (error) => logs.push(error), stat(path) {
@@ -192,4 +208,19 @@ test('unused suppressions expire after ten seconds', (t) => {
   f.put('cards/work.md', text);
   f.watcher.reconcile();
   assert.equal(f.changes.length, 1, 'an expired digest cannot suppress a later matching write');
+});
+
+test('a symlink replacing an indexed file blocks freshness reuse until the watcher refreshes', async (t) => {
+  const f = fixture(t, true);
+  f.native.emit('ready');
+  await f.watcher.ready;
+  unlinkSync(join(f.root, 'cards/work.md'));
+  try { symlinkSync(join(f.root, 'cards/missing.md'), join(f.root, 'cards/work.md')); } catch (error) {
+    if (error.code === 'EPERM') { t.skip('Symlinks unavailable'); return; }
+    throw error;
+  }
+  const removed = once(f.watcher, 'change', { signal: AbortSignal.timeout(2000) });
+  f.native.emit('all', 'change', join(f.root, 'cards/work.md'));
+  assert.ok((await removed)[0].ids.includes('c-000001'));
+  assert.ok(!rows(f.ctx).some((row) => row.path === 'cards/work.md'));
 });

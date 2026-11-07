@@ -1,7 +1,7 @@
 import { basename } from 'node:path';
 import { parseFile, acceptanceCounts } from './frontmatter.mjs';
 import { classify, readCanonical } from './schema.mjs';
-import { entityRef } from './ids.mjs';
+import { entityRef, normalizeId } from './ids.mjs';
 
 const blank = (char) => char === ' ' || char === '\t';
 
@@ -45,7 +45,9 @@ export function extract(schema, path, text) {
     if (!title) title = atxHeading(line);
     if (title) break;
   }
-  const id = typeof data.id === 'string' ? data.id : null;
+  // Notes take only a valid Cairnboard id (stored normalized); other types keep the raw value so card mutations
+  // never replace an external id and stored references such as `project:` still match.
+  const id = classification.entity === 'note' ? normalizeId(data.id) : (typeof data.id === 'string' ? data.id : null);
   // Both the canonical and the physical name in one file (wiki spec §3); `lint` reports it.
   const conflicts = Object.entries(schema.fields).filter(([field, name]) => field !== name && file.data
     && Object.hasOwn(file.data, field) && Object.hasOwn(file.data, name)).map(([field]) => field);

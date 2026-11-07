@@ -15,10 +15,10 @@ import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 
 await checkRuntime();
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 const UNREADABLE_FS = new Set(['EACCES', 'EPERM', 'EISDIR', 'ELOOP']);
 const MAX_SIZE = 5 * 1024 * 1024;
-const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
+export const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
 const fresh = new WeakMap();
 const handles = new Map();
 const nameKey = (name) => pathKey(name).replace(/\.md$/u, '');
@@ -535,6 +535,13 @@ export function refresh(ctx, { verify = false } = {}) {
     return emptyResult();
   } finally {
     index?.close();
+  }
+}
+
+// A healthy watcher can lend its last successful refresh to a new read context. ensureFresh still checks generation.
+export function reuseFresh(ctx, source) {
+  if (ctx.root === source.root && signature(ctx) === signature(source) && fresh.has(source) && ensureFresh(source)) {
+    fresh.set(ctx, fresh.get(source));
   }
 }
 

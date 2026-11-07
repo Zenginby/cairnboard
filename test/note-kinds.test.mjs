@@ -52,15 +52,56 @@ for (const preset of ['default', 'tr-wiki']) {
 test('physical aliases update in place and alias conflicts block updates and deletion', (t) => {
   const ctx = fixture(t, 'tr-wiki');
   put(ctx, 'manual.md', '---\netiketler: [old] # keep\nx-extra: yes\n---\n# Manual\r\nText\r\n');
-  note.update(ctx, '@manual', { tags: ['new'] });
+  const ref = note.show(ctx, '@manual').ref;
+  note.update(ctx, ref, { tags: ['new'] });
   const text = readFile(ctx, 'manual.md').text;
   assert.match(text, /etiketler: \[new\]\n/u);
   assert.doesNotMatch(text, /^tags:/mu);
+  assert.doesNotMatch(text, /^id:/mu);
+  assert.equal(note.show(ctx, ref).ref, ref);
+  assert.equal(note.show(ctx, ref).id, null);
   assert.match(text, /x-extra: yes\n/u);
   assert.equal(parseFile(text).body, '# Manual\r\nText\r\n');
   put(ctx, 'conflict.md', '---\ntags: []\netiketler: []\n---\n# Conflict\n');
   for (const mutate of [() => note.update(ctx, '@conflict', { tags: ['new'] }), () => note.remove(ctx, '@conflict')]) {
     assert.throws(mutate, (error) => error.code === 'validation' && error.details.reason === 'alias_conflict');
+  }
+});
+
+for (const preset of ['default', 'tr-wiki']) {
+  test(`${preset} note updates preserve external ids and path-derived keys`, (t) => {
+    const ctx = fixture(t, preset);
+    put(ctx, 'notes/external.md', '---\nid: zettel-42 # external\n---\n# External\n');
+    const before = note.show(ctx, '@notes/external');
+    assert.equal(before.id, null);
+    assert.match(before.ref, /^n-[0-9a-f]{16}$/u);
+    note.update(ctx, before.ref, { title: 'Updated' }, { body: 'New body' });
+    const after = note.show(ctx, before.ref);
+    assert.equal(after.ref, before.ref);
+    assert.equal(after.id, null);
+    assert.equal(after.data.id, 'zettel-42');
+    assert.equal(after.title, 'Updated');
+    assert.equal(after.body, 'New body');
+    assert.match(readFile(ctx, before.path).text, /^id: zettel-42 # external$/mu);
+  });
+}
+
+test('other entity updates assign missing ids but never overwrite existing ones', (t) => {
+  const ctx = fixture(t);
+  for (const [type, folder] of [['project', 'projects'], ['card', 'cards'], ['research', 'research']]) {
+    const path = `${folder}/manual.md`, ref = `@${folder}/manual`;
+    put(ctx, path, '# Manual\n');
+    update(ctx, type, ref, { title: 'Updated' });
+    assert.ok(resolve(ctx, type, ref).id);
+    put(ctx, path, '---\nid: zettel-42\n---\n# Manual\n');
+    update(ctx, type, ref, { title: 'Updated' });
+    assert.match(readFile(ctx, path).text, /^id: zettel-42$/mu);
+    for (const value of ['42', 'null', '']) {
+      const text = `---\nid: ${value}\n---\n# Manual\n`;
+      put(ctx, path, text);
+      assert.throws(() => update(ctx, type, ref, { title: 'Updated' }), { code: 'validation' });
+      assert.equal(readFile(ctx, path).text, text);
+    }
   }
 });
 

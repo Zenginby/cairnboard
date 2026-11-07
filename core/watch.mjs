@@ -4,24 +4,25 @@ import { lstatSync } from 'node:fs';
 import { resolve } from 'node:path';
 import chokidar from 'chokidar';
 import { readChecked } from './paths.mjs';
-import { refresh, rows } from './index.mjs';
+import { refresh, rows, reuseFresh, SKIPPED_DIRS } from './index.mjs';
 
 // The snapshot is notification state, never an alternate query index. Keep it across CLI cache updates.
 export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_000, log = console.error,
   refreshIndex = refresh, readRows = rows, stat = lstatSync } = {}) {
   /** @type {EventEmitter & { reconcile?: () => void, ready?: Promise<boolean>,
-   *   suppress?: (path: string, digest: string) => void, close?: () => Promise<void> }} */
+   *   suppress?: (path: string, digest: string) => void, reuseFresh?: (ctx: *) => void,
+   *   close?: () => Promise<void> }} */
   const events = new EventEmitter();
   const root = resolve(ctx.root).replaceAll('\\', '/');
   const relative = (path) => {
     const absolute = resolve(ctx.root, path).replaceAll('\\', '/');
     return absolute.startsWith(`${root}/`) ? absolute.slice(root.length + 1) : '';
   };
-  const ignored = (path) => relative(path).split('/').some((part) => part === '.cairn' || part === '.git');
+  const ignored = (path) => relative(path).split('/').some((part) => SKIPPED_DIRS.has(part));
   const snapshot = () => new Map(readRows(ctx).map(({ path, type, id, revision }) => [path, { type, id, revision }]));
   refreshIndex(ctx);
   let previous = snapshot();
-  let closed = false, debounce, deadline, failed = false, closing, ready;
+  let closed = false, debounce, deadline, failed = false, closing, ready, watching = false, watchError = false;
   const pending = new Set(), suppressed = new Map();
   const watcher = createWatcher(root, { ignoreInitial: true, followSymlinks: false, atomic: true,
     awaitWriteFinish: false, usePolling: false, ignored });
@@ -87,14 +88,18 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
     if (closed || ignored(path)) return;
     const rel = relative(path);
     if (!rel) return;
-    // Check every event, including unlink and directory events; never follow a link supplied by chokidar.
-    try { if (stat(resolve(ctx.root, rel)).isSymbolicLink()) return; } catch (error) {
+    // Check every event, including unlink and directory events; never follow a link supplied by chokidar. A link
+    // that replaced an indexed file still schedules a refresh (flush never publishes it), so servers stop reusing
+    // freshness that no longer matches the disk.
+    try { stat(resolve(ctx.root, rel)); } catch (error) {
       if (!['ENOENT', 'ENOTDIR'].includes(error.code)) { log(error); return; }
     }
     pending.add(rel);
     schedule();
   });
   watcher.on('error', (error) => {
+    watching = false;
+    watchError = true;
     const { code } = /** @type {NodeJS.ErrnoException} */ (error);
     if (['ENOSPC', 'EMFILE'].includes(code)) {
       if (failed) return;
@@ -111,9 +116,12 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
   timer.unref();
   events.ready = new Promise((done) => {
     ready = done;
-    watcher.once('ready', () => { events.reconcile(); done(true); });
+    watcher.once('ready', () => { events.reconcile(); watching = !watchError; done(true); });
     watcher.once('error', () => done(false));
   });
+  events.reuseFresh = (target) => {
+    if (watching && !closed && !pending.size) reuseFresh(target, ctx);
+  };
   events.suppress = (path, digest) => {
     if (closed) return;
     path = relative(path);

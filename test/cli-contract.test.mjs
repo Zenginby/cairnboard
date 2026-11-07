@@ -159,6 +159,20 @@ test('project flags resolve ids, paths, exact titles and aliases across reads an
   assert.equal((await f.run(['context', '--project', 'p-000001', '--json'])).code, 0);
 });
 
+test('project flags fold Turkish letters in titles and aliases', async (t) => {
+  const f = fixture(t);
+  f.put('projects/light.md', '---\nid: p-000001\ntitle: Işık\naliases: [Çığlık]\n---\n');
+  f.put('cards/selected.md', '---\ntitle: Selected\nproject: p-000001\n---\n');
+  for (const project of ['ışık', 'IŞIK', 'çığlık', 'ÇIĞLIK']) {
+    const response = await f.run(['card', 'list', '--project', project, '--json']);
+    assert.equal(response.code, 0, response.stdout);
+    assert.deepEqual(response.json.data.items.map((item) => item.content.title), ['Selected']);
+    const added = await f.run(['note', 'add', '--title', 'New', '--project', project, '--actor', 'owner', '--json']);
+    assert.equal(added.code, 0, added.stdout);
+    assert.equal(added.json.data.content.project, 'p-000001');
+  }
+});
+
 test('errors use stable exit codes and separate stdout from diagnostics', async (t) => {
   const f = fixture(t);
   for (const [args, code, error] of [

@@ -14,9 +14,10 @@ Every command uses the full invocation below. Keep its quoting, even if the path
 ```
 
 {{actorGuide}}
-Use `--data "<path>"` to select a data directory when discovery is unavailable. Use IDs from results; a note without
-an ID has a key such as `n-3f9a0c1d2e4b5a69` (derived from its path; it changes if the note moves), and other files
-without an ID have a temporary selector such as `@cards/acme`.
+Use `--data "<path>"` to select a data directory when discovery is unavailable. Use IDs or keys from results.
+A note without a valid Cairnboard ID has a key such as `n-3f9a0c1d2e4b5a69`, derived from its path. Updates preserve
+the key and any external `id:` value; the key changes if the note moves. Other files without an ID have a temporary
+selector such as `@cards/acme`.
 The command reference describes the available operations and their required arguments; inspect the schema for all optional flags and fields.
 Use `--pin` or `--unpin` on note add/update (never together). Note and research add/update accept
 `--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` and `--superseded-by <ref>`.

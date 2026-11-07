@@ -7,6 +7,7 @@ import { checkedPath, safeRelative } from './paths.mjs';
 import { parseFile, setFields, replaceBody } from './frontmatter.mjs';
 import { classify, readCanonical, physicalPatch, destination, isRawPath } from './schema.mjs';
 import { extract } from './extract.mjs';
+import { foldTr } from './text.mjs';
 import { dayOf, localDate, validateDate } from './dates.mjs';
 
 import { ensureFresh, rows, findById } from './index.mjs';
@@ -107,9 +108,9 @@ export function resolve(ctx, type, ref) {
       return true;
     });
     if (!path && type === 'project') {
-      const name = ref.toLowerCase();
+      const name = foldTr(ref);
       const matches = list(ctx, 'project').filter((item) => [item.title, ...(Array.isArray(item.data.aliases) ? item.data.aliases : [])]
-        .some((value) => typeof value === 'string' && value.toLowerCase() === name));
+        .some((value) => typeof value === 'string' && foldTr(value) === name));
       if (matches.length > 1) throw new CairnError('validation',
         `Ambiguous project name. Matching projects: ${matches.map((item) => item.id ?? item.ref).join(', ')}. Use a project id.`);
       path = matches[0]?.path;
@@ -243,7 +244,11 @@ export function update(ctx, type, ref, patch, opts = {}) {
     if (type === 'card') requireCardOwner(ctx, current.data);
     const file = parseFile(text);
     const data = readCanonical(ctx.schema, file.data);
-    const changes = { ...patch, ...(current.id === null ? { id: freshId(ctx, type) } : {}), updated: ctx.clock.now().toISOString() };
+    if (type !== 'note' && current.id === null && Object.hasOwn(data, 'id')) {
+      throw invalid('Invalid entity id; repair it before updating.');
+    }
+    const changes = { ...patch, ...(type !== 'note' && current.id === null ? { id: freshId(ctx, type) } : {}),
+      updated: ctx.clock.now().toISOString() };
     const kind = current.kind ?? (type === 'research' ? 'source' : undefined);
     const merged = { ...data, title: current.title, ...(kind === undefined ? {} : { kind }), ...changes };
     validate(type, merged);
