@@ -106,6 +106,11 @@ test('command help skips required arguments, actors, data and confirmation and f
   assert.match(text.stdout, /--actor/u);
   const options = await f.run(['help', 'card', 'add']);
   assert.match(options.stdout, /--title <value>/u);
+  for (const args of [['card', 'update', 'c-000001', '--body', '-', '--help', '--json'], ['help', 'card', 'add', '--help', '--json']]) {
+    const response = await f.run(args);
+    assert.equal(response.code, 0, response.stdout);
+    assert.equal(response.json.data.name, args[0] === 'help' ? 'card add' : 'card update');
+  }
   for (const args of [['absent'], ['help', 'absent'], ['absent', '--help']]) {
     const response = await f.run([...args, '--json']);
     assert.equal(response.code, 2);

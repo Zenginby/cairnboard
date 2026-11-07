@@ -78,9 +78,10 @@ function read(name, summary, args, options, run, needsData = true) {
 }
 
 read('help', 'List commands or show command options.', ['[command...]'], {}, (ctx, args, opts) => {
-  const name = args.join(' ');
-  const command = name ? commands.find((item) => item.name === name) : null;
-  if (name && !command) throw new CairnError('usage', 'Unknown or missing command. Run `cairn help`');
+  // The longest command whose words start the arguments, so `cairn card update c-000001 --help` helps `card update`.
+  const command = args.length ? [...commands].sort((a, b) => b.name.split(' ').length - a.name.split(' ').length)
+    .find((item) => item.name.split(' ').every((word, index) => args[index] === word)) : null;
+  if (args.length && !command) throw new CairnError('usage', 'Unknown or missing command. Run `cairn help`');
   const describe = ({ name, summary, args, options }) => ({ name, summary, args, options: { ...commonOptions, ...options } });
   const data = command ? describe(command) : { commands: commands.filter((item) => !item.hidden).map(describe) };
   if (opts.json) return { data };

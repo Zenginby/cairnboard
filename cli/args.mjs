@@ -14,7 +14,7 @@ export function parse(argv) {
     const { positionals, values: initial } = parseArgs({ args: argv, options: options(all), strict: true, allowPositionals: true });
     if (initial.help || positionals[0] === 'help') return {
       command: commands.find((item) => item.name === 'help'),
-      args: initial.help ? positionals : positionals.slice(1),
+      args: positionals[0] === 'help' && (!initial.help || positionals.length > 1) ? positionals.slice(1) : positionals,
       opts: { json: initial.json, raw: initial.raw },
     };
     const command = [...commands].sort((a, b) => b.name.split(' ').length - a.name.split(' ').length)
