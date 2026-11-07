@@ -2,10 +2,17 @@
   "cli": "0.0.0",
   "commands": [
     {
-      "name": "project list",
-      "summary": "List project items.",
-      "args": [],
+      "name": "help",
+      "summary": "List commands or show command options.",
+      "args": [
+        "[command...]"
+      ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -20,7 +27,62 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "preset": {
+          "type": "string",
+          "summary": "Read an uninitialized directory with default or tr-wiki schema."
+        }
+      },
+      "mode": "read",
+      "needsData": false,
+      "dangerous": false
+    },
+    {
+      "name": "project list",
+      "summary": "List project items.",
+      "args": [],
+      "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -58,6 +120,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -72,7 +139,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -108,6 +175,11 @@
       "summary": "List card items.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -122,7 +194,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -188,6 +260,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -202,7 +279,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -238,6 +315,11 @@
       "summary": "List note items.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -252,7 +334,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -298,6 +380,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -312,7 +399,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -348,6 +435,11 @@
       "summary": "List research items.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -362,7 +454,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -400,6 +492,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -414,7 +511,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -450,6 +547,11 @@
       "summary": "Show the home overview.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -464,7 +566,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -500,6 +602,11 @@
       "summary": "Show board columns and cards.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -514,7 +621,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -550,6 +657,11 @@
       "summary": "List wiki pages with summaries and link counts.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -564,7 +676,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -608,6 +720,11 @@
       "summary": "Check wiki pages, links and sources.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -622,7 +739,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -680,6 +797,11 @@
         "<path|->"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -694,7 +816,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -734,6 +856,11 @@
       "summary": "Internal: Claude Code write hook; reads the hook input from stdin.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -748,7 +875,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -784,6 +911,11 @@
       "summary": "Print the session-start context pack.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -798,7 +930,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -838,6 +970,11 @@
       "summary": "List journal days or filtered entries.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -852,7 +989,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -906,6 +1043,11 @@
         "<date|ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -920,7 +1062,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -958,6 +1100,11 @@
         "<q>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -972,7 +1119,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1014,6 +1161,11 @@
         "<note>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1028,7 +1180,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1075,6 +1227,11 @@
       "summary": "Show data directory and entity counts.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1089,7 +1246,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1125,6 +1282,11 @@
       "summary": "List recoverable trash items.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1139,7 +1301,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1175,6 +1337,11 @@
       "summary": "Create a project.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1189,7 +1356,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1248,6 +1415,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1262,7 +1434,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1321,6 +1493,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1335,7 +1512,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1367,6 +1544,11 @@
       "summary": "Create a card.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1381,7 +1563,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1440,6 +1622,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1454,7 +1641,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1513,6 +1700,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1527,7 +1719,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1559,6 +1751,11 @@
       "summary": "Create a note.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1573,7 +1770,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1662,6 +1859,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1676,7 +1878,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1765,6 +1967,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1779,7 +1986,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1811,6 +2018,11 @@
       "summary": "Create a research.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1825,7 +2037,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -1913,6 +2125,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -1927,7 +2144,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2015,6 +2232,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2029,7 +2251,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2064,6 +2286,11 @@
         "[column]"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2078,7 +2305,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2124,6 +2351,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2138,7 +2370,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2182,6 +2414,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2196,7 +2433,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2230,6 +2467,11 @@
         "<ref>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2244,7 +2486,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2279,6 +2521,11 @@
         "[text]"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2293,7 +2540,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2336,6 +2583,11 @@
         "<n>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2350,7 +2602,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2386,6 +2638,11 @@
       "summary": "Append a journal job with ordered items.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2400,7 +2657,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2469,6 +2726,11 @@
       "summary": "Store a raw source and an unprocessed research record in one operation.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2483,7 +2745,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2541,6 +2803,11 @@
         "<id>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2555,7 +2822,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2587,6 +2854,11 @@
       "summary": "Undo the latest operation.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2601,7 +2873,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2635,6 +2907,11 @@
         "[path]"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2649,7 +2926,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2697,6 +2974,11 @@
         "<project>"
       ],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2711,7 +2993,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2747,6 +3029,11 @@
       "summary": "Export the derived Obsidian board; writing board.md needs an actor.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2761,7 +3048,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2798,6 +3085,11 @@
       "summary": "Install agent skills with confirmation.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2812,7 +3104,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2854,6 +3146,11 @@
       "summary": "Check installed agent skill versions and CLI paths.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2868,7 +3165,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2900,6 +3197,11 @@
       "summary": "Print a short AGENTS.md fragment.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2914,7 +3216,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2946,6 +3248,11 @@
       "summary": "Inspect data without migration or recovery.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -2960,7 +3267,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -2996,6 +3303,11 @@
       "summary": "Open the running web interface.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -3010,7 +3322,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",
@@ -3046,6 +3358,11 @@
       "summary": "Describe commands, fields and error codes.",
       "args": [],
       "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
         "json": {
           "type": "boolean",
           "summary": "Return a JSON envelope."
@@ -3060,7 +3377,7 @@
         },
         "project": {
           "type": "string",
-          "summary": "Filter by project reference."
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
         },
         "actor": {
           "type": "string",

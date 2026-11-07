@@ -64,6 +64,96 @@ test('strict parsing accepts common flags anywhere and rejects invalid input', (
   }
 });
 
+test('help lists registry commands before initialization and supports text and JSON aliases', async (t) => {
+  const f = fixture(t, false);
+  const before = tree(f.data);
+  const visible = commands.filter((item) => !item.hidden);
+  for (const args of [['help'], ['--help'], ['-h']]) {
+    const response = await f.run(args);
+    assert.equal(response.code, 0);
+    assert.equal(response.stderr, '');
+    for (const command of visible) assert.match(response.stdout, new RegExp(`^  ${command.name} +${command.summary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'mu'));
+    assert.ok(!response.stdout.includes('wiki hook'));
+    const json = await f.run([...args, '--json']);
+    assert.equal(json.code, 0);
+    assert.deepEqual(Object.keys(json.json), ['v', 'ok', 'data', 'warnings']);
+    assert.equal(json.json.ok, true);
+    assert.deepEqual(json.json.warnings, []);
+    assert.deepEqual(json.json.data.commands.map(({ name }) => name), visible.map(({ name }) => name));
+  }
+  assert.deepEqual(tree(f.data), before);
+  const executable = await spawnCli(['help'], f.opts);
+  assert.equal(executable.code, 0);
+  assert.match(executable.stdout, /Usage: cairn/u);
+});
+
+test('command help skips required arguments, actors, data and confirmation and follows registry options', async (t) => {
+  const f = fixture(t, false);
+  for (const command of commands) {
+    const args = command.name.split(' ');
+    const named = await f.run(['help', ...args, '--json']);
+    assert.equal(named.code, 0, named.stdout);
+    assert.equal(named.json.data.name, command.name);
+    for (const [name, option] of Object.entries(command.options)) assert.deepEqual(named.json.data.options[name], option);
+    for (const flag of ['--help', '-h']) {
+      const response = await f.run([...args, flag, '--json']);
+      assert.deepEqual(response.json, named.json);
+      assert.equal(response.code, 0);
+    }
+  }
+  const text = await f.run(['project', 'rm', '--help', '--assignee', 'me']);
+  assert.equal(text.code, 0);
+  assert.match(text.stdout, /--actor/u);
+  const options = await f.run(['help', 'card', 'add']);
+  assert.match(options.stdout, /--title <value>/u);
+  for (const args of [['absent'], ['help', 'absent'], ['absent', '--help']]) {
+    const response = await f.run([...args, '--json']);
+    assert.equal(response.code, 2);
+    assert.match(response.json.error.message, /Run `cairn help`$/u);
+  }
+  assert.deepEqual(tree(f.data), []);
+});
+
+test('project flags resolve ids, paths, exact titles and aliases across reads and writes', async (t) => {
+  const f = fixture(t);
+  f.put('projects/sample.md', '---\nid: p-000001\ntitle: Sample Project\naliases: [Short, SAMPLE PROJECT]\n---\n');
+  f.put('projects/other.md', '---\nid: p-000002\ntitle: Other\n---\n');
+  for (const [type, folder] of [['card', 'cards'], ['note', 'notes'], ['research', 'research']]) {
+    f.put(`${folder}/selected.md`, `---\ntitle: Selected\nproject: p-000001\n---\n`);
+    f.put(`${folder}/other.md`, `---\ntitle: Excluded\nproject: p-000002\n---\n`);
+    for (const project of ['p-000001', '@projects/sample', 'sAmPlE pRoJeCt', 'SHORT']) {
+      const response = await f.run([type, 'list', '--project', project, '--json']);
+      assert.equal(response.code, 0, response.stdout);
+      assert.deepEqual(response.json.data.items.map((item) => item.content.title), ['Selected']);
+    }
+  }
+  for (const project of ['Sample Project', 'short']) {
+    const response = await f.run(['context', '--project', project, '--json']);
+    assert.equal(response.code, 0, response.stdout);
+    assert.ok(!response.stdout.includes('Excluded'));
+    const added = await f.run(['card', 'add', '--title', 'New', '--project', project, '--actor', 'owner', '--json']);
+    assert.equal(added.code, 0, added.stdout);
+    assert.equal(added.json.data.content.project, 'p-000001');
+  }
+  for (const project of ['Sample', 'missing', 'p-999999']) {
+    const response = await f.run(['card', 'list', '--project', project, '--json']);
+    assert.equal(response.code, 3);
+    assert.match(response.json.error.message, /id or name/u);
+  }
+  f.put('projects/duplicate.md', '---\nid: p-000003\ntitle: SAMPLE PROJECT\naliases: [short]\n---\n');
+  for (const project of ['sample project', 'SHORT']) {
+    for (const args of [['card', 'list'], ['note', 'list'], ['research', 'list'], ['context'],
+      ['card', 'add', '--title', 'New', '--actor', 'owner']]) {
+      const response = await f.run([...args, '--project', project, '--json']);
+      assert.equal(response.code, 5, response.stdout);
+      assert.match(response.json.error.message, /Ambiguous project name/u);
+      assert.match(response.json.error.message, /p-000001/u);
+      assert.match(response.json.error.message, /p-000003/u);
+    }
+  }
+  assert.equal((await f.run(['context', '--project', 'p-000001', '--json'])).code, 0);
+});
+
 test('errors use stable exit codes and separate stdout from diagnostics', async (t) => {
   const f = fixture(t);
   for (const [args, code, error] of [

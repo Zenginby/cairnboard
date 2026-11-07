@@ -26,7 +26,7 @@ import { mentions, linkMention } from '../core/mentions.mjs';
 
 /** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
- * { type: 'string'|'boolean', multiple?: boolean, summary: string }>, mode: 'read'|'write',
+ * { type: 'string'|'boolean', multiple?: boolean, short?: string, summary: string }>, mode: 'read'|'write',
  * actor?: boolean, writeOption?: string, prepare?: (args: string[], opts: object, io: object) => unknown,
  * needsData: boolean, dangerous: boolean|{ option: string }, run: (ctx: object|null, args: string[], opts: object, io: object, prepared?: unknown) => Result|Promise<Result> }} Command */
 
@@ -34,8 +34,9 @@ const string = (summary) => ({ type: 'string', summary });
 const boolean = (summary) => ({ type: 'boolean', summary });
 
 export const commonOptions = {
+  help: { ...boolean('Show command help.'), short: 'h' },
   json: boolean('Return a JSON envelope.'), compact: boolean('Return one line per item.'),
-  data: string('Use this data directory.'), project: string('Filter by project reference.'),
+  data: string('Use this data directory.'), project: string('Select a project by id, path, title or alias (case-insensitive exact name).'),
   actor: string('Name the write actor.'), 'dry-run': boolean('Preview without writing.'),
   'if-revision': string('Require this revision for a write.'), raw: boolean('Keep hidden characters.'),
   'max-bytes': string('Limit body bytes (default: 65536).'),
@@ -75,6 +76,26 @@ export const commands = [];
 function read(name, summary, args, options, run, needsData = true) {
   commands.push({ name, summary, args, options: { ...readOptions, ...options }, mode: 'read', needsData, dangerous: false, run });
 }
+
+read('help', 'List commands or show command options.', ['[command...]'], {}, (ctx, args, opts) => {
+  const name = args.join(' ');
+  const command = name ? commands.find((item) => item.name === name) : null;
+  if (name && !command) throw new CairnError('usage', 'Unknown or missing command. Run `cairn help`');
+  const describe = ({ name, summary, args, options }) => ({ name, summary, args, options: { ...commonOptions, ...options } });
+  const data = command ? describe(command) : { commands: commands.filter((item) => !item.hidden).map(describe) };
+  if (opts.json) return { data };
+  const table = (rows) => {
+    const width = Math.max(...rows.map(([left]) => left.length));
+    return rows.map(([left, right]) => `  ${left.padEnd(width)}  ${right}`);
+  };
+  return { data: command ? [
+    `Usage: cairn ${command.name} ${command.args.join(' ')}`.trimEnd(), command.summary, '', 'Options:',
+    ...table(Object.entries(data.options).map(([name, option]) =>
+      [`--${name}${option.short ? `, -${option.short}` : ''}${option.type === 'string' ? ' <value>' : ''}`, option.summary])),
+  ].join('\n') : ['Usage: cairn <command> [options]', '', 'Commands:',
+    ...table(data.commands.map((item) => [item.name, item.summary])), '',
+    'Run `cairn help <command>` for command options.'].join('\n') };
+}, false);
 
 for (const type of ['project', 'card', 'note', 'research']) {
   const filters = type === 'card' ? {
