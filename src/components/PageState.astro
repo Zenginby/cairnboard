@@ -7,5 +7,6 @@ const { title, message, init = false, status } = Astro.props;
   <h1 id="state-title">{t(title)}</h1>
   <p>{t(message)}</p>
   {init && <p><code>{t('state.initCommand')}</code></p>}
+  {init && <p>{t('state.initHint')}</p>}
   <a class="action-link" href="/">{t('error.home')}</a>
 </section>
