@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { revision } from '../core/store.mjs';
 import { readShadow, recordShadow, shadowBytes } from '../core/shadow.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
+import { __setFsHooks } from '../core/fsx.mjs';
 
 function fixture(t) {
   const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
@@ -21,7 +22,8 @@ test('records and reads back bytes', (t) => {
   assert.equal(shadowBytes(ctx, 'notes/a.md'), null);
   recordShadow(ctx, [{ path: 'notes/a.md', bytes }]);
   assert.deepEqual(shadowBytes(ctx, 'notes/a.md'), bytes);
-  assert.deepEqual(readShadow(ctx).entries.get('notes/a.md'), { rev: revision(bytes), blob: true });
+  assert.deepEqual(readShadow(ctx).entries.get('notes/a.md'), { rev: revision(bytes), blob: true,
+    size: bytes.length, hash: createHash('sha256').update(bytes).digest('hex') });
   assert.equal(readShadow(ctx).initialized, false);
   recordShadow(ctx, [], { initialize: true });
   assert.equal(readShadow(ctx).initialized, true);
@@ -43,7 +45,7 @@ test('null removes entry and collects blob', (t) => {
 test('over 256 KiB keeps rev without blob', (t) => {
   const ctx = fixture(t), bytes = Buffer.alloc(256 * 1024 + 1, 97);
   recordShadow(ctx, [{ path: 'large.md', bytes }]);
-  assert.deepEqual(readShadow(ctx).entries.get('large.md'), { rev: revision(bytes), blob: false });
+  assert.deepEqual(readShadow(ctx).entries.get('large.md'), { rev: revision(bytes), blob: false, size: bytes.length });
   assert.equal(shadowBytes(ctx, 'large.md'), null);
   const boundary = bytes.subarray(1);
   recordShadow(ctx, [{ path: 'boundary.md', bytes: boundary }]);
@@ -79,4 +81,55 @@ test('symlinked shadow dir is rejected', (t) => {
   symlinkSync(other, join(ctx.root, '.cairn/shadow'), 'dir');
   assert.throws(() => recordShadow(ctx, [{ path: 'a.md', bytes: Buffer.from('x') }]), { code: 'unsafe_path' });
   assert.deepEqual(readdirSync(other), []);
+});
+
+test('manifest validates stored blob size', (t) => {
+  const ctx = fixture(t);
+  recordShadow(ctx, [{ path: 'a.md', bytes: Buffer.from('a') }]);
+  const path = join(ctx.root, '.cairn/shadow/manifest.json');
+  const data = JSON.parse(readFileSync(path, 'utf8'));
+  assert.equal(data.entries['a.md'].size, 1);
+  for (const size of [-1, 1.5, '1', 256 * 1024 + 1]) {
+    data.entries['a.md'].size = size;
+    writeFileSync(path, JSON.stringify(data));
+    assert.throws(() => readShadow(ctx), { code: 'validation' });
+  }
+});
+
+test('incremental recording does not scan existing blobs or flush blob directories', (t) => {
+  const ctx = fixture(t);
+  recordShadow(ctx, [{ path: 'a.md', bytes: Buffer.from('a') }]);
+  const seen = [], flushed = [];
+  t.after(() => __setFsHooks());
+  __setFsHooks({ afterCheck(path) { seen.push(path); }, syncDirectory(path) { flushed.push(path); } });
+  recordShadow(ctx, [{ path: 'b.md', bytes: Buffer.from('b') }]);
+  const hash = createHash('sha256').update('a').digest('hex');
+  assert.equal(seen.includes(join(ctx.root, '.cairn/shadow/blobs', hash)), false);
+  assert.equal(flushed.includes(join(ctx.root, '.cairn/shadow/blobs')), false);
+  assert.ok(flushed.includes(join(ctx.root, '.cairn/shadow')));
+});
+
+test('legacy manifests retain their blobs when metadata is added', (t) => {
+  const ctx = fixture(t), bytes = Buffer.from('old');
+  const hash = createHash('sha256').update(bytes).digest('hex');
+  mkdirSync(join(ctx.root, '.cairn/shadow/blobs'), { recursive: true });
+  writeFileSync(join(ctx.root, '.cairn/shadow/blobs', hash), bytes);
+  writeFileSync(join(ctx.root, '.cairn/shadow/manifest.json'), JSON.stringify({ v: 1, initialized: true,
+    entries: { 'a.md': { rev: revision(bytes), blob: true } } }));
+  recordShadow(ctx, []);
+  const data = JSON.parse(readFileSync(join(ctx.root, '.cairn/shadow/manifest.json'), 'utf8'));
+  assert.equal(data.entries['a.md'].size, bytes.length);
+  assert.deepEqual(shadowBytes(ctx, 'a.md'), bytes);
+  unlinkSync(join(ctx.root, '.cairn/shadow/blobs', hash));
+  assert.equal(shadowBytes(ctx, 'a.md'), null);
+});
+
+test('corrupt or incomplete blobs are unavailable and are replaced before publication', (t) => {
+  const ctx = fixture(t), bytes = Buffer.from('complete');
+  const hash = createHash('sha256').update(bytes).digest('hex');
+  recordShadow(ctx, [{ path: 'a.md', bytes }]);
+  writeFileSync(join(ctx.root, '.cairn/shadow/blobs', hash), 'partial');
+  assert.equal(shadowBytes(ctx, 'a.md'), null);
+  recordShadow(ctx, [{ path: 'a.md', bytes }]);
+  assert.deepEqual(shadowBytes(ctx, 'a.md'), bytes);
 });

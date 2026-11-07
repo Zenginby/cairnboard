@@ -20,6 +20,24 @@ const event = (ctx, tx = 'tx-a', patch = {}) => ({ tx, op: 'card.update', target
 const file = (ctx, name) => join(ctx.root, '.cairn', 'events', name);
 const mirror = (ctx) => readFileSync(file(ctx, 'seq'), 'utf8');
 
+test('event cursors read only appended complete records across months', (t) => {
+  const ctx = fixture(t), cursor = new Map();
+  appendEvent(ctx, event(ctx, 'a'));
+  assert.deepEqual(readEvents(ctx, { cursor }).map(({ tx }) => tx), ['a']);
+  assert.deepEqual(readEvents(ctx, { cursor }), []);
+  appendEvent(ctx, event(ctx, 'b', { ts: '2026-10-01T00:00:00Z' }));
+  appendEvent(ctx, event(ctx, 'c'));
+  assert.deepEqual(readEvents(ctx, { cursor }).map(({ tx }) => tx), ['b', 'c']);
+  const path = file(ctx, '2026-11.jsonl');
+  const text = readFileSync(path, 'utf8');
+  const line = JSON.stringify({ v: 1, seq: 4, tx: 'd' });
+  writeFileSync(path, text + line.slice(0, 10));
+  assert.deepEqual(readEvents(ctx, { cursor }), []);
+  writeFileSync(path, text + line + '\n');
+  assert.deepEqual(readEvents(ctx, { cursor }).map(({ tx }) => tx), ['d']);
+  assert.deepEqual(readEvents(ctx, { cursor }), []);
+});
+
 test('events use the public envelope, preserve metadata and deduplicate transactions', (t) => {
   const ctx = fixture(t);
   const input = event(ctx, 'tx-a', { fields: ['column'], from: 'todo', to: 'doing' });

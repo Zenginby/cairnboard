@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, readFileSync, readdirSync, renameSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, openSync as fsOpen, readFileSync, readdirSync, renameSync,
+  symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
@@ -332,4 +333,82 @@ test('reconciliation requires write mode', (t) => {
   for (const mode of ['read', 'dry-run', 'inspect']) {
     assert.throws(() => reconcileExternal({ ...ctx, mode }), { code: 'internal' });
   }
+});
+
+test('unchanged targets do not acquire path or shadow locks or read note bytes', (t) => {
+  const { ctx, put } = fixture(t);
+  for (let i = 0; i < 20; i++) put(`notes/${i}.md`, `note ${i}`);
+  reconcileExternal(ctx);
+  const opened = [], checked = [];
+  t.after(() => __setFsHooks());
+  __setFsHooks({ openSync(path, ...args) {
+    opened.push(String(path));
+    return fsOpen(path, ...args);
+  }, afterCheck(path) { checked.push(path); } });
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+  assert.equal(opened.filter((path) => path.endsWith('.lock') || path.endsWith('.md')).length, 0);
+  assert.equal(checked.filter((path) => path.endsWith('manifest.json')).length, 1);
+});
+
+test('baseline reuses indexed bytes without path locks or blob flushes', (t) => {
+  const { ctx, put } = fixture(t);
+  for (let i = 0; i < 5; i++) put(`notes/${i}.md`, `note ${i}`);
+  const opened = [], flushed = [];
+  t.after(() => __setFsHooks());
+  __setFsHooks({ openSync(path, ...args) {
+    opened.push(String(path));
+    return fsOpen(path, ...args);
+  }, syncDirectory(path) { flushed.push(path); } });
+  assert.equal(reconcileExternal(ctx).baseline, true);
+  assert.equal(opened.filter((path) => path.endsWith('.md')).length, 5);
+  assert.equal(opened.some((path) => /[/\\]f-[^/\\]+\.lock$/u.test(path)), false);
+  assert.equal(flushed.includes(join(ctx.root, '.cairn/shadow/blobs')), false);
+  assert.ok(flushed.includes(join(ctx.root, '.cairn/shadow')));
+});
+
+test('lost non-durable blob degrades to beforeUnavailable', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'before');
+  reconcileExternal(ctx);
+  const dir = join(ctx.root, '.cairn/shadow/blobs');
+  for (const name of readdirSync(dir)) unlinkSync(join(dir, name));
+  put('notes/a.md', 'after');
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+  const saved = history(ctx, readEvents(ctx)[0]);
+  assert.equal(saved.before, null);
+  assert.equal(saved.beforeUnavailable, true);
+});
+
+test('candidate filtering retains invalid UTF-8 with the same decoded hash and byte length', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', '\ufffd');
+  reconcileExternal(ctx);
+  put('notes/a.md', Buffer.from([0xf0, 0x90, 0x80]));
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+  assert.equal(targetRevisions(ctx, { byteSafe: true }).get('notes/a.md'), null);
+});
+
+test('a write after the event snapshot is recognized from its appended tail', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'before-a');
+  put('notes/b.md', 'before-b');
+  reconcileExternal(ctx);
+  put('notes/a.md', 'owner-a');
+  put('notes/b.md', 'owner-b');
+  let written = false;
+  t.after(() => __setFsHooks());
+  __setFsHooks({ afterCheck(path) {
+    if (!written && path === join(ctx.root, `.cairn/locks/${lockName('notes/b.md')}.lock`)) {
+      written = true;
+      write(ctx, { op: 'note.write', path: 'notes/b.md', apply: () => 'own-b' });
+    }
+  }, rename(from, to) {
+    if (written && to === join(ctx.root, '.cairn/shadow/manifest.json')) throw new Error('shadow failed');
+    renameSync(from, to);
+  } });
+  // Permit reconciliation's repair after the injected writer has failed to update its shadow.
+  ctx.afterCommit = () => __setFsHooks();
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+  assert.deepEqual(readEvents(ctx).map(({ op }) => op), ['note.write', 'external.change']);
+  assert.deepEqual(shadowBytes(ctx, 'notes/b.md'), Buffer.from('own-b'));
 });

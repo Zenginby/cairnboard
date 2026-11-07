@@ -33,6 +33,7 @@
     "start": "node scripts/build-app.mjs && node server/start.mjs",
     "build:cli": "node scripts/build-cli.mjs",
     "bench:cli": "node scripts/bench-cli.mjs",
+    "bench:reconcile": "node scripts/bench-reconcile.mjs",
     "cairn": "node cli/cairn.mjs",
     "test": "node --test \"test/**/*.test.mjs\"",
     "test:live": "node scripts/test-live.mjs",

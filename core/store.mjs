@@ -195,11 +195,11 @@ function finishHistory(ctx, intent) {
   syncDir(ctx, '.cairn/history');
 }
 
-export function pruneHistory(ctx) {
+export function pruneHistory(ctx, events = readEvents(ctx)) {
   const names = new Set(fs.readdirSync(checkedPath(ctx.root, '.cairn/history')));
   // An intent still pending (another process crashed after its event) needs its history to complete.
   for (const name of fs.readdirSync(checkedPath(ctx.root, '.cairn/pending'))) names.delete(name);
-  const committed = readEvents(ctx).filter(({ tx }) => names.has(`${tx}.json`));
+  const committed = events.filter(({ tx }) => names.has(`${tx}.json`));
   for (const { external, limit } of [{ external: false, limit: 50 }, { external: true, limit: 200 }]) {
     const records = committed.filter(({ op }) => (op === 'external.change') === external);
     for (const { tx } of records.slice(0, -limit)) remove(ctx, historyPath(tx));
