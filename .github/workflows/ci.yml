@@ -25,6 +25,10 @@ jobs:
       - run: npm run build:cli
       - run: npm run build:app
       - run: npm test
+      - run: npm run check:types
+      - run: npm run check:style
+        env:
+          CAIRN_STYLE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
       - run: npm run design:lint
       - run: node security/ci-scan.mjs
       - name: Scan secrets

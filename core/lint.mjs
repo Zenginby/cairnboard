@@ -36,6 +36,10 @@ function saveDigests(ctx, digests) {
  * `config.lint[code]` overrides each severity (`off` skips the check); `only` limits the codes. The evidence and code
  * flags select the checks that read raw or code files (wiki spec §13, §14).
  */
+/**
+ * @param {*} ctx
+ * @param {{ only?: string[], verify?: boolean, evidence?: boolean, code?: boolean }} [options]
+ */
 export function lint(ctx, { only, verify = false, evidence = false, code = false } = {}) {
   if (only !== undefined && only.some((item) => !LINT_CODES.includes(item))) throw new CairnError('validation', 'Unknown lint code.');
   const settings = ctx.config?.lint ?? {};

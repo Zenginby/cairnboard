@@ -9,6 +9,8 @@ import { refresh, rows } from './index.mjs';
 // The snapshot is notification state, never an alternate query index. Keep it across CLI cache updates.
 export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_000, log = console.error,
   refreshIndex = refresh, readRows = rows, stat = lstatSync } = {}) {
+  /** @type {EventEmitter & { reconcile?: () => void, ready?: Promise<boolean>,
+   *   suppress?: (path: string, digest: string) => void, close?: () => Promise<void> }} */
   const events = new EventEmitter();
   const root = resolve(ctx.root).replaceAll('\\', '/');
   const relative = (path) => {
@@ -93,10 +95,11 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
     schedule();
   });
   watcher.on('error', (error) => {
-    if (['ENOSPC', 'EMFILE'].includes(error.code)) {
+    const { code } = /** @type {NodeJS.ErrnoException} */ (error);
+    if (['ENOSPC', 'EMFILE'].includes(code)) {
       if (failed) return;
       failed = true;
-      log(`File watcher unavailable (${error.code}); using periodic reconcile.`);
+      log(`File watcher unavailable (${code}); using periodic reconcile.`);
       void watcher.close().catch(log);
     } else log(error);
   });

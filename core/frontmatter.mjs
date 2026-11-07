@@ -75,7 +75,8 @@ function inspectFile(text) {
     file.data = doc.contents === null ? {} : data !== null && typeof data === 'object' ? data : null;
     file.editable = (doc.contents === null || (isMap(doc.contents) && !doc.contents.flow)) && !multiple;
     visit(doc, (_key, node) => {
-      if (isAlias(node) || node?.anchor || node?.tag) file.editable = false;
+      if (isAlias(node) || (node && typeof node === 'object'
+        && (('anchor' in node && node.anchor) || ('tag' in node && node.tag)))) file.editable = false;
     });
     return { file, doc };
   } catch (error) {
@@ -134,7 +135,9 @@ export function setFields(text, patch) {
     return text.slice(0, file.bodyStart) + `---${file.eol}${added}---${file.eol}` + file.body;
   }
   const yaml = text.slice(file.yamlStart, file.yamlEnd);
-  const pairs = doc.contents?.items ?? [];
+  // Editable frontmatter was checked above: its contents are a block mapping or null.
+  const contents = /** @type {import('yaml').YAMLMap.Parsed|null} */ (doc.contents);
+  const pairs = contents?.items ?? [];
   const indent = ' '.repeat(doc.contents?.srcToken.indent ?? 0);
   const edits = [];
   let added = '';

@@ -31,6 +31,12 @@ function knownColumn(ctx, key) {
   return column;
 }
 
+/**
+ * @param {*} ctx
+ * @param {{ project?: string, column?: string, columnRole?: string, assignee?: string,
+ *   unassigned?: boolean, priority?: string, tag?: string, includeDone?: boolean }} [filters]
+ * @param {Array<*>} [items]
+ */
 export function listCards(ctx, { project, column, columnRole, assignee, unassigned,
   priority, tag, includeDone = false } = {}, items) {
   const projectEntity = project === undefined ? null : entity.resolve(ctx, 'project', project);

@@ -52,6 +52,7 @@ function wakeup(ctx, warnings) {
  * The session-start context pack (wiki spec §11): sections in priority order, each `{ name, source, content: { text },
  * truncated }`, plus warnings. Reads the cache through the ordinary readers (no strict index), never writes pages.
  */
+/** @param {*} ctx @param {{ budget?: number, project?: string }} [options] */
 export function buildContext(ctx, { budget = 1200, project } = {}) {
   if (!Number.isSafeInteger(budget) || budget < 0) throw new CairnError('validation', 'Invalid budget.');
   const warnings = [];

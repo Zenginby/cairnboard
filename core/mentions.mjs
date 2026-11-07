@@ -155,6 +155,10 @@ export function mentions(ctx, ref, { limit = 50 } = {}) {
   return result;
 }
 
+/**
+ * @param {*} ctx @param {string} ref @param {string} location
+ * @param {import('./store.mjs').MutationOptions} [options]
+ */
 export function linkMention(ctx, ref, location, { ifRevision, dryRun = false } = {}) {
   const selected = typeof location === 'string' && /^(.*):([1-9]\d*)$/u.exec(location);
   if (!selected || !Number.isSafeInteger(Number(selected[2]))) throw invalid('Link needs a path:line location.');
