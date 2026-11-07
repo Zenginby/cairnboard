@@ -4,14 +4,15 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { setImmediate } from 'node:timers/promises';
 
-function fixture(visibility = 'visible') {
+function fixture(visibility = 'visible', { notReady = false } = {}) {
   const documentEvents = {}, windowEvents = {}, requests = [], sources = [], timers = new Map();
   let now = 100_000, timerId = 0, html = 'new content', replacements = 0;
   const status = { textContent: '', dataset: { paused: 'Live updates paused', updated: 'Updated' } };
   const focused = { id: 'card-link', isConnected: true, getAttribute: () => '/cards/c-000001',
     focus(options) { this.restored = options.preventScroll; } };
   const region = { dataset: { live: 'card project board' }, innerHTML: 'old content', contains: () => true,
-    querySelectorAll: () => [], replaceChildren: (...nodes) => { replacements++; region.innerHTML = nodes.join(''); } };
+    querySelectorAll: () => [], querySelector: (selector) => selector === '[data-not-ready]' && notReady ? {} : null,
+    replaceChildren: (...nodes) => { replacements++; region.innerHTML = nodes.join(''); } };
   const document = { visibilityState: visibility, activeElement: focused,
     querySelector: (selector) => selector === '[data-live]' ? region : status,
     getElementById: () => focused, addEventListener: (type, handler) => { documentEvents[type] = handler; } };
@@ -80,6 +81,13 @@ test('initial connection reconciles without refetching, swapping or announcing',
   assert.equal(f.replacements(), 0);
   assert.equal(f.focused.restored, undefined);
   assert.equal(f.status.textContent, '');
+});
+
+test('a not-ready page refetches after its first connection, in case the data appeared before it', async () => {
+  const f = fixture('visible', { notReady: true });
+  await f.emit('open');
+  assert.deepEqual(f.requests.map(({ url }) => url), ['/api/reconcile', 'http://example.test/board']);
+  assert.equal(f.replacements(), 1);
 });
 
 test('automatic reconnect reports three failures then refreshes missed content', async () => {
