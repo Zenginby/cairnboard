@@ -46,6 +46,10 @@ export async function main(argv, io) {
           if (mode !== 'write') ctx.warnings.push('invalid_project_link');
         }
       }
+      if (!opts['dry-run'] && !ctx.ephemeral && (mode === 'write' || ['changes', 'context'].includes(command.name))) {
+        const { reconcileBeforeRun } = await import('../core/changes.mjs');
+        ctx.warnings.push(...reconcileBeforeRun(ctx));
+      }
     }
     const result = await command.run(ctx, args, opts, io, prepared);
     // A command that speaks another protocol (the Claude Code hook) writes its own stdout, without the envelope.
@@ -64,7 +68,12 @@ export async function main(argv, io) {
     const envelope = errorEnvelope(error, ctx?.warnings ?? [], opts);
     const { code, message } = envelope.error;
     if (json) io.stdout.write(`${JSON.stringify(envelope)}\n`);
-    else io.stderr.write(`${code}: ${message}\n`);
+    else {
+      io.stderr.write(`${code}: ${message}\n`);
+      const last = envelope.error.current?.last;
+      if (last) io.stderr.write(`Changed by ${oneLine(clean(last.actor ?? 'unknown'))} `
+        + `at ${oneLine(clean(last.ts))} (${oneLine(clean(last.op))}).\n`);
+    }
     if (!known && io.env.CAIRN_DEBUG === '1') io.stderr.write(`${error?.stack ?? error}\n`);
     return ERRORS[code];
   }

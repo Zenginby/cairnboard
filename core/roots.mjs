@@ -8,6 +8,18 @@ import { PRESETS } from './presets.mjs';
 
 const invalid = () => new CairnError('validation', 'Data directory or project link is invalid or not writable.');
 const projectId = /^p-[0-9a-hjkmnp-tv-z]{6}$/u;
+const privatePaths = ['index.db*', 'history/', 'shadow/', 'agents/', 'pending/', 'trash/', 'locks/', 'backup/'];
+
+export function ensureDataIgnore(root) {
+  const rel = '.cairn/.gitignore';
+  const current = readChecked(root, rel, 'utf8') ?? '';
+  const lines = new Set(current.split(/\r?\n/u));
+  const missing = privatePaths.filter((path) => !lines.has(path));
+  if (!missing.length) return;
+  const eol = current.includes('\r\n') ? '\r\n' : '\n';
+  fs.writeFileAtomic(checkedPath(root, rel),
+    current + (current && !current.endsWith('\n') ? eol : '') + missing.join(eol) + eol);
+}
 
 export function stateDir({ platform = process.platform, env = process.env, home = homedir() } = {}) {
   if (platform === 'win32') return win32.join(env.LOCALAPPDATA || win32.join(home, 'AppData', 'Local'), 'Cairnboard');
@@ -82,7 +94,7 @@ export function initDataDir(path, { language = 'en', preset = 'default', home = 
     const file = checkedPath(root, '.cairn/config.json');
     if (!fs.existsSync(file)) fs.writeFileAtomic(file, JSON.stringify(config, null, 2) + '\n');
     const loaded = loadConfig(root);
-    fs.writeFileAtomic(checkedPath(root, '.cairn/.gitignore'), 'index.db*\nhistory/\npending/\ntrash/\nlocks/\nbackup/\n');
+    ensureDataIgnore(root);
     const state = stateDir({ platform, env, home });
     const recorded = fs.existsSync(join(state, 'state.json'));
     if (register === true || (register === 'if-unset' && !recorded)) {

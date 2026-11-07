@@ -5,6 +5,14 @@ import { listCards, effectiveColumn } from '../core/card.mjs';
 import { normalizeId } from '../core/ids.mjs';
 import { toJson, compact, clean } from './output.mjs';
 
+export function changesView({ changes }) {
+  return changes.map((event) => {
+    const heading = `${event.seq} ${event.ts} ${event.actor ?? 'unknown'} ${event.change ?? event.op} `
+      + event.paths.join(', ');
+    return heading + (event.diff ? `\n${event.diff}` : event.reason ? `\n(${event.reason})` : '');
+  }).join('\n');
+}
+
 export function outputOptions(ctx, opts, warnings) {
   return { raw: opts.raw, maxBytes: opts['max-bytes'], columns: ctx.config.columns, warnings };
 }

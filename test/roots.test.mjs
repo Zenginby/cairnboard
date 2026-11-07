@@ -57,7 +57,8 @@ test('init creates only private metadata and discovery state, and preserves conf
     assert.equal(statSync(root).mode & 0o777, 0o700);
     assert.equal(statSync(join(root, '.cairn')).mode & 0o777, 0o700);
   }
-  assert.equal(readFileSync(join(root, '.cairn', '.gitignore'), 'utf8'), 'index.db*\nhistory/\npending/\ntrash/\nlocks/\nbackup/\n');
+  assert.equal(readFileSync(join(root, '.cairn', '.gitignore'), 'utf8'),
+    'index.db*\nhistory/\nshadow/\nagents/\npending/\ntrash/\nlocks/\nbackup/\n');
   assert.deepEqual(JSON.parse(readFileSync(join(stateDir({ ...options, env: {} }), 'state.json'), 'utf8')), { data: root });
   const file = join(root, '.cairn', 'config.json');
   const bytes = JSON.stringify({ ...config, leaseMinutes: 45 }, null, 4) + '\n';

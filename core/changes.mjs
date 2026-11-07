@@ -1,15 +1,18 @@
 import { randomBytes } from 'node:crypto';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
-import { checkedPath, readChecked, safeRelative } from './paths.mjs';
+import { checkedPath, openForRead, readChecked, safeRelative } from './paths.mjs';
 import { lockName, withLock } from './lock.mjs';
 import { appendEvent, readEvents } from './events.mjs';
 import { SKIPPED_DIRS, refresh, targetRevisions } from './index.mjs';
 import { readShadow, recordShadow, shadowBytes, withShadow } from './shadow.mjs';
-import { pruneHistory, revision, saveHistory } from './store.mjs';
+import { pruneHistory, recover, revision, saveHistory } from './store.mjs';
 import { parseFile } from './frontmatter.mjs';
-import { normalizeId } from './ids.mjs';
-import { pathKey } from './text.mjs';
+import { entityRef, isNoteKey, normalizeId } from './ids.mjs';
+import { pathKey, stripHidden } from './text.mjs';
+import * as entity from './entity.mjs';
+import { validateDate } from './dates.mjs';
+import { lineDiff } from './diff.mjs';
 
 function targetPath(path) {
   const rel = safeRelative(path).replace(/\\/gu, '/');
@@ -141,4 +144,154 @@ export function reconcileExternal(ctx, { paths } = {}) {
     if (paths.length) seqs.push(...reconcileBatch(ctx, paths, state));
   }
   return { recorded: seqs.length, baseline: false, seqs };
+}
+
+export function reconcileBeforeRun(ctx) {
+  if (ctx.ephemeral || ctx.mode === 'dry-run') return [];
+  try {
+    const write = ctx.mode === 'write' ? ctx : { ...ctx, mode: 'write' };
+    if (ctx.mode !== 'write') recover(write);
+    reconcileExternal(write);
+    return [];
+  } catch (error) {
+    if (error.code === 'locked' || error.exit === 6
+      || ['EACCES', 'EROFS', 'index_unavailable'].includes(error.code)) return ['reconcile_skipped'];
+    if (['unsafe_path', 'validation'].includes(error.code)) {
+      try { readShadow(ctx); } catch (shadowError) {
+        // An unusable shadow must not turn its best-effort write hook into a hard mutation failure.
+        if (shadowError instanceof CairnError && ['unsafe_path', 'validation'].includes(shadowError.code)) {
+          return ['reconcile_skipped'];
+        }
+      }
+    }
+    throw error;
+  }
+}
+
+export function changeSince(since) {
+  if (since === undefined) return null;
+  if (typeof since === 'number' || (typeof since === 'string' && /^\d+$/u.test(since))) {
+    const seq = Number(since);
+    if (Number.isSafeInteger(seq) && seq >= 0) return { seq };
+  } else if (typeof since === 'string'
+    && /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/u
+      .test(since)) {
+    validateDate(since.slice(0, 10));
+    const ts = Date.parse(since);
+    if (Number.isFinite(ts)) return { ts };
+  }
+  throw new CairnError('validation', 'Invalid --since. Use a nonnegative sequence or ISO timestamp.');
+}
+
+function filterPath(ctx, ref) {
+  if (ref === undefined) return null;
+  if (ref.startsWith('@') || ref.includes('/') || /\.md$/iu.test(ref)) {
+    const path = ref.replace(/^@/u, '');
+    return targetPath(/\.md$/iu.test(path) ? path : `${path}.md`);
+  }
+  for (const type of ['note', 'card', 'project', 'research']) {
+    try { return entity.resolve(ctx, type, ref).path; } catch (error) {
+      if (error.code !== 'not_found') throw error;
+    }
+  }
+  return null;
+}
+
+/** @param {*} ctx @param {{ since?: number|string, target?: string, actor?: string, limit?: number }} [options]
+ * @param {any[]} [events] */
+export function listChanges(ctx, { since, target, actor, limit = 20 } = {}, events = readEvents(ctx)) {
+  const cursor = changeSince(since);
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200) {
+    throw new CairnError('validation', 'Invalid --limit. Use an integer from 1 to 200.');
+  }
+  const path = filterPath(ctx, target);
+  const matches = events.filter((event) => (!cursor || (cursor.seq === undefined
+    ? Date.parse(event.ts) >= cursor.ts : event.seq > cursor.seq)) && (actor === undefined || event.actor === actor)
+    && (target === undefined || event.target === target || event.targets?.some((item) => item.target === target
+      || (path !== null && item.path === path)
+      || (isNoteKey(target) && entityRef({ type: 'note', id: null, path: item.path }) === target))));
+  return (since === undefined ? matches.slice(-limit) : matches.slice(0, limit)).map((event) => ({
+    seq: event.seq, ts: event.ts, actor: event.actor, op: event.op,
+    ...(event.change === undefined ? {} : { change: event.change }), target: event.target,
+    paths: (event.targets ?? []).map(({ path }) => path), rev: event.rev,
+    ...(event.before === undefined ? {} : { before: event.before }),
+  }));
+}
+
+const DIFF_INPUT_BYTES = 256 * 1024;
+
+function historyItem(ctx, event, path) {
+  if (typeof event.tx !== 'string' || !/^[tx]-[0-9a-z]+(?:-[0-9a-z]+)*$/u.test(event.tx)) return null;
+  const text = readChecked(ctx.root, `.cairn/history/${event.tx}.json`, 'utf8');
+  if (text === null) return null;
+  let saved;
+  try { saved = JSON.parse(text); } catch { return null; }
+  if (saved?.tx !== event.tx) return null;
+  const items = saved.items ?? [saved];
+  return Array.isArray(items) ? items.find((item) => item?.path === path) ?? null : null;
+}
+
+function beforeBytes(item) {
+  if (item.beforeUnavailable) return { reason: 'before_unavailable' };
+  if (item.before === null) return { bytes: Buffer.alloc(0) };
+  if (typeof item.before !== 'string') return { reason: 'before_unavailable' };
+  if (item.beforeBytes !== undefined) {
+    if (typeof item.beforeBytes !== 'string'
+      || item.beforeBytes.length > Math.ceil(DIFF_INPUT_BYTES / 3) * 4) return { reason: 'too_large' };
+    const bytes = Buffer.from(item.beforeBytes, 'base64');
+    return bytes.length > DIFF_INPUT_BYTES ? { reason: 'too_large' } : { bytes };
+  }
+  return Buffer.byteLength(item.before) > DIFF_INPUT_BYTES
+    ? { reason: 'too_large' } : { bytes: Buffer.from(item.before) };
+}
+
+function afterBytes(ctx, path) {
+  let fd;
+  try {
+    fd = openForRead(ctx.root, path);
+    if (fs.fstatSync(fd).size > DIFF_INPUT_BYTES) return { reason: 'too_large' };
+    const buffer = Buffer.alloc(DIFF_INPUT_BYTES + 1);
+    let length = 0, count;
+    while (length < buffer.length && (count = fs.readSync(fd, buffer, length, buffer.length - length, null))) {
+      length += count;
+    }
+    return length > DIFF_INPUT_BYTES ? { reason: 'too_large' } : { bytes: buffer.subarray(0, length) };
+  } catch (error) {
+    if (['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM', 'unsafe_path'].includes(error.code)) {
+      return { reason: 'after_unavailable' };
+    }
+    throw error;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
+export function changeDiff(ctx, event, events = readEvents(ctx)) {
+  event = event.tx ? event : events.find(({ seq }) => seq === event.seq);
+  const path = event?.targets?.[0]?.path;
+  if (!path || !targetPath(path)) return { diff: null, reason: 'history_pruned' };
+  const saved = historyItem(ctx, event, path);
+  if (!saved) return { diff: null, reason: 'history_pruned' };
+  const before = beforeBytes(saved);
+  if (before.reason) return { diff: null, reason: before.reason };
+  const rev = event.targets[0].rev;
+  /** @type {{ bytes?: Buffer, reason?: string }|null} */
+  let after = rev === null ? { bytes: Buffer.alloc(0) } : null;
+  const next = events.find((item) => item.seq > event.seq && item.targets?.some((target) => target.path === path));
+  const following = next && historyItem(ctx, next, path);
+  if (!after && following) {
+    const candidate = beforeBytes(following);
+    if (candidate.bytes && revision(candidate.bytes) === rev) after = candidate;
+  }
+  after ??= afterBytes(ctx, path);
+  if (after.reason) return { diff: null, reason: after.reason };
+  if (rev !== null && revision(after.bytes) !== rev) return { diff: null, reason: 'after_unavailable' };
+  const texts = [];
+  for (const bytes of [before.bytes, after.bytes]) {
+    if (bytes.includes(0)) return { diff: null, reason: 'binary' };
+    try { texts.push(stripHidden(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)).text); }
+    catch { return { diff: null, reason: 'binary' }; }
+  }
+  const result = lineDiff(texts[0], texts[1]);
+  return { diff: result.hunks, truncated: result.truncated };
 }

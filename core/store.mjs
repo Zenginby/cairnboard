@@ -31,8 +31,10 @@ export function readFile(ctx, rel) {
   return bytes === null ? null : { text: bytes.toString('utf8'), revision: revision(bytes) };
 }
 
-function conflict(current) {
-  return new CairnError('conflict', 'File changed since it was read.', { current: { revision: current } });
+function conflict(ctx, current, path) {
+  const event = readEvents(ctx).findLast((event) => event.targets?.some((target) => target.path === path));
+  const last = event ? { seq: event.seq, actor: event.actor, ts: event.ts, op: event.op } : null;
+  return new CairnError('conflict', 'File changed since it was read.', { current: { revision: current, last } });
 }
 
 function remove(ctx, rel) {
@@ -92,7 +94,7 @@ function createTemp(ctx, rel, bytes) {
 
 function cas(ctx, item, expected = item.before) {
   const current = rev(readChecked(ctx.root, item.path));
-  if (current !== expected) throw conflict(current);
+  if (current !== expected) throw conflict(ctx, current, item.path);
 }
 
 function retry(action, check) {
@@ -312,7 +314,7 @@ function prepare(ctx, options, items, tx) {
     const beforeRev = rev(before);
     if ((index === 0 && options.ifRevision !== undefined && options.ifRevision !== beforeRev)
       || ((item.expectAbsent || item.createOnly) && before !== null)
-      || (original && beforeRev !== original.after)) throw conflict(beforeRev);
+      || (original && beforeRev !== original.after)) throw conflict(ctx, beforeRev, item.path);
     const after = applyMutation(item, before);
     if (after !== null && typeof after !== 'string' && !Buffer.isBuffer(after)) throw invalid('Mutation must return text, bytes or null.');
     const bytes = after === null ? null : Buffer.from(after);

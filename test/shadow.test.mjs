@@ -133,3 +133,17 @@ test('corrupt or incomplete blobs are unavailable and are replaced before public
   recordShadow(ctx, [{ path: 'a.md', bytes }]);
   assert.deepEqual(shadowBytes(ctx, 'a.md'), bytes);
 });
+
+test('first shadow creation preserves user ignore lines and adds private directories', (t) => {
+  for (const existing of ['# Custom\ncustom/\nhistory/', null]) {
+    const ctx = fixture(t), path = join(ctx.root, '.cairn/.gitignore');
+    if (existing === null) unlinkSync(path);
+    else writeFileSync(path, existing);
+    recordShadow(ctx, [{ path: 'a.md', bytes: Buffer.from('private') }]);
+    const text = readFileSync(path, 'utf8');
+    if (existing !== null) assert.ok(text.startsWith(existing));
+    for (const name of ['history/', 'shadow/', 'agents/']) assert.ok(text.split('\n').includes(name));
+    recordShadow(ctx, [{ path: 'a.md', bytes: Buffer.from('changed') }]);
+    assert.equal(readFileSync(path, 'utf8'), text);
+  }
+});

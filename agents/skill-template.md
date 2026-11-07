@@ -94,7 +94,10 @@ Use `search '<query>' --type raw --json` with the full invocation to find text i
 - Do not copy card or note content into commits or PR descriptions.
 - Never use `--steal`, `link`, or `agent install`; those operations belong to a human. Project removal also requires a human.
 - Use `--compact --json` for lists to conserve context. Each write needs `--actor`; it returns a new revision. Body input is read only with `--body -` or `--body-file "<path>"`.
-- Exit codes: 0 success, 1 internal error, 2 usage, 3 not found (or nothing to undo), 4 conflict, 5 validation, 6 locked, 7 confirmation required. On 4 re-read and reconcile once; if the card is claimed by someone else or undo belongs to another actor, stop and report instead of retrying. On 6 back off and retry. Do not bypass confirmation.
+- Exit codes: 0 success, 1 internal error, 2 usage, 3 not found (or nothing to undo), 4 conflict, 5 validation,
+  6 locked, 7 confirmation required. On 4 run `changes --target <ref> --diff`, re-read, then write again;
+  never overwrite the owner's edit blindly. If the card is claimed by someone else or undo belongs to another
+  actor, stop and report instead of retrying. On 6 back off and retry. Do not bypass confirmation.
 - `--dry-run` previews without changing sources. JSON results use `v`, `ok`, `data` or `error`, and `warnings`; diagnostics go to stderr. Read all warnings.
 
 ## Command reference

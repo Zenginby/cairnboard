@@ -11,6 +11,7 @@ import { watch } from '../core/watch.mjs';
 import { createEvents } from './events.mjs';
 import { createLiveWatcher } from './live.mjs';
 import { installShutdown } from './shutdown.mjs';
+import { reconcileExternal } from '../core/changes.mjs';
 
 async function start() {
   await checkRuntime();
@@ -38,7 +39,10 @@ async function start() {
   };
   const { render } = createRenderPool();
   const watcher = createLiveWatcher(() => {
-    readWatcher = watch(openRead());
+    readWatcher = watch(openRead(), { recordExternal: (paths) => {
+      const ctx = openContext({ mode: 'write', actor: 'owner:external' });
+      reconcileExternal(ctx, paths.length ? { paths } : {});
+    } });
     return readWatcher;
   });
   const events = createEvents(watcher);

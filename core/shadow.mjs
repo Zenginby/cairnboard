@@ -5,6 +5,7 @@ import { checkedPath, openForRead, readChecked, safeRelative } from './paths.mjs
 import { withLock } from './lock.mjs';
 import { revision } from './store.mjs';
 import { pathKey } from './text.mjs';
+import { ensureDataIgnore } from './roots.mjs';
 
 const directory = '.cairn/shadow';
 const manifestPath = `${directory}/manifest.json`;
@@ -128,6 +129,7 @@ function writeBlob(ctx, hash, bytes) {
 }
 
 function record(ctx, shadow, changes, { initialize = false } = {}) {
+  ensureDataIgnore(ctx.root);
   upgrade(ctx, shadow);
   const items = changes.map(({ path, bytes }) => {
     if (bytes !== null && !Buffer.isBuffer(bytes)) throw invalid();

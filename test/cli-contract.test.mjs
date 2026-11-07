@@ -52,6 +52,16 @@ test('schema needs no data and matches the public snapshot', async (t) => {
   init.options.detect = { type: 'string',
     summary: 'Detect an existing vault schema; preview with --dry-run, confirm with --yes.' };
   init.options.yes = { type: 'boolean', summary: 'Apply a detected schema without prompting; only with --detect.' };
+  expected.commands.splice(expected.commands.findIndex(({ name }) => name === 'context') + 1, 0, {
+    name: 'changes', summary: 'List recorded changes and optional line diffs.', args: [],
+    options: { ...expected.commands.find(({ name }) => name === 'home').options,
+      since: { type: 'string', summary: 'Include changes after a sequence or at an ISO timestamp.' },
+      target: { type: 'string', summary: 'Filter by entity id or path.' },
+      diff: { type: 'boolean', summary: 'Show bounded line diffs.' },
+      actor: { type: 'string', summary: 'Filter by event actor.' },
+      limit: { type: 'string', summary: 'Maximum changes, from 1 to 200 (default: 20).' } },
+    mode: 'read', needsData: true, dangerous: false,
+  });
   assert.deepEqual(response.json.data, expected);
   assert.deepEqual(response.json.data.errors, Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })));
   const commands = response.json.data.commands;
