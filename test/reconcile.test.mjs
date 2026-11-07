@@ -246,3 +246,23 @@ test('ready reconciles once even when saves are pending and recording errors do 
   t.mock.timers.tick(5000);
   assert.deepEqual(calls, [[], ['notes/a.md']]);
 });
+
+test('many pending paths keep one due time', async (t) => {
+  const { open } = setup(t), ctx = open(), calls = [];
+  const native = new EventEmitter();
+  native.close = async () => {};
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: Date.now() });
+  const watcher = watch(ctx, { createWatcher: () => native, stat: () => ({ isSymbolicLink: () => false }),
+    refreshIndex() {}, readRows: () => [], recordExternal: (paths) => calls.push(paths) });
+  t.after(() => watcher.close());
+  native.emit('ready');
+  await watcher.ready;
+  const min = Math.min;
+  let comparisons = 0;
+  t.mock.method(Math, 'min', (...values) => { comparisons += values.length; return min(...values); });
+  for (let i = 0; i < 1000; i++) native.emit('all', 'change', join(ctx.root, `notes/${i}.md`));
+  assert.ok(comparisons <= 4000, String(comparisons));
+  t.mock.timers.tick(5000);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].length, 1000);
+});

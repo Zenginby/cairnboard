@@ -71,8 +71,8 @@ export async function main(argv, io) {
     else {
       io.stderr.write(`${code}: ${message}\n`);
       const last = envelope.error.current?.last;
-      if (last) io.stderr.write(`Changed by ${oneLine(clean(last.actor ?? 'unknown'))} `
-        + `at ${oneLine(clean(last.ts))} (${oneLine(clean(last.op))}).\n`);
+      const label = (value) => oneLine(clean(typeof value === 'string' ? value : 'unknown'));
+      if (last) io.stderr.write(`Changed by ${label(last.actor)} at ${label(last.ts)} (${label(last.op)}).\n`);
     }
     if (!known && io.env.CAIRN_DEBUG === '1') io.stderr.write(`${error?.stack ?? error}\n`);
     return ERRORS[code];

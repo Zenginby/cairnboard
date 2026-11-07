@@ -6,6 +6,11 @@ export * from 'node:fs';
 
 let hooks = {};
 
+export function isFilesystemError(error) {
+  return Number.isInteger(error?.errno) || (typeof error?.code === 'string'
+    && /^(?:E[A-Z0-9]+|ERR_FS_[A-Z_]+)$/u.test(error.code));
+}
+
 export function __setFsHooks(next = {}) {
   hooks = { ...next };
 }
@@ -21,6 +26,9 @@ export function afterCheck(path) {
 // Tests inject Windows-only failures (a delete-pending file answers EPERM) through this hook.
 export function openSync(...args) {
   return (hooks.openSync ?? fs.openSync)(...args);
+}
+export function readFileSync(...args) {
+  return (hooks.readFileSync ?? fs.readFileSync)(...args);
 }
 export const realpathSync = fs.realpathSync;
 

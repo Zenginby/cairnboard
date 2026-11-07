@@ -42,6 +42,15 @@ test('null removes entry and collects blob', (t) => {
   assert.deepEqual(readdirSync(join(ctx.root, '.cairn/shadow/blobs')), []);
 });
 
+test('exact shadow spelling takes precedence over folded aliases', (t) => {
+  const ctx = fixture(t);
+  recordShadow(ctx, [{ path: 'notes/A.md', bytes: Buffer.from('upper') },
+    { path: 'notes/a.md', bytes: Buffer.from('lower') }]);
+  recordShadow(ctx, [{ path: 'notes/A.md', bytes: Buffer.from('updated') }]);
+  assert.deepEqual(shadowBytes(ctx, 'notes/A.md'), Buffer.from('updated'));
+  assert.deepEqual(shadowBytes(ctx, 'notes/a.md'), Buffer.from('lower'));
+});
+
 test('over 256 KiB keeps rev without blob', (t) => {
   const ctx = fixture(t), bytes = Buffer.alloc(256 * 1024 + 1, 97);
   recordShadow(ctx, [{ path: 'large.md', bytes }]);
@@ -146,4 +155,12 @@ test('first shadow creation preserves user ignore lines and adds private directo
     recordShadow(ctx, [{ path: 'a.md', bytes: Buffer.from('changed') }]);
     assert.equal(readFileSync(path, 'utf8'), text);
   }
+});
+
+test('8.3 short name rejected', (t) => {
+  const ctx = fixture(t);
+  mkdirSync(join(ctx.root, '.cairn/shadow'));
+  writeFileSync(join(ctx.root, '.cairn/shadow/manifest.json'), JSON.stringify({ v: 1, initialized: true,
+    entries: { 'notes/SECRET~1.md': { rev: revision('x'), blob: false, size: 1 } } }));
+  assert.throws(() => readShadow(ctx), { code: 'validation' });
 });

@@ -4,12 +4,15 @@ import * as index from '../core/index.mjs';
 import { listCards, effectiveColumn } from '../core/card.mjs';
 import { normalizeId } from '../core/ids.mjs';
 import { toJson, compact, clean } from './output.mjs';
+import { oneLine, stripHidden } from '../core/text.mjs';
 
 export function changesView({ changes }) {
+  const field = (value) => oneLine(stripHidden(typeof value === 'string' || typeof value === 'number'
+    ? String(value) : '').text).slice(0, 200);
   return changes.map((event) => {
-    const heading = `${event.seq} ${event.ts} ${event.actor ?? 'unknown'} ${event.change ?? event.op} `
-      + event.paths.join(', ');
-    return heading + (event.diff ? `\n${event.diff}` : event.reason ? `\n(${event.reason})` : '');
+    const heading = `${field(event.seq)} ${field(event.ts)} ${field(event.actor ?? 'unknown')} `
+      + `${field(event.change ?? event.op)} ${event.paths.map(field).join(', ')}`;
+    return heading + (event.diff ? `\n${event.diff}` : event.reason ? `\n(${field(event.reason)})` : '');
   }).join('\n');
 }
 

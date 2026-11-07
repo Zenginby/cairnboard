@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, createHash } from 'node:crypto';
 import { basename, dirname, join, resolve } from 'node:path';
 import * as fs from './fsx.mjs';
-import { checkedPath, openForRead, readChecked } from './paths.mjs';
+import { checkedPath, openForRead, readChecked, safeRelative } from './paths.mjs';
 import { parseFile } from './frontmatter.mjs';
 import { classify, fingerprint, isRawPath } from './schema.mjs';
 import { firstSentence, foldTr, pathKey } from './text.mjs';
@@ -16,7 +16,7 @@ import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 await checkRuntime();
 
 const SCHEMA_VERSION = 10;
-const UNREADABLE_FS = new Set(['EACCES', 'EPERM', 'EISDIR', 'ELOOP']);
+const UNREADABLE_FS = new Set(['EACCES', 'EPERM', 'EISDIR', 'ELOOP', 'ENOTDIR', 'EBUSY', 'ERR_FS_FILE_TOO_LARGE']);
 const MAX_SIZE = 5 * 1024 * 1024;
 export const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
 const fresh = new WeakMap();
@@ -227,7 +227,13 @@ function inventory(ctx, skipped, raw = []) {
       } else if (entry.isDirectory()) {
         // Other metadata folders (.obsidian) still supply target names, without diagnostics for their files.
         const internal = quiet || entry.name.startsWith('.');
-        walk(checkedPath(ctx.root, path), `${path}/`, internal);
+        try { walk(checkedPath(ctx.root, path), `${path}/`, internal); } catch (error) {
+          if (error.code === 'unsafe_path') skipped.push({ path, reason: 'unsafe-path' });
+          else if (UNREADABLE_FS.has(error.code)) {
+            skipped.push({ path, reason: 'unreadable' }); warn(ctx, 'unreadable');
+          }
+          else throw error;
+        }
       } else if (!entry.isFile() || !/\.md$/iu.test(entry.name)) {
         if (!quiet && entry.isFile() && rawText(ctx, path)) rawStat(raw, path, abs, skipped);
         else if (!quiet) skipped.push({ path, reason: 'not-markdown' });
@@ -244,6 +250,14 @@ function inventory(ctx, skipped, raw = []) {
             size: stat.size, ino: String(stat.ino), ignored: quiet || !!classification.ignored });
           if (!quiet && rawText(ctx, path)) raw.push({ ...found.at(-1) });
         } catch (error) {
+          // Schema classification wraps an invalid file spelling as validation; it is still a per-path skip.
+          if (error.code === 'validation') {
+            try { safeRelative(path); } catch (pathError) {
+              if (pathError.code !== 'unsafe_path') throw pathError;
+              skipped.push({ path, reason: 'unsafe-path' });
+              continue;
+            }
+          }
           if (error.code !== 'unsafe_path') throw error;
           skipped.push({ path, reason: 'unsafe-path' });
         }

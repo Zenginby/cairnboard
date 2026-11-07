@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readdirSync, truncateSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
@@ -8,6 +8,9 @@ import { reconcileExternal } from '../core/changes.mjs';
 import { readEvents } from '../core/events.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
+import { changesView } from '../cli/views.mjs';
+import { changeDiff } from '../core/changes.mjs';
+import { __setFsHooks } from '../core/fsx.mjs';
 
 function fixture(t) {
   const home = tempDir(t), data = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
@@ -155,4 +158,42 @@ test('ephemeral changes and context do not create metadata', async (t) => {
     assert.equal(result.code, 0, result.stdout);
     assert.deepEqual(readdirSync(data), ['a.md']);
   }
+});
+
+test('changes output is one line per field', () => {
+  const field = 'bad\nfield\r\u202e' + 'x'.repeat(300);
+  const value = changesView({ changes: [{ seq: 1, ts: field, actor: field, op: field,
+    paths: [field], diff: '@@ safe diff @@\n+body\n' }] });
+  const [heading, ...diff] = value.split('\n');
+  assert.ok(heading.length <= 1 + 4 * 201);
+  assert.doesNotMatch(heading, /[\r\u202e]/u);
+  assert.equal(diff.join('\n'), '@@ safe diff @@\n+body\n');
+  assert.doesNotThrow(() => changesView({ changes: [{ seq: 1, ts: {}, actor: { toString: 5 },
+    op: null, paths: ['a.md'] }] }));
+});
+
+test('oversized history record is reported not read', (t) => {
+  const f = fixture(t);
+  reconcileExternal(f.ctx);
+  f.put('a', 'owner');
+  reconcileExternal(f.ctx);
+  const [event] = readEvents(f.ctx);
+  const path = join(f.data, `.cairn/history/${event.tx}.json`);
+  truncateSync(path, 2 * 1024 * 1024 + 1);
+  t.after(() => __setFsHooks());
+  __setFsHooks({ readFileSync() { throw new Error('oversized record was read'); } });
+  assert.deepEqual(changeDiff(f.ctx, event, [event]), { diff: null, reason: 'history_too_large' });
+});
+
+test('8.3 short name rejected', (t) => {
+  const f = fixture(t);
+  f.put('SECRET~1', 'secret');
+  const event = { tx: 'x-short', seq: 1, rev: 'a', targets: [{ path: 'notes/SECRET~1.md', rev: 'a' }] };
+  writeFileSync(join(f.data, '.cairn/history/x-short.json'), JSON.stringify({ tx: event.tx,
+    path: event.targets[0].path, before: null, after: 'a' }));
+  t.after(() => __setFsHooks());
+  __setFsHooks({ afterCheck(path) {
+    if (path.endsWith('SECRET~1.md')) throw new Error('short alias was used for a read');
+  } });
+  assert.deepEqual(changeDiff(f.ctx, event, [event]), { diff: null, reason: 'history_pruned' });
 });

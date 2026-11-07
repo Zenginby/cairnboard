@@ -38,6 +38,16 @@ function tree(root, prefix = '') {
   });
 }
 
+test('export board is not an owner change', async (t) => {
+  const f = fixture(t);
+  const result = await f.run(['export', 'board']);
+  assert.equal(result.code, 0, result.stdout);
+  const ctx = openContext({ mode: 'write', dataDir: f.data, home: f.home, env: {}, clock: f.clock });
+  assert.deepEqual(shadowBytes(ctx, 'board.md'), fs.readFileSync(join(f.data, 'board.md')));
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+  assert.deepEqual(readEvents(ctx), []);
+});
+
 test('write updates shadow', async (t) => {
   const f = fixture(t);
   const added = await f.run(['note', 'add', '--title', 'Shadow']);

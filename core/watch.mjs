@@ -25,7 +25,7 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
   let closed = false, debounce, deadline, failed = false, closing, ready, watching = false, watchError = false;
   const pending = new Set(), suppressed = new Map();
   const externalPending = new Map();
-  let quiet;
+  let quiet, quietDue = Infinity;
   const watcher = createWatcher(root, { ignoreInitial: true, followSymlinks: false, atomic: true,
     awaitWriteFinish: false, usePolling: false, ignored });
 
@@ -39,15 +39,18 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
   }
 
   function scheduleExternal() {
-    clearTimeout(quiet);
-    if (closed || !externalPending.size) return;
-    const due = Math.min(...externalPending.values());
+    if (closed || !externalPending.size || quiet !== undefined) return;
     quiet = setTimeout(() => {
-      const paths = [...externalPending].filter(([, due]) => due <= Date.now()).map(([path]) => path);
-      for (const path of paths) externalPending.delete(path);
+      quiet = undefined;
+      quietDue = Infinity;
+      const paths = [], now = Date.now();
+      for (const [path, due] of externalPending) {
+        if (due <= now) { paths.push(path); externalPending.delete(path); }
+        else quietDue = Math.min(quietDue, due);
+      }
       if (paths.length) record(paths);
       scheduleExternal();
-    }, Math.max(0, due - Date.now()));
+    }, Math.max(0, quietDue - Date.now()));
     quiet.unref?.();
   }
 
@@ -115,7 +118,9 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
     }
     pending.add(rel);
     if (recordExternal) {
-      externalPending.set(rel, Date.now() + quietMs);
+      const due = Date.now() + quietMs;
+      externalPending.set(rel, due);
+      quietDue = Math.min(quietDue, due);
       scheduleExternal();
     }
     schedule();

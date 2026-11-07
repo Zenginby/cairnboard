@@ -1,15 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, openSync as fsOpen, readFileSync, readdirSync, renameSync,
+import { existsSync, fstatSync as fsStat, mkdirSync, openSync as fsOpen, readFileSync as fsRead,
+  readFileSync, readdirSync, renameSync, rmSync,
   symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { recover, revision, write, writeMany } from '../core/store.mjs';
-import { readEvents } from '../core/events.mjs';
+import { appendEvent, readEvents } from '../core/events.mjs';
 import { refresh, targetRevisions } from '../core/index.mjs';
 import { readShadow, recordShadow, shadowBytes } from '../core/shadow.mjs';
-import { reconcileExternal } from '../core/changes.mjs';
+import { changeDiff, listChanges, reconcileBeforeRun, reconcileExternal } from '../core/changes.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
 import { lockName, withLock } from '../core/lock.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
@@ -226,7 +227,8 @@ test('paths limits reconciliation and reserved directories are excluded', (t) =>
   assert.equal(readShadow(ctx).entries.has('notes/b.md'), false);
   assert.equal(reconcileExternal(ctx).recorded, 1);
   assert.deepEqual([...readShadow(ctx).entries.keys()].sort(), ['notes/a.md', 'notes/b.md']);
-  assert.throws(() => reconcileExternal(ctx, { paths: ['../outside.md'] }), { code: 'unsafe_path' });
+  assert.equal(reconcileExternal(ctx, { paths: ['../outside.md'] }).recorded, 0);
+  assert.ok(ctx.warnings.includes('reconcile_path_skipped'));
 });
 
 test('previous binary bytes and unavailable preimages are preserved explicitly', (t) => {
@@ -335,7 +337,7 @@ test('reconciliation requires write mode', (t) => {
   }
 });
 
-test('unchanged targets do not acquire path or shadow locks or read note bytes', (t) => {
+test('unchanged targets only acquire metadata prune locks and do not read note bytes', (t) => {
   const { ctx, put } = fixture(t);
   for (let i = 0; i < 20; i++) put(`notes/${i}.md`, `note ${i}`);
   reconcileExternal(ctx);
@@ -346,7 +348,7 @@ test('unchanged targets do not acquire path or shadow locks or read note bytes',
     return fsOpen(path, ...args);
   }, afterCheck(path) { checked.push(path); } });
   assert.equal(reconcileExternal(ctx).recorded, 0);
-  assert.equal(opened.filter((path) => path.endsWith('.lock') || path.endsWith('.md')).length, 0);
+  assert.equal(opened.filter((path) => /[/\\]f-[^/\\]+\.lock$/u.test(path) || path.endsWith('.md')).length, 0);
   assert.equal(checked.filter((path) => path.endsWith('manifest.json')).length, 1);
 });
 
@@ -408,7 +410,155 @@ test('a write after the event snapshot is recognized from its appended tail', (t
   } });
   // Permit reconciliation's repair after the injected writer has failed to update its shadow.
   ctx.afterCommit = () => __setFsHooks();
-  assert.equal(reconcileExternal(ctx).recorded, 1);
-  assert.deepEqual(readEvents(ctx).map(({ op }) => op), ['note.write', 'external.change']);
+  assert.equal(reconcileExternal(ctx).recorded, 2);
+  assert.deepEqual(readEvents(ctx).map(({ op }) => op), ['note.write', 'external.change', 'external.change']);
+  // The injected writer encountered owner-b; preserve that edit without attributing own-b to the owner.
+  assert.equal(readEvents(ctx).at(-1).rev, revision('owner-b'));
   assert.deepEqual(shadowBytes(ctx, 'notes/b.md'), Buffer.from('own-b'));
+});
+
+test('own write with different path spelling is not external', (t) => {
+  const { ctx, put } = fixture(t);
+  const path = 'notes/caf\u00e9.md', spelling = 'NOTES/CAFE\u0301.MD';
+  put(path, 'before');
+  reconcileExternal(ctx);
+  put(path, 'own');
+  appendEvent(ctx, { tx: 't-spelling', op: 'note.write', target: spelling, rev: revision('own'),
+    targets: [{ path: spelling, target: spelling, rev: revision('own') }] });
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+  assert.equal(listChanges(ctx, { target: path, since: 0 }).length, 1);
+  assert.throws(() => write(ctx, { op: 'note.write', path, ifRevision: 'stale', apply: () => 'no' }),
+    (error) => error.code === 'conflict' && error.details.current.last?.tx === undefined
+      && error.details.current.last?.op === 'note.write');
+});
+
+test('unreadable path does not block writes', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'before');
+  reconcileExternal(ctx);
+  put('notes/a.md', 'after');
+  t.after(() => __setFsHooks());
+  for (const code of ['ENOTDIR', 'EISDIR', 'EBUSY', 'EPERM', 'ERR_FS_FILE_TOO_LARGE']) {
+    __setFsHooks({ afterCheck(path) {
+      if (path === join(ctx.root, 'notes/a.md')) throw Object.assign(new Error('unreadable'), { code });
+    } });
+    let warnings;
+    assert.doesNotThrow(() => { warnings = reconcileBeforeRun(ctx); }, code);
+    assert.ok([...ctx.warnings, ...warnings].some((value) =>
+      ['reconcile_path_skipped', 'reconcile_skipped'].includes(value)), code);
+    assert.doesNotThrow(() => write(ctx, { op: 'note.write', path: 'notes/other.md', apply: () => 'own' }), code);
+  }
+  __setFsHooks({ afterCheck(path) {
+    if (path.endsWith('manifest.json')) throw Object.assign(new Error('I/O unavailable'), { code: 'EIO' });
+  } });
+  assert.deepEqual(reconcileBeforeRun(ctx), ['reconcile_skipped']);
+  __setFsHooks({ afterCheck() { throw new TypeError('programming error'); } });
+  assert.throws(() => reconcileBeforeRun(ctx), /programming error/u);
+});
+
+test('large files are hashed without holding them', (t) => {
+  const { ctx, put } = fixture(t);
+  const bytes = Buffer.from('---\nid: n-abc123\n---\n' + 'x'.repeat(6 * 1024 * 1024));
+  put('notes/large.md', bytes);
+  refresh(ctx);
+  t.after(() => __setFsHooks());
+  __setFsHooks({ readFileSync(fd, ...args) {
+    if (typeof fd === 'number' && fsStat(fd).size > 256 * 1024) throw new Error('whole large file read');
+    return fsRead(fd, ...args);
+  } });
+  assert.equal(reconcileExternal(ctx).baseline, true);
+  assert.deepEqual(readShadow(ctx).entries.get('notes/large.md'),
+    { rev: revision(bytes), blob: false, size: bytes.length });
+  put('notes/large.md', Buffer.concat([bytes, Buffer.from('changed')]));
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+  assert.equal(readEvents(ctx)[0].target, 'n-abc123');
+});
+
+test('bad watcher name does not drop the batch', (t) => {
+  const { ctx, put } = fixture(t);
+  reconcileExternal(ctx);
+  put('notes/good.md', 'owner');
+  const result = reconcileExternal(ctx, { paths: ['notes/bad?.md', '../outside.md', 'notes/good.md'] });
+  assert.equal(result.recorded, 1);
+  assert.equal(readEvents(ctx)[0].target, 'notes/good.md');
+  assert.ok(ctx.warnings.includes('reconcile_path_skipped'));
+  if (process.platform !== 'win32') {
+    put('.obsidian/bad?.md', 'ignored template');
+    put('notes/good.md', 'another owner edit');
+    assert.equal(reconcileExternal(ctx).recorded, 1);
+  }
+});
+
+test('crashed writer is not attributed to owner', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'before');
+  reconcileExternal(ctx);
+  ctx.faults = (point) => { if (point === 'after-rename') throw new Error('crashed'); };
+  assert.throws(() => write(ctx, { op: 'note.write', path: 'notes/a.md', apply: () => 'own' }), /crashed/u);
+  delete ctx.faults;
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+  assert.equal(readEvents(ctx).length, 0);
+  assert.deepEqual(shadowBytes(ctx, 'notes/a.md'), Buffer.from('before'));
+  assert.equal(recover(ctx).completed, 1);
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+  assert.equal(readEvents(ctx)[0].actor, ctx.actor);
+});
+
+test('owner edit before agent write is kept', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'original\n');
+  reconcileExternal(ctx);
+  put('notes/a.md', 'owner\n');
+  write(ctx, { op: 'note.write', path: 'notes/a.md', apply: () => 'agent\n' });
+  assert.equal(readEvents(ctx)[0].targets[0].before, revision('owner\n'));
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+  const event = readEvents(ctx).find(({ actor }) => actor === 'owner:external');
+  assert.equal(event.before, revision('original\n'));
+  assert.equal(event.rev, revision('owner\n'));
+  assert.equal(history(ctx, event).before, 'original\n');
+  assert.match(changeDiff(ctx, event).diff, /-original\n\+owner/u);
+  assert.deepEqual(shadowBytes(ctx, 'notes/a.md'), Buffer.from('agent\n'));
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+});
+
+test('owner gap repair survives another own write and an interrupted append', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'original\n');
+  reconcileExternal(ctx);
+  put('notes/a.md', 'owner\n');
+  write(ctx, { op: 'note.write', path: 'notes/a.md', apply: () => 'agent one\n' });
+  write(ctx, { op: 'note.write', path: 'notes/a.md', apply: () => 'agent two\n' });
+  ctx.faults = (point) => { if (point === 'after-event') throw new Error('crashed'); };
+  assert.throws(() => reconcileExternal(ctx), /crashed/u);
+  delete ctx.faults;
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+  const owner = readEvents(ctx).filter(({ actor }) => actor === 'owner:external');
+  assert.equal(owner.length, 1);
+  assert.match(changeDiff(ctx, owner[0]).diff, /-original\n\+owner/u);
+  assert.deepEqual(shadowBytes(ctx, 'notes/a.md'), Buffer.from('agent two\n'));
+});
+
+test('orphans are cleaned', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'original');
+  reconcileExternal(ctx);
+  const historyDir = join(ctx.root, '.cairn/history');
+  writeFileSync(join(historyDir, 'x-orphan.json'), JSON.stringify({ tx: 'x-orphan', before: 'orphan' }));
+  const blob = join(ctx.root, '.cairn/shadow/blobs', 'f'.repeat(64));
+  writeFileSync(blob, 'orphan');
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+  assert.equal(existsSync(join(historyDir, 'x-orphan.json')), false);
+  assert.equal(existsSync(blob), false);
+  assert.deepEqual(shadowBytes(ctx, 'notes/a.md'), Buffer.from('original'));
+});
+
+test('reconcile works in a fresh folder without history or pending directories', (t) => {
+  const { ctx, put } = fixture(t);
+  rmSync(join(ctx.root, '.cairn/history'), { recursive: true, force: true });
+  rmSync(join(ctx.root, '.cairn/pending'), { recursive: true, force: true });
+  put('notes/a.md', 'first');
+  assert.deepEqual(reconcileBeforeRun(ctx), []);
+  put('notes/a.md', 'owner edit');
+  assert.deepEqual(reconcileBeforeRun(ctx), []);
+  assert.equal(readEvents(ctx).at(-1).actor, 'owner:external');
 });

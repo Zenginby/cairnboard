@@ -17,8 +17,12 @@ const invalid = () => new CairnError('validation', 'Invalid shadow manifest.');
 function targetPath(path) {
   let rel;
   try { rel = safeRelative(path).replace(/\\/gu, '/'); } catch { throw invalid(); }
-  if (pathKey(rel).split('/').some((part) => skipped.has(part))) throw invalid();
+  if (pathKey(rel).split('/').some((part) => skipped.has(part) || /~\d/u.test(part))) throw invalid();
   return rel;
+}
+
+export function shadowEntry(shadow, path) {
+  return shadow.entries.get(path) ?? [...shadow.entries].find(([name]) => pathKey(name) === pathKey(path))?.[1];
 }
 
 export function readShadow(ctx) {
@@ -63,7 +67,7 @@ function blobSize(ctx, name) {
 }
 
 export function shadowBytes(ctx, path, shadow = readShadow(ctx)) {
-  const entry = shadow.entries.get(targetPath(path));
+  const entry = shadowEntry(shadow, targetPath(path));
   if (!entry?.blob) return null;
   const names = entry.hash ? [entry.hash] : blobNames(ctx).filter((name) => name.startsWith(entry.rev));
   for (const name of names) {
@@ -128,12 +132,17 @@ function writeBlob(ctx, hash, bytes) {
   }
 }
 
-function record(ctx, shadow, changes, { initialize = false } = {}) {
+function record(ctx, shadow, changes, { initialize = false, defer = false } = {}) {
   ensureDataIgnore(ctx.root);
   upgrade(ctx, shadow);
-  const items = changes.map(({ path, bytes }) => {
-    if (bytes !== null && !Buffer.isBuffer(bytes)) throw invalid();
-    return { path: targetPath(path), bytes };
+  const paths = new Map([...shadow.entries.keys()].map((path) => [pathKey(path), path]));
+  const items = changes.map(({ path, bytes, rev, size }) => {
+    if (bytes === undefined) {
+      if (typeof rev !== 'string' || !/^[0-9a-f]{16}$/u.test(rev)
+        || !Number.isSafeInteger(size) || size <= blobLimit) throw invalid();
+    } else if (bytes !== null && !Buffer.isBuffer(bytes)) throw invalid();
+    const rel = targetPath(path);
+    return { path: shadow.entries.has(rel) ? rel : paths.get(pathKey(rel)) ?? rel, bytes, rev, size };
   });
   // Replacements release their budget before new blobs are considered; shared blobs count only once.
   const released = new Set();
@@ -148,8 +157,12 @@ function record(ctx, shadow, changes, { initialize = false } = {}) {
   for (const rel of [directory, `${directory}/blobs`]) {
     fs.mkdirSync(checkedPath(ctx.root, rel), { recursive: true, mode: 0o700 });
   }
-  for (const { path, bytes } of items) {
+  for (const { path, bytes, rev, size } of items) {
     if (bytes === null) continue;
+    if (bytes === undefined) {
+      shadow.entries.set(path, { rev, blob: false, size });
+      continue;
+    }
     const hash = createHash('sha256').update(bytes).digest('hex');
     const blob = bytes.length <= blobLimit && (names.has(hash) || used + bytes.length <= (ctx.shadowBudget ?? budget));
     if (blob && !names.has(hash)) {
@@ -159,6 +172,7 @@ function record(ctx, shadow, changes, { initialize = false } = {}) {
     }
     shadow.entries.set(path, { rev: revision(bytes), blob, size: bytes.length, ...(blob ? { hash } : {}) });
   }
+  if (defer) return;
   fs.writeFileAtomic(checkedPath(ctx.root, manifestPath), JSON.stringify({
     v: 1, initialized: shadow.initialized || initialize, entries: Object.fromEntries(shadow.entries),
   }));
@@ -167,6 +181,22 @@ function record(ctx, shadow, changes, { initialize = false } = {}) {
     if (names.has(name)) continue;
     try { fs.unlinkSync(checkedPath(ctx.root, `${directory}/blobs/${name}`)); } catch (error) {
       if (error.code !== 'ENOENT') throw error;
+    }
+  }
+}
+
+export function pruneShadow(ctx, shadow) {
+  const hashes = new Set(), legacy = new Set();
+  for (const entry of shadow.entries.values()) {
+    if (!entry.blob) continue;
+    if (entry.hash) hashes.add(entry.hash);
+    else legacy.add(entry.rev);
+  }
+  for (const name of blobNames(ctx)) {
+    if (!hashes.has(name) && !legacy.has(name.slice(0, 16))) {
+      try { fs.unlinkSync(checkedPath(ctx.root, `${directory}/blobs/${name}`)); } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
     }
   }
 }

@@ -38,6 +38,9 @@ function records(text) {
       return [];
     }
     if (event?.v !== 1 || !Number.isSafeInteger(event.seq) || event.seq < 1) return [];
+    if (event.targets !== undefined) event.targets = Array.isArray(event.targets)
+      ? event.targets.filter((target) => target && typeof target === 'object'
+        && !Array.isArray(target) && typeof target.path === 'string') : [];
     return [event];
   });
 }

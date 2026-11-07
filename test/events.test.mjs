@@ -20,6 +20,16 @@ const event = (ctx, tx = 'tx-a', patch = {}) => ({ tx, op: 'card.update', target
 const file = (ctx, name) => join(ctx.root, '.cairn', 'events', name);
 const mirror = (ctx) => readFileSync(file(ctx, 'seq'), 'utf8');
 
+test('malformed event line is skipped', (t) => {
+  const ctx = fixture(t);
+  const malformed = [null, 5, 'x', { v: 1, seq: 9, targets: [null] },
+    { v: 1, seq: 10, targets: 5 }, { v: 1, seq: 11, targets: [null, {}, { path: 5 }, { path: 'a.md' }] }];
+  writeFileSync(file(ctx, '2026-11.jsonl'), malformed.map(JSON.stringify).join('\n') + '\n');
+  const events = readEvents(ctx);
+  assert.deepEqual(events.map(({ targets }) => targets), [[], [], [{ path: 'a.md' }]]);
+  assert.deepEqual(readEvents(ctx, { cursor: new Map() }), events);
+});
+
 test('event cursors read only appended complete records across months', (t) => {
   const ctx = fixture(t), cursor = new Map();
   appendEvent(ctx, event(ctx, 'a'));
