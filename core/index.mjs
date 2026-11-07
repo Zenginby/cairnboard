@@ -650,6 +650,11 @@ export function findById(ctx, id) {
     (data) => data.rows.filter((row) => row.id === id).map((row) => row.path).sort());
 }
 
+export function targetRevisions(ctx) {
+  return withIndex(ctx, (db) => new Map(db.prepare('SELECT path, hash FROM targets ORDER BY path').all()
+    .map(({ path, hash }) => [path, hash])));
+}
+
 /** @param {*} ctx @param {string} [type] @param {{ kind?: string }} [filters] */
 export function rows(ctx, type, { kind } = {}) {
   const matches = (row) => (type === undefined || row.type === type) && (kind === undefined || row.kind === kind);

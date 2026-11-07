@@ -8,6 +8,7 @@ import { appendEvent, readEvents } from './events.mjs';
 import { pathKey } from './text.mjs';
 import { isRawPath, resolveSchema } from './schema.mjs';
 import { move } from './trash.mjs';
+import { recordShadow } from './shadow.mjs';
 
 /** @typedef {{ ifRevision?: string, dryRun?: boolean }} MutationOptions */
 /** @typedef {{ path: string, revision: string|null, seq: number|null, dryRun: boolean, warnings: string[] }} MutationResult */
@@ -194,12 +195,29 @@ function finishHistory(ctx, intent) {
   syncDir(ctx, '.cairn/history');
 }
 
-function pruneHistory(ctx) {
+export function pruneHistory(ctx) {
   const names = new Set(fs.readdirSync(checkedPath(ctx.root, '.cairn/history')));
   // An intent still pending (another process crashed after its event) needs its history to complete.
   for (const name of fs.readdirSync(checkedPath(ctx.root, '.cairn/pending'))) names.delete(name);
-  const committed = readEvents(ctx).map(({ tx }) => tx).filter((tx) => names.has(`${tx}.json`));
-  for (const tx of committed.slice(0, -50)) remove(ctx, historyPath(tx));
+  const committed = readEvents(ctx).filter(({ tx }) => names.has(`${tx}.json`));
+  for (const { external, limit } of [{ external: false, limit: 50 }, { external: true, limit: 200 }]) {
+    const records = committed.filter(({ op }) => (op === 'external.change') === external);
+    for (const { tx } of records.slice(0, -limit)) remove(ctx, historyPath(tx));
+  }
+}
+
+export function saveHistory(ctx, record) {
+  for (const dir of ['.cairn/history', '.cairn/pending']) mkdir(ctx, dir);
+  save(ctx, historyPath(record.tx), record);
+}
+
+function updateShadow(ctx, readChanges, result) {
+  try {
+    recordShadow(ctx, readChanges());
+  } catch {
+    (result.warnings ??= []).push('shadow_write_failed');
+    ctx.warnings?.push('shadow_write_failed');
+  }
 }
 
 function cleanup(ctx, intent, completed) {
@@ -388,6 +406,7 @@ export function writeMany(ctx, options) {
     ctx.faults?.('after-rename');
     const seq = complete(ctx, intent, false);
     const result = resultFor(intent, false, seq);
+    updateShadow(ctx, () => staged.map(({ path, bytes }) => ({ path, bytes })), result);
     ctx.afterCommit?.(result);
     return result;
   });
@@ -470,6 +489,10 @@ export function recover(ctx) {
         // A durable event means the transaction committed: later changes by others are not ours to roll back.
         if (hasEvent || (after && intent.phase !== 'rollback' && hasPreimages)) {
           const seq = complete(ctx, intent);
+          updateShadow(ctx, () => intent.items.flatMap(({ path, after }) => {
+            const bytes = readChecked(ctx.root, path);
+            return rev(bytes) === after ? [{ path, bytes }] : [];
+          }), result);
           ctx.afterCommit?.(resultFor(intent, false, seq));
           // Committed, but a target has changed since: keep that change and say so in the log.
           const changed = intent.items.some((item, index) => current[index] !== item.after);

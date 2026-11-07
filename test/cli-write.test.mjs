@@ -10,6 +10,8 @@ import { exportBoard } from '../core/export.mjs';
 import { lockName } from '../core/lock.mjs';
 import { parseFile } from '../core/frontmatter.mjs';
 import { writeMany } from '../core/store.mjs';
+import { readShadow, shadowBytes } from '../core/shadow.mjs';
+import { readEvents } from '../core/events.mjs';
 import { tempDir, fixedClock } from './support/env.mjs';
 import { runCli, spawnCli } from './support/cli.mjs';
 
@@ -34,6 +36,46 @@ function tree(root, prefix = '') {
     return stat.isDirectory() ? [[path], ...tree(root, path)] : [[path, fs.readFileSync(join(root, path), 'hex'), stat.mtimeMs]];
   });
 }
+
+test('write updates shadow', async (t) => {
+  const f = fixture(t);
+  const added = await f.run(['note', 'add', '--title', 'Shadow']);
+  assert.equal(added.code, 0, added.stdout);
+  const ctx = openContext({ mode: 'read', dataDir: f.data, home: f.home, env: {}, clock: f.clock });
+  assert.deepEqual(shadowBytes(ctx, added.json.data.path), fs.readFileSync(join(f.data, added.json.data.path)));
+});
+
+test('own write without shadow update is not external', async (t) => {
+  const { reconcileExternal } = await import('../core/changes.mjs');
+  const f = fixture(t);
+  const ctx = openContext({ mode: 'write', dataDir: f.data, home: f.home, env: {}, clock: f.clock });
+  reconcileExternal(ctx);
+  ctx.faults = (point) => { if (point === 'after-rename') throw new Error('crashed'); };
+  assert.throws(() => writeMany(ctx, { op: 'note.write', items: [
+    { path: 'notes/crashed.md', apply: () => 'committed' },
+  ] }), /crashed/u);
+  delete ctx.faults;
+  assert.equal(readShadow(ctx).entries.has('notes/crashed.md'), false);
+  t.after(() => fs.__setFsHooks());
+  fs.__setFsHooks({ rename(from, to) {
+    if (to === join(ctx.root, '.cairn/shadow/manifest.json')) throw new Error('shadow failed');
+    fs.renameSync(from, to);
+  } });
+  const recovered = openContext({ mode: 'write', dataDir: f.data, home: f.home, env: {}, clock: f.clock });
+  fs.__setFsHooks();
+  assert.equal(readShadow(recovered).entries.has('notes/crashed.md'), false);
+  const count = readEvents(recovered).length;
+  assert.equal(reconcileExternal(recovered).recorded, 0);
+  assert.equal(readEvents(recovered).length, count);
+});
+
+test('shadow failure warns without failing a write', async (t) => {
+  const f = fixture(t);
+  fs.symlinkSync(tempDir(t), join(f.data, '.cairn/shadow'), 'dir');
+  const added = await f.run(['note', 'add', '--title', 'Shadow']);
+  assert.equal(added.code, 0, added.stdout);
+  assert.ok(added.json.warnings.includes('shadow_write_failed'));
+});
 
 test('every entity write previews a revision and leaves sources and metadata untouched', async (t) => {
   const f = fixture(t);
