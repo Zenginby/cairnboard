@@ -51,6 +51,21 @@ Initialize a data folder (quote paths containing spaces):
 node dist/cairn.mjs init "./cairn-data" --language en --actor owner
 ```
 
+For an existing Markdown/Obsidian vault, preview folder mappings without writing a schema by hand:
+
+```sh
+cairn init --detect "./vault" --dry-run --json --actor owner
+cairn init --detect "./vault" --language en --yes --actor owner
+```
+
+Detection reports a table with confidence and reasons (`--json` returns structured data). Without
+`--dry-run`, review the config diff and confirm in a terminal, or use `--yes` for unattended writes.
+`--if-revision` protects an existing config. `--detect` cannot be combined with `--preset`, a positional
+path or `--set-default`. It changes only `.cairn` metadata and does not register a default;
+use `--data "./vault"` for subsequent commands. Vault Markdown files remain untouched.
+Hidden folders, symlinks and templates are skipped; scanning is bounded and reads only Markdown
+frontmatter and names. Uncertain mappings produce warnings; remaining Markdown stays notes.
+
 Data discovery order is `--data` > `CAIRN_DATA` > the path registered by `init` in the platform's
 `state.json` > `~/Cairn`. Initialization registers the folder; it does not change your shell's environment.
 The examples below use `--data` explicitly. Reads need no actor; writes require `--actor` or
@@ -325,6 +340,21 @@ Veri klasörünü başlatın (boşluklu yolları tırnaklayın):
 ```sh
 node dist/cairn.mjs init "./cairn-data" --language tr --actor owner
 ```
+
+Var olan Markdown/Obsidian kasasında elle şema yazmadan klasör eşlemelerini önizleyin:
+
+```sh
+cairn init --detect "./vault" --dry-run --json --actor owner
+cairn init --detect "./vault" --language tr --yes --actor owner
+```
+
+Tespit, güven ve gerekçe içeren tablo gösterir (`--json` yapılandırılmış veri döndürür).
+`--dry-run` yoksa config farkını inceleyip terminalde onaylayın; etkileşimsiz yazma için `--yes` kullanın.
+`--if-revision` mevcut config'i korur. `--detect`, `--preset`, konumsal yol veya `--set-default` ile
+birlikte kullanılamaz. Yalnız `.cairn` üst verisini değiştirir; varsayılan kasa kaydetmez.
+Sonraki komutlarda `--data "./vault"` kullanın. Kasanın Markdown dosyalarına dokunulmaz.
+Gizli klasörler, sembolik bağlar ve şablonlar atlanır; sınırlı tarama yalnız Markdown ön bilgisi ve
+adlarını okur. Belirsiz eşlemeler uyarı üretir; kalan Markdown dosyaları not sayılır.
 
 Veri keşif sırası: `--data` > `CAIRN_DATA` > `init` ile platformun `state.json` dosyasına kaydedilen yol
 > `~/Cairn`. Başlatma klasörü kaydeder; kabuğun ortam değişkenlerini değiştirmez. Aşağıdaki örnekler

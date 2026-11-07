@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Add `init --detect` with bounded read-only vault scanning, explained schema previews and confirmed config writes.
 - Fix the login launcher redirect so browsers reach the signed-in home page.
 - Add `cairn help` and resolve `--project` by title or alias, including Turkish case folding.
 - Treat Markdown in every eligible folder as notes and expose path-derived `n-<hash>` keys for notes without IDs.

@@ -10,6 +10,7 @@ import { parse } from '../cli/args.mjs';
 import { commands } from '../cli/registry.mjs';
 import { confirm } from '../cli/confirm.mjs';
 import { toJson } from '../cli/output.mjs';
+import { revision } from '../core/store.mjs';
 import { CairnError, ERRORS } from '../core/errors.mjs';
 
 function fixture(t, initialized = true) {
@@ -44,7 +45,13 @@ test('schema needs no data and matches the public snapshot', async (t) => {
   assert.equal(response.stderr, '');
   const snapshot = new URL('./fixtures/schema.json', import.meta.url);
   if (process.env.UPDATE_SNAPSHOTS === '1') fs.writeFileSync(snapshot, `${JSON.stringify(response.json.data, null, 2)}\n`);
-  assert.deepEqual(response.json.data, JSON.parse(fs.readFileSync(snapshot, 'utf8')));
+  const expected = JSON.parse(fs.readFileSync(snapshot, 'utf8'));
+  // Keep the existing command snapshot frozen; assert the additive detection contract here.
+  const init = expected.commands.find(({ name }) => name === 'init');
+  init.options.detect = { type: 'string',
+    summary: 'Detect an existing vault schema; preview with --dry-run, confirm with --yes.' };
+  init.options.yes = { type: 'boolean', summary: 'Apply a detected schema without prompting; only with --detect.' };
+  assert.deepEqual(response.json.data, expected);
   assert.deepEqual(response.json.data.errors, Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })));
   const commands = response.json.data.commands;
   assert.ok(commands.filter((item) => item.mode === 'read' && !item.writeOption).every((item) => item.dangerous === false));
@@ -414,4 +421,137 @@ test('executable returns a parseable envelope and exit code with diagnostics on 
   const unsupported = await spawnCli(['schema', '--json'], { ...f.opts, env: { NODE_OPTIONS: '--no-experimental-sqlite' } });
   assert.equal(unsupported.code, 5);
   assert.equal(unsupported.json.error.code, 'runtime_unsupported');
+});
+
+// Include empty directories, contents and timestamps so dry-run cannot hide metadata or discovery writes.
+function detectionTree(root, prefix = '') {
+  const path = join(root, prefix), stat = fs.lstatSync(path);
+  if (!stat.isDirectory()) return [[prefix, stat.mtimeMs, fs.readFileSync(path).toString('base64')]];
+  return [[prefix, stat.mtimeMs, 'directory'], ...fs.readdirSync(path).sort()
+    .flatMap((name) => detectionTree(root, prefix ? `${prefix}/${name}` : name))];
+}
+
+for (const name of ['daily', 'plain', 'tagged']) {
+  test(`init --detect ${name} dry-run leaves the entire vault and home unchanged`, async (t) => {
+    const f = fixture(t, false);
+    fs.cpSync(new URL(`./fixtures/vaults/${name}`, import.meta.url), f.data, { recursive: true });
+    const before = detectionTree(f.data), home = detectionTree(f.home);
+    const response = await f.run(['init', '--actor', 'acme', '--detect', f.data, '--dry-run', '--json']);
+    assert.equal(response.code, 0, response.stdout);
+    assert.equal(response.json.data.written, false);
+    assert.equal(response.json.data.revision, null);
+    assert.deepEqual(detectionTree(f.data), before);
+    assert.deepEqual(detectionTree(f.home), home);
+    const table = await f.run(['init', '--actor', 'acme', '--detect', f.data, '--dry-run']);
+    assert.equal(table.code, 0, table.stderr);
+    assert.match(table.stdout, /Target\tPath\tConfidence\tReason/u);
+    assert.match(table.stdout, /Dry run; no files written/u);
+    assert.deepEqual(detectionTree(f.data), before);
+    assert.deepEqual(detectionTree(f.home), home);
+  });
+}
+
+test('init detection requires confirmation and exposes existing pages through normal readers', async (t) => {
+  const f = fixture(t, false);
+  fs.cpSync(new URL('./fixtures/vaults/daily', import.meta.url), f.data, { recursive: true });
+  const before = detectionTree(f.data), home = detectionTree(f.home);
+  const refused = await f.run(['init', '--actor', 'acme', '--detect', f.data, '--json']);
+  assert.equal(refused.code, 7, refused.stdout);
+  assert.equal(refused.json.error.code, 'confirmation_required');
+  assert.match(refused.json.error.message, /--yes/u);
+  assert.equal(refused.json.error.current.schema.roots.journal.path, 'Daily');
+  assert.deepEqual(detectionTree(f.data), before);
+  const declined = await f.run(['init', '--actor', 'acme', '--detect', f.data, '--json'],
+    { isTTY: true, stdin: 'no\n' });
+  assert.equal(declined.code, 7);
+  assert.deepEqual(detectionTree(f.data), before);
+  const saved = await f.run(['init', '--actor', 'acme', '--detect', f.data, '--language', 'tr', '--yes', '--json']);
+  assert.equal(saved.code, 0, saved.stdout);
+  assert.equal(saved.json.data.config.language, 'tr');
+  assert.equal(saved.json.data.written, true);
+  assert.equal(saved.json.data.revision, revision(fs.readFileSync(join(f.data, '.cairn/config.json'))));
+  const projects = await f.run(['project', 'list', '--json']);
+  assert.equal(projects.code, 0, projects.stdout);
+  assert.deepEqual(projects.json.data.items.map(({ path }) => path).sort(),
+    ['Projects/Beacon.md', 'Projects/Drift.md', 'Projects/Kite.md']);
+  const journal = await f.run(['journal', 'list', '--json']);
+  assert.equal(journal.code, 0, journal.stdout);
+  assert.deepEqual(journal.json.data.items.map(({ path }) => path).sort(),
+    ['Daily/2026-11-05.md', 'Daily/2026-11-06.md', 'Daily/2026-11-07.md']);
+  const context = await f.run(['context', '--json']);
+  assert.equal(context.code, 0, context.stdout);
+  assert.match(context.stdout, /Projects\/Beacon.md/u);
+  assert.match(context.stdout, /Try a smaller lantern/u);
+  const notes = await f.run(['note', 'list', '--json']);
+  assert.equal(notes.code, 0, notes.stdout);
+  assert.deepEqual(notes.json.data.items.map(({ path }) => path).sort(), ['Archive/Old.md', 'Start.md']);
+  assert.deepEqual(detectionTree(f.data).filter(([path]) => path && !path.startsWith('.cairn')),
+    before.filter(([path]) => path));
+  assert.deepEqual(detectionTree(f.home), home);
+});
+
+test('detection shows config differences before confirmation and preserves unrelated settings', async (t) => {
+  const f = fixture(t);
+  f.put('Daily/2026-11-01.md', '# Day\n');
+  f.put('Daily/2026-11-02.md', '# Day\n');
+  const file = join(f.data, '.cairn/config.json');
+  const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  config.leaseMinutes = 45;
+  config.custom = { retained: true };
+  fs.writeFileSync(file, JSON.stringify(config));
+  const before = detectionTree(f.data);
+  const preview = await f.run(['init', '--actor', 'acme', '--detect', f.data, '--dry-run', '--json']);
+  assert.equal(preview.code, 0, preview.stdout);
+  assert.deepEqual(preview.json.data.changes.map(({ field }) => field), ['schema']);
+  assert.deepEqual(preview.json.data.changes[0].before, null);
+  assert.equal(preview.json.data.changes[0].after.roots.journal.path, 'Daily');
+  assert.deepEqual(detectionTree(f.data), before);
+  for (const dry of [[], ['--dry-run']]) {
+    const stale = await f.run(['init', '--actor', 'acme', '--detect', f.data,
+      '--yes', '--if-revision', 'stale', ...dry, '--json']);
+    assert.equal(stale.code, 4, stale.stdout);
+    assert.equal(stale.json.error.current.revision, preview.json.data.revision);
+    assert.deepEqual(detectionTree(f.data), before);
+  }
+  const saved = await f.run(['init', '--actor', 'acme', '--detect', f.data,
+    '--if-revision', preview.json.data.revision],
+    { isTTY: true, stdin: 'yes\n' });
+  assert.equal(saved.code, 0, saved.stderr);
+  assert.ok(saved.stderr.indexOf('Config changes:') < saved.stderr.indexOf('Type yes:'));
+  const loaded = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.equal(loaded.leaseMinutes, 45);
+  assert.deepEqual(loaded.columns, config.columns);
+  assert.deepEqual(loaded.custom, config.custom);
+  assert.equal(loaded.schema.roots.journal.path, 'Daily');
+});
+
+test('detection rejects a config changed while confirmation is pending', async (t) => {
+  const f = fixture(t);
+  const file = join(f.data, '.cairn/config.json');
+  const changed = { ...JSON.parse(fs.readFileSync(file, 'utf8')), leaseMinutes: 75 };
+  const stdin = new Readable({ read() {
+    fs.writeFileSync(file, JSON.stringify(changed));
+    this.push('yes\n');
+    this.push(null);
+  } });
+  const response = await f.run(['init', '--actor', 'acme', '--detect', f.data, '--json'], { isTTY: true, stdin });
+  assert.equal(response.code, 4, response.stdout);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), changed);
+});
+
+test('detection validates incompatible flags and preserves init actor requirements', async (t) => {
+  const f = fixture(t, false), before = detectionTree(f.data);
+  for (const args of [['--preset', 'default'], ['--preset', 'tr-wiki'], [f.cwd], ['--set-default']]) {
+    const response = await f.run(['init', '--actor', 'acme', '--detect', f.data, ...args, '--dry-run', '--json']);
+    assert.equal(response.json.error.code, 'validation', response.stdout);
+  }
+  assert.equal((await f.run(['init', '--actor', 'acme', '--yes', '--json'])).json.error.code, 'validation');
+  assert.equal((await f.run(['init', '--dry-run', '--json'])).json.error.code, 'actor_required');
+  const missingActor = await f.run(['init', '--detect', f.data, '--dry-run', '--json']);
+  assert.equal(missingActor.json.error.code, 'actor_required');
+  assert.equal((await f.run(['init', '--actor', 'BAD', '--json'])).json.error.code, 'usage');
+  const help = await f.run(['help', 'init']);
+  assert.match(help.stdout, /--detect <value>/u);
+  assert.match(help.stdout, /--yes/u);
+  assert.deepEqual(detectionTree(f.data), before);
 });
