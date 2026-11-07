@@ -365,7 +365,8 @@ test('baseline reuses indexed bytes without path locks or blob flushes', (t) => 
   assert.equal(opened.filter((path) => path.endsWith('.md')).length, 5);
   assert.equal(opened.some((path) => /[/\\]f-[^/\\]+\.lock$/u.test(path)), false);
   assert.equal(flushed.includes(join(ctx.root, '.cairn/shadow/blobs')), false);
-  assert.ok(flushed.includes(join(ctx.root, '.cairn/shadow')));
+  // Windows cannot flush directories (fsx.syncDirectory returns early), so only POSIX sees the manifest flush.
+  if (process.platform !== 'win32') assert.ok(flushed.includes(join(ctx.root, '.cairn/shadow')));
 });
 
 test('lost non-durable blob degrades to beforeUnavailable', (t) => {

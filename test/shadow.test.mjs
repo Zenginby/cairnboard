@@ -115,7 +115,8 @@ test('incremental recording does not scan existing blobs or flush blob directori
   const hash = createHash('sha256').update('a').digest('hex');
   assert.equal(seen.includes(join(ctx.root, '.cairn/shadow/blobs', hash)), false);
   assert.equal(flushed.includes(join(ctx.root, '.cairn/shadow/blobs')), false);
-  assert.ok(flushed.includes(join(ctx.root, '.cairn/shadow')));
+  // Windows cannot flush directories (fsx.syncDirectory returns early), so only POSIX sees the manifest flush.
+  if (process.platform !== 'win32') assert.ok(flushed.includes(join(ctx.root, '.cairn/shadow')));
 });
 
 test('legacy manifests retain their blobs when metadata is added', (t) => {
