@@ -292,9 +292,48 @@ test('built Home uses injected in-process data, escapes titles and renders safe 
     pinned: [], recentNotes: [], openCards: [], projects: [], featuredProject: null, journal: null,
   }, warnings: [] }) });
   assert.equal(empty.status, 200);
-  for (const message of ['Henüz sabitlenmiş', 'Notların eklendiğinde', 'Şu anda açık kartın yok', 'Projelerin eklendiğinde', 'Bugün için henüz']) {
-    assert.ok(empty.body.includes(message), message);
+  assert.ok(empty.body.includes('Projelerin eklendiğinde'));
+  for (const message of ['Henüz sabitlenmiş', 'Notların eklendiğinde', 'Şu anda açık kartın yok', 'Bugün için henüz']) {
+    assert.ok(!empty.body.includes(message), message);
   }
+  assert.doesNotMatch(empty.body, /class="panel (?:pinned|recent|ongoing|today)\b/u);
+
+  const note = (id, title) => ({ type: 'note', id, meta: {}, content: { title, snippet: '' } });
+  const present = (body) => ({
+    pinned: /class="panel pinned/u.test(body),
+    recent: /class="panel recent/u.test(body),
+    cards: /class="panel ongoing/u.test(body),
+    journal: /class="panel today/u.test(body),
+    projects: /project-box/u.test(body),
+    emptyState: /projects-empty/u.test(body),
+  });
+  const only = (...shown) => Object.fromEntries(['pinned', 'recent', 'cards', 'journal', 'projects', 'emptyState']
+    .map((key) => [key, shown.includes(key)]));
+  const bare = { pinned: [], recentNotes: [], openCards: [], projects: [], featuredProject: null, journal: null };
+
+  const plain = await render({ home: () => ({ warnings: [],
+    data: { ...bare, recentNotes: [note('n-000001', 'Plain note')], journalCount: 0 } }) });
+  assert.deepEqual(present(plain.body), only('recent'));
+  assert.ok(plain.body.includes('Plain note'));
+
+  const noJournal = await render({ home: () => {
+    const result = homeFixture();
+    result.data.journal = null;
+    result.data.journalCount = 0;
+    return result;
+  } });
+  assert.deepEqual(present(noJournal.body), only('pinned', 'recent', 'cards', 'projects'));
+
+  const everything = await render({ home: () => {
+    const result = homeFixture();
+    result.data.journalCount = 3;
+    return result;
+  } });
+  assert.deepEqual(present(everything.body), only('pinned', 'recent', 'cards', 'journal', 'projects'));
+
+  // Entries exist but none for today: the journal panel still shows its own message.
+  const pastJournal = await render({ home: () => ({ warnings: [], data: { ...bare, journalCount: 2 } }) });
+  assert.deepEqual(present(pastJournal.body), only('journal'));
 
   const notReady = await render(createRead({ open: () => { throw new Error('/private/data missing'); } }));
   assert.equal(notReady.status, 409);
