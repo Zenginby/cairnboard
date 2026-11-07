@@ -1,12 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { openContext } from '../core/context.mjs';
 import { buildContext, formatContext } from '../core/context-pack.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { runCli } from './support/cli.mjs';
+import { reconcileExternal } from '../core/changes.mjs';
+import { appendEvent, readEvents } from '../core/events.mjs';
+import { withLock } from '../core/lock.mjs';
 
 const clock = () => fixedClock('2026-11-01T12:00:00Z');
 const names = (pack) => pack.sections.map((section) => section.name);
@@ -142,4 +145,76 @@ test('a project without a status field counts as active', (t) => {
   const { ctx } = make(t, { 'wiki/projeler/yeni.md': '---\ntur: proje\n---\n# Yeni\n' }, { preset: 'tr-wiki' });
   const pack = buildContext(ctx, {});
   assert.match(text(pack, 'projects') ?? '', /Yeni/u);
+});
+
+function ownerFixture(t) {
+  const data = tempDir(t), home = tempDir(t);
+  initDataDir(data, { home, env: {}, clock: clock() });
+  mkdirSync(join(data, 'notes'));
+  const ctx = openContext({ mode: 'write', dataDir: data, home, env: {}, clock: clock(), actor: 'cli:acme' });
+  reconcileExternal(ctx);
+  const edit = (name) => {
+    writeFileSync(join(data, `notes/${name}.md`), `# ${name}`);
+    reconcileExternal(ctx);
+    return readEvents(ctx).at(-1);
+  };
+  return { data, home, ctx, edit };
+}
+
+test('context lists owner changes since actor cursor', (t) => {
+  const f = ownerFixture(t), first = f.edit('first');
+  mkdirSync(join(f.data, '.cairn/agents'));
+  writeFileSync(join(f.data, '.cairn/agents/cursors.json'), JSON.stringify({ 'cli:acme': first.seq }));
+  const second = f.edit('second');
+  const pack = buildContext(f.ctx);
+  assert.match(text(pack, 'owner_changes'), new RegExp(`- ${second.seq} .* create notes/second.md`, 'u'));
+  assert.equal(text(pack, 'owner_changes').includes('first.md'), false);
+});
+
+test('context advances cursor', async (t) => {
+  const f = ownerFixture(t), event = f.edit('owner');
+  const opts = { home: f.home, data: f.data, clock: clock() };
+  const first = await runCli(['context', '--actor', 'acme', '--json'], opts);
+  assert.equal(first.code, 0, first.stdout);
+  assert.ok(first.json.data.sections.some(({ name }) => name === 'owner_changes'));
+  const cursors = JSON.parse(readFileSync(join(f.data, '.cairn/agents/cursors.json'), 'utf8'));
+  assert.equal(cursors['cli:acme'], event.seq);
+  const second = await runCli(['context', '--actor', 'acme', '--json'], opts);
+  assert.equal(second.json.data.sections.some(({ name }) => name === 'owner_changes'), false);
+});
+
+test('context without actor shows last 24h', (t) => {
+  const f = ownerFixture(t);
+  for (const [tx, ts, path] of [['x-old', '2026-10-30T00:00:00Z', 'notes/old.md'],
+    ['x-new', '2026-11-01T11:00:00Z', 'notes/new.md']]) {
+    appendEvent(f.ctx, { tx, ts, op: 'external.change', actor: 'owner:external', target: path,
+      rev: 'a', change: 'modify', targets: [{ path, target: path, rev: 'a' }] });
+  }
+  const pack = buildContext({ ...f.ctx, actor: null });
+  assert.match(text(pack, 'owner_changes'), /notes\/new.md/u);
+  assert.equal(text(pack, 'owner_changes').includes('old.md'), false);
+  assert.equal(existsSync(join(f.data, '.cairn/agents/cursors.json')), false);
+});
+
+test('owner_changes trimmed under budget', (t) => {
+  const f = ownerFixture(t);
+  f.edit('owner');
+  const pack = buildContext(f.ctx, { budget: 0 });
+  const section = pack.sections.find(({ name }) => name === 'owner_changes');
+  assert.equal(section.content.text, '');
+  assert.equal(section.truncated, true);
+});
+
+test('owner changes are capped at ten and cursor writes are best effort', (t) => {
+  const f = ownerFixture(t);
+  for (let i = 0; i < 12; i++) appendEvent(f.ctx, { tx: `x-${i}`, op: 'external.change',
+    actor: 'owner:external', target: 'a.md', rev: 'a', change: 'modify',
+    targets: [{ path: 'a.md', target: 'a.md', rev: 'a' }] });
+  withLock(f.ctx, '_cursors', () => {
+    const pack = buildContext(f.ctx);
+    const value = text(pack, 'owner_changes');
+    assert.equal(value.split('\n').filter((line) => line.startsWith('- ')).length, 10);
+    assert.match(value, /and 2 more; run changes --since 10/u);
+    assert.ok(pack.warnings.includes('cursor_write_failed'));
+  });
 });

@@ -6,6 +6,10 @@ import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { openIndex, refresh, rows, search, backlinks } from '../core/index.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
+import { EventEmitter } from 'node:events';
+import { watch } from '../core/watch.mjs';
+import { reconcileExternal } from '../core/changes.mjs';
+import { readEvents } from '../core/events.mjs';
 
 // File system stamps differ between two folders with the same content; everything else must match.
 const STAMPS = new Set(['mtime_ms', 'ctime_ms', 'ino']);
@@ -173,4 +177,92 @@ test('a page with cyclic frontmatter aliases is indexed with an error, not a cra
   assert.equal(byPath['notes/cycle.md'].error, 'invalid_frontmatter');
   assert.equal(byPath['notes/cycle.md'].title, 'Cycle');
   assert.deepEqual(snapshot(ctx), fromScratch(t, ctx));
+});
+
+test('burst of saves records one event', async (t) => {
+  const { open } = setup(t), ctx = open();
+  put(ctx, 'notes/a.md', 'before');
+  reconcileExternal(ctx);
+  const native = new EventEmitter();
+  native.close = async () => {};
+  const recorded = [], logs = [];
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: Date.now() });
+  const watcher = watch(ctx, { createWatcher: () => native, log: (error) => logs.push(error),
+    recordExternal: (paths) => {
+      recorded.push(paths);
+      reconcileExternal(ctx, paths.length ? { paths } : {});
+    } });
+  t.after(() => watcher.close());
+  native.emit('ready');
+  await watcher.ready;
+  assert.deepEqual(recorded, [[]]);
+  for (let i = 0; i < 5; i++) {
+    put(ctx, 'notes/a.md', `owner ${i}`);
+    native.emit('all', 'change', join(ctx.root, 'notes/a.md'));
+    t.mock.timers.tick(2000);
+  }
+  assert.equal(readEvents(ctx).length, 0);
+  t.mock.timers.tick(2999);
+  assert.equal(readEvents(ctx).length, 0);
+  t.mock.timers.tick(1);
+  assert.deepEqual(recorded, [[], ['notes/a.md']]);
+  assert.equal(readEvents(ctx).length, 1);
+  assert.equal(readEvents(ctx)[0].actor, 'owner:external');
+  assert.deepEqual(logs, []);
+});
+
+test('server start reconciles changes made while stopped', async (t) => {
+  const { open } = setup(t), ctx = open();
+  put(ctx, 'notes/a.md', 'before');
+  reconcileExternal(ctx);
+  put(ctx, 'notes/a.md', 'while stopped');
+  const native = new EventEmitter();
+  native.close = async () => {};
+  const watcher = watch(ctx, { createWatcher: () => native,
+    recordExternal: (paths) => reconcileExternal(open(), paths.length ? { paths } : {}) });
+  t.after(() => watcher.close());
+  native.emit('ready');
+  await watcher.ready;
+  assert.equal(readEvents(ctx).length, 1);
+});
+
+test('ready reconciles once even when saves are pending and recording errors do not stop watching', async (t) => {
+  const { open } = setup(t), ctx = open(), calls = [], logs = [];
+  const native = new EventEmitter();
+  native.close = async () => {};
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: Date.now() });
+  const watcher = watch(ctx, { createWatcher: () => native, log: (error) => logs.push(error),
+    recordExternal: (paths) => {
+      calls.push(paths);
+      if (!paths.length) throw new Error('recording unavailable');
+    } });
+  t.after(() => watcher.close());
+  put(ctx, 'notes/a.md', 'pending');
+  native.emit('all', 'change', join(ctx.root, 'notes/a.md'));
+  native.emit('ready');
+  await watcher.ready;
+  assert.deepEqual(calls, [[]]);
+  assert.equal(logs.length, 1);
+  t.mock.timers.tick(5000);
+  assert.deepEqual(calls, [[], ['notes/a.md']]);
+});
+
+test('many pending paths keep one due time', async (t) => {
+  const { open } = setup(t), ctx = open(), calls = [];
+  const native = new EventEmitter();
+  native.close = async () => {};
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: Date.now() });
+  const watcher = watch(ctx, { createWatcher: () => native, stat: () => ({ isSymbolicLink: () => false }),
+    refreshIndex() {}, readRows: () => [], recordExternal: (paths) => calls.push(paths) });
+  t.after(() => watcher.close());
+  native.emit('ready');
+  await watcher.ready;
+  const min = Math.min;
+  let comparisons = 0;
+  t.mock.method(Math, 'min', (...values) => { comparisons += values.length; return min(...values); });
+  for (let i = 0; i < 1000; i++) native.emit('all', 'change', join(ctx.root, `notes/${i}.md`));
+  assert.ok(comparisons <= 4000, String(comparisons));
+  t.mock.timers.tick(5000);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].length, 1000);
 });

@@ -11,6 +11,7 @@ import { list, restore } from '../core/trash.mjs';
 import { readEvents } from '../core/events.mjs';
 import { lockName, withLock } from '../core/lock.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
+import { shadowBytes } from '../core/shadow.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 
 function fixture(t) {
@@ -50,6 +51,7 @@ test('recovery rolls back before rename and completes after rename with the save
       assert.equal(readEvents(ctx)[0].actor, 'agent:acme');
       assert.equal(readEvents(ctx)[0].reason, 'acme');
       assert.equal(readEvents(ctx)[0].ts, '2026-11-01T12:00:00.000Z');
+      assert.deepEqual(shadowBytes(ctx, 'note.md'), Buffer.from('new'));
     }
     assert.equal(names(ctx, 'history').length, Number(complete));
     assert.deepEqual(names(ctx, 'pending'), []);
@@ -266,6 +268,7 @@ test('recovery records an external edit even when the interrupted transaction al
   assert.equal(recover(ctx).external, 1);
   assert.equal(readFile(ctx, 'note.md').text, 'external');
   assert.deepEqual(readEvents(ctx).map(({ op }) => op), ['note.write', 'external.change']);
+  assert.equal(readEvents(ctx).at(-1).actor, 'system:recovery');
 });
 
 test('delayed recovery does not duplicate an event beyond the event log tail', (t) => {

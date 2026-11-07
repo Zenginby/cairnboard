@@ -8,7 +8,7 @@ import { refresh, rows, reuseFresh, SKIPPED_DIRS } from './index.mjs';
 
 // The snapshot is notification state, never an alternate query index. Keep it across CLI cache updates.
 export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_000, log = console.error,
-  refreshIndex = refresh, readRows = rows, stat = lstatSync } = {}) {
+  refreshIndex = refresh, readRows = rows, stat = lstatSync, recordExternal = undefined, quietMs = 5000 } = {}) {
   /** @type {EventEmitter & { reconcile?: () => void, ready?: Promise<boolean>,
    *   suppress?: (path: string, digest: string) => void, reuseFresh?: (ctx: *) => void,
    *   close?: () => Promise<void> }} */
@@ -24,12 +24,34 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
   let previous = snapshot();
   let closed = false, debounce, deadline, failed = false, closing, ready, watching = false, watchError = false;
   const pending = new Set(), suppressed = new Map();
+  const externalPending = new Map();
+  let quiet, quietDue = Infinity;
   const watcher = createWatcher(root, { ignoreInitial: true, followSymlinks: false, atomic: true,
     awaitWriteFinish: false, usePolling: false, ignored });
 
   function forget(path, entry) {
     clearTimeout(entry.timer);
     if (suppressed.get(path) === entry) suppressed.delete(path);
+  }
+
+  function record(paths) {
+    try { recordExternal?.(paths); } catch (error) { log(error); }
+  }
+
+  function scheduleExternal() {
+    if (closed || !externalPending.size || quiet !== undefined) return;
+    quiet = setTimeout(() => {
+      quiet = undefined;
+      quietDue = Infinity;
+      const paths = [], now = Date.now();
+      for (const [path, due] of externalPending) {
+        if (due <= now) { paths.push(path); externalPending.delete(path); }
+        else quietDue = Math.min(quietDue, due);
+      }
+      if (paths.length) record(paths);
+      scheduleExternal();
+    }, Math.max(0, quietDue - Date.now()));
+    quiet.unref?.();
   }
 
   function publish(paths = []) {
@@ -95,6 +117,12 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
       if (!['ENOENT', 'ENOTDIR'].includes(error.code)) { log(error); return; }
     }
     pending.add(rel);
+    if (recordExternal) {
+      const due = Date.now() + quietMs;
+      externalPending.set(rel, due);
+      quietDue = Math.min(quietDue, due);
+      scheduleExternal();
+    }
     schedule();
   });
   watcher.on('error', (error) => {
@@ -108,15 +136,23 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
       void watcher.close().catch(log);
     } else log(error);
   });
-  events.reconcile = () => {
+  function reconcile(recordChanges = true) {
     if (closed) return;
+    if (recordChanges && !externalPending.size) record([]);
     try { refreshIndex(ctx); publish(); } catch (error) { log(error); schedule(); }
-  };
+  }
+  events.reconcile = () => reconcile();
   const timer = setInterval(events.reconcile, reconcileMs);
   timer.unref();
   events.ready = new Promise((done) => {
     ready = done;
-    watcher.once('ready', () => { events.reconcile(); watching = !watchError; done(true); });
+    watcher.once('ready', () => {
+      if (closed) return;
+      record([]);
+      reconcile(false);
+      watching = !watchError;
+      done(true);
+    });
     watcher.once('error', () => done(false));
   });
   events.reuseFresh = (target) => {
@@ -138,7 +174,9 @@ export function watch(ctx, { createWatcher = chokidar.watch, reconcileMs = 300_0
     clearInterval(timer);
     clearTimeout(debounce);
     clearTimeout(deadline);
+    clearTimeout(quiet);
     pending.clear();
+    externalPending.clear();
     for (const [path, entry] of suppressed) forget(path, entry);
     events.emit('close');
     events.removeAllListeners();

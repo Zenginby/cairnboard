@@ -23,6 +23,7 @@ import { safeRelative } from '../core/paths.mjs';
 import { readStdin, readStdinBytes } from './body.mjs';
 import { evaluateHook, hookOutput } from '../core/hook.mjs';
 import { mentions, linkMention } from '../core/mentions.mjs';
+import { prepareChanges, runChanges } from './commands/changes.mjs';
 
 /** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
@@ -203,10 +204,19 @@ read('context', 'Print the session-start context pack.', [], {
   budget: string('Token budget, characters / 4 (default: 1200).'),
 }, (ctx, args, opts) => {
   if (opts.budget !== undefined && !/^\d+$/u.test(opts.budget)) throw new CairnError('validation', 'Invalid budget.');
-  const pack = buildContext(ctx, { budget: opts.budget === undefined ? undefined : Number(opts.budget), project: opts.project });
+  const pack = buildContext(ctx, { budget: opts.budget === undefined ? undefined : Number(opts.budget),
+    project: opts.project, advanceCursor: !opts['dry-run'] });
   const data = clean({ sections: pack.sections }, opts);
   return { data: opts.json ? data : formatContext(data), warnings: pack.warnings };
 });
+
+read('changes', 'List recorded changes and optional line diffs.', [], {
+  since: string('Include changes after a sequence or at an ISO timestamp.'),
+  target: string('Filter by entity id or path.'), diff: boolean('Show bounded line diffs.'),
+  actor: string('Filter by event actor.'),
+  limit: string('Maximum changes, from 1 to 200 (default: 20).'),
+}, runChanges);
+commands.at(-1).prepare = prepareChanges;
 
 read('journal list', 'List journal days or filtered entries.', [], {
   month: string('Filter days by YYYY-MM.'), type: string('Filter decision, discovery, pitfall or lesson entries.'),

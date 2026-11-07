@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Record external Markdown edits with prior content, five-second watcher coalescing and one reconcile before CLI writes.
+- Add `changes` with bounded line diffs, owner changes in session context, actor cursors and revision-conflict
+  attribution.
+- Git-ignore private shadow copies and agent cursors, preserving user ignore rules when upgrading existing data folders.
 - Add `init --detect` with bounded read-only vault scanning, explained schema previews and confirmed config writes.
 - Home shows a panel only when it has data; a folder with no content keeps the getting-started guidance.
 - Fix the login launcher redirect so browsers reach the signed-in home page.

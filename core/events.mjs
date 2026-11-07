@@ -38,6 +38,9 @@ function records(text) {
       return [];
     }
     if (event?.v !== 1 || !Number.isSafeInteger(event.seq) || event.seq < 1) return [];
+    if (event.targets !== undefined) event.targets = Array.isArray(event.targets)
+      ? event.targets.filter((target) => target && typeof target === 'object'
+        && !Array.isArray(target) && typeof target.path === 'string') : [];
     return [event];
   });
 }
@@ -113,7 +116,31 @@ function parseMirror(text) {
   return { seq: Number(match[1]), month: match[2] ?? null };
 }
 
-export function readEvents(ctx, { sinceSeq = 0 } = {}) {
+function readAppended(ctx, name, cursor) {
+  let fd;
+  try {
+    fd = openForRead(ctx.root, `.cairn/events/${name}`);
+    const stat = fs.fstatSync(fd), previous = cursor.get(name);
+    const offset = previous?.ino === stat.ino && previous?.dev === stat.dev && previous.offset <= stat.size
+      ? previous.offset : 0;
+    const bytes = Buffer.alloc(stat.size - offset);
+    let length = 0, count;
+    while (length < bytes.length && (count = fs.readSync(fd, bytes, length, bytes.length - length, offset + length))) {
+      length += count;
+    }
+    const complete = bytes.subarray(0, length).lastIndexOf(0x0a) + 1;
+    cursor.set(name, { ino: stat.ino, dev: stat.dev, offset: offset + complete });
+    return records(bytes.subarray(0, complete).toString('utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
+/** @param {*} ctx @param {{ sinceSeq?: number, cursor?: Map<string, *> }} [options] */
+export function readEvents(ctx, { sinceSeq = 0, cursor } = {}) {
   if (!Number.isSafeInteger(sinceSeq) || sinceSeq < 0) throw new TypeError('Invalid event cursor.');
   let names;
   try {
@@ -123,7 +150,8 @@ export function readEvents(ctx, { sinceSeq = 0 } = {}) {
     throw error;
   }
   return names.filter(isMonthFile)
-    .flatMap((name) => records(readChecked(ctx.root, `.cairn/events/${name}`, 'utf8') ?? ''))
+    .flatMap((name) => cursor ? readAppended(ctx, name, cursor)
+      : records(readChecked(ctx.root, `.cairn/events/${name}`, 'utf8') ?? ''))
     .filter((event) => event.seq > sinceSeq).sort((a, b) => a.seq - b.seq);
 }
 

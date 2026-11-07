@@ -199,7 +199,18 @@ Start board or wiki work with `context`; inspect page summaries and link counts 
 node dist/cairn.mjs context --data "./cairn-data" --budget 1200 --json
 node dist/cairn.mjs wiki index --data "./cairn-data" --json
 node dist/cairn.mjs wiki index --format markdown --data "./cairn-data"
+node dist/cairn.mjs changes --since 0 --actor owner:external --diff --limit 20 --data "./cairn-data" --json
 ```
+
+`changes` lists recorded writes; filter with `--since <seq|ISO>`, `--target <id|path>` or `--actor <name>`.
+`--diff` shows at most 200 lines and 16 KiB per event. The default limit is 20 events, with a maximum of 200.
+External edits are recorded after five quiet seconds while the server watches, or before CLI writes,
+`changes` and `context`. Ordinary read commands and `--dry-run` do not reconcile. A first scan silently
+establishes the baseline. A read-only or locked metadata directory yields `reconcile_skipped` so reads can continue.
+
+`context --actor <name>` includes `owner_changes` since that actor's last context cursor; without an actor it
+shows the last 24 hours. After an exit 4 revision conflict, run `changes --target <ref> --diff`, re-read the note,
+then retry with its current revision. The conflict names the last recorded actor and time.
 
 `note list` lists quick notes by default; add `--all` to include wiki pages or `--kind concept` to
 select a kind. `note show` includes outgoing links and backlinks. Context includes the wake-up,

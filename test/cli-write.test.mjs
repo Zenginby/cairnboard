@@ -10,6 +10,9 @@ import { exportBoard } from '../core/export.mjs';
 import { lockName } from '../core/lock.mjs';
 import { parseFile } from '../core/frontmatter.mjs';
 import { writeMany } from '../core/store.mjs';
+import { readShadow, shadowBytes } from '../core/shadow.mjs';
+import { readEvents } from '../core/events.mjs';
+import { reconcileExternal } from '../core/changes.mjs';
 import { tempDir, fixedClock } from './support/env.mjs';
 import { runCli, spawnCli } from './support/cli.mjs';
 
@@ -34,6 +37,118 @@ function tree(root, prefix = '') {
     return stat.isDirectory() ? [[path], ...tree(root, path)] : [[path, fs.readFileSync(join(root, path), 'hex'), stat.mtimeMs]];
   });
 }
+
+test('export board is not an owner change', async (t) => {
+  const f = fixture(t);
+  const result = await f.run(['export', 'board']);
+  assert.equal(result.code, 0, result.stdout);
+  const ctx = openContext({ mode: 'write', dataDir: f.data, home: f.home, env: {}, clock: f.clock });
+  assert.deepEqual(shadowBytes(ctx, 'board.md'), fs.readFileSync(join(f.data, 'board.md')));
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+  assert.deepEqual(readEvents(ctx), []);
+});
+
+test('write updates shadow', async (t) => {
+  const f = fixture(t);
+  const added = await f.run(['note', 'add', '--title', 'Shadow']);
+  assert.equal(added.code, 0, added.stdout);
+  const ctx = openContext({ mode: 'read', dataDir: f.data, home: f.home, env: {}, clock: f.clock });
+  assert.deepEqual(shadowBytes(ctx, added.json.data.path), fs.readFileSync(join(f.data, added.json.data.path)));
+});
+
+test('own write without shadow update is not external', async (t) => {
+  const { reconcileExternal } = await import('../core/changes.mjs');
+  const f = fixture(t);
+  const ctx = openContext({ mode: 'write', dataDir: f.data, home: f.home, env: {}, clock: f.clock });
+  reconcileExternal(ctx);
+  ctx.faults = (point) => { if (point === 'after-rename') throw new Error('crashed'); };
+  assert.throws(() => writeMany(ctx, { op: 'note.write', items: [
+    { path: 'notes/crashed.md', apply: () => 'committed' },
+  ] }), /crashed/u);
+  delete ctx.faults;
+  assert.equal(readShadow(ctx).entries.has('notes/crashed.md'), false);
+  t.after(() => fs.__setFsHooks());
+  fs.__setFsHooks({ rename(from, to) {
+    if (to === join(ctx.root, '.cairn/shadow/manifest.json')) throw new Error('shadow failed');
+    fs.renameSync(from, to);
+  } });
+  const recovered = openContext({ mode: 'write', dataDir: f.data, home: f.home, env: {}, clock: f.clock });
+  fs.__setFsHooks();
+  assert.equal(readShadow(recovered).entries.has('notes/crashed.md'), false);
+  const count = readEvents(recovered).length;
+  assert.equal(reconcileExternal(recovered).recorded, 0);
+  assert.equal(readEvents(recovered).length, count);
+});
+
+test('shadow failure warns without failing a write', async (t) => {
+  const f = fixture(t);
+  const outside = tempDir(t);
+  fs.symlinkSync(outside, join(f.data, '.cairn/shadow'), 'dir');
+  const added = await f.run(['note', 'add', '--title', 'Shadow']);
+  assert.equal(added.code, 0, added.stdout);
+  assert.ok(added.json.warnings.includes('shadow_write_failed'));
+  assert.ok(added.json.warnings.includes('reconcile_skipped'));
+  assert.deepEqual(fs.readdirSync(outside), []);
+});
+
+test('cli write command records prior owner edit first', async (t) => {
+  const f = fixture(t);
+  const added = await f.run(['note', 'add', '--title', 'Prior']);
+  f.put(added.json.data.path, fs.readFileSync(join(f.data, added.json.data.path), 'utf8') + '\nOwner edit\n');
+  const updated = await f.run(['note', 'update', added.json.data.ref, '--title', 'Agent']);
+  assert.equal(updated.code, 0, updated.stdout);
+  const ctx = openContext({ mode: 'read', dataDir: f.data, home: f.home, env: {}, clock: f.clock });
+  assert.deepEqual(readEvents(ctx).slice(-2).map(({ op }) => op), ['external.change', 'note.update']);
+});
+
+test('dry-run does not reconcile', async (t) => {
+  const f = fixture(t);
+  const added = await f.run(['note', 'add', '--title', 'Dry']);
+  f.put(added.json.data.path, fs.readFileSync(join(f.data, added.json.data.path), 'utf8') + '\nOwner edit\n');
+  const before = tree(f.data);
+  const updated = await f.run(['note', 'update', added.json.data.ref, '--title', 'Preview', '--dry-run']);
+  assert.equal(updated.code, 0, updated.stdout);
+  assert.deepEqual(tree(f.data), before);
+});
+
+test('ordinary read commands do not reconcile or write a shadow', async (t) => {
+  const f = fixture(t);
+  f.put('notes/a.md', '# Read\n');
+  for (const args of [['note', 'list'], ['note', 'show', '@notes/a'], ['search', 'Read'], ['home'], ['board']]) {
+    const result = await f.run(args);
+    assert.equal(result.code, 0, result.stdout);
+    assert.equal(fs.existsSync(join(f.data, '.cairn/shadow')), false);
+  }
+});
+
+test('one CLI invocation reconciles exactly once', async (t) => {
+  const f = fixture(t);
+  const ctx = openContext({ mode: 'write', dataDir: f.data, home: f.home, env: {}, clock: f.clock });
+  reconcileExternal(ctx);
+  let manifests = 0;
+  t.after(() => fs.__setFsHooks());
+  fs.__setFsHooks({ afterCheck(path) {
+    if (path === join(f.data, '.cairn/shadow/manifest.json')) manifests++;
+  } });
+  const result = await f.run(['context']);
+  assert.equal(result.code, 0, result.stdout);
+  assert.equal(manifests, 1);
+});
+
+test('if-revision conflict names last actor', async (t) => {
+  const f = fixture(t);
+  const added = await f.run(['note', 'add', '--title', 'Conflict']);
+  const item = added.json.data;
+  f.put(item.path, fs.readFileSync(join(f.data, item.path), 'utf8') + '\nOwner edit\n');
+  const result = await f.run(['note', 'update', item.ref, '--title', 'Stale', '--if-revision', item.revision]);
+  assert.equal(result.code, 4, result.stdout);
+  assert.equal(result.json.error.current.last.actor, 'owner:external');
+  assert.equal(result.json.error.current.last.op, 'external.change');
+  const human = await runCli(['note', 'update', item.ref, '--title', 'Stale', '--if-revision', item.revision,
+    '--actor', 'acme'], f.opts);
+  assert.equal(human.code, 4);
+  assert.match(human.stderr, /Changed by owner:external at .* \(external.change\)\./u);
+});
 
 test('every entity write previews a revision and leaves sources and metadata untouched', async (t) => {
   const f = fixture(t);
@@ -357,9 +472,10 @@ test('review focus 4: hostile card titles stay inside the card folder and never 
 
 test('card and note metadata updates reject invalid UTF-8 without changing bytes', async (t) => {
   const f = fixture(t);
+  const bytes = Buffer.concat([Buffer.from('# Acme\n'), Buffer.from([0xff, 0xff]), Buffer.from('\n')]);
+  for (const type of ['card', 'note']) f.put(`${type}s/acme.md`, bytes);
   for (const type of ['card', 'note']) {
     const path = `${type}s/acme.md`, absolute = join(f.data, path);
-    f.put(path, Buffer.concat([Buffer.from('# Acme\n'), Buffer.from([0xff, 0xff]), Buffer.from('\n')]));
     const sha = () => createHash('sha256').update(fs.readFileSync(absolute)).digest('hex');
     const before = sha();
     for (const flags of [[], ['--dry-run']]) {

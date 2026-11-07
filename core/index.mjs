@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, createHash } from 'node:crypto';
 import { basename, dirname, join, resolve } from 'node:path';
 import * as fs from './fsx.mjs';
-import { checkedPath, openForRead, readChecked } from './paths.mjs';
+import { checkedPath, openForRead, readChecked, safeRelative } from './paths.mjs';
 import { parseFile } from './frontmatter.mjs';
 import { classify, fingerprint, isRawPath } from './schema.mjs';
 import { firstSentence, foldTr, pathKey } from './text.mjs';
@@ -16,7 +16,7 @@ import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 await checkRuntime();
 
 const SCHEMA_VERSION = 10;
-const UNREADABLE_FS = new Set(['EACCES', 'EPERM', 'EISDIR', 'ELOOP']);
+const UNREADABLE_FS = new Set(['EACCES', 'EPERM', 'EISDIR', 'ELOOP', 'ENOTDIR', 'EBUSY', 'ERR_FS_FILE_TOO_LARGE']);
 const MAX_SIZE = 5 * 1024 * 1024;
 export const SKIPPED_DIRS = new Set(['.cairn', '.git', 'node_modules']);
 const fresh = new WeakMap();
@@ -227,7 +227,13 @@ function inventory(ctx, skipped, raw = []) {
       } else if (entry.isDirectory()) {
         // Other metadata folders (.obsidian) still supply target names, without diagnostics for their files.
         const internal = quiet || entry.name.startsWith('.');
-        walk(checkedPath(ctx.root, path), `${path}/`, internal);
+        try { walk(checkedPath(ctx.root, path), `${path}/`, internal); } catch (error) {
+          if (error.code === 'unsafe_path') skipped.push({ path, reason: 'unsafe-path' });
+          else if (UNREADABLE_FS.has(error.code)) {
+            skipped.push({ path, reason: 'unreadable' }); warn(ctx, 'unreadable');
+          }
+          else throw error;
+        }
       } else if (!entry.isFile() || !/\.md$/iu.test(entry.name)) {
         if (!quiet && entry.isFile() && rawText(ctx, path)) rawStat(raw, path, abs, skipped);
         else if (!quiet) skipped.push({ path, reason: 'not-markdown' });
@@ -244,6 +250,14 @@ function inventory(ctx, skipped, raw = []) {
             size: stat.size, ino: String(stat.ino), ignored: quiet || !!classification.ignored });
           if (!quiet && rawText(ctx, path)) raw.push({ ...found.at(-1) });
         } catch (error) {
+          // Schema classification wraps an invalid file spelling as validation; it is still a per-path skip.
+          if (error.code === 'validation') {
+            try { safeRelative(path); } catch (pathError) {
+              if (pathError.code !== 'unsafe_path') throw pathError;
+              skipped.push({ path, reason: 'unsafe-path' });
+              continue;
+            }
+          }
           if (error.code !== 'unsafe_path') throw error;
           skipped.push({ path, reason: 'unsafe-path' });
         }
@@ -300,12 +314,13 @@ function collectRaw(ctx, items, previous, verify, skipped) {
 
 const rawTitle = (path) => basename(path).replace(/\.(?:md|txt)$/iu, '');
 
-function readSource(ctx, item) {
+function readSource(ctx, item, onBytes) {
   const fd = openForRead(ctx.root, item.path);
   try {
     // The size that decides is the opened file's, not the inventory's: the file may have changed in between.
     if (fs.fstatSync(fd).size <= MAX_SIZE) {
       const bytes = fs.readFileSync(fd);
+      onBytes?.(item.path, bytes);
       try {
         return { text: new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes), large: false };
       } catch {
@@ -352,7 +367,8 @@ function sourceData(ctx, item, source) {
 
 const sameStat = (a, b) => b && ['mtime_ms', 'ctime_ms', 'size', 'ino'].every((key) => a[key] === b[key]);
 
-function collect(ctx, previous = new Map(), verify = false, { raw = true, previousRaw = new Map() } = {}) {
+function collect(ctx, previous = new Map(), verify = false,
+  { raw = true, previousRaw = new Map(), onBytes = undefined } = {}) {
   const skipped = [];
   const rawItems = [];
   const items = inventory(ctx, skipped, rawItems);
@@ -370,14 +386,14 @@ function collect(ctx, previous = new Map(), verify = false, { raw = true, previo
     }
     let source;
     try {
-      source = readSource(ctx, item);
+      source = readSource(ctx, item, onBytes);
     } catch (error) {
       // Removed or replaced since the inventory: the next refresh sees its new state.
       if (skipRead(ctx, item.path, error, skipped)) changes.push({ item, hash: null, data: null });
       continue;
     }
     const hash = source.hash ?? revision(source.text);
-    if (before?.hash === hash) {
+    if (before?.hash === hash && !source.invalid) {
       changes.push({ item, hash, data: undefined });
       continue;
     }
@@ -485,7 +501,8 @@ function resolveLinks(db, affected, changedSources) {
 // The stamp ties freshness to this cache's generation, so a cache rebuilt by another process is noticed.
 const stamp = (ctx, db) => `${signature(ctx)}#${generation(db)}`;
 
-export function refresh(ctx, { verify = false } = {}) {
+/** @param {*} ctx @param {{ verify?: boolean, onBytes?: (path: string, bytes: Buffer) => void }} [options] */
+export function refresh(ctx, { verify = false, onBytes } = {}) {
   let index;
   fresh.delete(ctx);
   try {
@@ -494,7 +511,7 @@ export function refresh(ctx, { verify = false } = {}) {
     // Walking and reading files happens outside the write lock; only applying the result holds it.
     const previous = new Map(db.prepare('SELECT * FROM targets').all().map((item) => [item.path, item]));
     const previousRaw = new Map(db.prepare('SELECT * FROM raw_docs').all().map((item) => [item.path, item]));
-    const collected = collect(ctx, previous, verify, { previousRaw });
+    const collected = collect(ctx, previous, verify, { previousRaw, onBytes });
     const result = transaction(db, () => {
       const current = new Set(db.prepare('SELECT path FROM targets').all().map((item) => item.path));
       const result = { ...emptyResult(), skipped: collected.skipped };
@@ -648,6 +665,16 @@ export function withIndex(ctx, fn) {
 export function findById(ctx, id) {
   return query(ctx, (db) => db.prepare('SELECT path FROM files WHERE id = ? ORDER BY path').all(id).map((row) => row.path),
     (data) => data.rows.filter((row) => row.id === id).map((row) => row.path).sort());
+}
+
+/** @param {*} ctx @param {{ byteSafe?: boolean }} [options] */
+export function targetRevisions(ctx, { byteSafe = false } = {}) {
+  const sql = byteSafe
+    ? `SELECT t.path, CASE WHEN f.path IS NULL OR f.bad_encoding = 1 THEN NULL ELSE t.hash END AS hash
+       FROM targets t LEFT JOIN files f ON f.path = t.path ORDER BY t.path`
+    : 'SELECT path, hash FROM targets ORDER BY path';
+  return withIndex(ctx, (db) => new Map(db.prepare(sql).all()
+    .map(({ path, hash }) => [path, hash])));
 }
 
 /** @param {*} ctx @param {string} [type] @param {{ kind?: string }} [filters] */

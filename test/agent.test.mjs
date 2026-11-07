@@ -39,11 +39,14 @@ test('skill has quoted YAML, a first body version marker and full invocations', 
     for (const command of commands.filter(({ hidden }) => !hidden)) assert.ok(skill.includes(`${invocation} ${command.name}`), command.name);
     assert.ok(!skill.includes('wiki hook'));
     assert.ok(skill.includes('--if-revision'));
+    assert.ok(skill.includes('changes --target <ref> --diff'));
+    assert.ok(skill.includes("never overwrite the owner's edit blindly"));
     if (actor === null) assert.match(skill, /codex, gemini, cursor, antigravity/u);
   }
   const snippet = renderAgentsMd({ version: '1.2.3', invocation, commands });
   assert.ok(snippet.includes(`${invocation} card list`));
   assert.ok(snippet.includes('1.2.3'));
+  assert.ok(snippet.includes('changes --target <ref> --diff'));
 });
 
 test('invocation quotes POSIX metacharacters and uses Windows separators', () => {

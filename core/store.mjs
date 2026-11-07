@@ -8,6 +8,7 @@ import { appendEvent, readEvents } from './events.mjs';
 import { pathKey } from './text.mjs';
 import { isRawPath, resolveSchema } from './schema.mjs';
 import { move } from './trash.mjs';
+import { shadowEntry, withShadow } from './shadow.mjs';
 
 /** @typedef {{ ifRevision?: string, dryRun?: boolean }} MutationOptions */
 /** @typedef {{ path: string, revision: string|null, seq: number|null, dryRun: boolean, warnings: string[] }} MutationResult */
@@ -30,8 +31,11 @@ export function readFile(ctx, rel) {
   return bytes === null ? null : { text: bytes.toString('utf8'), revision: revision(bytes) };
 }
 
-function conflict(current) {
-  return new CairnError('conflict', 'File changed since it was read.', { current: { revision: current } });
+function conflict(ctx, current, path) {
+  const event = readEvents(ctx).findLast((event) => event.targets?.some((target) =>
+    pathKey(target.path) === pathKey(path)));
+  const last = event ? { seq: event.seq, actor: event.actor, ts: event.ts, op: event.op } : null;
+  return new CairnError('conflict', 'File changed since it was read.', { current: { revision: current, last } });
 }
 
 function remove(ctx, rel) {
@@ -91,7 +95,7 @@ function createTemp(ctx, rel, bytes) {
 
 function cas(ctx, item, expected = item.before) {
   const current = rev(readChecked(ctx.root, item.path));
-  if (current !== expected) throw conflict(current);
+  if (current !== expected) throw conflict(ctx, current, item.path);
 }
 
 function retry(action, check) {
@@ -144,7 +148,8 @@ function checkIntent(intent) {
 
 function eventFor(intent, external = false) {
   return { ...intent.extra, tx: external ? `${intent.tx}-external` : intent.tx, op: external ? 'external.change' : intent.op,
-    target: intent.target, rev: intent.after, targets: intent.items.map(({ path, target, after }) => ({ path, target, rev: after })),
+    target: intent.target, rev: intent.after,
+    targets: intent.items.map(({ path, target, before, after }) => ({ path, target, before, rev: after })),
     actor: external ? 'system:recovery' : intent.actor, ts: intent.ts };
 }
 
@@ -194,12 +199,52 @@ function finishHistory(ctx, intent) {
   syncDir(ctx, '.cairn/history');
 }
 
-function pruneHistory(ctx) {
-  const names = new Set(fs.readdirSync(checkedPath(ctx.root, '.cairn/history')));
+function listDir(ctx, rel) {
+  try {
+    return fs.readdirSync(checkedPath(ctx.root, rel));
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+export function pruneHistory(ctx, events = readEvents(ctx), { orphans = false } = {}) {
+  // A fresh data folder has neither directory until its first write.
+  const names = new Set(listDir(ctx, '.cairn/history'));
   // An intent still pending (another process crashed after its event) needs its history to complete.
-  for (const name of fs.readdirSync(checkedPath(ctx.root, '.cairn/pending'))) names.delete(name);
-  const committed = readEvents(ctx).map(({ tx }) => tx).filter((tx) => names.has(`${tx}.json`));
-  for (const tx of committed.slice(0, -50)) remove(ctx, historyPath(tx));
+  for (const name of listDir(ctx, '.cairn/pending')) names.delete(name);
+  if (orphans) {
+    const referenced = new Set(events.map(({ tx }) => `${tx}.json`));
+    for (const name of names) {
+      if (/^[tx]-[0-9a-z]+(?:-[0-9a-z]+)*\.json$/u.test(name) && !referenced.has(name)) {
+        remove(ctx, historyPath(name.slice(0, -5)));
+      }
+    }
+  }
+  const committed = events.filter(({ tx }) => names.has(`${tx}.json`));
+  for (const { external, limit } of [{ external: false, limit: 50 }, { external: true, limit: 200 }]) {
+    const records = committed.filter(({ op }) => (op === 'external.change') === external);
+    for (const { tx } of records.slice(0, -limit)) remove(ctx, historyPath(tx));
+  }
+}
+
+export function saveHistory(ctx, record) {
+  for (const dir of ['.cairn/history', '.cairn/pending']) mkdir(ctx, dir);
+  save(ctx, historyPath(record.tx), record);
+}
+
+function updateShadow(ctx, readChanges, result) {
+  try {
+    withShadow(ctx, (record, shadow) => {
+      // Keep the older pre-image until reconciliation records an edit the writer encountered but did not author.
+      const changes = readChanges().filter(({ path, before }) => !shadow.initialized || before === undefined
+        || (shadowEntry(shadow, path)?.rev ?? null) === before);
+      if (changes.length) record(changes);
+    });
+  } catch {
+    (result.warnings ??= []).push('shadow_write_failed');
+    ctx.warnings?.push('shadow_write_failed');
+  }
 }
 
 function cleanup(ctx, intent, completed) {
@@ -294,7 +339,7 @@ function prepare(ctx, options, items, tx) {
     const beforeRev = rev(before);
     if ((index === 0 && options.ifRevision !== undefined && options.ifRevision !== beforeRev)
       || ((item.expectAbsent || item.createOnly) && before !== null)
-      || (original && beforeRev !== original.after)) throw conflict(beforeRev);
+      || (original && beforeRev !== original.after)) throw conflict(ctx, beforeRev, item.path);
     const after = applyMutation(item, before);
     if (after !== null && typeof after !== 'string' && !Buffer.isBuffer(after)) throw invalid('Mutation must return text, bytes or null.');
     const bytes = after === null ? null : Buffer.from(after);
@@ -388,6 +433,7 @@ export function writeMany(ctx, options) {
     ctx.faults?.('after-rename');
     const seq = complete(ctx, intent, false);
     const result = resultFor(intent, false, seq);
+    updateShadow(ctx, () => staged.map(({ path, bytes, before }) => ({ path, bytes, before })), result);
     ctx.afterCommit?.(result);
     return result;
   });
@@ -470,6 +516,10 @@ export function recover(ctx) {
         // A durable event means the transaction committed: later changes by others are not ours to roll back.
         if (hasEvent || (after && intent.phase !== 'rollback' && hasPreimages)) {
           const seq = complete(ctx, intent);
+          updateShadow(ctx, () => intent.items.flatMap(({ path, before, after }) => {
+            const bytes = readChecked(ctx.root, path);
+            return rev(bytes) === after ? [{ path, bytes, before }] : [];
+          }), result);
           ctx.afterCommit?.(resultFor(intent, false, seq));
           // Committed, but a target has changed since: keep that change and say so in the log.
           const changed = intent.items.some((item, index) => current[index] !== item.after);
