@@ -21,7 +21,8 @@ function sample(t) {
 
 test('app pages are picked from the data, in a fixed order, and --only narrows them', (t) => {
   const pages = selectAppPages(sample(t));
-  assert.deepEqual(pages.map((page) => page.name), ['home', 'board', 'card', 'note', 'not-found', 'signed-out']);
+  assert.deepEqual(pages.map((page) => page.name),
+    ['home', 'board', 'card', 'note', 'not-found', 'signed-out', 'settings']);
   assert.match(pages[2].path, /^\/cards\/c-[0-9a-z]+$/u);
   assert.match(pages[3].path, /^\/notes\/n-[0-9a-z]+$/u);
   assert.deepEqual(pages[4], { name: 'not-found', path: MISSING_PATH, status: 404 });

@@ -9,6 +9,7 @@ import { isAlive, readServerState, writeServerState } from './state.mjs';
 import { openLogin } from './open-browser.mjs';
 import { watch } from '../core/watch.mjs';
 import { createEvents } from './events.mjs';
+import { createSettings } from './settings.mjs';
 import { createLiveWatcher } from './live.mjs';
 import { installShutdown } from './shutdown.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
@@ -46,8 +47,11 @@ async function start() {
     return readWatcher;
   });
   const events = createEvents(watcher);
-  const app = createApp({ root, handler, guard: createGuard({ port, key, instance }),
-    api: createApi({ open: openRead, render, events }), locals: { cairn: createRead({ open: openRead, render }) } });
+  const settings = createSettings({ key, port, open: openRead,
+    openWrite: () => openContext({ mode: 'write', actor: 'web:owner' }) });
+  const app = createApp({ root, handler, guard: createGuard({ port, key, instance }), writes: settings.handle,
+    api: createApi({ open: openRead, render, events, live: settings.liveUpdates }),
+    locals: { cairn: createRead({ open: openRead, render }), settings } });
   for (const server of servers) server.on('request', app);
   const server = serverGroup(servers);
   const shutdown = installShutdown(server, { close: async () => { events.close(); await watcher.close(); } });
