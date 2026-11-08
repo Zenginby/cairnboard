@@ -6,6 +6,7 @@ import { withLock } from './lock.mjs';
 import { revision } from './store.mjs';
 import { pathKey } from './text.mjs';
 import { ensureDataIgnore } from './roots.mjs';
+import { features, loadConfig } from './config.mjs';
 
 const directory = '.cairn/shadow';
 const manifestPath = `${directory}/manifest.json`;
@@ -40,6 +41,8 @@ export function readShadow(ctx) {
   try { data = JSON.parse(text); } catch { throw invalid(); }
   if (data?.v !== 1 || typeof data.initialized !== 'boolean' || !data.entries
     || typeof data.entries !== 'object' || Array.isArray(data.entries)) throw invalid();
+  if (data.disabledSince !== undefined && (typeof data.disabledSince !== 'string'
+    || !Number.isFinite(Date.parse(data.disabledSince)))) throw invalid();
   const entries = new Map();
   for (const [path, entry] of Object.entries(data.entries)) {
     if (targetPath(path) !== path || !entry || typeof entry.blob !== 'boolean'
@@ -60,7 +63,8 @@ export function readShadow(ctx) {
       ...(entry.size === undefined ? {} : { size: entry.size }),
       ...(entry.hash === undefined ? {} : { hash: entry.hash }) });
   }
-  return indexed(ctx, { initialized: data.initialized, entries });
+  return indexed(ctx, { initialized: data.initialized, entries,
+    ...(data.disabledSince === undefined ? {} : { disabledSince: data.disabledSince }) });
 }
 
 function blobNames(ctx) {
@@ -76,6 +80,24 @@ function blobNames(ctx) {
 function blobSize(ctx, name) {
   const fd = openForRead(ctx.root, `${directory}/blobs/${name}`);
   try { return fs.fstatSync(fd).size; } finally { fs.closeSync(fd); }
+}
+
+export function shadowStats(ctx) {
+  const names = blobNames(ctx);
+  return { blobs: names.length, bytes: names.reduce((total, name) => total + blobSize(ctx, name), 0) };
+}
+
+// Caller holds the shadow lock; unpublish the blobs before deleting any of them.
+export function clearShadowBlobs(ctx, shadow) {
+  const blobs = blobNames(ctx).map((name) => ({ name, size: blobSize(ctx, name) }));
+  upgrade(ctx, shadow);
+  for (const entry of shadow.entries.values()) {
+    entry.blob = false;
+    delete entry.hash;
+  }
+  record(ctx, shadow, []);
+  for (const { name } of blobs) fs.unlinkSync(checkedPath(ctx.root, `${directory}/blobs/${name}`));
+  return { blobs: blobs.length, bytes: blobs.reduce((total, { size }) => total + size, 0) };
 }
 
 export function shadowBytes(ctx, path, shadow = readShadow(ctx)) {
@@ -178,7 +200,8 @@ function record(ctx, shadow, changes, { initialize = false, defer = false } = {}
       continue;
     }
     const hash = createHash('sha256').update(bytes).digest('hex');
-    const blob = bytes.length <= blobLimit && (names.has(hash) || used + bytes.length <= (ctx.shadowBudget ?? budget));
+    const blob = features(ctx.config).changeContent && bytes.length <= blobLimit
+      && (names.has(hash) || used + bytes.length <= (ctx.shadowBudget ?? budget));
     if (blob && !names.has(hash)) {
       writeBlob(ctx, hash, bytes);
       names.set(hash, bytes.length);
@@ -190,6 +213,7 @@ function record(ctx, shadow, changes, { initialize = false, defer = false } = {}
   if (defer) return;
   fs.writeFileAtomic(checkedPath(ctx.root, manifestPath), JSON.stringify({
     v: 1, initialized: shadow.initialized || initialize, entries: Object.fromEntries(shadow.entries),
+    ...(shadow.disabledSince === undefined ? {} : { disabledSince: shadow.disabledSince }),
   }));
   shadow.initialized ||= initialize;
   for (const name of initialize ? blobNames(ctx) : released) {
@@ -216,11 +240,16 @@ export function pruneShadow(ctx, shadow) {
   }
 }
 
-// Reconciliation keeps this lock through event append and manifest replacement: paths -> shadow -> events.
-export function withShadow(ctx, fn) {
-  return withLock(ctx, '_shadow', () => {
+// Reconciliation keeps these locks through event append and manifest replacement: paths -> config -> shadow -> events.
+export function withShadow(ctx, fn, { configLocked = false } = {}) {
+  const run = () => withLock(ctx, '_shadow', () => {
     const shadow = readShadow(ctx);
     return fn((changes, options) => record(ctx, shadow, changes, options), shadow);
+  });
+  if (configLocked) return run();
+  return withLock(ctx, '_config', () => {
+    ctx.config = loadConfig(ctx.root);
+    return run();
   });
 }
 

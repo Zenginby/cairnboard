@@ -3427,6 +3427,14 @@
       "exit": 2
     },
     {
+      "code": "feature_disabled",
+      "exit": 2
+    },
+    {
+      "code": "owner_only",
+      "exit": 2
+    },
+    {
       "code": "not_found",
       "exit": 3
     },
