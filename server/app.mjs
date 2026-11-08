@@ -54,7 +54,7 @@ async function clientFile(root, path) {
   }
 }
 
-export function createApp({ root, handler, guard, api, locals = {} }) {
+export function createApp({ root, handler, guard, api, writes, locals = {} }) {
   // Fail closed: a server without its access check must not start.
   if (typeof guard !== 'function') throw new TypeError('createApp needs a guard.');
   root = resolve(root);
@@ -72,6 +72,13 @@ export function createApp({ root, handler, guard, api, locals = {} }) {
     try {
       if (await guard(req, res) === false) return;
       const path = requestPath(req.url);
+      if (req.method === 'POST') {
+        // Only the settings writes reach this point (see guard); anything else a guard let through stays refused.
+        if (path && writes && await writes(req, res, path)) return;
+        res.writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Method not allowed.');
+        return;
+      }
       if (path?.startsWith('/api/') || req.url.split('?')[0].startsWith('/api/')) {
         if (api && await api(req, res, path)) return;
         return await errorPage(req, res, 404);

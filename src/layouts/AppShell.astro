@@ -4,13 +4,17 @@ import '../styles/fonts.css';
 import '../styles/app.css';
 import favicon from '../assets/favicon.svg?url';
 import themeBoot from '../scripts/theme-boot.js?url';
+import liveScript from '../scripts/live-updates.js?url';
 import { language, t } from '../i18n/index.mjs';
 
 const { title = t('shell.home'), current, surface = false, live = '' } = Astro.props;
 const tabs = [
   { href: '/', label: 'shell.home' },
   { href: '/board', label: 'shell.board' },
+  { href: '/settings', label: 'shell.settings' },
 ];
+// Settings > Live updates: when off the page carries no script, no status line and no live region; unknown means on.
+const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
 ---
 <!doctype html>
 <html lang={language} data-theme="bento">
@@ -20,6 +24,7 @@ const tabs = [
     <script is:inline src={themeBoot}></script>
     <link rel="icon" type="image/svg+xml" href={favicon} />
     <title>{title} · {t('app.name')}</title>
+    <slot name="head" />
   </head>
   <body class:list={{ 'surface-page': surface }}>
     <a class="skip-link action-link" href="#main">{t('shell.skip')}</a>
@@ -40,9 +45,12 @@ const tabs = [
         </div>
       </nav>
     </header>
-    <main id="main" class="page-frame" tabindex="-1" data-live={live || undefined}><slot /></main>
-    <p class="live-status" role="status" aria-live="polite" data-live-status data-updated={t('live.updated')} data-paused={t('live.paused')}></p>
+    <main id="main" class="page-frame" tabindex="-1" data-live={liveUpdates ? live || undefined : undefined}>
+      <slot />
+    </main>
+    {liveUpdates && <p class="live-status" role="status" aria-live="polite" data-live-status
+      data-updated={t('live.updated')} data-paused={t('live.paused')}></p>}
     <script src="../scripts/theme-toggle.js"></script>
-    <script src="../scripts/live-updates.js"></script>
+    {liveUpdates && <script is:inline type="module" src={liveScript}></script>}
   </body>
 </html>
