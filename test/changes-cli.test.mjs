@@ -185,7 +185,7 @@ test('oversized history record is reported not read', (t) => {
   assert.deepEqual(changeDiff(f.ctx, event, [event]), { diff: null, reason: 'history_too_large' });
 });
 
-test('8.3 short name rejected', (t) => {
+test('8.3 short name rejected', { skip: process.platform !== 'win32' }, (t) => {
   const f = fixture(t);
   f.put('SECRET~1', 'secret');
   const event = { tx: 'x-short', seq: 1, rev: 'a', targets: [{ path: 'notes/SECRET~1.md', rev: 'a' }] };
@@ -196,4 +196,28 @@ test('8.3 short name rejected', (t) => {
     if (path.endsWith('SECRET~1.md')) throw new Error('short alias was used for a read');
   } });
   assert.deepEqual(changeDiff(f.ctx, event, [event]), { diff: null, reason: 'history_pruned' });
+});
+
+test('diff isolates corrupt revisions and unsafe paths to their own records', async (t) => {
+  const f = fixture(t);
+  f.put('a', 'before\n');
+  reconcileExternal(f.ctx);
+  f.put('a', 'after\n');
+  reconcileExternal(f.ctx);
+  const [good] = readEvents(f.ctx);
+  const bad = [
+    { ...good, seq: 2, before: 'invalid' },
+    { ...good, seq: 3, rev: 'ABCDEF0123456789' },
+    { ...good, seq: 4, targets: [{ ...good.targets[0], rev: {} }] },
+    { ...good, seq: 5, targets: [{ ...good.targets[0], path: '../outside.md' }] },
+  ];
+  writeFileSync(join(f.data, '.cairn/events/2026-11.jsonl'), [good, ...bad].map(JSON.stringify).join('\n') + '\n');
+  const result = await f.run(['--diff']);
+  assert.equal(result.code, 0, result.stdout);
+  assert.equal(result.json.data.changes.length, 5);
+  assert.match(result.json.data.changes[0].diff, /-before\n\+after/u);
+  for (const change of result.json.data.changes.slice(1)) {
+    assert.equal(change.diff, null);
+    assert.equal(change.reason, 'diff_unavailable');
+  }
 });

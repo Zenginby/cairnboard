@@ -13,6 +13,7 @@ import { readShadow, recordShadow, shadowBytes } from '../core/shadow.mjs';
 import { changeDiff, listChanges, reconcileBeforeRun, reconcileExternal } from '../core/changes.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
 import { lockName, withLock } from '../core/lock.mjs';
+import { filesystemPathKey } from '../core/paths.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 
@@ -420,6 +421,7 @@ test('a write after the event snapshot is recognized from its appended tail', (t
 
 test('own write with different path spelling is not external', (t) => {
   const { ctx, put } = fixture(t);
+  if (filesystemPathKey(ctx, 'A') !== filesystemPathKey(ctx, 'a')) return t.skip('case-sensitive filesystem');
   const path = 'notes/caf\u00e9.md', spelling = 'NOTES/CAFE\u0301.MD';
   put(path, 'before');
   reconcileExternal(ctx);
@@ -439,7 +441,7 @@ test('unreadable path does not block writes', (t) => {
   reconcileExternal(ctx);
   put('notes/a.md', 'after');
   t.after(() => __setFsHooks());
-  for (const code of ['ENOTDIR', 'EISDIR', 'EBUSY', 'EPERM', 'ERR_FS_FILE_TOO_LARGE']) {
+  for (const code of ['EISDIR', 'EBUSY', 'EPERM', 'ERR_FS_FILE_TOO_LARGE']) {
     __setFsHooks({ afterCheck(path) {
       if (path === join(ctx.root, 'notes/a.md')) throw Object.assign(new Error('unreadable'), { code });
     } });
@@ -452,7 +454,7 @@ test('unreadable path does not block writes', (t) => {
   __setFsHooks({ afterCheck(path) {
     if (path.endsWith('manifest.json')) throw Object.assign(new Error('I/O unavailable'), { code: 'EIO' });
   } });
-  assert.deepEqual(reconcileBeforeRun(ctx), ['reconcile_skipped']);
+  assert.deepEqual(reconcileBeforeRun(ctx), ['reconcile_failed']);
   __setFsHooks({ afterCheck() { throw new TypeError('programming error'); } });
   assert.throws(() => reconcileBeforeRun(ctx), /programming error/u);
 });
@@ -537,6 +539,122 @@ test('owner gap repair survives another own write and an interrupted append', (t
   assert.equal(owner.length, 1);
   assert.match(changeDiff(ctx, owner[0]).diff, /-original\n\+owner/u);
   assert.deepEqual(shadowBytes(ctx, 'notes/a.md'), Buffer.from('agent two\n'));
+});
+
+test('owner can return to a retrospectively recorded revision', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'original\n');
+  reconcileExternal(ctx);
+  put('notes/a.md', 'owner\n');
+  write(ctx, { op: 'note.write', path: 'notes/a.md', apply: () => 'agent\n' });
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+  put('notes/a.md', 'owner\n');
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+  const event = readEvents(ctx).at(-1);
+  assert.equal(event.before, revision('agent\n'));
+  assert.equal(event.rev, revision('owner\n'));
+  assert.match(changeDiff(ctx, event).diff, /-agent\n\+owner/u);
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+});
+
+test('CLI preflight does not take prune locks or read the log on an unchanged vault', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'original');
+  reconcileExternal(ctx);
+  appendEvent(ctx, { tx: 't-unrelated', op: 'note.write', target: 'notes/a.md', rev: revision('original') });
+  const seen = [];
+  t.after(() => __setFsHooks());
+  __setFsHooks({ afterCheck(path) { seen.push(path); } });
+  assert.deepEqual(reconcileBeforeRun(ctx), []);
+  assert.equal(seen.some((path) => /\/(?:_shadow|_events)\.lock$/u.test(path)), false);
+  assert.equal(seen.some((path) => path.endsWith('.jsonl')), false);
+});
+
+test('case-sensitive tracking keeps separate shadow paths and writer attribution', (t) => {
+  const { ctx, put } = fixture(t);
+  ctx.caseInsensitivePaths = false;
+  put('notes/a.md', 'original');
+  reconcileExternal(ctx);
+  put('notes/a.md', 'owner');
+  appendEvent(ctx, { tx: 't-uppercase', op: 'note.write', target: 'notes/A.md', rev: revision('owner'),
+    targets: [{ path: 'notes/A.md', rev: revision('owner') }] });
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+  assert.equal(listChanges(ctx, { target: 'notes/A.md' }).length, 1);
+});
+
+test('POSIX tilde digit names are tracked and diffed', { skip: process.platform === 'win32' }, (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/Draft~1.md', 'before\n');
+  reconcileExternal(ctx);
+  put('notes/Draft~1.md', 'after\n');
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+  assert.match(changeDiff(ctx, readEvents(ctx)[0]).diff, /-before\n\+after/u);
+  assert.equal(ctx.warnings.includes('reconcile_path_skipped'), false);
+});
+
+test('unchanged NULL-hash markdown is not reopened and changed stamps are read', (t) => {
+  const { ctx, put } = fixture(t);
+  put('.obsidian/template.md', 'before');
+  put('notes/binary.md', Buffer.from([0xff]));
+  reconcileExternal(ctx);
+  // The first scan may populate stamps for bytes reused from the index during baseline.
+  reconcileExternal(ctx);
+  const opened = [];
+  t.after(() => __setFsHooks());
+  __setFsHooks({ openSync(path, ...args) {
+    if (String(path).endsWith('.md')) opened.push(String(path));
+    return fsOpen(path, ...args);
+  } });
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+  assert.deepEqual(opened, []);
+  put('.obsidian/template.md', 'changed size');
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+});
+
+test('file to directory and ancestor directory to file record deletions once', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'a');
+  put('notes/folder/b.md', 'b');
+  reconcileExternal(ctx);
+  unlinkSync(join(ctx.root, 'notes/a.md'));
+  mkdirSync(join(ctx.root, 'notes/a.md'));
+  renameSync(join(ctx.root, 'notes/folder'), join(ctx.root, 'moved'));
+  put('notes/folder', 'now a file');
+  assert.equal(reconcileExternal(ctx).recorded, 3);
+  const deleted = readEvents(ctx).filter(({ change }) => change === 'delete');
+  assert.deepEqual(deleted.map(({ targets }) => targets[0].path).sort(), ['notes/a.md', 'notes/folder/b.md']);
+  assert.equal(readShadow(ctx).entries.has('notes/a.md'), false);
+  assert.equal(readShadow(ctx).entries.has('notes/folder/b.md'), false);
+  assert.equal(reconcileExternal(ctx).recorded, 0);
+});
+
+test('permanent filesystem failures have a distinct reconciliation warning', (t) => {
+  const { ctx, put } = fixture(t);
+  put('notes/a.md', 'before');
+  reconcileExternal(ctx);
+  t.after(() => __setFsHooks());
+  for (const code of ['ENOSPC', 'EIO', 'EROFS']) {
+    __setFsHooks({ afterCheck(path) {
+      if (path.endsWith('manifest.json')) throw Object.assign(new Error('storage failure'), { code });
+    } });
+    assert.deepEqual(reconcileBeforeRun(ctx), ['reconcile_failed'], code);
+  }
+});
+
+test('persistent file read failures warn without recording a deletion', (t) => {
+  const { ctx, put } = fixture(t);
+  put('.obsidian/template.md', 'before');
+  reconcileExternal(ctx);
+  put('.obsidian/template.md', 'after');
+  t.after(() => __setFsHooks());
+  __setFsHooks({ openSync(path, ...args) {
+    if (String(path).endsWith('template.md')) throw Object.assign(new Error('storage failure'), { code: 'EIO' });
+    return fsOpen(path, ...args);
+  } });
+  assert.deepEqual(reconcileBeforeRun(ctx), []);
+  assert.ok(ctx.warnings.includes('reconcile_failed'));
+  assert.equal(readEvents(ctx).length, 0);
+  assert.equal(readShadow(ctx).entries.get('.obsidian/template.md').rev, revision('before'));
 });
 
 test('orphans are cleaned', (t) => {
