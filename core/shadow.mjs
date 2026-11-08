@@ -88,16 +88,26 @@ export function shadowStats(ctx) {
 }
 
 // Caller holds the shadow lock; unpublish the blobs before deleting any of them.
-export function clearShadowBlobs(ctx, shadow) {
+export function clearShadowBlobs(ctx) {
   const blobs = blobNames(ctx).map((name) => ({ name, size: blobSize(ctx, name) }));
-  upgrade(ctx, shadow);
-  for (const entry of shadow.entries.values()) {
-    entry.blob = false;
-    delete entry.hash;
+  let manifestReset = false;
+  try {
+    const shadow = readShadow(ctx);
+    upgrade(ctx, shadow);
+    for (const entry of shadow.entries.values()) {
+      entry.blob = false;
+      delete entry.hash;
+    }
+    record(ctx, shadow, []);
+  } catch (error) {
+    if (!(error instanceof CairnError) || error.code !== 'validation') throw error;
+    manifestReset = true;
+    ensureDataIgnore(ctx.root);
+    fs.mkdirSync(checkedPath(ctx.root, directory), { recursive: true, mode: 0o700 });
+    fs.writeFileAtomic(checkedPath(ctx.root, manifestPath), JSON.stringify({ v: 1, initialized: false, entries: {} }));
   }
-  record(ctx, shadow, []);
   for (const { name } of blobs) fs.unlinkSync(checkedPath(ctx.root, `${directory}/blobs/${name}`));
-  return { blobs: blobs.length, bytes: blobs.reduce((total, { size }) => total + size, 0) };
+  return { blobs: blobs.length, bytes: blobs.reduce((total, { size }) => total + size, 0), manifestReset };
 }
 
 export function shadowBytes(ctx, path, shadow = readShadow(ctx)) {
@@ -192,6 +202,7 @@ function record(ctx, shadow, changes, { initialize = false, defer = false } = {}
   for (const rel of [directory, `${directory}/blobs`]) {
     fs.mkdirSync(checkedPath(ctx.root, rel), { recursive: true, mode: 0o700 });
   }
+  const active = features(ctx.config);
   for (const { path, bytes, rev, size, stamp } of items) {
     if (bytes === null) continue;
     paths.set(key(path), path);
@@ -200,7 +211,7 @@ function record(ctx, shadow, changes, { initialize = false, defer = false } = {}
       continue;
     }
     const hash = createHash('sha256').update(bytes).digest('hex');
-    const blob = features(ctx.config).changeContent && bytes.length <= blobLimit
+    const blob = active.changeTrail && active.changeContent && bytes.length <= blobLimit
       && (names.has(hash) || used + bytes.length <= (ctx.shadowBudget ?? budget));
     if (blob && !names.has(hash)) {
       writeBlob(ctx, hash, bytes);

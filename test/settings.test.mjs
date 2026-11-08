@@ -13,6 +13,7 @@ import { changeDiff, listChanges, reconcileBeforeRun, reconcileExternal } from '
 import { mentions, linkMention } from '../core/mentions.mjs';
 import { checkConfigDrift, clearShadow, readSettings, setFeature } from '../core/settings.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
+import { runCli } from './support/cli.mjs';
 import { lockName, withLock } from '../core/lock.mjs';
 
 function fixture(t) {
@@ -32,7 +33,7 @@ function fixture(t) {
       return [];
     }
   };
-  return { ctx, open, put, editConfig, set, blobs };
+  return { ctx, home, open, put, editConfig, set, blobs };
 }
 
 test('feature defaults and validation preserve the existing format', (t) => {
@@ -273,7 +274,11 @@ test('gap recovery is idempotent and separate disable intervals may share a time
     if (to.replace(/\\/gu, '/').endsWith('/shadow/manifest.json')) throw new Error('manifest failed');
     fs.renameSync(from, to);
   } });
-  assert.throws(() => setFeature(ctx, { name: 'changeTrail', value: true, expectedRevision }), /manifest failed/u);
+  const pending = setFeature(ctx, { name: 'changeTrail', value: true, expectedRevision });
+  assert.equal(pending.changed, true);
+  assert.deepEqual(pending.warnings, ['trail_sync_pending']);
+  assert.equal(features(loadConfig(ctx.root)).changeTrail, true);
+  assert.equal(JSON.parse(fs.readFileSync(join(ctx.root, '.cairn/settings-state.json'), 'utf8')).trailPending, true);
   fs.__setFsHooks();
   checkConfigDrift(ctx);
   reconcileExternal(ctx);
@@ -365,13 +370,127 @@ test('a gap appended before a crash is recovered from its pending state without 
   ctx.faults = (point) => {
     if (point === 'after-event' && ++appended === 2) throw new Error('gap interrupted');
   };
-  assert.throws(() => setFeature(ctx, { name: 'changeTrail', value: true, expectedRevision }), /gap interrupted/u);
+  const interrupted = setFeature(ctx, { name: 'changeTrail', value: true, expectedRevision });
+  assert.equal(interrupted.changed, true);
+  assert.deepEqual(interrupted.warnings, ['trail_sync_pending']);
   const pending = JSON.parse(fs.readFileSync(join(ctx.root, '.cairn/settings-state.json'), 'utf8'));
   assert.ok(pending.gapPending);
+  assert.equal(pending.trailPending, true);
   assert.equal(checkConfigDrift(open()), false);
   assert.equal(readEvents(ctx).filter(({ op }) => op === 'external.gap').length, 1);
   assert.equal(readShadow(ctx).initialized, false);
   const state = JSON.parse(fs.readFileSync(join(ctx.root, '.cairn/settings-state.json'), 'utf8'));
   assert.equal(state.gapPending, null);
   assert.equal(state.trailPending, false);
+});
+
+test('corrupt shadow manifest does not block readSettings, setFeature or clearShadow', (t) => {
+  const { ctx, open, put, set, blobs } = fixture(t);
+  put('notes/a.md', 'alpha');
+  reconcileExternal(ctx);
+  assert.equal(blobs().length, 1);
+  const manifestFile = join(ctx.root, '.cairn/shadow/manifest.json');
+  for (const broken of ['{broken', JSON.stringify({
+    v: 1, initialized: true, entries: { '../escape.md': { rev: revision('x'), blob: false } },
+  })]) {
+    fs.writeFileSync(manifestFile, broken);
+    const opened = [];
+    t.after(() => fs.__setFsHooks());
+    fs.__setFsHooks({ openSync(path, ...args) {
+      opened.push(String(path).replace(/\\/gu, '/'));
+      return openSync(path, ...args);
+    } });
+    const shown = readSettings(open());
+    fs.__setFsHooks();
+    assert.deepEqual(shown.shadow, { blobs: 1, bytes: 5 });
+    assert.equal(opened.some((path) => path.endsWith('/shadow/manifest.json')), false);
+  }
+  fs.writeFileSync(manifestFile, '{broken');
+  const rev = readSettings(ctx).revision;
+  const disabled = setFeature(ctx, { name: 'changeTrail', value: false, expectedRevision: rev });
+  assert.equal(disabled.changed, true);
+  assert.deepEqual(disabled.warnings, ['trail_sync_pending']);
+  assert.equal(features(loadConfig(ctx.root)).changeTrail, false);
+  assert.equal(JSON.parse(fs.readFileSync(join(ctx.root, '.cairn/settings-state.json'), 'utf8')).trailPending, true);
+  assert.equal(readEvents(ctx).at(-1).op, 'config.change');
+  assert.equal(readSettings(open()).features.changeTrail, false);
+
+  assert.deepEqual(clearShadow(ctx), { blobs: 1, bytes: 5 });
+  assert.deepEqual(blobs(), []);
+  assert.deepEqual(JSON.parse(fs.readFileSync(manifestFile, 'utf8')), { v: 1, initialized: false, entries: {} });
+  const clearedEvent = readEvents(ctx).at(-1);
+  assert.equal(clearedEvent.op, 'shadow.clear');
+  assert.equal(clearedEvent.manifestReset, true);
+  assert.equal(clearedEvent.historyCleared, 0);
+
+  // clearShadow left the repaired manifest intact; the next drift check and reopen finish cleanly with one gap.
+  assert.equal(checkConfigDrift(open()), false);
+  set('changeTrail', true);
+  assert.equal(reconcileExternal(ctx).baseline, true);
+  assert.equal(readEvents(ctx).filter(({ op }) => op === 'external.gap').length, 1);
+  assert.equal(JSON.parse(fs.readFileSync(join(ctx.root, '.cairn/settings-state.json'), 'utf8')).trailPending, false);
+});
+
+test('clearShadow scrubs external.change history, keeps undo history and respects changeContent: false', (t) => {
+  const { ctx, put, set } = fixture(t);
+  const own = write(ctx, { op: 'note.write', path: 'notes/own.md', apply: () => 'own after' });
+  const ownFile = join(ctx.root, `.cairn/history/${readEvents(ctx).find((e) => e.seq === own.seq).tx}.json`);
+  const ownBefore = fs.readFileSync(ownFile, 'utf8');
+
+  put('notes/a.md', 'secret v1\n');
+  put('notes/bin.md', Buffer.from([0xff, 0xfe]));
+  reconcileExternal(ctx);
+  put('notes/a.md', 'secret v2\n');
+  put('notes/bin.md', 'after bin\n');
+  put('notes/created.md', 'created text\n');
+  assert.equal(reconcileExternal(ctx).recorded, 3);
+
+  set('changeContent', false);
+  put('notes/a.md', 'secret v3\n');
+  assert.equal(reconcileExternal(ctx).recorded, 1);
+  const offEvent = readEvents(ctx).filter(({ op }) => op === 'external.change').at(-1);
+  const offRaw = fs.readFileSync(join(ctx.root, `.cairn/history/${offEvent.tx}.json`), 'utf8');
+  assert.equal(offRaw.includes('secret v2'), false);
+  assert.equal(JSON.parse(offRaw).before, null);
+  assert.equal(JSON.parse(offRaw).beforeBytes, undefined);
+
+  clearShadow(ctx);
+  const clearEvent = readEvents(ctx).at(-1);
+  assert.equal(clearEvent.op, 'shadow.clear');
+  assert.equal(clearEvent.historyCleared, 4);
+  assert.equal(fs.readFileSync(ownFile, 'utf8'), ownBefore);
+
+  const extEvents = readEvents(ctx).filter(({ op }) => op === 'external.change');
+  assert.equal(extEvents.length, 4);
+  for (const ev of extEvents) {
+    assert.deepEqual(changeDiff(ctx, ev), { diff: null, reason: 'content_not_kept' });
+    const raw = fs.readFileSync(join(ctx.root, `.cairn/history/${ev.tx}.json`), 'utf8');
+    assert.equal(raw.includes('secret v1'), false);
+    assert.equal(raw.includes('secret v2'), false);
+    const saved = JSON.parse(raw);
+    assert.equal(Object.hasOwn(saved, 'before'), false);
+    assert.equal(Object.hasOwn(saved, 'beforeBytes'), false);
+    assert.equal(saved.beforeUnavailable, true);
+    assert.equal(Object.hasOwn(saved.items[0], 'before'), false);
+    assert.equal(Object.hasOwn(saved.items[0], 'beforeBytes'), false);
+    assert.equal(saved.items[0].beforeUnavailable, true);
+  }
+  clearShadow(ctx);
+  assert.equal(readEvents(ctx).at(-1).historyCleared, 0);
+});
+
+test('writes while changeTrail is off store no shadow blobs', async (t) => {
+  const { ctx, home, put, set, blobs } = fixture(t);
+  put('notes/existing.md', 'keep');
+  reconcileExternal(ctx);
+  const before = blobs();
+  set('changeTrail', false);
+
+  write(ctx, { op: 'note.write', path: 'notes/direct.md', apply: () => 'direct while off' });
+  const added = await runCli(['note', 'add', '--title', 'Quiet Note', '--actor', 'owner', '--json'], {
+    home, data: ctx.root, clock: ctx.clock,
+  });
+  assert.equal(added.code, 0, added.stdout + added.stderr);
+  assert.deepEqual(blobs(), before);
+  assert.equal(readShadow(ctx).entries.get(added.json.data.path.replace(/\\/gu, '/')).blob, false);
 });

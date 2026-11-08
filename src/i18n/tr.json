@@ -97,7 +97,9 @@
   "settings.mentions.about": "Başka sayfalarda geçen ama bağlanmamış adları bulur.",
   "settings.needsTrail": "Değişiklik izi açıkken çalışır.",
   "settings.shadowTitle": "Gölgeyi temizle",
-  "settings.shadowAbout": "Saklanan içerik kopyalarını siler. Değişiklik kayıtları kalır, yalnız farklar kaybolur.",
+  "settings.shadowAbout":
+"Saklanan içerik kopyalarını ve dış değişikliklerin önceki hâllerini siler. Kim, ne zaman, hangi dosya kayıtları kalır."
+  ,
   "settings.shadowBlobs": "Kopya sayısı",
   "settings.shadowSize": "Boyut",
   "settings.shadowConfirm": "Saklanan içerik kopyalarının silinmesini onaylıyorum.",

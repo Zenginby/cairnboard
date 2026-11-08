@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.mjs';
@@ -16,6 +16,7 @@ import { initDataDir } from '../core/roots.mjs';
 import { readEvents } from '../core/events.mjs';
 import { features, loadConfig } from '../core/config.mjs';
 import { readSettings, setFeature } from '../core/settings.mjs';
+import { reconcileExternal } from '../core/changes.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 
 const repo = fileURLToPath(new URL('../', import.meta.url));
@@ -307,4 +308,34 @@ test('the built Settings page shows the forms, reflects the state and drops the 
 test('the Settings page without a session is the sign-in page', async (t) => {
   const f = fixture(t);
   assert.equal((await call(f.app, { path: '/settings' })).status, 401);
+});
+
+test('web settings survive a corrupt shadow manifest and repair it on clear-shadow', async (t) => {
+  const f = fixture(t);
+  mkdirSync(join(f.dataDir, 'notes'), { recursive: true });
+  writeFileSync(join(f.dataDir, 'notes/a.md'), 'alpha');
+  reconcileExternal(f.openWrite());
+  const manifestPath = join(f.dataDir, '.cairn/shadow/manifest.json');
+  writeFileSync(manifestPath, '{broken');
+
+  const viewed = f.settings.view(`${cookieName(port)}=${f.session()}`);
+  assert.equal(viewed.state, 'ready');
+  assert.deepEqual(viewed.shadow, { blobs: 1, bytes: 5 });
+
+  const toggled = await f.post({ name: 'changeTrail', value: 'off' });
+  assert.equal(toggled.status, 303);
+  assert.equal(toggled.headers.location, '/settings?saved=changeTrail');
+  assert.equal(features(loadConfig(f.dataDir)).changeTrail, false);
+
+  const cookie = f.session();
+  const cleared = await f.post(null, {
+    path: '/settings/clear-shadow',
+    cookie,
+    body: f.form({ csrf: csrfToken(key, port, cookie), confirm: 'yes' }),
+  });
+  assert.equal(cleared.status, 303);
+  assert.equal(cleared.headers.location, '/settings?saved=shadow');
+  assert.deepEqual(readdirSync(join(f.dataDir, '.cairn/shadow/blobs')), []);
+  assert.deepEqual(JSON.parse(readFileSync(manifestPath, 'utf8')), { v: 1, initialized: false, entries: {} });
+  assert.equal(readEvents(f.open()).at(-1).manifestReset, true);
 });

@@ -509,6 +509,7 @@ function diffForEvent(ctx, event, events) {
   const saved = historyItem(ctx, event, path);
   if (!saved) return { diff: null, reason: 'history_pruned' };
   if (saved.reason) return { diff: null, reason: saved.reason };
+  if (saved.contentNotKept) return { diff: null, reason: 'content_not_kept' };
   const before = beforeBytes(saved);
   if (before.reason) return { diff: null, reason: before.reason };
   const rev = event.targets[0].rev;

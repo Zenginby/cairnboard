@@ -97,7 +97,8 @@
   "settings.mentions.about": "Finds names that appear in other pages without a link.",
   "settings.needsTrail": "Works while the change trail is on.",
   "settings.shadowTitle": "Clear the shadow",
-  "settings.shadowAbout": "Deletes stored content copies. Change records stay; only differences become unavailable.",
+  "settings.shadowAbout":
+"Deletes stored content copies and the previous versions of external changes. Who, when and which file stay recorded.",
   "settings.shadowBlobs": "Stored copies",
   "settings.shadowSize": "Size",
   "settings.shadowConfirm": "I confirm deleting the stored content copies.",

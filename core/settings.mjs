@@ -5,7 +5,7 @@ import { CairnError } from './errors.mjs';
 import { checkedPath, readChecked } from './paths.mjs';
 import { withLock } from './lock.mjs';
 import { appendEvent, readEvents } from './events.mjs';
-import { revision } from './store.mjs';
+import { clearExternalHistory, revision } from './store.mjs';
 import { clearShadowBlobs, shadowStats, withShadow } from './shadow.mjs';
 
 const configPath = '.cairn/config.json';
@@ -109,7 +109,7 @@ function syncTrail(ctx, state) {
   return withShadow(ctx, (record, shadow) => {
     if (!state.features.changeTrail) {
       if (shadow.disabledSince === undefined) {
-        shadow.disabledSince = state.lastChange.ts;
+        shadow.disabledSince = state.trailOffSince ?? state.lastChange?.ts ?? ctx.clock.now().toISOString();
         record([]);
       }
     } else {
@@ -136,15 +136,20 @@ function syncTrail(ctx, state) {
   }, { configLocked: true });
 }
 
-function drift(ctx, disk, state) {
-  syncTrail(ctx, state);
+function syncPendingTrail(ctx, state, ignoreError) {
+  if (!ignoreError) return syncTrail(ctx, state);
+  try { syncTrail(ctx, state); } catch { /* Retry on subsequent read or checkConfigDrift. */ }
+}
+
+function drift(ctx, disk, state, { ignoreTrailError = false, skipSync = false } = {}) {
+  if (!skipSync) syncPendingTrail(ctx, state, ignoreTrailError);
   if (state.rev === disk.rev) return false;
   const current = features(disk.config);
   const changed = Object.keys(current).filter((name) => state.features[name] !== current[name]);
   if (changed.length) {
     recordConfig(ctx, state, event(ctx, 'config.external', { actor: 'owner:external', rev: disk.rev, changed,
       after: Object.fromEntries(changed.map((name) => [name, current[name]])), features: current }));
-    syncTrail(ctx, state);
+    if (!skipSync) syncPendingTrail(ctx, state, ignoreTrailError);
   } else {
     state.rev = disk.rev;
     writeState(ctx, state);
@@ -159,10 +164,10 @@ export function checkConfigDrift(ctx) {
 /** @param {*} ctx @param {{ stats?: boolean }} [options] `stats: false` skips the shadow lock and manifest read. */
 export function readSettings(ctx, { stats = true } = {}) {
   return locked(ctx, (write, disk, state) => {
-    drift(write, disk, state);
+    drift(write, disk, state, { ignoreTrailError: true, skipSync: !stats });
     const last = state.lastChange;
     return { features: features(disk.config), revision: disk.rev,
-      shadow: stats ? withShadow(write, () => shadowStats(write), { configLocked: true }) : null,
+      shadow: stats ? withLock(write, '_shadow', () => shadowStats(write)) : null,
       trailOffSince: state.features.changeTrail ? null : state.trailOffSince ?? null,
       lastChange: last ? { ts: last.ts, actor: last.actor,
         feature: last.feature ?? last.changed, after: last.after } : null };
@@ -180,9 +185,15 @@ export function setFeature(ctx, { name, value, expectedRevision, actor = ctx.act
     if (disk.rev !== expectedRevision) throw new CairnError('conflict', 'Configuration changed since it was read.');
     ctx.config = disk.config;
     const state = readState(ctx);
-    drift(ctx, disk, state);
+    drift(ctx, disk, state, { ignoreTrailError: true });
     const before = features(disk.config)[name];
-    if (before === value) return { changed: false, revision: disk.rev };
+    if (before === value) {
+      if (state.trailPending && ctx.warnings && !ctx.warnings.includes('trail_sync_pending')) {
+        ctx.warnings.push('trail_sync_pending');
+      }
+      return { changed: false, revision: disk.rev,
+        ...(state.trailPending ? { warnings: ['trail_sync_pending'] } : {}) };
+    }
     const config = validate({ ...disk.config, features: { ...disk.config.features, [name]: value } });
     const bytes = JSON.stringify(config, null, 2) + '\n';
     fs.writeFileAtomic(checkedPath(ctx.root, configPath), bytes, () => {
@@ -194,7 +205,12 @@ export function setFeature(ctx, { name, value, expectedRevision, actor = ctx.act
     const rev = revision(bytes);
     recordConfig(ctx, state, event(ctx, 'config.change',
       { actor, feature: name, before, after: value, rev, features: features(config) }));
-    syncTrail(ctx, state);
+    try {
+      syncTrail(ctx, state);
+    } catch {
+      if (ctx.warnings && !ctx.warnings.includes('trail_sync_pending')) ctx.warnings.push('trail_sync_pending');
+      return { changed: true, revision: rev, warnings: ['trail_sync_pending'] };
+    }
     return { changed: true, revision: rev };
   });
 }
@@ -203,11 +219,13 @@ export function clearShadow(ctx, { actor = ctx.actor } = {}) {
   return withLock(ctx, '_config', () => {
     const disk = snapshot(ctx);
     ctx.config = disk.config;
-    drift(ctx, disk, readState(ctx));
-    return withShadow(ctx, (_record, shadow) => {
-      const cleared = clearShadowBlobs(ctx, shadow);
-      event(ctx, 'shadow.clear', { actor, ...cleared });
-      return cleared;
-    }, { configLocked: true });
+    drift(ctx, disk, readState(ctx), { ignoreTrailError: true });
+    return withLock(ctx, '_shadow', () => {
+      const { blobs, bytes, manifestReset } = clearShadowBlobs(ctx);
+      const historyCleared = clearExternalHistory(ctx);
+      event(ctx, 'shadow.clear', { actor, blobs, bytes, historyCleared,
+        ...(manifestReset ? { manifestReset: true } : {}) });
+      return { blobs, bytes };
+    });
   });
 }

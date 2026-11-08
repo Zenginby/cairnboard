@@ -66,7 +66,7 @@ function writeActor(opts) {
 
 function requireOwnerTerminal(io) {
   const agent = AGENT_MARKERS.find((name) => io.env?.[name]);
-  const tty = Boolean(io.isTTY) && io.stdin?.isTTY !== false && io.stdout?.isTTY !== false;
+  const tty = Boolean(io.isTTY) && io.stdin?.isTTY === true && io.stdout?.isTTY === true;
   if (agent || !tty) throw new CairnError('owner_only', OWNER_ONLY);
 }
 
@@ -192,7 +192,7 @@ export function configCommands() {
           name: feature.cli, feature: feature.key, value: enabled, changed: result.changed, revision: result.revision,
         };
         const text = result.changed ? `${feature.cli}: ${value}` : `${feature.cli}: ${value} (unchanged)`;
-        return { data: opts.json ? data : text };
+        return { data: opts.json ? data : text, ...(result.warnings?.length ? { warnings: result.warnings } : {}) };
       },
     },
     {

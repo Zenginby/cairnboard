@@ -186,7 +186,7 @@ test('config set writes config with typed confirmation, records cli:owner and de
 
 test('main rejects non-TTY stdin or stdout when io.isTTY is omitted', async (t) => {
   const f = fixture(t);
-  for (const [stdinTty, stdoutTty] of [[false, true], [true, false]]) {
+  for (const [stdinTty, stdoutTty] of [[false, true], [true, false], [true, undefined]]) {
     let stdout = '', stderr = '';
     const exit = await main(['config', 'set', 'mentions', 'off', '--json'], {
       env: { HOME: f.home, USERPROFILE: f.home, CAIRN_DATA: f.data },
@@ -199,6 +199,11 @@ test('main rejects non-TTY stdin or stdout when io.isTTY is omitted', async (t) 
     assert.equal(exit, 2, stdout + stderr);
     assert.equal(JSON.parse(stdout).error.code, 'owner_only');
   }
+  const missingStdoutTty = await f.run(['config', 'set', 'mentions', 'off', '--json'], {
+    isTTY: true, stdin: 'mentions\n', stdout: { isTTY: undefined },
+  });
+  assert.equal(missingStdoutTty.code, 2, missingStdoutTty.stdout);
+  assert.equal(missingStdoutTty.json.error.code, 'owner_only');
 });
 
 test('config clear-shadow deletes blobs with clear confirmation and reports lock contention', async (t) => {
@@ -227,6 +232,37 @@ test('config clear-shadow deletes blobs with clear confirmation and reports lock
   assert.equal((await f.run(['config', '--json'])).code, 6);
   assert.equal((await f.run(['config', 'get', 'mentions', '--json'])).code, 6);
   assert.equal((await f.run(['config', 'clear-shadow', '--json'], { isTTY: true, stdin: 'clear\n' })).code, 6);
+});
+
+test('config clear-shadow removes prior external content from history and changes --diff', async (t) => {
+  const f = fixture(t);
+  f.put('notes/a.md', 'prior secret\n');
+  reconcileExternal(f.open());
+  f.put('notes/a.md', 'updated secret\n');
+  reconcileExternal(f.open());
+
+  const cleared = await f.run(['config', 'clear-shadow', '--json'], { isTTY: true, stdin: 'clear\n' });
+  assert.equal(cleared.code, 0, cleared.stdout + cleared.stderr);
+
+  const diffed = await f.run(['changes', '--since', '0', '--diff', '--json']);
+  assert.equal(diffed.code, 0, diffed.stdout);
+  const ext = diffed.json.data.changes.find((change) => change.op === 'external.change');
+  assert.ok(ext);
+  assert.equal(ext.diff, null);
+  assert.equal(ext.reason, 'content_not_kept');
+
+  const humanDiff = await f.run(['changes', '--target', 'notes/a.md', '--diff']);
+  assert.equal(humanDiff.code, 0, humanDiff.stderr);
+  assert.match(humanDiff.stdout, /\(content_not_kept\)/u);
+  assert.equal(humanDiff.stdout.includes('prior secret'), false);
+
+  const files = fs.readdirSync(join(f.data, '.cairn/history')).filter((name) => name.startsWith('x-'));
+  assert.equal(files.length, 1);
+  const raw = fs.readFileSync(join(f.data, '.cairn/history', files[0]), 'utf8');
+  assert.equal(raw.includes('prior secret'), false);
+  const saved = JSON.parse(raw);
+  assert.equal(Object.hasOwn(saved, 'before'), false);
+  assert.equal(saved.beforeUnavailable, true);
 });
 
 test('manual config edits produce config.external on cairn config', async (t) => {
