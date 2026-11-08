@@ -11,6 +11,10 @@ export function isFilesystemError(error) {
     && /^(?:E[A-Z0-9]+|ERR_FS_[A-Z_]+)$/u.test(error.code));
 }
 
+export function isPersistentFilesystemError(error) {
+  return ['ENOSPC', 'EIO', 'EROFS', 'EDQUOT'].includes(error?.code);
+}
+
 export function __setFsHooks(next = {}) {
   hooks = { ...next };
 }

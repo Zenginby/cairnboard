@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
-import { checkedPath, openForRead, readChecked, safeRelative } from './paths.mjs';
+import { checkedPath, filesystemPathKey, hasShortAlias, openForRead, readChecked, safeRelative } from './paths.mjs';
 import { lockName, withLock } from './lock.mjs';
 import { appendEvent, readEvents } from './events.mjs';
 import { SKIPPED_DIRS, refresh, targetRevisions } from './index.mjs';
@@ -16,7 +16,7 @@ import { lineDiff } from './diff.mjs';
 
 function targetPath(path) {
   const rel = safeRelative(path).replace(/\\/gu, '/');
-  return pathKey(rel).split('/').some((part) => SKIPPED_DIRS.has(part) || /~\d/u.test(part))
+  return pathKey(rel).split('/').some((part) => SKIPPED_DIRS.has(part)) || hasShortAlias(rel)
     || !/\.md$/iu.test(rel) ? null : rel;
 }
 
@@ -28,7 +28,7 @@ function warn(ctx, warning) {
 function reconcileTarget(ctx, path) {
   try {
     const rel = targetPath(path);
-    if (rel === null && /~\d/u.test(path)) warn(ctx, 'reconcile_path_skipped');
+    if (rel === null && hasShortAlias(path)) warn(ctx, 'reconcile_path_skipped');
     return rel;
   } catch (error) {
     if (error.code !== 'unsafe_path') throw error;
@@ -46,10 +46,25 @@ function snapshot(bytes) {
     prefix: bytes?.subarray(0, PREFIX_LIMIT) ?? Buffer.alloc(0) };
 }
 
-function diskBytes(ctx, path) {
+const fileStamp = (stat) => [stat.size, stat.mtimeMs, stat.ctimeMs, String(stat.ino)];
+
+function unchangedStamp(ctx, path, entry) {
+  if (!entry?.stamp) return false;
+  try {
+    const stamp = fileStamp(fs.lstatSync(checkedPath(ctx.root, path)));
+    return entry.stamp.every((value, index) => value === stamp[index]);
+  } catch (error) {
+    if (['ENOENT', 'ENOTDIR', 'unsafe_path'].includes(error.code)) return false;
+    throw error;
+  }
+}
+
+function diskBytes(ctx, path, trackStamp = false) {
   let fd;
   try {
+    if (fs.lstatSync(checkedPath(ctx.root, path)).isDirectory()) return snapshot(null);
     fd = openForRead(ctx.root, path);
+    const stamp = trackStamp ? fileStamp(fs.fstatSync(fd)) : undefined;
     const hash = createHash('sha256'), buffer = Buffer.alloc(PREFIX_LIMIT);
     const chunks = [], prefix = [];
     let size = 0, prefixSize = 0, count;
@@ -66,17 +81,21 @@ function diskBytes(ctx, path) {
       else chunks.length = 0;
     }
     return { bytes: size <= SHADOW_LIMIT ? Buffer.concat(chunks, size) : undefined,
-      rev: hash.digest('hex').slice(0, 16), size, prefix: Buffer.concat(prefix, prefixSize) };
+      rev: hash.digest('hex').slice(0, 16), size, prefix: Buffer.concat(prefix, prefixSize),
+      ...(stamp ? { stamp } : {}) };
   } catch (error) {
-    if (error.code === 'ENOENT') return snapshot(null);
+    if (['ENOENT', 'ENOTDIR'].includes(error.code)) return snapshot(null);
     // A symlink replacement is not a deletion and must never supply external content.
     if (error.code === 'unsafe_path') return undefined;
-    if (fs.isFilesystemError(error)) { warn(ctx, 'reconcile_path_skipped'); return undefined; }
+    if (fs.isFilesystemError(error)) {
+      warn(ctx, fs.isPersistentFilesystemError(error) ? 'reconcile_failed' : 'reconcile_path_skipped');
+      return undefined;
+    }
     throw error;
   } finally { if (fd !== undefined) fs.closeSync(fd); }
 }
 
-function baseline(ctx, paths, indexedBytes) {
+function baseline(ctx, paths, indexedBytes, nullHashes) {
   // A concurrent write is recognized by its durable event on the next scan; baseline needs no path locks.
   return withShadow(ctx, (record, shadow) => {
     if (shadow.initialized) return false;
@@ -85,8 +104,9 @@ function baseline(ctx, paths, indexedBytes) {
         if (reconcileTarget(ctx, path) === null) return [];
         const cached = indexedBytes.get(path);
         indexedBytes.delete(path);
-        const file = cached ? snapshot(cached) : diskBytes(ctx, path);
-        return file === undefined ? [] : [{ path, bytes: file.bytes, rev: file.rev, size: file.size }];
+        const file = cached ? snapshot(cached) : diskBytes(ctx, path, nullHashes.has(path));
+        return file === undefined ? [] : [{ path, bytes: file.bytes, rev: file.rev, size: file.size,
+          ...('stamp' in file ? { stamp: file.stamp } : {}) }];
       });
       record(changes, { defer: true });
     }
@@ -95,12 +115,19 @@ function baseline(ctx, paths, indexedBytes) {
   });
 }
 
+const validRevision = (rev) => rev === null || (typeof rev === 'string' && /^[0-9a-f]{16}$/u.test(rev));
+const validRevisions = (event) => validRevision(event.rev)
+  && (!Object.hasOwn(event, 'before') || validRevision(event.before))
+  && (event.targets ?? []).every((target) => validRevision(target.rev)
+    && (!Object.hasOwn(target, 'before') || validRevision(target.before)));
+
 function refreshEvents(ctx, state) {
   for (const event of readEvents(ctx, { cursor: state.cursor })) {
     state.events.set(event.seq, event);
+    if (!validRevisions(event)) continue;
     if (typeof event.overwrittenBy === 'string') state.gaps.add(event.overwrittenBy);
     for (const target of event.targets ?? []) {
-      const key = pathKey(target.path);
+      const key = filesystemPathKey(ctx, target.path);
       if ((state.last.get(key)?.seq ?? 0) < event.seq) {
         state.last.set(key, { seq: event.seq, rev: target.rev, event, previous: state.last.get(key),
           ...(Object.hasOwn(target, 'before') ? { before: target.before } : {}) });
@@ -141,7 +168,7 @@ function pendingRevisions(ctx) {
       try {
         const path = targetPath(item.path);
         if (!path) continue;
-        const key = pathKey(path);
+        const key = filesystemPathKey(ctx, path);
         if (!pending.has(key)) pending.set(key, new Set());
         pending.get(key).add(item.after);
       } catch (error) { if (error.code !== 'unsafe_path') throw error; }
@@ -169,21 +196,28 @@ function reconcileBatch(ctx, paths, state) {
 
 function reconcilePath(ctx, path, state, shadow, changes, pending) {
   const entry = shadowEntry(shadow, path);
-  const file = diskBytes(ctx, path);
+  const file = diskBytes(ctx, path, state.nullHashes.has(path));
   if (file === undefined) return null;
   const after = file.rev;
-  if (pending.get(pathKey(path))?.has(after)) return null;
-  if (after === (entry?.rev ?? null)) return null;
+  if (pending.get(filesystemPathKey(ctx, path))?.has(after)) return null;
+  const change = { path, bytes: file.bytes, rev: file.rev, size: file.size,
+    ...('stamp' in file ? { stamp: file.stamp } : {}) };
+  if (after === (entry?.rev ?? null)) {
+    if ('stamp' in file) changes.push(change);
+    return null;
+  }
   refreshEvents(ctx, state);
-  let own = state.last.get(pathKey(path));
+  let own = state.last.get(filesystemPathKey(ctx, path));
   // A retrospective owner event points at the already committed writer that superseded it.
   if (own?.event.overwrittenBy) {
-    for (let node = own.previous; node; node = node.previous) {
-      if (node.event.tx === own.event.overwrittenBy && node.rev === after) { own = node; break; }
+    const retrospective = own;
+    own = null;
+    for (let node = retrospective.previous; node; node = node.previous) {
+      if (node.event.tx === retrospective.event.overwrittenBy && node.rev === after) { own = node; break; }
     }
   }
   if (own && own.rev === after) {
-    changes.push({ path, bytes: file.bytes, rev: file.rev, size: file.size });
+    changes.push(change);
     let gap = own;
     while (gap && gap.event.op !== 'external.change' && Object.hasOwn(gap, 'before')
       && gap.before !== (entry?.rev ?? null) && !state.gaps.has(gap.event.tx)) {
@@ -201,7 +235,7 @@ function reconcilePath(ctx, path, state, shadow, changes, pending) {
   const before = shadowBytes(ctx, path, shadow);
   const prefix = file.rev === null ? before?.subarray(0, PREFIX_LIMIT) ?? Buffer.alloc(0) : file.prefix;
   const seq = emitExternal(ctx, { path, entry, before, after, prefix }, state);
-  changes.push({ path, bytes: file.bytes, rev: file.rev, size: file.size });
+  changes.push(change);
   return seq;
 }
 
@@ -234,8 +268,8 @@ function emitExternal(ctx, { path, entry, before, after, prefix, afterTx = undef
   return seq;
 }
 
-/** @param {*} ctx @param {{ paths?: string[] }} [options] */
-export function reconcileExternal(ctx, { paths } = {}) {
+/** @param {*} ctx @param {{ paths?: string[], prune?: boolean }} [options] */
+export function reconcileExternal(ctx, { paths, prune = paths === undefined } = {}) {
   if (ctx.mode !== 'write') throw new CairnError('internal', 'Reconciliation requires write mode.');
   const requested = paths?.flatMap((path) => {
     try {
@@ -246,7 +280,7 @@ export function reconcileExternal(ctx, { paths } = {}) {
     return [];
   });
   const state = { cursor: new Map(), events: new Map(), last: new Map(), gaps: new Set() };
-  let shadow = paths === undefined ? fullPrune(ctx, state) : readShadow(ctx);
+  let shadow = prune ? fullPrune(ctx, state) : readShadow(ctx);
   const indexedBytes = new Map();
   let retained = 0;
   refresh(ctx, { onBytes: shadow.initialized ? undefined : (path, bytes) => {
@@ -256,10 +290,12 @@ export function reconcileExternal(ctx, { paths } = {}) {
     }
   } });
   const current = targetRevisions(ctx, { byteSafe: true });
-  const sorted = (paths) => [...new Set(paths)].map((path) => ({ path, key: pathKey(path) }))
+  const nullHashes = new Set([...current].filter(([, hash]) => hash === null).map(([path]) => path));
+  state.nullHashes = nullHashes;
+  const sorted = (paths) => [...new Set(paths)].map((path) => ({ path, key: filesystemPathKey(ctx, path) }))
     .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map(({ path }) => path);
   if (!shadow.initialized) {
-    if (baseline(ctx, sorted([...current.keys(), ...shadow.entries.keys()]), indexedBytes)) {
+    if (baseline(ctx, sorted([...current.keys(), ...shadow.entries.keys()]), indexedBytes, nullHashes)) {
       return { recorded: 0, baseline: true, seqs: [] };
     }
     shadow = readShadow(ctx);
@@ -269,10 +305,10 @@ export function reconcileExternal(ctx, { paths } = {}) {
     shadow = readShadow(ctx);
   }
   const allPaths = requested ?? [...new Set([...current.keys(), ...shadow.entries.keys()])];
-  const shadowKeys = new Map([...shadow.entries].map(([path, entry]) => [pathKey(path), entry]));
   const candidates = sorted(allPaths.filter((path) => {
     const hash = current.get(path);
-    const entry = shadowKeys.get(pathKey(path));
+    const entry = shadowEntry(shadow, path);
+    if (hash === null && unchangedStamp(ctx, path, entry)) return false;
     return !current.has(path) || !entry || typeof hash !== 'string'
       || !/^[0-9a-f]{16}$/u.test(hash) || hash !== entry.rev;
   })).flatMap((path) => {
@@ -295,11 +331,13 @@ export function reconcileBeforeRun(ctx) {
   try {
     const write = ctx.mode === 'write' ? ctx : { ...ctx, mode: 'write' };
     if (ctx.mode !== 'write') recover(write);
-    reconcileExternal(write);
+    // Orphan sweeps belong to the server's full scans, not the CLI's write preflight.
+    reconcileExternal(write, { prune: false });
     return [];
   } catch (error) {
+    if (fs.isPersistentFilesystemError(error)) return ['reconcile_failed'];
     if (fs.isFilesystemError(error) || error.code === 'locked' || error.exit === 6
-      || ['EACCES', 'EROFS', 'index_unavailable'].includes(error.code)) return ['reconcile_skipped'];
+      || ['EACCES', 'index_unavailable'].includes(error.code)) return ['reconcile_skipped'];
     if (['unsafe_path', 'validation'].includes(error.code)) {
       try { readShadow(ctx); } catch (shadowError) {
         // An unusable shadow must not turn its best-effort write hook into a hard mutation failure.
@@ -352,13 +390,13 @@ export function listChanges(ctx, { since, target, actor, limit = 20 } = {}, even
   const matches = events.filter((event) => (!cursor || (cursor.seq === undefined
     ? Date.parse(event.ts) >= cursor.ts : event.seq > cursor.seq)) && (actor === undefined || event.actor === actor)
     && (target === undefined || event.target === target || event.targets?.some((item) => item.target === target
-      || (path !== null && pathKey(item.path) === pathKey(path))
+      || (path !== null && filesystemPathKey(ctx, item.path) === filesystemPathKey(ctx, path))
       || (isNoteKey(target) && entityRef({ type: 'note', id: null, path: item.path }) === target))));
   return (since === undefined ? matches.slice(-limit) : matches.slice(0, limit)).map((event) => ({
     seq: event.seq, ts: event.ts, actor: event.actor, op: event.op,
     ...(event.change === undefined ? {} : { change: event.change }), target: event.target,
-    paths: (event.targets ?? []).map(({ path }) => path), rev: event.rev,
-    ...(event.before === undefined ? {} : { before: event.before }),
+    paths: (event.targets ?? []).map(({ path }) => path), rev: validRevision(event.rev) ? event.rev : null,
+    ...(event.before === undefined ? {} : { before: validRevision(event.before) ? event.before : null }),
   }));
 }
 
@@ -395,7 +433,8 @@ function historyItem(ctx, event, path) {
   if (saved?.tx !== event.tx) return null;
   const items = saved.items ?? [saved];
   return Array.isArray(items) ? items.find((item) => typeof item?.path === 'string'
-    && !/~\d/u.test(item.path) && pathKey(item.path) === pathKey(path)) ?? null : null;
+    && !hasShortAlias(item.path)
+    && filesystemPathKey(ctx, item.path) === filesystemPathKey(ctx, path)) ?? null : null;
 }
 
 function beforeBytes(item) {
@@ -434,9 +473,19 @@ function afterBytes(ctx, path) {
 }
 
 export function changeDiff(ctx, event, events = readEvents(ctx)) {
+  try { return diffForEvent(ctx, event, events); } catch (error) {
+    if (['unsafe_path', 'validation'].includes(error.code) || fs.isFilesystemError(error)) {
+      return { diff: null, reason: 'diff_unavailable' };
+    }
+    throw error;
+  }
+}
+
+function diffForEvent(ctx, event, events) {
   event = event.tx ? event : events.find(({ seq }) => seq === event.seq);
   const path = event?.targets?.[0]?.path;
   if (!path || !targetPath(path)) return { diff: null, reason: 'history_pruned' };
+  if (!validRevisions(event)) return { diff: null, reason: 'diff_unavailable' };
   const saved = historyItem(ctx, event, path);
   if (!saved) return { diff: null, reason: 'history_pruned' };
   if (saved.reason) return { diff: null, reason: saved.reason };
@@ -451,8 +500,8 @@ export function changeDiff(ctx, event, events = readEvents(ctx)) {
     const candidate = priorWrite && beforeBytes(priorWrite);
     if (candidate?.bytes && revision(candidate.bytes) === rev) after = candidate;
   }
-  const next = events.find((item) => item.seq > event.seq
-    && item.targets?.some((target) => pathKey(target.path) === pathKey(path)));
+  const next = events.find((item) => item.seq > event.seq && validRevisions(item)
+    && item.targets?.some((target) => filesystemPathKey(ctx, target.path) === filesystemPathKey(ctx, path)));
   const following = next && historyItem(ctx, next, path);
   if (!after && following?.reason) return { diff: null, reason: following.reason };
   if (!after && following) {

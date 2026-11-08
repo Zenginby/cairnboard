@@ -18,6 +18,25 @@ export function samePath(a, b, platform = process.platform) {
     : a.normalize('NFC') === b.normalize('NFC');
 }
 
+// Probe existing root metadata without creating a file, including in read-only contexts.
+export function filesystemPathKey(ctx, path) {
+  if (ctx.caseInsensitivePaths === undefined) {
+    try {
+      const original = fs.lstatSync(checkedPath(ctx.root, '.cairn'));
+      const folded = fs.lstatSync(checkedPath(ctx.root, '.CAIRN'));
+      ctx.caseInsensitivePaths = original.dev === folded.dev && original.ino === folded.ino;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      ctx.caseInsensitivePaths = false;
+    }
+  }
+  return ctx.caseInsensitivePaths ? pathKey(path) : path.replace(/\\/gu, '/');
+}
+
+export function hasShortAlias(path, platform = process.platform) {
+  return platform === 'win32' && path.split(/[\\/]/u).some((part) => /~\d/u.test(part));
+}
+
 export function realRoot(path) {
   return fs.realpathSync(path);
 }

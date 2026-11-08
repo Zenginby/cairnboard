@@ -8,6 +8,8 @@ import { refresh } from '../core/index.mjs';
 import { resolveSchema } from '../core/schema.mjs';
 import { exportBoard } from '../core/export.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
+import { reconcileExternal } from '../core/changes.mjs';
+import { runCli } from './support/cli.mjs';
 
 for (const custom of [false, true]) {
   test(`Kanban export matches the handwritten ${custom ? 'custom' : 'default'} fixture without writing sources`, (t) => {
@@ -57,4 +59,23 @@ test('titles cannot break out of their Kanban wiki link', (t) => {
   fs.writeFileSync(join(root, 'cards/odd.md'), '---\ntitle: "a|b]] [[x"\n---\n');
   refresh(ctx);
   assert.match(exportBoard(ctx), /^- \[ \] \[\[cards\/odd\|a b x\]\]$/mu);
+});
+
+test('board export preserves an owner edit made after preflight reconciliation', async (t) => {
+  const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
+  initDataDir(root, { home, env: {}, clock });
+  const ctx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock });
+  const original = exportBoard(ctx), edited = original + '\nOwner edit\n';
+  fs.writeFileSync(join(root, 'board.md'), original);
+  reconcileExternal(ctx);
+  let seen = 0;
+  t.after(() => fs.__setFsHooks());
+  fs.__setFsHooks({ afterCheck(path) {
+    // Inject between the export's checked destination and its preimage read.
+    if (path === join(root, 'board.md') && ++seen === 2) fs.writeFileSync(path, edited);
+  } });
+  const result = await runCli(['export', 'board', '--actor', 'acme', '--json'], { home, data: root, clock });
+  assert.equal(result.code, 4, result.stdout);
+  assert.equal(fs.readFileSync(join(root, 'board.md'), 'utf8'), edited);
+  assert.equal(reconcileExternal(ctx).recorded, 1);
 });

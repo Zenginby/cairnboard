@@ -23,7 +23,7 @@ import { destination, resolveSchema } from '../../core/schema.mjs';
 import { readBody, readFileBytes, readStdinBytes } from '../body.mjs';
 import { ingest, MAX_INPUT } from '../../core/ingest.mjs';
 import { lockName, withLock } from '../../core/lock.mjs';
-import { recordShadow } from '../../core/shadow.mjs';
+import { readShadow, recordShadow, shadowEntry } from '../../core/shadow.mjs';
 
 const mutationOptions = (opts) => ({ ifRevision: opts['if-revision'], dryRun: opts['dry-run'] === true });
 const environment = (io) => ({ home: io.env.HOME ?? io.env.USERPROFILE, env: io.env,
@@ -388,6 +388,12 @@ export function writeCommands({ string, boolean }) {
     }
     const warnings = [];
     if (!opts['dry-run']) withLock(ctx, lockName('board.md'), () => {
+      const shadow = readShadow(ctx);
+      // Without a baseline (trail skipped or off) the atomic write's own comparison below still guards the file.
+      if (shadow.initialized && (shadowEntry(shadow, 'board.md')?.rev ?? null)
+        !== (before === null ? null : revision(before))) {
+        throw new CairnError('conflict', 'board.md changed during export; retry to reconcile it.');
+      }
       fs.writeFileAtomic(path, text, () => {
         if (readChecked(ctx.root, 'board.md', 'utf8') !== before) {
           throw new CairnError('conflict', 'board.md changed during export.');

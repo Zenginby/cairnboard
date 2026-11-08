@@ -669,9 +669,11 @@ export function findById(ctx, id) {
 
 /** @param {*} ctx @param {{ byteSafe?: boolean }} [options] */
 export function targetRevisions(ctx, { byteSafe = false } = {}) {
+  // Raw Markdown is ignored as a page, but raw indexing already caches its byte hash.
   const sql = byteSafe
-    ? `SELECT t.path, CASE WHEN f.path IS NULL OR f.bad_encoding = 1 THEN NULL ELSE t.hash END AS hash
-       FROM targets t LEFT JOIN files f ON f.path = t.path ORDER BY t.path`
+    ? `SELECT t.path, CASE WHEN r.sha256 IS NOT NULL THEN substr(r.sha256, 1, 16)
+         WHEN f.path IS NULL OR f.bad_encoding = 1 THEN NULL ELSE t.hash END AS hash
+       FROM targets t LEFT JOIN files f ON f.path = t.path LEFT JOIN raw_docs r ON r.path = t.path ORDER BY t.path`
     : 'SELECT path, hash FROM targets ORDER BY path';
   return withIndex(ctx, (db) => new Map(db.prepare(sql).all()
     .map(({ path, hash }) => [path, hash])));

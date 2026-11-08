@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { revision } from '../core/store.mjs';
-import { readShadow, recordShadow, shadowBytes } from '../core/shadow.mjs';
+import { readShadow, recordShadow, shadowBytes, shadowEntry } from '../core/shadow.mjs';
+import { filesystemPathKey } from '../core/paths.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
 
@@ -158,10 +159,40 @@ test('first shadow creation preserves user ignore lines and adds private directo
   }
 });
 
-test('8.3 short name rejected', (t) => {
+test('8.3 short name rejected', { skip: process.platform !== 'win32' }, (t) => {
   const ctx = fixture(t);
   mkdirSync(join(ctx.root, '.cairn/shadow'));
   writeFileSync(join(ctx.root, '.cairn/shadow/manifest.json'), JSON.stringify({ v: 1, initialized: true,
     entries: { 'notes/SECRET~1.md': { rev: revision('x'), blob: false, size: 1 } } }));
   assert.throws(() => readShadow(ctx), { code: 'validation' });
+});
+
+test('shadow updates keep case-sensitive paths separate', (t) => {
+  const ctx = fixture(t);
+  ctx.caseInsensitivePaths = false;
+  recordShadow(ctx, [{ path: 'notes/A.md', bytes: Buffer.from('upper') }]);
+  recordShadow(ctx, [{ path: 'notes/a.md', bytes: Buffer.from('lower') }]);
+  assert.equal(readShadow(ctx).entries.size, 2);
+  assert.deepEqual(shadowBytes(ctx, 'notes/A.md'), Buffer.from('upper'));
+  assert.deepEqual(shadowBytes(ctx, 'notes/a.md'), Buffer.from('lower'));
+});
+
+test('folded shadow lookup uses its index without scanning entries', (t) => {
+  const ctx = fixture(t);
+  ctx.caseInsensitivePaths = true;
+  recordShadow(ctx, [{ path: 'notes/A.md', bytes: Buffer.from('upper') }]);
+  const shadow = readShadow(ctx);
+  t.mock.method(shadow.entries, Symbol.iterator, () => { throw new Error('linear lookup'); });
+  assert.equal(shadowEntry(shadow, 'NOTES/a.md').rev, revision('upper'));
+});
+
+test('root filesystem case probe is cached on the context', (t) => {
+  const ctx = fixture(t), seen = [];
+  t.after(() => __setFsHooks());
+  __setFsHooks({ afterCheck(path) { seen.push(path); } });
+  const key = filesystemPathKey(ctx, 'notes/A.md');
+  assert.equal(typeof ctx.caseInsensitivePaths, 'boolean');
+  assert.equal(key, ctx.caseInsensitivePaths ? 'notes/a.md' : 'notes/A.md');
+  filesystemPathKey(ctx, 'notes/B.md');
+  assert.equal(seen.filter((path) => path.endsWith('.CAIRN')).length, 1);
 });

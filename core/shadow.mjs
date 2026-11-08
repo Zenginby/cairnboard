@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
-import { checkedPath, openForRead, readChecked, safeRelative } from './paths.mjs';
+import { checkedPath, filesystemPathKey, hasShortAlias, openForRead, readChecked, safeRelative } from './paths.mjs';
 import { withLock } from './lock.mjs';
 import { revision } from './store.mjs';
 import { pathKey } from './text.mjs';
@@ -13,21 +13,29 @@ const blobLimit = 256 * 1024;
 const budget = 64 * 1024 * 1024;
 const skipped = new Set(['.cairn', '.git', 'node_modules']);
 const invalid = () => new CairnError('validation', 'Invalid shadow manifest.');
+const indexes = new WeakMap();
+
+function indexed(ctx, shadow) {
+  indexes.set(shadow, { key: (path) => filesystemPathKey(ctx, path),
+    paths: new Map([...shadow.entries.keys()].map((path) => [filesystemPathKey(ctx, path), path])) });
+  return shadow;
+}
 
 function targetPath(path) {
   let rel;
   try { rel = safeRelative(path).replace(/\\/gu, '/'); } catch { throw invalid(); }
-  if (pathKey(rel).split('/').some((part) => skipped.has(part) || /~\d/u.test(part))) throw invalid();
+  if (pathKey(rel).split('/').some((part) => skipped.has(part)) || hasShortAlias(rel)) throw invalid();
   return rel;
 }
 
 export function shadowEntry(shadow, path) {
-  return shadow.entries.get(path) ?? [...shadow.entries].find(([name]) => pathKey(name) === pathKey(path))?.[1];
+  const index = indexes.get(shadow);
+  return shadow.entries.get(path) ?? shadow.entries.get(index.paths.get(index.key(path)));
 }
 
 export function readShadow(ctx) {
   const text = readChecked(ctx.root, manifestPath, 'utf8');
-  if (text === null) return { initialized: false, entries: new Map() };
+  if (text === null) return indexed(ctx, { initialized: false, entries: new Map() });
   let data;
   try { data = JSON.parse(text); } catch { throw invalid(); }
   if (data?.v !== 1 || typeof data.initialized !== 'boolean' || !data.entries
@@ -44,11 +52,15 @@ export function readShadow(ctx) {
           || !/^[0-9a-f]{64}$/u.test(entry.hash) || !entry.hash.startsWith(entry.rev)))
         || (!entry.blob && entry.hash !== undefined)) throw invalid();
     }
+    if (entry.stamp !== undefined && (!Array.isArray(entry.stamp) || entry.stamp.length !== 4
+      || !entry.stamp.slice(0, 3).every((value) => typeof value === 'number' && Number.isFinite(value))
+      || typeof entry.stamp[3] !== 'string')) throw invalid();
     entries.set(path, { rev: entry.rev, blob: entry.blob,
+      ...(entry.stamp === undefined ? {} : { stamp: entry.stamp }),
       ...(entry.size === undefined ? {} : { size: entry.size }),
       ...(entry.hash === undefined ? {} : { hash: entry.hash }) });
   }
-  return { initialized: data.initialized, entries };
+  return indexed(ctx, { initialized: data.initialized, entries });
 }
 
 function blobNames(ctx) {
@@ -135,14 +147,14 @@ function writeBlob(ctx, hash, bytes) {
 function record(ctx, shadow, changes, { initialize = false, defer = false } = {}) {
   ensureDataIgnore(ctx.root);
   upgrade(ctx, shadow);
-  const paths = new Map([...shadow.entries.keys()].map((path) => [pathKey(path), path]));
-  const items = changes.map(({ path, bytes, rev, size }) => {
+  const { paths, key } = indexes.get(shadow);
+  const items = changes.map(({ path, bytes, rev, size, stamp }) => {
     if (bytes === undefined) {
       if (typeof rev !== 'string' || !/^[0-9a-f]{16}$/u.test(rev)
         || !Number.isSafeInteger(size) || size <= blobLimit) throw invalid();
     } else if (bytes !== null && !Buffer.isBuffer(bytes)) throw invalid();
     const rel = targetPath(path);
-    return { path: shadow.entries.has(rel) ? rel : paths.get(pathKey(rel)) ?? rel, bytes, rev, size };
+    return { path: shadow.entries.has(rel) ? rel : paths.get(key(rel)) ?? rel, bytes, rev, size, stamp };
   });
   // Replacements release their budget before new blobs are considered; shared blobs count only once.
   const released = new Set();
@@ -150,6 +162,7 @@ function record(ctx, shadow, changes, { initialize = false, defer = false } = {}
     const entry = shadow.entries.get(path);
     if (entry?.blob) released.add(entry.hash);
     shadow.entries.delete(path);
+    paths.delete(key(path));
   }
   const names = new Map([...shadow.entries.values()].filter((entry) => entry.blob)
     .map((entry) => [entry.hash, entry.size]));
@@ -157,10 +170,11 @@ function record(ctx, shadow, changes, { initialize = false, defer = false } = {}
   for (const rel of [directory, `${directory}/blobs`]) {
     fs.mkdirSync(checkedPath(ctx.root, rel), { recursive: true, mode: 0o700 });
   }
-  for (const { path, bytes, rev, size } of items) {
+  for (const { path, bytes, rev, size, stamp } of items) {
     if (bytes === null) continue;
+    paths.set(key(path), path);
     if (bytes === undefined) {
-      shadow.entries.set(path, { rev, blob: false, size });
+      shadow.entries.set(path, { rev, blob: false, size, ...(stamp ? { stamp } : {}) });
       continue;
     }
     const hash = createHash('sha256').update(bytes).digest('hex');
@@ -170,7 +184,8 @@ function record(ctx, shadow, changes, { initialize = false, defer = false } = {}
       names.set(hash, bytes.length);
       used += bytes.length;
     }
-    shadow.entries.set(path, { rev: revision(bytes), blob, size: bytes.length, ...(blob ? { hash } : {}) });
+    shadow.entries.set(path, { rev: revision(bytes), blob, size: bytes.length, ...(blob ? { hash } : {}),
+      ...(stamp ? { stamp } : {}) });
   }
   if (defer) return;
   fs.writeFileAtomic(checkedPath(ctx.root, manifestPath), JSON.stringify({
