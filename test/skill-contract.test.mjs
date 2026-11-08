@@ -107,6 +107,12 @@ test('wiki workflow gives runnable context, capture, draft check, index and lint
     assert.match(fragment, /wiki check/u);
     assert.match(wiki, /research update <research-id> --processed --if-revision <revision>/u);
     assert.match(fragment, /--processed/u);
+    const noMentions = renderSkill({
+      version: '1.2.3', invocation, actor, commands, features: { mentions: false },
+    });
+    assert.ok(Buffer.byteLength(noMentions) <= 24 * 1024);
+    assert.ok(!noMentions.includes('feature:mentions'));
+    assert.ok(noMentions.includes(`${invocation} wiki lint --json`));
   }
 });
 

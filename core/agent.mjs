@@ -71,11 +71,10 @@ export function renderSkill({ version, invocation, actor, commands, features = u
       : `${command.summary}${command.dangerous ? ` Only a human runs it with --${command.dangerous.option}; agents run it without.` : ''}\n\n\`\`\`sh\n${line}\n\`\`\`\n`;
   }).join('\n');
   const template = mentionsOff
-    ? skillTemplate.replace(
-      /\nAfter saving a note, list pages that name it without linking to it\.[\s\S]*?mentions <note-id> --json\n```\n/u,
-      '',
-    )
-    : skillTemplate;
+    ? skillTemplate
+      .replace(/\r?\n<!-- feature:mentions -->[\s\S]*?<!-- \/feature:mentions -->\r?\n/gu, '')
+      .replace(/<!-- feature:mentions -->[\s\S]*?<!-- \/feature:mentions -->/gu, '')
+    : skillTemplate.replace(/<!-- \/?feature:mentions -->\r?\n?/gu, '');
   const text = fill(template, { version, invocation, actor: name, reference,
     actorGuide: actor ? `Use \`--actor ${actor}\` for every write.`
       : 'Replace `<actor>` with your own tool name: codex, gemini, cursor, antigravity. Pass it as `--actor` on every write.' });

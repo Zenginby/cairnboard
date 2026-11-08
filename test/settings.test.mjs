@@ -41,7 +41,7 @@ test('feature defaults and validation preserve the existing format', (t) => {
   assert.deepEqual(features({}), defaults);
   assert.deepEqual(readSettings(ctx), { features: defaults,
     revision: revision(fs.readFileSync(join(ctx.root, '.cairn/config.json'))),
-    shadow: { blobs: 0, bytes: 0 }, lastChange: null });
+    shadow: { blobs: 0, bytes: 0 }, trailOffSince: null, lastChange: null });
   assert.equal(loadConfig(ctx.root).formatVersion, 1);
   for (const [value, field] of [[null, 'features'], [[], 'features'], [false, 'features'], ['false', 'features'],
     [{ changeTrail: 'false' }, 'features.changeTrail'], [{ foo: true }, 'features.foo']]) {

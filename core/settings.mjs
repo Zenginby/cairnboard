@@ -44,7 +44,8 @@ function readState(ctx) {
       if (state?.v === 1 && (state.rev === null
         || (typeof state.rev === 'string' && /^[0-9a-f]{16}$/u.test(state.rev)))
         && Object.keys(state.features).length === 4 && typeof state.trailPending === 'boolean'
-        && validChange(state.lastChange) && validGap(state.gapPending) && validGap(state.lastGap)) {
+        && validChange(state.lastChange) && validGap(state.gapPending) && validGap(state.lastGap)
+        && (state.trailOffSince === undefined || state.trailOffSince === null || validTime(state.trailOffSince))) {
         features({ features: state.features });
         return state;
       }
@@ -59,6 +60,7 @@ function readState(ctx) {
   const gap = events.findLast((item) => item.op === 'external.gap' && item.seq > (disabled?.seq ?? 0));
   const state = { v: 1, rev: last?.rev ?? null, features: last?.features ?? features({}),
     lastChange: lastChange(last), trailPending: Boolean(disabled), gapPending: null,
+    trailOffSince: last?.features?.changeTrail === false ? disabled?.ts ?? null : null,
     lastGap: gap ? { tx: gap.tx, from: gap.from, to: gap.to, actor: gap.actor } : null };
   writeState(ctx, state);
   return state;
@@ -83,6 +85,7 @@ function event(ctx, op, extra) {
 function recordConfig(ctx, state, item) {
   if (state.features.changeTrail !== item.features.changeTrail) {
     state.trailPending = true;
+    state.trailOffSince = item.features.changeTrail ? null : item.ts;
     if (!item.features.changeTrail) { state.lastGap = null; state.gapPending = null; }
   }
   Object.assign(state, { rev: item.rev, features: item.features, lastChange: lastChange(item) });
@@ -153,12 +156,14 @@ export function checkConfigDrift(ctx) {
   return locked(ctx, (write, disk, state) => drift(write, disk, state));
 }
 
-export function readSettings(ctx) {
+/** @param {*} ctx @param {{ stats?: boolean }} [options] `stats: false` skips the shadow lock and manifest read. */
+export function readSettings(ctx, { stats = true } = {}) {
   return locked(ctx, (write, disk, state) => {
     drift(write, disk, state);
     const last = state.lastChange;
     return { features: features(disk.config), revision: disk.rev,
-      shadow: withShadow(write, () => shadowStats(write), { configLocked: true }),
+      shadow: stats ? withShadow(write, () => shadowStats(write), { configLocked: true }) : null,
+      trailOffSince: state.features.changeTrail ? null : state.trailOffSince ?? null,
       lastChange: last ? { ts: last.ts, actor: last.actor,
         feature: last.feature ?? last.changed, after: last.after } : null };
   });

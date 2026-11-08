@@ -71,11 +71,13 @@ Before writing any page, send the complete proposed text on stdin to the check c
 {{invocation}} wiki check - --path <target-path> --json
 ```
 
+<!-- feature:mentions -->
 After saving a note, list pages that name it without linking to it. Add a link where the mention means that page, through a normal checked update; `mentions --link` needs a human's confirmation.
 
 ```sh
 {{invocation}} mentions <note-id> --json
 ```
+<!-- /feature:mentions -->
 
 Keep conflicting claims with their sources and dates and flag them with `> [!WARNING] Conflict`; never silently erase one side. For information that changes over time, retain the former value with a struck-through date range or use `valid_from` / `valid_until` on the applicable pages; use `superseded_by` when a page replaces another. Journal items use `--decision`, `--discovery`, `--pitfall` or `--lesson` for reusable findings, and `--item` for ordinary progress. Link a processed lesson to the page that now explains it.
 
@@ -93,6 +95,7 @@ Use `search '<query>' --type raw --json` with the full invocation to find text i
 - Do not delete anything unless the user asks. Removal goes to trash.
 - Do not copy card or note content into commits or PR descriptions.
 - Never use `--steal`, `link`, or `agent install`; those operations belong to a human. Project removal also requires a human.
+- Settings are owner-only. If a feature is off, say so; do not edit `.cairn/config.json`.
 - Use `--compact --json` for lists to conserve context. Each write needs `--actor`; it returns a new revision. Body input is read only with `--body -` or `--body-file "<path>"`.
 - Exit codes: 0 success, 1 internal error, 2 usage, 3 not found (or nothing to undo), 4 conflict, 5 validation,
   6 locked, 7 confirmation required. On 4 run `changes --target <ref> --diff`, re-read, then write again;

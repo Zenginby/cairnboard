@@ -46,6 +46,10 @@ test('skill has quoted YAML, a first body version marker and full invocations', 
     assert.ok(skill.includes('--if-revision'));
     assert.ok(skill.includes('changes --target <ref> --diff'));
     assert.ok(skill.includes("never overwrite the owner's edit blindly"));
+    assert.ok(skill.includes(
+      'Settings are owner-only. If a feature is off, say so; do not edit `.cairn/config.json`.',
+    ));
+    assert.ok(!skill.includes('feature:mentions'));
     if (actor === null) assert.match(skill, /codex, gemini, cursor, antigravity/u);
   }
   const snippet = renderAgentsMd({ version: '1.2.3', invocation, commands });
@@ -207,4 +211,22 @@ test('installation preserves edits made while confirmation is pending', (t) => {
   fs.writeFileSync(path, 'New\n');
   assert.throws(() => plan.apply(), { code: 'conflict' });
   assert.equal(fs.readFileSync(path, 'utf8'), 'New\n');
+});
+
+test('feature:mentions template markers are stripped with mentions both on and off', () => {
+  const invocation = cliInvocation(join('acme', 'board'));
+  for (const features of [undefined, { mentions: true }, { mentions: false }]) {
+    const skill = renderSkill({ version: '1.2.3', invocation, actor: 'claude', commands, features });
+    assert.ok(!skill.includes('feature:mentions'));
+    assert.ok(!skill.includes('\n\n\n'));
+    assert.ok(skill.includes(
+      'Settings are owner-only. If a feature is off, say so; do not edit `.cairn/config.json`.',
+    ));
+    if (features?.mentions === false) {
+      assert.ok(!skill.includes('mentions'));
+      assert.match(skill, /wiki check - --path <target-path> --json\n```\n\nKeep conflicting claims/u);
+    } else {
+      assert.ok(skill.includes(`${invocation} mentions <note-id> --json`));
+    }
+  }
 });
