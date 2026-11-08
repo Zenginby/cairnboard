@@ -270,7 +270,7 @@ test('gap recovery is idempotent and separate disable intervals may share a time
   const expectedRevision = readSettings(ctx).revision;
   t.after(() => fs.__setFsHooks());
   fs.__setFsHooks({ rename(from, to) {
-    if (to.endsWith('/shadow/manifest.json')) throw new Error('manifest failed');
+    if (to.replace(/\\/gu, '/').endsWith('/shadow/manifest.json')) throw new Error('manifest failed');
     fs.renameSync(from, to);
   } });
   assert.throws(() => setFeature(ctx, { name: 'changeTrail', value: true, expectedRevision }), /manifest failed/u);
