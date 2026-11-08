@@ -8,6 +8,7 @@ import { confirm } from './confirm.mjs';
 import { actorPattern, clean, human, okEnvelope, errorEnvelope } from './output.mjs';
 
 export async function main(argv, io) {
+  io = io?.isTTY === undefined ? { ...io, isTTY: Boolean(io?.stdin?.isTTY && io?.stdout?.isTTY) } : io;
   let json = argv.includes('--json'), ctx = null, opts = {};
   try {
     await checkRuntime();

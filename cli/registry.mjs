@@ -24,12 +24,16 @@ import { readStdin, readStdinBytes } from './body.mjs';
 import { evaluateHook, hookOutput } from '../core/hook.mjs';
 import { mentions, linkMention } from '../core/mentions.mjs';
 import { prepareChanges, runChanges } from './commands/changes.mjs';
+import { configCommands, readConfiguredFeatures } from './commands/config.mjs';
 
 /** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
  * { type: 'string'|'boolean', multiple?: boolean, short?: string, summary: string }>, mode: 'read'|'write',
- * actor?: boolean, writeOption?: string, prepare?: (args: string[], opts: object, io: object) => unknown,
- * needsData: boolean, dangerous: boolean|{ option: string }, run: (ctx: object|null, args: string[], opts: object, io: object, prepared?: unknown) => Result|Promise<Result> }} Command */
+ * actor?: boolean, agentVisible?: boolean, writeOption?: string,
+ * prepare?: (args: string[], opts: object, io: object) => unknown, needsData: boolean,
+ * dangerous: boolean|{ option: string },
+ * run: (ctx: object|null, args: string[], opts: object, io: object, prepared?: unknown) => Result|Promise<Result>
+ * }} Command */
 
 const string = (summary) => ({ type: 'string', summary });
 const boolean = (summary) => ({ type: 'boolean', summary });
@@ -78,12 +82,18 @@ function read(name, summary, args, options, run, needsData = true) {
   commands.push({ name, summary, args, options: { ...readOptions, ...options }, mode: 'read', needsData, dangerous: false, run });
 }
 
-read('help', 'List commands or show command options.', ['[command...]'], {}, (ctx, args, opts) => {
+read('help', 'List commands or show command options.', ['[command...]'], {}, (ctx, args, opts, io) => {
   // The longest command whose words start the arguments, so `cairn card update c-000001 --help` helps `card update`.
   const command = args.length ? [...commands].sort((a, b) => b.name.split(' ').length - a.name.split(' ').length)
     .find((item) => item.name.split(' ').every((word, index) => args[index] === word)) : null;
   if (args.length && !command) throw new CairnError('usage', 'Unknown or missing command. Run `cairn help`');
-  const describe = ({ name, summary, args, options }) => ({ name, summary, args, options: { ...commonOptions, ...options } });
+  const enabled = readConfiguredFeatures(opts, io);
+  const describe = ({ name, summary, args, options }) => ({
+    name,
+    summary: name === 'mentions' && enabled.mentions === false ? `${summary} (disabled)` : summary,
+    args,
+    options: { ...commonOptions, ...options },
+  });
   const data = command ? describe(command) : { commands: commands.filter((item) => !item.hidden).map(describe) };
   if (opts.json) return { data };
   const table = (rows) => {
@@ -91,7 +101,7 @@ read('help', 'List commands or show command options.', ['[command...]'], {}, (ct
     return rows.map(([left, right]) => `  ${left.padEnd(width)}  ${right}`);
   };
   return { data: command ? [
-    `Usage: cairn ${command.name} ${command.args.join(' ')}`.trimEnd(), command.summary, '', 'Options:',
+    `Usage: cairn ${command.name} ${command.args.join(' ')}`.trimEnd(), data.summary, '', 'Options:',
     ...table(Object.entries(data.options).map(([name, option]) =>
       [`--${name}${option.short ? `, -${option.short}` : ''}${option.type === 'string' ? ' <value>' : ''}`, option.summary])),
   ].join('\n') : ['Usage: cairn <command> [options]', '', 'Commands:',
@@ -282,6 +292,7 @@ read('trash list', 'List recoverable trash items.', [], {}, (ctx, args, opts) =>
 
 commands.push(...writeCommands({ string, boolean }));
 commands.push(...agentCommands(commands));
+commands.push(...configCommands());
 
 read('doctor', 'Inspect data without migration or recovery.', [], {}, (ctx, args, opts, io) => {
   const checks = checkData({ dataDir: opts.data, env: io.env, home: io.env.HOME ?? io.env.USERPROFILE,
@@ -309,8 +320,12 @@ read('open', 'Open the running web interface.', [], {}, async (ctx, args, opts, 
 
 read('schema', 'Describe commands, fields and error codes.', [], {}, () => ({ data: {
   cli: packageVersion,
-  commands: commands.map(({ name, summary, args, options, mode, actor, writeOption, needsData, dangerous }) => ({
-    name, summary, args, options: { ...commonOptions, ...options }, mode, needsData, dangerous, ...(actor === false ? { actor } : {}),
+  commands: commands.map(({
+    name, summary, args, options, mode, actor, agentVisible, writeOption, needsData, dangerous,
+  }) => ({
+    name, summary, args, options: { ...commonOptions, ...options }, mode, needsData, dangerous,
+    ...(actor === false ? { actor } : {}),
+    ...(agentVisible === false ? { agentVisible } : {}),
     ...(writeOption ? { writeOption } : {}),
   })),
   errors: Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })), fields,

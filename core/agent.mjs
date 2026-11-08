@@ -60,15 +60,23 @@ function commandLine(command, invocation, actor) {
   return `${invocation} ${command.name} ${args.join(' ')}`;
 }
 
-export function renderSkill({ version, invocation, actor, commands }) {
+export function renderSkill({ version, invocation, actor, commands, features = undefined }) {
   const name = actor ?? '<actor>';
-  const reference = commands.filter((command) => !command.hidden).map((command) => {
+  const mentionsOff = features?.mentions === false;
+  const reference = commands.filter((command) => !command.hidden && command.agentVisible !== false
+    && (!mentionsOff || command.name !== 'mentions')).map((command) => {
     const line = commandLine(command, invocation, name);
     return command.dangerous === true
       ? `${command.summary} Human runs: ${line}\n`
       : `${command.summary}${command.dangerous ? ` Only a human runs it with --${command.dangerous.option}; agents run it without.` : ''}\n\n\`\`\`sh\n${line}\n\`\`\`\n`;
   }).join('\n');
-  const text = fill(skillTemplate, { version, invocation, actor: name, reference,
+  const template = mentionsOff
+    ? skillTemplate.replace(
+      /\nAfter saving a note, list pages that name it without linking to it\.[\s\S]*?mentions <note-id> --json\n```\n/u,
+      '',
+    )
+    : skillTemplate;
+  const text = fill(template, { version, invocation, actor: name, reference,
     actorGuide: actor ? `Use \`--actor ${actor}\` for every write.`
       : 'Replace `<actor>` with your own tool name: codex, gemini, cursor, antigravity. Pass it as `--actor` on every write.' });
   if (Buffer.byteLength(text, 'utf8') > 24 * 1024) {
@@ -127,7 +135,7 @@ function writeDiff(stderr, before, text, safe) {
   stderr?.write(diffLines(before, text, safe));
 }
 
-export function prepareInstall({ home, repoRoot: root = repoRoot, targets, commands, stderr }) {
+export function prepareInstall({ home, repoRoot: root = repoRoot, targets, commands, stderr, features = undefined }) {
   const names = selected(targets);
   if (!fs.statSync(join(root, 'dist/cairn.mjs'), { throwIfNoEntry: false })?.isFile()) {
     throw new CairnError('validation', 'Build the CLI first: npm run build:cli');
@@ -135,7 +143,10 @@ export function prepareInstall({ home, repoRoot: root = repoRoot, targets, comma
   const plans = names.map((target) => {
     const path = targetPath(home, target);
     const before = readSkill(path);
-    const text = renderSkill({ version: packageVersion, invocation: cliInvocation(resolve(root)), actor: TARGETS[target].actor, commands });
+    const text = renderSkill({
+      version: packageVersion, invocation: cliInvocation(resolve(root)), actor: TARGETS[target].actor,
+      commands, features,
+    });
     const status = before === null ? 'new' : before === text ? 'unchanged' : 'changed';
     return { target, path, before, text, status };
   });
