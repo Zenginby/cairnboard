@@ -324,6 +324,27 @@ test('search is answered by the index, with the original title', (t) => {
   assert.deepEqual(ctx.warnings, []);
 });
 
+test('search marks FTS snippet hits only when asked', (t) => {
+  const ctx = setup(t);
+  put(ctx, 'notes/a.md', '# Trip\nİstanbul toplantısı notları');
+  refresh(ctx);
+  const plain = search(ctx, 'istanbul');
+  assert.equal(plain[0].snippet.includes('\uE000'), false);
+  assert.equal(plain[0].marked, undefined, 'the default result shape is unchanged');
+  // The index stores folded text, so the snippet carries the folded word between the marks.
+  const marked = search(ctx, 'ISTANBUL', { mark: ['\uE000', '\uE001'] });
+  assert.match(marked[0].snippet, /\uE000istanbul\uE001/u);
+  assert.equal(marked[0].marked, true);
+  const blocker = new DatabaseSync(ctx.indexPath);
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
+  blocker.exec('BEGIN IMMEDIATE');
+  const fallback = search({ ...ctx, warnings: [] }, 'istanbul', { mark: ['\uE000', '\uE001'] });
+  assert.equal(fallback[0].marked, false);
+  assert.equal(fallback[0].snippet.includes('\uE000'), false);
+  blocker.exec('ROLLBACK');
+  blocker.close();
+});
+
 test('a schema change resets the cache in place instead of replacing the file', (t) => {
   const ctx = setup(t);
   put(ctx, 'notes/a.md', '# A');

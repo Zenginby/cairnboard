@@ -7,7 +7,8 @@ import { openContext } from '../core/context.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
 import { homeView, boardView, showView } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
-import { createRead, DataNotReadyError } from '../server/read.mjs';
+import { createRead, DataNotReadyError, projectMap } from '../server/read.mjs';
+import { searchView } from '../server/search.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
 import tr from '../src/i18n/tr.json' with { type: 'json' };
 import en from '../src/i18n/en.json' with { type: 'json' };
@@ -223,4 +224,19 @@ test('Home view counts journal entries additively so the page can hide an empty 
   const view = homeView(ctx);
   assert.equal(view.data.journalCount, 1);
   assert.ok(view.data.journal);
+});
+
+test('in-process search returns the same envelope as the API and needs a ready data folder', async (t) => {
+  const { open, put } = documentFixture(t);
+  put('notes/plan.md', { id: 'n-000009', title: 'Plan', project: 'p-000001' }, 'A plan <b>here</b>');
+  const ctx = open();
+  const reader = createRead({ open: () => ctx });
+  const result = await reader.search({ q: 'plan' });
+  assert.deepEqual(result, okEnvelope(searchView(ctx, { q: 'plan' }, projectMap(ctx)), ctx.warnings));
+  assert.equal(result.data.results.note[0].project.name, 'Alpha');
+  assert.match(result.data.results.note[0].snippetHtml, /<mark>plan<\/mark> &lt;b&gt;/u);
+  assert.equal((await reader.search({ q: 'plan', type: 'card' })).data.results.note.length, 0);
+  await assert.rejects(reader.search({ q: 'plan', type: 'project' }), { code: 'validation' });
+  await assert.rejects(createRead({ open: () => { throw new Error('unavailable'); } }).search({ q: 'plan' }),
+    (error) => error instanceof DataNotReadyError);
 });
