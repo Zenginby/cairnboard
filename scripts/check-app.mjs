@@ -150,7 +150,10 @@ async function main() {
       results.push(await checkNoScript(browser, baseURL, page, setup));
     }
     for (const page of pages.filter((item) => item.interaction === 'search-dialog' && !expired)) {
-      results.push(await checkSearchDialog(browser, baseURL, page, setup, axeSource));
+      // Last on purpose: its live-update step adds notes to the checked data folder.
+      const addNote = (name, title) => writeFileSync(join(dataDir, 'notes', `${name}.md`),
+        `---\nkind: note\ntitle: ${title}\n---\n${title}\n`);
+      results.push(await checkSearchDialog(browser, baseURL, page, setup, axeSource, { addNote }));
     }
     report = aggregateResults(results);
     if (expired) throw new Error(`App check timed out; ${queue.length} of ${total} case(s) not started. Narrow with --only or --quick.`);

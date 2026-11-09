@@ -3,7 +3,9 @@
 // lets through nothing but <mark>).
 const dialog = document.querySelector('[data-search-dialog]');
 const opener = document.querySelector('[data-search-open]');
-const pageField = document.body.hasAttribute('data-search-page') ? document.querySelector('#search-query') : null;
+// On /search a live update replaces <main>, so the page's field and list are looked up at the moment of use.
+const searchPage = document.body.hasAttribute('data-search-page');
+const pageField = () => document.querySelector('#search-query');
 const RECENT_KEY = 'cairn.recent-searches.v1';
 const RECENT_LIMIT = 8;
 const DELAY_MS = 120;
@@ -80,10 +82,12 @@ const svg = (paths) => {
 const STAR = 'M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9Z';
 
 // Fills a recent-searches list. `choose(q)` runs when a query is picked; the page passes none and keeps the link.
-function renderRecent(container, texts, choose) {
+// `onEmpty()` takes focus when the last entry is removed.
+function renderRecent(container, texts, choose, onEmpty) {
   const list = readRecent();
   container.replaceChildren();
   if (!list?.length) return false;
+  const full = list.filter((item) => item.starred).length >= RECENT_LIMIT;
   for (const item of list) {
     const row = document.createElement('li');
     row.className = 'search-recent-item';
@@ -99,26 +103,36 @@ function renderRecent(container, texts, choose) {
     star.setAttribute('aria-pressed', String(item.starred));
     star.setAttribute('aria-label', `${item.starred ? texts.unstar : texts.star}: ${item.q}`);
     star.append(svg([STAR]));
-    star.addEventListener('click', () => { toggleStar(item.q); refresh(container, texts, choose, 'star', item.q); });
+    // At the limit a ninth search cannot be starred; the button stays focusable and says why.
+    const blocked = full && !item.starred;
+    if (blocked) {
+      star.setAttribute('aria-disabled', 'true');
+      star.title = texts.starLimit;
+    }
+    star.addEventListener('click', () => {
+      if (blocked) return;
+      toggleStar(item.q);
+      refresh(container, texts, choose, onEmpty, 'star', item.q);
+    });
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'search-recent-remove';
     remove.setAttribute('aria-label', `${texts.remove}: ${item.q}`);
     remove.append(svg(['M6 6l12 12M18 6 6 18']));
-    remove.addEventListener('click', () => refresh(container, texts, choose, 'remove', item.q));
+    remove.addEventListener('click', () => refresh(container, texts, choose, onEmpty, 'remove', item.q));
     row.append(link, star, remove);
     container.append(row);
   }
   return true;
 }
 // Re-renders after a star or remove and keeps keyboard focus inside the list.
-function refresh(container, texts, choose, action, q) {
+function refresh(container, texts, choose, onEmpty, action, q) {
   if (action === 'remove') forget(q);
   const index = [...container.children].findIndex((row) => row.querySelector('a')?.textContent === q);
-  const shown = renderRecent(container, texts, choose);
+  const shown = renderRecent(container, texts, choose, onEmpty);
   container.closest('[data-search-recent]')?.toggleAttribute('hidden', !shown);
   if (!container.closest('[data-search-recent]')) container.hidden = !shown;
-  if (!shown) return;
+  if (!shown) { onEmpty?.(); return; }
   if (action === 'star') {
     const row = [...container.children].find((item) => item.querySelector('a')?.textContent === q);
     row?.querySelector('.search-recent-star')?.focus();
@@ -131,8 +145,12 @@ function refresh(container, texts, choose, action, q) {
 const texts = dialog ? { ...dialog.dataset } : {};
 
 // The /search page: ⌘K, `/` and the top bar link focus the page's own field; the dialog never opens there.
-if (pageField) {
-  const focusField = () => { pageField.focus(); pageField.select(); };
+if (searchPage) {
+  const focusField = () => {
+    const field = pageField();
+    field?.focus();
+    field?.select();
+  };
   opener?.addEventListener('click', (event) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
@@ -148,12 +166,20 @@ if (pageField) {
       focusField();
     }
   });
-  const recent = document.querySelector('[data-recent-searches]');
-  if (recent) recent.hidden = !renderRecent(recent, texts, null);
-  pageField.form?.addEventListener('submit', () => remember(pageField.value));
+  const drawRecent = () => {
+    const recent = document.querySelector('[data-recent-searches]');
+    if (recent) recent.hidden = !renderRecent(recent, texts, null, focusField);
+  };
+  drawRecent();
+  // live-updates.js swapped <main>: the server's list is empty again.
+  document.addEventListener('live:updated', drawRecent);
+  document.addEventListener('submit', (event) => {
+    const field = pageField();
+    if (field && event.target instanceof HTMLFormElement && event.target === field.form) remember(field.value);
+  });
   document.addEventListener('click', (event) => {
     const row = event.target instanceof Element ? event.target.closest('main .search-row') : null;
-    if (row) remember(pageField.value);
+    if (row) remember(pageField()?.value ?? '');
   });
 } else if (dialog) {
   const input = dialog.querySelector('[data-search-input]');
@@ -169,6 +195,12 @@ if (pageField) {
   let controller = null;
   let shownKey = '';
   let active = -1;
+  // `shownQuery`: the query the visible list answers; `inflight`: the query being fetched; `openWhenReady`: Enter
+  // came while the list was stale, so the first result of the current query opens when it arrives.
+  let shownQuery = null;
+  let inflight = null;
+  let openWhenReady = false;
+  const currentQuery = () => Array.from(input.value).slice(0, MAX_QUERY).join('').trim();
 
   const options = () => [...results.querySelectorAll('[role="option"]')];
   // -1: no active row yet; the first ArrowDown makes the first row active.
@@ -191,9 +223,13 @@ if (pageField) {
     controller?.abort();
     controller = null;
     clearTimeout(timer);
+    inflight = null;
+    openWhenReady = false;
     results.replaceChildren();
     results.hidden = true;
+    results.removeAttribute('aria-busy');
     shownKey = '';
+    shownQuery = null;
     input.setAttribute('aria-expanded', 'false');
     setActive(-1);
   };
@@ -204,7 +240,7 @@ if (pageField) {
       input.value = q;
       input.focus();
       update(true);
-    });
+    }, () => input.focus());
     all.href = '/search';
   };
 
@@ -297,6 +333,8 @@ if (pageField) {
     results.replaceChildren(...nodes);
     results.hidden = total === 0;
     input.setAttribute('aria-expanded', String(total > 0));
+    results.removeAttribute('aria-busy');
+    shownQuery = q;
     if (fresh) {
       shownKey = key;
       results.classList.remove('is-fresh');
@@ -304,18 +342,26 @@ if (pageField) {
       results.classList.add('is-fresh');
       setActive(-1);
     } else setActive(options().findIndex((item) => item.dataset.href === activeHref));
+    if (openWhenReady) {
+      openWhenReady = false;
+      const first = options()[0];
+      if (first) go(first.dataset.href);
+    }
   };
 
   const search = async (q) => {
     const id = ++sequence;
     controller?.abort();
     controller = new AbortController();
+    inflight = q;
     const { signal } = controller;
     try {
       const response = await fetch(`/api/search?${new URLSearchParams({ q, limit: '5' })}`,
         { credentials: 'same-origin', signal, headers: { accept: 'application/json' } });
       const body = response.status === 409 ? null : await response.json().catch(() => null);
-      if (id !== sequence) return;
+      // An answer for anything but the field's current text is never drawn.
+      if (id !== sequence || q !== currentQuery()) return;
+      inflight = null;
       if (response.status === 409) { clearResults(); showStatus(texts.notReady); return; }
       if (!response.ok || !body?.ok) throw new Error(`HTTP ${response.status}`);
       render(q, body.data);
@@ -328,20 +374,28 @@ if (pageField) {
   };
 
   // `now` skips the typing delay (a picked recent search, the retry button).
+  // Every change makes the visible list stale at once: the request in flight is dropped and Enter waits.
   function update(now = false) {
-    const q = Array.from(input.value).slice(0, MAX_QUERY).join('').trim();
+    const q = currentQuery();
+    sequence++;
+    controller?.abort();
+    controller = null;
+    inflight = null;
+    openWhenReady = false;
+    clearTimeout(timer);
     all.href = q ? searchHref(q) : '/search';
     if (!q) { showRecent(); return; }
     recentBox.hidden = true;
-    clearTimeout(timer);
+    if (shownQuery !== q) results.setAttribute('aria-busy', 'true');
     if (now) search(q);
     else timer = setTimeout(() => search(q), DELAY_MS);
   }
 
-  const open = () => {
+  // `trigger`: the element clicked to open; a mouse click does not focus a link in every browser (Safari).
+  const open = (trigger = null) => {
     if (dialog.open) { input.focus(); input.select(); return; }
-    returnTo = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
-      ? document.activeElement : null;
+    returnTo = trigger ?? (document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement : null);
     dialog.showModal();
     input.focus();
     input.select();
@@ -356,7 +410,7 @@ if (pageField) {
   opener?.addEventListener('click', (event) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    open();
+    open(opener);
   });
   document.addEventListener('keydown', (event) => {
     const command = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
@@ -378,15 +432,25 @@ if (pageField) {
         recentList.querySelector('a')?.focus();
         return;
       }
-      if (list.length) setActive(Math.max(0, active + (event.key === 'ArrowDown' ? 1 : -1)));
-    } else if ((event.key === 'Home' || event.key === 'End') && event.ctrlKey && list.length) {
+      // Up on the first row leaves no active row.
+      if (list.length) setActive(active + (event.key === 'ArrowDown' ? 1 : -1));
+    } else if ((event.key === 'Home' || event.key === 'End') && (event.ctrlKey || (isMac && event.metaKey))
+      && list.length) {
       event.preventDefault();
       setActive(event.key === 'Home' ? 0 : list.length - 1);
     } else if (event.key === 'Enter') {
+      // Enter while an input method composes belongs to the composition.
+      if (event.isComposing) return;
       event.preventDefault();
+      const q = currentQuery();
+      if (!q) return;
       // Without an active row Enter opens the first result.
-      if (list.length) go((list[active] ?? list[0]).dataset.href);
-      else if (input.value.trim()) update(true);
+      if (shownQuery === q && !results.hasAttribute('aria-busy')) {
+        if (list.length) go((list[active] ?? list[0]).dataset.href);
+        return;
+      }
+      openWhenReady = true;
+      if (inflight !== q) { clearTimeout(timer); search(q); }
     } else if (event.key === 'Escape') {
       event.preventDefault();
       if (input.value) { input.value = ''; update(); } else dialog.close();
@@ -418,8 +482,10 @@ if (pageField) {
   // A click on the backdrop (the dialog box itself, outside its panel) closes it.
   dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
   dialog.addEventListener('close', () => {
+    const target = returnTo;
     clearResults();
-    if (returnTo?.isConnected) returnTo.focus();
     returnTo = null;
+    if (target?.isConnected) target.focus();
+    else if (target) document.querySelector('#main')?.focus();
   });
 }

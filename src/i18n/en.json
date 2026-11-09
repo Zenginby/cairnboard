@@ -101,5 +101,6 @@
   "search.count": "{n} results",
   "search.star": "Star",
   "search.unstar": "Unstar",
+  "search.starLimit": "Up to 8 searches can be starred.",
   "search.remove": "Remove"
 }

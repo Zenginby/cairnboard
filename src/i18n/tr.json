@@ -101,5 +101,6 @@
   "search.count": "{n} sonuç",
   "search.star": "Yıldızla",
   "search.unstar": "Yıldızı kaldır",
+  "search.starLimit": "En fazla 8 arama yıldızlanabilir.",
   "search.remove": "Listeden sil"
 }

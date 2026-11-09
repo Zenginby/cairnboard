@@ -121,6 +121,7 @@ test('t() fills {name} placeholders and leaves unknown ones as written', () => {
   assert.equal(translate('search.titleWithQuery', { q: '{n} $& $1' }), literal, 'values are inserted literally');
   assert.equal(translate('search.count'), tr['search.count'], 'no values: placeholders stay');
   assert.equal(translate('search.count', { toString: 1 }), tr['search.count'], 'only own keys count');
+  assert.equal(translate('search.count', null), tr['search.count'], 'null values act like none');
 });
 
 function documentFixture(t) {
