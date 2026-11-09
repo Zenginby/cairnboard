@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Search: ⌘K dialog on every page and a /search page (cards and notes).
 - Record external Markdown edits with prior content, five-second watcher coalescing and one reconcile before CLI writes.
 - Add `changes` with bounded line diffs, owner changes in session context, actor cursors and revision-conflict
   attribution.

@@ -348,6 +348,169 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .search-none .action-link { background: var(--color-surface); }
 .search-recent { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin: 0; padding: 0; list-style: none; }
 .search-recent[hidden] { display: none; }
+/* The ⌘K search dialog (search-dialog.js). Its rows reuse the /search page's .search-row styles. */
+.search-dialog {
+  width: min(calc(var(--space-content-max) * 0.6), calc(100vw - var(--space-md) * 2));
+  max-width: none;
+  max-height: min(calc(100vh - var(--space-xl) * 2), calc(var(--space-content-max) * 0.7));
+  margin: var(--space-xl) auto auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-box-raised);
+  opacity: 0;
+  transition: opacity var(--motion-duration-quick) var(--motion-ease-out),
+    display var(--motion-duration-quick) allow-discrete, overlay var(--motion-duration-quick) allow-discrete;
+}
+.search-dialog[open] { display: flex; opacity: 1; }
+.search-dialog::backdrop {
+  background: var(--color-material);
+  opacity: 0;
+  transition: opacity var(--motion-duration-quick) var(--motion-ease-out),
+    display var(--motion-duration-quick) allow-discrete, overlay var(--motion-duration-quick) allow-discrete;
+}
+.search-dialog[open]::backdrop { opacity: 1; }
+@starting-style {
+  .search-dialog[open], .search-dialog[open]::backdrop { opacity: 0; }
+}
+.search-dialog-panel { display: flex; flex-direction: column; width: 100%; min-height: 0; }
+.search-dialog-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: var(--space-md);
+  border-bottom: var(--space-hairline) solid var(--color-line);
+}
+.search-dialog-icon {
+  position: absolute;
+  inset-inline-start: calc(var(--space-md) + var(--space-14));
+  width: var(--space-md);
+  height: var(--space-md);
+  fill: none;
+  stroke: var(--color-text-3);
+  stroke-width: 2;
+  pointer-events: none;
+}
+.search-dialog-input {
+  flex: 1;
+  min-width: 0;
+  height: calc(var(--space-xl) + var(--space-xs));
+  padding: 0 var(--space-md) 0 calc(var(--space-xl) - var(--space-xs));
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-inset);
+  color: var(--color-text);
+  font-size: var(--font-lead-size);
+  font-weight: var(--font-ui-weight);
+  box-shadow: inset 0 0 0 var(--space-hairline) var(--color-line);
+}
+.search-dialog-input::-webkit-search-cancel-button { display: none; }
+.search-dialog-body {
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  overscroll-behavior: contain;
+}
+.search-dialog-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.search-dialog-status { color: var(--color-text-2); font-size: var(--font-small-size); }
+.search-dialog-status:empty { display: none; }
+.search-dialog-state .action-link[hidden], .search-dialog-recent[hidden], .search-dialog-results[hidden] {
+  display: none;
+}
+.search-dialog-results { display: grid; gap: var(--space-xs); }
+.search-dialog-results .search-rows { margin: 0; }
+.search-dialog-results .search-row { cursor: pointer; }
+.search-dialog-results.is-fresh { animation: search-fade var(--motion-duration-quick) var(--motion-ease-out); }
+@keyframes search-fade { from { opacity: 0; } }
+.search-row-enter { display: none; flex: none; font-family: var(--font-code-family); }
+/* Homebrew addition: the active row is filled with the accent colour and shows ↵. */
+.search-dialog .search-row[aria-selected="true"] { background: var(--color-primary); color: var(--color-on-accent); }
+.search-dialog .search-row[aria-selected="true"] :is(.search-row-snippet, .search-row-meta) {
+  color: var(--color-on-accent);
+}
+.search-row[aria-selected="true"] .search-row-enter { display: inline; }
+.search-more-option {
+  padding: var(--space-sm) var(--space-14);
+  border-radius: var(--radius-sm);
+  color: var(--color-link);
+  font-size: var(--font-small-size);
+  font-weight: var(--font-ui-weight);
+  cursor: pointer;
+}
+.search-dialog .search-more-option[aria-selected="true"] {
+  background: var(--color-primary);
+  color: var(--color-on-accent);
+}
+.search-recent-list { display: grid; gap: var(--space-2xs); margin: 0; padding: 0; list-style: none; }
+.search-recent-item { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; }
+.search-recent-query {
+  flex: 1;
+  min-width: 0;
+  min-height: calc(var(--space-xl) - var(--space-xs));
+  padding: var(--space-sm) var(--space-14);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.search-recent .search-recent-query {
+  flex: initial;
+  border-radius: var(--radius-full);
+  background: var(--color-pill-bg);
+}
+.search-recent-star, .search-recent-remove {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: calc(var(--space-xl) - var(--space-xs));
+  height: calc(var(--space-xl) - var(--space-xs));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+}
+.search-recent-star svg, .search-recent-remove svg {
+  width: var(--space-md);
+  height: var(--space-md);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.search-recent-star[aria-pressed="true"] { color: var(--color-tone-3-text); }
+.search-recent-star[aria-pressed="true"] svg { fill: currentColor; }
+.search-recent .search-recent-item { gap: 0; }
+.search-dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-top: var(--space-hairline) solid var(--color-line);
+  color: var(--color-text-2);
+  font-size: var(--font-caption-size);
+}
+.search-dialog-hints { display: flex; flex-wrap: wrap; gap: var(--space-md); }
+.search-dialog-hints kbd {
+  display: inline-block;
+  min-width: var(--space-md);
+  margin-inline-end: var(--space-2xs);
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-inset-2);
+  color: var(--color-text);
+  font-family: var(--font-code-family);
+  text-align: center;
+}
 .app-tabs a, .theme-toggle, .action-link, .row-title { transition: background-color var(--motion-duration-quick) var(--motion-ease-out), color var(--motion-duration-quick) var(--motion-ease-out); }
 .shell-search, .search-filter, .search-submit, .search-row {
   transition: background-color var(--motion-duration-quick) var(--motion-ease-out),
@@ -358,6 +521,9 @@ a, button { -webkit-tap-highlight-color: transparent; }
   .row-title:hover { color: var(--color-link); }
   .shell-search:hover, .search-filter:hover, .search-submit:hover { background-color: var(--color-surface-inset-2); }
   .search-row:hover { background-color: var(--color-surface-inset); }
+  .search-recent-query:hover, .search-recent-star:hover, .search-recent-remove:hover {
+    background-color: var(--color-surface-inset-2);
+  }
 }
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(root) { z-index: 1; }
@@ -395,11 +561,15 @@ a, button { -webkit-tap-highlight-color: transparent; }
     white-space: nowrap;
   }
   .search-input { height: calc(var(--space-xl) + var(--space-sm)); font-size: var(--font-lead-size); }
+  .search-dialog { margin-top: var(--space-md); }
+  .search-dialog-hints { display: none; }
 }
 @media (pointer: coarse) {
   .app-tabs a { min-height: calc(var(--space-xl) + var(--space-xs)); }
   .row-title[href] { display: inline-block; min-height: calc(var(--space-xl) + var(--space-xs)); }
 }
 @media (prefers-reduced-motion: reduce) {
+  .search-dialog, .search-dialog::backdrop { transition: none; }
+  .search-dialog-results.is-fresh { animation: none; }
   ::view-transition-group(root), ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }

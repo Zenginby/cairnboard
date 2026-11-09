@@ -22,16 +22,18 @@ function sample(t) {
 test('app pages are picked from the data, in a fixed order, and --only narrows them', (t) => {
   const pages = selectAppPages(sample(t));
   assert.deepEqual(pages.map((page) => page.name),
-    ['home', 'board', 'card', 'note', 'search', 'search-empty', 'not-found', 'signed-out']);
+    ['home', 'board', 'card', 'note', 'search', 'search-empty', 'search-dialog', 'not-found', 'signed-out']);
   assert.match(pages[2].path, /^\/cards\/c-[0-9a-z]+$/u);
   assert.match(pages[3].path, /^\/notes\/n-[0-9a-z]+$/u);
   assert.match(pages[4].path, /^\/search\?q=[^&\s]+$/u);
   assert.equal(pages[4].noscript, true, 'search is also checked with JavaScript off');
   assert.deepEqual(pages[5], { name: 'search-empty', path: '/search?q=zzzzqqq' });
-  assert.deepEqual(pages[6], { name: 'not-found', path: MISSING_PATH, status: 404 });
-  assert.deepEqual(pages[7], { name: 'signed-out', path: '/', status: 401, auth: false });
+  assert.deepEqual(pages[6], { name: 'search-dialog', path: '/', interaction: 'search-dialog' });
+  assert.deepEqual(pages[7], { name: 'not-found', path: MISSING_PATH, status: 404 });
+  assert.deepEqual(pages[8], { name: 'signed-out', path: '/', status: 401, auth: false });
   assert.deepEqual(selectAppPages(sample(t)), pages, 'selection is deterministic');
   assert.deepEqual(selectAppPages(sample(t), 'board'), [pages[1]]);
+  assert.deepEqual(selectAppPages(sample(t), 'search-dialog'), [pages[6]], 'the dialog steps run on their own');
   assert.throws(() => selectAppPages(sample(t), 'nope'), /Unknown page: nope/);
 });
 
