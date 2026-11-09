@@ -262,7 +262,11 @@ test('built Home uses injected in-process data, escapes titles and renders safe 
   assert.match(featured, /stroke-dasharray="40 100"/u);
   assert.match(full.body, /Tamamlanmayı bekleyen bir işlem var/u);
   assert.match(full.body, /Bugünün günlüğü okunamadı/u);
-  assert.doesNotMatch(full.body, /href="\/(?:projects|journal|graph|search)\b/u);
+  assert.doesNotMatch(full.body, /href="\/(?:projects|journal|graph)\b/u);
+  // The top bar search is a plain link to /search until the dialog script takes it over.
+  const searchLink = /<a class="shell-search" href="\/search" data-search-open[^>]*>[\s\S]*?<kbd[^>]*data-shortcut/u;
+  assert.match(full.body, searchLink);
+  assert.doesNotMatch(full.body, /data-search-page/u);
 
   const escaped = await render({ home: () => {
     const result = homeFixture();
@@ -590,4 +594,82 @@ test('built Card and Note insert only sanitized Markdown from the reader', async
     assert.match(response.body, /type="checkbox"/u);
     assert.doesNotMatch(response.body, /bodyAttack|## Safe heading/u);
   }
+});
+
+test('built Search page lists grouped rows, inserts only the snippet HTML and keeps safe states', async (t) => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+    return;
+  }
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const calls = [];
+  const render = async (path, cairn) => {
+    const response = await inProcess(createApp({ root, guard, handler, locals: { cairn } }), path);
+    headers(response);
+    externalAssets(response.body);
+    return response;
+  };
+  const row = (type, ref, title) => ({ type, ref, title, snippetHtml: `a <mark>plan</mark> b`,
+    project: { id: 'p-1', name: '<b>Proj</b>', tone: 3 }, column: type === 'card' ? 'Doing' : null, updated: null });
+  const search = ({ q, type, limit }) => {
+    calls.push({ q, type, limit });
+    if (type !== undefined && !['card', 'note'].includes(type)) {
+      throw Object.assign(new Error('bad'), { code: 'validation' });
+    }
+    const results = { card: [row('card', 'c-1', '<img src=x onerror=attack(1)>')],
+      note: [row('note', 'notlar/şu not', 'Not')] };
+    if (type) for (const kind of ['card', 'note']) if (kind !== type) results[kind] = [];
+    return { ok: true, data: { query: q.trim(), type: type ?? null, results, counts: { card: 1, note: '1000+' },
+      more: { card: false, note: !type } }, warnings: [] };
+  };
+
+  const all = await render('/search?q=plan', { search });
+  assert.equal(all.status, 200);
+  assert.deepEqual(calls.at(-1), { q: 'plan', type: undefined, limit: 50 });
+  assert.match(all.body, /<title>Ara: plan · Cairnboard<\/title>/u);
+  assert.match(all.body, /<body[^>]*data-search-page/u);
+  assert.match(all.body, /<input class="search-input" id="search-query" name="q"[^>]*value="plan"/u);
+  const groups = [...all.body.matchAll(/<h2 class="search-group"[^>]*>([^<]*)<\/h2>/gu)].map((match) => match[1]);
+  assert.deepEqual(groups, ['Kartlar', 'Notlar']);
+  assert.match(all.body, /class="search-row" href="\/cards\/c-1"/u);
+  assert.match(all.body, /class="search-row" href="\/notes\/notlar%2F%C5%9Fu%20not"/u);
+  assert.match(all.body, /a <mark>plan<\/mark> b/u);
+  assert.match(all.body, /&lt;img src=x onerror=attack\(1\)&gt;/u);
+  assert.match(all.body, /&lt;b&gt;Proj&lt;\/b&gt;/u);
+  assert.doesNotMatch(all.body, /<img\b|<b>Proj/u);
+  assert.match(all.body, /1001\+ sonuç/u);
+  assert.match(all.body, /href="\/search\?q=plan&amp;type=note"[^>]*>Tüm notlar \(1000\+\)/u);
+  assert.match(all.body, /class="search-filter" href="\/search\?q=plan" aria-current="true"/u);
+
+  const filtered = await render('/search?q=plan&type=card', { search });
+  assert.deepEqual(calls.at(-1), { q: 'plan', type: 'card', limit: 50 });
+  assert.doesNotMatch(filtered.body, /class="search-group"|href="\/notes\//u);
+  assert.match(filtered.body, /<input type="hidden" name="type" value="card"/u);
+  assert.match(filtered.body, /href="\/search\?q=plan&amp;type=card" aria-current="true"/u);
+
+  const unknown = await render('/search?q=plan&type=wiki', { search });
+  assert.equal(unknown.status, 200);
+  assert.deepEqual(calls.slice(-2).map((call) => call.type), ['wiki', undefined], 'an unknown type falls back to All');
+  assert.doesNotMatch(unknown.body, /name="type"/u);
+
+  const none = await render('/search?q=zzz&type=note', { search: ({ q, type }) => ({ ok: true, warnings: [], data: {
+    query: q, type, results: { card: [], note: [] }, counts: { card: 2, note: 0 },
+    more: { card: false, note: false } } }) });
+  assert.match(none.body, /Sonuç yok/u);
+  assert.match(none.body, /href="\/search\?q=zzz"[^>]*>Süzgeci kaldır/u);
+  assert.match(none.body, /href="\/search"[^>]*>Temizle/u);
+
+  const empty = await render('/search', { search });
+  assert.match(empty.body, /Aramak için yaz/u);
+  assert.match(empty.body, /<ul class="search-recent" data-recent-searches[^>]*hidden/u);
+  assert.match(empty.body, /<title>Ara · Cairnboard<\/title>/u);
+
+  const unready = createRead({ open: () => { throw new Error('/private/data missing'); } });
+  const notReady = await render('/search?q=plan', unready);
+  assert.equal(notReady.status, 409);
+  assert.match(notReady.body, /Veri klasörün hazır değil/u);
+  const failed = await render('/search?q=plan', { search: () => { throw new Error('/private/data\nsecret stack'); } });
+  assert.equal(failed.status, 500);
+  for (const result of [notReady, failed]) assert.doesNotMatch(result.body, /private|secret|stack|Error:/u);
 });
