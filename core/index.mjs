@@ -702,6 +702,19 @@ export function rows(ctx, type, { kind } = {}) {
     (data) => data.rows.filter(matches).map((row) => ({ ...row, body: null })));
 }
 
+/**
+ * The rows of the given paths only (same shape as `rows`), without scanning the whole table.
+ * @param {*} ctx @param {string[]} paths
+ */
+export function rowsByPath(ctx, paths) {
+  const wanted = [...new Set(paths)];
+  if (!wanted.length) return [];
+  const marks = wanted.map(() => '?').join(', ');
+  return query(ctx, (db) => db.prepare(`SELECT * FROM files WHERE path IN (${marks}) ORDER BY path`).all(...wanted)
+    .map((row) => rowFrom(ctx, row)),
+  (data) => data.rows.filter((row) => wanted.includes(row.path)).map((row) => ({ ...row, body: null })));
+}
+
 export function backlinks(ctx, path) {
   return query(ctx, (db) => db.prepare(`SELECT DISTINCT src_path, line, field FROM links
     WHERE target_path = ? AND EXISTS (SELECT 1 FROM files WHERE path = ?) ORDER BY src_path, line`).all(path, path).map((row) => ({ ...row })),
@@ -789,7 +802,7 @@ export function searchCount(ctx, q, { type, limit = 1001, validIdsOnly = false }
     LIMIT ?)`).get(match, type ?? null, type ?? null, limit).total), (data) => {
     let count = 0;
     for (const row of data.rows) {
-      if (!row.badEncoding && (type === undefined || row.type === type) && (!validIdsOnly || validSearchId(row.id))
+      if (!row.badEncoding && (type == null || row.type === type) && (!validIdsOnly || validSearchId(row.id))
         && hit(row.title, row.body)) {
         if (++count === limit) break;
       }
@@ -818,16 +831,21 @@ export function search(ctx, q, { type, limit = 20, any = false, mark, validIdsOn
   if (type === 'raw') {
     return query(ctx, (db) => db.prepare(`SELECT path, title, snippet(fts, 3, ?, ?, '…', 24) AS snippet
       FROM fts WHERE fts MATCH ? AND type = 'raw' ORDER BY rank, path LIMIT ?`).all(open, close, match, limit)
-      .map((row) => ({ path: row.path, type: 'raw', id: null, ref: null, title: rawTitle(row.path), snippet: row.snippet, ...flag(true) })),
+      .map((row) => ({ path: row.path, type: 'raw', id: null, ref: null, title: rawTitle(row.path),
+        snippet: row.snippet, ...flag(true) })),
     (data) => data.raw.filter((row) => hit(row.title, row.body)).slice(0, limit)
-      .map(({ path, title, body }) => ({ path, type: 'raw', id: null, ref: null, title, snippet: foldTr(body).slice(0, 160), ...flag(false) })),
+      .map(({ path, title, body }) => ({ path, type: 'raw', id: null, ref: null, title,
+        snippet: foldTr(body).slice(0, 160), ...flag(false) })),
     { raw: true });
   }
-  return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.id, files.title, snippet(fts, 3, ?, ?, '…', 24) AS snippet
-    FROM fts JOIN files ON files.path = fts.path WHERE fts MATCH ? AND fts.type IS NOT 'raw' AND (? IS NULL OR files.type = ?)${validSearchIds(db, validIdsOnly)}
+  return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.id, files.title,
+      snippet(fts, 3, ?, ?, '…', 24) AS snippet
+    FROM fts JOIN files ON files.path = fts.path
+    WHERE fts MATCH ? AND fts.type IS NOT 'raw' AND (? IS NULL OR files.type = ?)${validSearchIds(db, validIdsOnly)}
     ORDER BY rank, files.path LIMIT ?`).all(open, close, match, type ?? null, type ?? null, limit)
-    .map((row) => ({ ...row, ref: validIdsOnly ? normalizeId(row.id) : entityRef(row), ...flag(true) })), (data) => data.rows.filter((row) =>
-    !row.badEncoding && (type === undefined || row.type === type) && (!validIdsOnly || validSearchId(row.id)) && hit(row.title, row.body))
-    .slice(0, limit).map(({ path, type, id, ref, title, body }) => ({ path, type, id, ref: validIdsOnly ? normalizeId(id) : ref, title, snippet: foldTr(body ?? '').slice(0, 160),
-      ...flag(false) })));
+    .map((row) => ({ ...row, ref: validIdsOnly ? normalizeId(row.id) : entityRef(row), ...flag(true) })),
+  (data) => data.rows.filter((row) => !row.badEncoding && (type == null || row.type === type)
+    && (!validIdsOnly || validSearchId(row.id)) && hit(row.title, row.body))
+    .slice(0, limit).map(({ path, type, id, ref, title, body }) => ({ path, type, id,
+      ref: validIdsOnly ? normalizeId(id) : ref, title, snippet: foldTr(body ?? '').slice(0, 160), ...flag(false) })));
 }

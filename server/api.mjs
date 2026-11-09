@@ -69,7 +69,8 @@ export function createApi({ open, events, render = createRenderPool().render }) 
       const code = status === 409 || invalid ? 'validation' : missing ? 'not_found' : 'internal';
       if (status !== 404 && !invalid) console.error(error);
       const safe = new CairnError(code, code === 'not_found' ? 'Entity was not found.'
-        : invalid ? error.message : code === 'validation' ? 'The data directory is not ready.' : 'An internal error occurred.');
+        : invalid ? error.message : code === 'validation' ? 'The data directory is not ready.'
+        : 'An internal error occurred.');
       send(req, res, status,
         errorEnvelope(safe, ctx?.warnings ?? []));
     }

@@ -5,7 +5,9 @@ import { DatabaseSync } from 'node:sqlite';
 import * as fs from '../core/fsx.mjs';
 import { tempDir } from './support/env.mjs';
 import { PRESETS } from '../core/presets.mjs';
-import { openIndex, refresh, rows, search, searchCount, findById, backlinks, outlinks, journalEntries, indexPath, dropPath } from '../core/index.mjs';
+import {
+  openIndex, refresh, rows, search, searchCount, findById, backlinks, outlinks, journalEntries, indexPath, dropPath,
+} from '../core/index.mjs';
 
 function setup(t, preset = 'default') {
   const root = tempDir(t);
@@ -361,7 +363,8 @@ test('search counts eligible matches without snippets and stops at the ceiling',
     assert.equal(searchCount(context, 'needle', { type: 'card' }), 4);
     assert.equal(searchCount(context, 'missing', { type: 'card', validIdsOnly: true }), 0);
     assert.equal(searchCount(context, '%%', { type: 'card', validIdsOnly: true }), 0);
-    assert.equal(search(context, 'needle', { type: 'card', limit: 1 })[0].id, 'legacy-42', 'CLI search keeps external ids');
+    assert.equal(search(context, 'needle', { type: 'card', limit: 1 })[0].id, 'legacy-42',
+      'CLI search keeps external ids');
   };
   check(ctx);
   const blocker = new DatabaseSync(ctx.indexPath);

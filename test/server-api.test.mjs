@@ -563,7 +563,9 @@ test('search endpoint returns grouped results and validates type', async (t) => 
   assert.equal((await request(f.app, '/api/search?q=plan&type=')).status, 200, 'an empty type means every type');
   const invalid = await request(f.app, '/api/search?q=plan&type=project');
   assert.equal(invalid.status, 400);
-  assert.deepEqual(invalid.json, { v: 1, ok: false, error: { code: 'validation', message: 'Invalid search type.' }, warnings: [] });
+  assert.deepEqual(invalid.json, {
+    v: 1, ok: false, error: { code: 'validation', message: 'Invalid search type.' }, warnings: [],
+  });
   assert.equal((await request(f.app, '/api/search?q=plan', { signedIn: false })).status, 401);
   const unopened = createApi({ open: () => assert.fail('an invalid type must not open data') });
   assert.equal((await request(f.appFor(unopened), '/api/search?q=plan&type=raw')).status, 400);

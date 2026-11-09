@@ -16,7 +16,8 @@ function fixture(t) {
   initDataDir(data, { home, env: {}, clock });
   const put = (path, fields, body = '') => {
     mkdirSync(dirname(join(data, path)), { recursive: true });
-    writeFileSync(join(data, path), `---\n${Object.entries(fields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n')}\n---\n${body}`);
+    const front = Object.entries(fields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n');
+    writeFileSync(join(data, path), `---\n${front}\n---\n${body}`);
   };
   put('projects/alpha.md', { id: 'p-000001', title: 'Alpha', tone: 3 });
   for (let n = 1; n <= 7; n++) {
@@ -47,7 +48,8 @@ test('snippetHtml escapes text and turns only balanced marks into <mark>', () =>
 });
 
 test('snippetHtml fallback marks whole words whose fold equals a term', () => {
-  assert.equal(snippetHtml('ıstanbul ve istanbullu', { marked: false, terms: ['istanbul'] }), '<mark>ıstanbul</mark> ve istanbullu');
+  assert.equal(snippetHtml('ıstanbul ve istanbullu', { marked: false, terms: ['istanbul'] }),
+    '<mark>ıstanbul</mark> ve istanbullu');
   assert.equal(snippetHtml('<x> plan \uE000', { marked: false, terms: ['plan'] }), '&lt;x&gt; <mark>plan</mark> ');
 });
 
@@ -94,7 +96,8 @@ test('symbol-only and empty queries return empty results', (t) => {
     assert.deepEqual([view.results.card, view.results.note], [[], []]);
     assert.deepEqual(view.counts, { card: 0, note: 0 });
   }
-  assert.doesNotThrow(() => searchView(ctx, { q: 'c++ "a" OR NEAR(' }, projects)); // FTS syntax never reaches SQLite raw
+  // FTS syntax never reaches SQLite raw
+  assert.doesNotThrow(() => searchView(ctx, { q: 'c++ "a" OR NEAR(' }, projects));
 });
 
 test('invalid type throws validation', (t) => {
@@ -110,7 +113,8 @@ test('file containing marker characters cannot inject html', (t) => {
   assert.equal(note.snippetHtml.includes('<img'), false);
   assert.ok(note.snippetHtml.includes('&lt;img'));
   assert.equal(/[\uE000\uE001]/u.test(note.snippetHtml), false);
-  assert.equal(note.snippetHtml.replace(/&[a-z]+;|&#\d+;/gu, '').match(/<\/?[a-z]+/gu)?.every((tag) => /^<\/?mark$/u.test(tag)) ?? true, true);
+  const tags = note.snippetHtml.replace(/&[a-z]+;|&#\d+;/gu, '').match(/<\/?[a-z]+/gu);
+  assert.equal(tags?.every((tag) => /^<\/?mark$/u.test(tag)) ?? true, true);
   assert.equal(note.title, 'Attack title');
 });
 
@@ -145,12 +149,14 @@ test('snippet is a window of words around the first hit, with ellipses where cut
   put('notes/long.md', { id: 'n-000011', title: 'Long' }, `# Head\n\n${words.join(' ')}.`);
   ({ ctx, projects } = reopen());
   const [note] = searchView(ctx, { q: 'needle' }, projects).results.note;
-  assert.equal(note.snippetHtml, `… ${words.slice(12, 20).join(' ')} <mark>Needle</mark> ${words.slice(21, 36).join(' ')} …`);
+  assert.equal(note.snippetHtml,
+    `… ${words.slice(12, 20).join(' ')} <mark>Needle</mark> ${words.slice(21, 36).join(' ')} …`);
   const head = Array.from({ length: 30 }, (_, n) => `h${n}`);
   put('notes/title.md', { id: 'n-000012', title: 'Budget' }, `${head.join(' ')}\n`);
   ({ ctx, projects } = reopen());
   const [titled] = searchView(ctx, { q: 'budget' }, projects).results.note;
-  assert.equal(titled.snippetHtml, `${head.slice(0, 24).join(' ')} …`, 'a title-only hit shows the start of the body, unmarked');
+  assert.equal(titled.snippetHtml, `${head.slice(0, 24).join(' ')} …`,
+    'a title-only hit shows the start of the body, unmarked');
 });
 
 test('an unreadable file falls back to the folded index snippet', (t) => {
@@ -172,7 +178,8 @@ test('cards without an id are left out of results and counts', (t) => {
   let { ctx, projects, put , reopen } = fixture(t);
   put('cards/idless.md', { title: 'Idless plan', column: 'doing' }, 'Another plan');
   ({ ctx, projects } = reopen());
-  assert.ok(index.search(ctx, 'plan', { type: 'card', limit: 50 }).some((hit) => hit.id === null), 'the index finds the idless card');
+  assert.ok(index.search(ctx, 'plan', { type: 'card', limit: 50 }).some((hit) => hit.id === null),
+    'the index finds the idless card');
   const view = searchView(ctx, { q: 'plan', type: 'card', limit: 50 }, projects);
   assert.equal(view.counts.card, 7);
   assert.equal(view.results.card.length, 7);
@@ -263,4 +270,71 @@ test('cards with an id the detail route rejects are left out', (t) => {
   check({ ...ctx, warnings: [], indexTimeoutMs: 10 });
   blocker.exec('ROLLBACK');
   blocker.close();
+});
+
+test('searchView treats an empty type like all types', (t) => {
+  const { ctx, projects } = fixture(t);
+  const view = searchView(ctx, { q: 'plan', type: '' }, projects);
+  assert.equal(view.type, null);
+  assert.ok(view.results.card.length > 0 && view.results.note.length > 0);
+});
+
+test('snippet window is as long when the hit is near the start as for a title-only match', (t) => {
+  let { ctx, projects, put, reopen } = fixture(t);
+  const words = Array.from({ length: 40 }, (_, n) => `w${n}`);
+  words[2] = 'Needle';
+  put('notes/early.md', { id: 'n-000013', title: 'Early' }, `${words.join(' ')}.`);
+  ({ ctx, projects } = reopen());
+  const [note] = searchView(ctx, { q: 'needle' }, projects).results.note;
+  assert.equal(note.snippetHtml,
+    `${words.slice(0, 2).join(' ')} <mark>Needle</mark> ${words.slice(3, 24).join(' ')} …`);
+});
+
+test('snippetHtml with unbalanced marks still highlights whole-word terms', () => {
+  assert.equal(snippetHtml('x plan <b>', { marked: true, terms: ['plan'] }), 'x <mark>plan</mark> &lt;b&gt;');
+});
+
+test('searchView with a null type works when the index is unavailable', (t) => {
+  const { ctx, projects } = fixture(t);
+  searchView(ctx, { q: 'plan' }, projects);
+  const blocker = new DatabaseSync(ctx.indexPath);
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
+  blocker.exec('BEGIN IMMEDIATE');
+  const fallback = { ...ctx, warnings: [], indexTimeoutMs: 50 };
+  const found = index.search(fallback, 'plan', { type: null });
+  const count = index.searchCount(fallback, 'plan', { type: null });
+  blocker.exec('ROLLBACK');
+  blocker.close();
+  assert.ok(fallback.warnings.includes('index_unavailable'));
+  assert.ok(found.length > 0);
+  assert.ok(count >= found.length);
+});
+
+test('search results carry project and column after the per-path lookup', (t) => {
+  const { ctx, projects } = fixture(t);
+  const view = searchView(ctx, { q: 'plan', limit: 2 }, projects);
+  assert.equal(view.results.card.length, 2);
+  for (const card of view.results.card) {
+    assert.deepEqual(card.project, { id: 'p-000001', name: 'Alpha', tone: 3 });
+    assert.equal(typeof card.column, 'string');
+    assert.ok(card.updated);
+  }
+});
+
+test('rowsByPath returns only the requested rows, with the index and without it', (t) => {
+  const { ctx } = fixture(t);
+  index.rows(ctx, 'card');
+  const paths = ['cards/card-2.md', 'notes/plain.md', 'cards/missing.md'];
+  const shape = (rows) => rows.map((row) => [row.path, row.type, row.id]);
+  const expected = [['cards/card-2.md', 'card', 'c-000002'], ['notes/plain.md', 'note', 'n-000002']];
+  assert.deepEqual(shape(index.rowsByPath(ctx, paths)), expected);
+  assert.deepEqual(index.rowsByPath(ctx, []), []);
+  const blocker = new DatabaseSync(ctx.indexPath);
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
+  blocker.exec('BEGIN IMMEDIATE');
+  const fallback = { ...ctx, warnings: [], indexTimeoutMs: 50 };
+  assert.deepEqual(shape(index.rowsByPath(fallback, paths)), expected);
+  blocker.exec('ROLLBACK');
+  blocker.close();
+  assert.ok(fallback.warnings.includes('index_unavailable'));
 });

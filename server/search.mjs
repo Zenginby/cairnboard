@@ -53,7 +53,6 @@ export function snippetHtml(text, { marked, terms }) {
     }).join('');
   }
   text = text.replace(MARKS, '');
-  if (marked) return escapeHtml(text);
   const wanted = new Set(terms);
   let html = '', last = 0;
   for (const match of text.matchAll(WORD)) {
@@ -78,7 +77,7 @@ function excerpt(body, terms) {
       found = true;
       from = at > BEFORE ? before[0] : 0;
       to = text.length;
-      end = at + AFTER;
+      end = Math.max(at + AFTER, BEFORE + AFTER);
     }
     if (at === end) {
       to = word.index;
@@ -102,6 +101,7 @@ const clampLimit = (limit) => Number.isInteger(limit) && limit >= 1 ? Math.min(l
  * @param {Map<string, { id: string, title: string, tone: number }>} projects project references from the read layer
  */
 export function searchView(ctx, { q, type, limit }, projects) {
+  if (type === '') type = undefined;
   if (type !== undefined && type !== null && !WEB_SEARCH_TYPES.includes(type)) {
     throw new CairnError('validation', 'Invalid search type.');
   }
@@ -118,7 +118,7 @@ export function searchView(ctx, { q, type, limit }, projects) {
     view.more[kind] = false;
     if (!count || (type && type !== kind)) continue;
     const hits = index.search(ctx, query, { ...options, limit: max, mark: [OPEN, CLOSE] });
-    const rows = new Map(index.rows(ctx, kind).map((row) => [row.path, row]));
+    const rows = new Map(index.rowsByPath(ctx, hits.map((hit) => hit.path)).map((row) => [row.path, row]));
     view.more[kind] = count > max;
     view.results[kind] = hits.map((hit) => {
       const row = rows.get(hit.path);
