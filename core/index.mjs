@@ -347,6 +347,22 @@ function readSource(ctx, item, onBytes) {
   }
 }
 
+/**
+ * The unfolded body the index searched for a page, read with the indexer's own path and size rules; `null` when the
+ * file is over 5 MB, not UTF-8, no longer a page or cannot be read. Used to show search snippets in original spelling.
+ * @param {*} ctx @param {string} path
+ * @returns {string | null}
+ */
+export function searchBody(ctx, path) {
+  try {
+    const source = readSource(ctx, { path });
+    if (source.large || source.invalid) return null;
+    return extract(ctx.schema, path, source.text)?.body ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function sourceData(ctx, item, source) {
   /** @type {ReturnType<typeof extract> & { badEncoding?: boolean }} */
   const row = extract(ctx.schema, item.path, source.text);
@@ -742,10 +758,12 @@ export const SEARCH_TYPES = Object.freeze(['project', 'card', 'note', 'research'
 /**
  * Full-text search. Pages by default (optionally one `type`); `type: 'raw'` searches raw sources instead (wiki spec §5),
  * which are never pages. All terms must match, or any term with `any` (ranked by relevance).
+ * With `mark` ([open, close]) the FTS snippet wraps hits in those strings and each result gets `marked: true`;
+ * the fallback scan cannot mark hits and returns `marked: false`. Without `mark` the result shape is unchanged.
  * @param {*} ctx @param {string} q
- * @param {{ type?: string, limit?: number, any?: boolean }} [options]
+ * @param {{ type?: string, limit?: number, any?: boolean, mark?: [string, string] }} [options]
  */
-export function search(ctx, q, { type, limit = 20, any = false } = {}) {
+export function search(ctx, q, { type, limit = 20, any = false, mark } = {}) {
   const terms = [...new Set(foldTr(q).match(/[\p{L}\p{N}]+/gu) ?? [])];
   if (!terms.length) return [];
   limit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 20;
@@ -754,18 +772,21 @@ export function search(ctx, q, { type, limit = 20, any = false } = {}) {
     const words = new Set(foldTr(`${title}\n${body ?? ''}`).match(/[\p{L}\p{N}]+/gu));
     return any ? terms.some((term) => words.has(term)) : terms.every((term) => words.has(term));
   };
+  const [open, close] = mark ?? ['', ''];
+  const flag = (marked) => mark ? { marked } : {};
   if (type === 'raw') {
-    return query(ctx, (db) => db.prepare(`SELECT path, title, snippet(fts, 3, '', '', '…', 24) AS snippet
-      FROM fts WHERE fts MATCH ? AND type = 'raw' ORDER BY rank, path LIMIT ?`).all(match, limit)
-      .map((row) => ({ path: row.path, type: 'raw', id: null, ref: null, title: rawTitle(row.path), snippet: row.snippet })),
+    return query(ctx, (db) => db.prepare(`SELECT path, title, snippet(fts, 3, ?, ?, '…', 24) AS snippet
+      FROM fts WHERE fts MATCH ? AND type = 'raw' ORDER BY rank, path LIMIT ?`).all(open, close, match, limit)
+      .map((row) => ({ path: row.path, type: 'raw', id: null, ref: null, title: rawTitle(row.path), snippet: row.snippet, ...flag(true) })),
     (data) => data.raw.filter((row) => hit(row.title, row.body)).slice(0, limit)
-      .map(({ path, title, body }) => ({ path, type: 'raw', id: null, ref: null, title, snippet: foldTr(body).slice(0, 160) })),
+      .map(({ path, title, body }) => ({ path, type: 'raw', id: null, ref: null, title, snippet: foldTr(body).slice(0, 160), ...flag(false) })),
     { raw: true });
   }
-  return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.id, files.title, snippet(fts, 3, '', '', '…', 24) AS snippet
+  return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.id, files.title, snippet(fts, 3, ?, ?, '…', 24) AS snippet
     FROM fts JOIN files ON files.path = fts.path WHERE fts MATCH ? AND fts.type IS NOT 'raw' AND (? IS NULL OR files.type = ?)
-    ORDER BY rank, files.path LIMIT ?`).all(match, type ?? null, type ?? null, limit)
-    .map((row) => ({ ...row, ref: entityRef(row) })), (data) => data.rows.filter((row) =>
+    ORDER BY rank, files.path LIMIT ?`).all(open, close, match, type ?? null, type ?? null, limit)
+    .map((row) => ({ ...row, ref: entityRef(row), ...flag(true) })), (data) => data.rows.filter((row) =>
     !row.badEncoding && (type === undefined || row.type === type) && hit(row.title, row.body))
-    .slice(0, limit).map(({ path, type, id, ref, title, body }) => ({ path, type, id, ref, title, snippet: foldTr(body ?? '').slice(0, 160) })));
+    .slice(0, limit).map(({ path, type, id, ref, title, body }) => ({ path, type, id, ref, title, snippet: foldTr(body ?? '').slice(0, 160),
+      ...flag(false) })));
 }
