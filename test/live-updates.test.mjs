@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { cpSync } from 'node:fs';
+import { cpSync, readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import { setImmediate } from 'node:timers/promises';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { chromium } from 'playwright-core';
@@ -17,6 +19,69 @@ import { siteHost, cookieName, mintCookie } from '../server/session.mjs';
 import { spawnCli } from './support/cli.mjs';
 import { tempDir } from './support/env.mjs';
 import { liveBudgetMs, liveCleanup, liveUnavailable } from './support/live.mjs';
+
+function focusedFieldFixture(type = 'text') {
+  const handlers = new Map();
+  const status = { textContent: '', dataset: { updated: 'Updated' } };
+  const field = (value) => ({ id: 'search-query', tagName: 'INPUT', value, isConnected: true,
+    selectionStart: type === 'checkbox' ? null : value.length, selectionEnd: type === 'checkbox' ? null : value.length,
+    getAttribute: () => null,
+    focus() { document.activeElement = this; },
+    setSelectionRange(start, end) {
+      if (type === 'checkbox') throw new Error('Selection is not supported');
+      this.selectionStart = start; this.selectionEnd = end;
+    } });
+  let current = field('pla'), nextHTML = '<input id="search-query" value="plan"><p>New results</p>';
+  const region = { dataset: { live: 'card' }, innerHTML: '<input id="search-query" value=""><p>Old results</p>',
+    contains: (element) => element === current, querySelectorAll: () => [],
+    replaceChildren(...nodes) {
+      current.isConnected = false; current = field('plan'); this.innerHTML = nodes.join('');
+    } };
+  const document = { visibilityState: 'visible', activeElement: current,
+    querySelector: (selector) => selector === '[data-live]' ? region : status,
+    getElementById: (id) => id === current.id ? current : null, addEventListener() {} };
+  class EventSource {
+    addEventListener(type, handler) { handlers.set(type, handler); }
+  }
+  class DOMParser {
+    parseFromString(html) {
+      return { title: 'Search', querySelector: () => ({ innerHTML: html, childNodes: [html] }) };
+    }
+  }
+  runInNewContext(readFileSync(new URL('../src/scripts/live-updates.js', import.meta.url), 'utf8'), {
+    document, EventSource, DOMParser, location: { href: 'http://example.test/search' },
+    window: { scrollX: 0, scrollY: 0, scrollTo() {}, addEventListener() {} },
+    fetch: async () => ({ ok: true, text: async () => nextHTML }), setTimeout() {}, clearTimeout() {},
+  });
+  return { document, region, status, current: () => current,
+    async swap(html = nextHTML) {
+      nextHTML = html; handlers.get('change')({ data: '{"kinds":["card"]}' }); await setImmediate();
+    } };
+}
+
+test('live swap keeps the typed value and caret of a focused input with an id', async () => {
+  const f = focusedFieldFixture();
+  const original = f.current();
+  await f.swap();
+  assert.notEqual(f.current(), original);
+  assert.equal(f.current().value, 'pla');
+  assert.equal(f.current().selectionStart, 3);
+  assert.equal(f.current().selectionEnd, 3);
+  assert.equal(f.document.activeElement, f.current());
+  const previous = f.current();
+  await f.swap(f.region.innerHTML.replace('value="plan"', 'value="planet"'));
+  assert.notEqual(f.current(), previous, 'a value attribute change still swaps the region');
+  assert.equal(f.current().value, 'pla');
+  assert.equal(f.current().selectionStart, 3);
+});
+
+test('live swap tolerates a focused checkbox without selection support', async () => {
+  const f = focusedFieldFixture('checkbox');
+  await f.swap();
+  assert.equal(f.current().value, 'pla');
+  assert.equal(f.document.activeElement, f.current());
+  assert.equal(f.status.textContent, 'Updated', 'an unsupported selection must not abort the update');
+});
 
 test('Board moves a CLI-claimed card without navigation or CSP and console errors', async (t) => {
   const cleanup = liveCleanup(t);
