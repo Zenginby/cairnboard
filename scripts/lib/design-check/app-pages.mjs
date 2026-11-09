@@ -19,6 +19,8 @@ export function selectAppPages(ctx, only = null) {
     // `noscript`: the page is also loaded with JavaScript off and must still list results (plain GET form).
     { name: 'search', path: `/search?q=${encodeURIComponent(word)}`, noscript: true },
     { name: 'search-empty', path: '/search?q=zzzzqqq' },
+    // `interaction`: not a layout case; scripts/lib/design-check/search-dialog.mjs drives the ⌘K dialog.
+    { name: 'search-dialog', path: '/', interaction: 'search-dialog' },
     { name: 'not-found', path: MISSING_PATH, status: 404 },
     { name: 'signed-out', path: '/', status: 401, auth: false },
   ];

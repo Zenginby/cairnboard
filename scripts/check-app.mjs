@@ -21,12 +21,13 @@ import { checkCase } from './lib/design-check/case.mjs';
 import { printTable } from './lib/design-check/report.mjs';
 import { selectAppPages, buildAppMatrix } from './lib/design-check/app-pages.mjs';
 import { APP_ALLOWLIST } from './lib/design-check/allowlist.mjs';
+import { checkSearchDialog } from './lib/design-check/search-dialog.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const engines = { chromium, webkit, firefox };
 const reportPath = new URL('../design/check-app-report.json', import.meta.url);
 const usage = 'Usage: npm run check:app -- [--browser chrome|brave|chromium|webkit|firefox]'
-  + ' [--only home|board|card|note|search|search-empty|not-found|signed-out] [--quick] [--workers 4]';
+  + ' [--only home|board|card|note|search|search-empty|search-dialog|not-found|signed-out] [--quick] [--workers 4]';
 
 // Same one-time-token to cookie exchange a browser does at /auth; the token and the key stay in this process.
 function signIn(port, key, instance) {
@@ -127,7 +128,8 @@ async function main() {
       : context.addCookies([{ name: session.name, value: session.value, url: baseURL, httpOnly: true, sameSite: 'Strict' }]);
 
     const axeSource = await readFile(fileURLToPath(import.meta.resolve('axe-core/axe.min.js')), 'utf8');
-    const queue = pages.flatMap((page) => buildAppMatrix(options).map((variant) => ({ page: page.name, path: page.path,
+    const queue = pages.filter((page) => !page.interaction)
+      .flatMap((page) => buildAppMatrix(options).map((variant) => ({ page: page.name, path: page.path,
       ...(page.status ? { status: page.status } : {}), ...(page.auth === false ? { auth: false } : {}), ...variant })));
     const total = queue.length;
     const results = [];
@@ -146,6 +148,9 @@ async function main() {
     }));
     for (const page of pages.filter((item) => item.noscript && !expired)) {
       results.push(await checkNoScript(browser, baseURL, page, setup));
+    }
+    for (const page of pages.filter((item) => item.interaction === 'search-dialog' && !expired)) {
+      results.push(await checkSearchDialog(browser, baseURL, page, setup, axeSource));
     }
     report = aggregateResults(results);
     if (expired) throw new Error(`App check timed out; ${queue.length} of ${total} case(s) not started. Narrow with --only or --quick.`);
