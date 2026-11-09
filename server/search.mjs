@@ -9,11 +9,22 @@ export const WEB_SEARCH_TYPES = Object.freeze(['card', 'note']);
 // Private-use marks that SQLite places around snippet hits; only these become <mark> after escaping.
 const OPEN = '\uE000', CLOSE = '\uE001';
 const MARKS = /[\uE000\uE001]/gu;
-const WORD = /[\p{L}\p{N}]+/gu;
+const WORD = /[\p{L}\p{N}][\p{L}\p{N}\p{M}]*/gu;
 const MAX_QUERY = 200, MAX_LIMIT = 50, DEFAULT_LIMIT = 5, COUNT_CEILING = 1000;
+const MAX_SNIPPET = 240;
 
 const ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const escapeHtml = (text) => text.replace(/[&<>"']/gu, (char) => ENTITIES[char]);
+
+// Bound code points before escaping, including SQLite snippets when the original file cannot be read.
+function capSnippet(text) {
+  let end = 0, points = 0;
+  for (const char of text) {
+    if (points++ === MAX_SNIPPET) return `${text.slice(0, end).trimEnd()}…`;
+    end += char.length;
+  }
+  return text;
+}
 
 // Marks are trusted only when they alternate open/close and end closed; a file may contain the same characters.
 function balanced(text) {
@@ -33,7 +44,7 @@ function balanced(text) {
  * @param {string} text @param {{ marked: boolean, terms: string[] }} options
  */
 export function snippetHtml(text, { marked, terms }) {
-  text = typeof text === 'string' ? text : '';
+  text = capSnippet(typeof text === 'string' ? text : '');
   if (marked && balanced(text)) {
     return text.split(OPEN).map((part, at) => {
       if (at === 0) return escapeHtml(part);
@@ -59,15 +70,27 @@ const BEFORE = 8, AFTER = 16;
 // only the title matched), with line breaks collapsed and an ellipsis wherever the body was cut.
 function excerpt(body, terms) {
   const text = body.replace(MARKS, '').replace(/\s+/gu, ' ').trim();
-  const words = [...text.matchAll(WORD)];
-  if (!words.length) return text;
   const wanted = new Set(terms);
-  const at = words.findIndex((word) => wanted.has(foldTr(word[0])));
-  const start = at < 0 ? 0 : Math.max(0, at - BEFORE);
-  const end = Math.min(words.length, at < 0 ? BEFORE + AFTER : at + AFTER);
-  const from = start === 0 ? 0 : words[start].index;
-  const to = end === words.length ? text.length : words[end].index;
-  return `${start > 0 ? '… ' : ''}${text.slice(from, to).trim()}${end < words.length ? ' …' : ''}`;
+  const before = [];
+  let at = 0, from = 0, to = text.length, end = BEFORE + AFTER, found = false;
+  for (const word of text.matchAll(WORD)) {
+    if (!found && wanted.has(foldTr(word[0]))) {
+      found = true;
+      from = at > BEFORE ? before[0] : 0;
+      to = text.length;
+      end = at + AFTER;
+    }
+    if (at === end) {
+      to = word.index;
+      if (found) break;
+    }
+    if (!found) {
+      before.push(word.index);
+      if (before.length > BEFORE) before.shift();
+    }
+    at++;
+  }
+  return `${from > 0 ? '… ' : ''}${text.slice(from, to).trim()}${to < text.length ? ' …' : ''}`;
 }
 
 const clampLimit = (limit) => Number.isInteger(limit) && limit >= 1 ? Math.min(limit, MAX_LIMIT) : DEFAULT_LIMIT;
@@ -87,16 +110,17 @@ export function searchView(ctx, { q, type, limit }, projects) {
   const max = clampLimit(limit);
   const view = { query, type: type ?? null, results: {}, counts: {}, more: {} };
   for (const kind of WEB_SEARCH_TYPES) {
-    // Only results with a detail page are listed and counted: a card needs an id, a note key always opens.
-    const hits = terms.length ? index.search(ctx, query, { type: kind, limit: COUNT_CEILING + 1, mark: [OPEN, CLOSE] })
-      .filter((hit) => kind !== 'card' || hit.id) : [];
-    view.counts[kind] = hits.length > COUNT_CEILING ? `${COUNT_CEILING}+` : hits.length;
+    // Count without snippets; eligibility precedes the limit in both the count and the displayed results.
+    const options = { type: kind, validIdsOnly: kind === 'card' };
+    const count = terms.length ? index.searchCount(ctx, query, { ...options, limit: COUNT_CEILING + 1 }) : 0;
+    view.counts[kind] = count > COUNT_CEILING ? `${COUNT_CEILING}+` : count;
     view.results[kind] = [];
     view.more[kind] = false;
-    if (!hits.length || (type && type !== kind)) continue;
+    if (!count || (type && type !== kind)) continue;
+    const hits = index.search(ctx, query, { ...options, limit: max, mark: [OPEN, CLOSE] });
     const rows = new Map(index.rows(ctx, kind).map((row) => [row.path, row]));
-    view.more[kind] = hits.length > max;
-    view.results[kind] = hits.slice(0, max).map((hit) => {
+    view.more[kind] = count > max;
+    view.results[kind] = hits.map((hit) => {
       const row = rows.get(hit.path);
       const project = row ? projects.get(row.data.project) : undefined;
       // The index holds folded text; show the original body when it can still be read, else the folded snippet.

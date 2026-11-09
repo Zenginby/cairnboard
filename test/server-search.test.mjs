@@ -178,3 +178,89 @@ test('cards without an id are left out of results and counts', (t) => {
   assert.equal(view.results.card.length, 7);
   assert.ok(view.results.card.every((row) => /^c-\d{6}$/u.test(row.ref)));
 });
+
+test('snippet length is capped even for bodies without words or with one huge word', (t) => {
+  const { put, reopen, data } = fixture(t);
+  put('notes/symbols.md', { id: 'n-000010', title: 'Needle symbols' }, '<'.repeat(300 * 1024));
+  put('notes/word.md', { id: 'n-000011', title: 'Needle word' }, 'a'.repeat(100 * 1024));
+  const { ctx, projects } = reopen();
+  const check = () => {
+    const notes = searchView(ctx, { q: 'needle' }, projects).results.note;
+    assert.equal(notes.length, 2);
+    for (const note of notes) {
+      assert.ok(note.snippetHtml.length < 2000, `${note.ref}: ${note.snippetHtml.length} characters`);
+      assert.match(note.snippetHtml, /…$/u);
+    }
+  };
+  check();
+  // Unreadable originals must not expose an unbounded FTS snippet either.
+  __setFsHooks({ openSync(target, ...args) {
+    if (target === join(data, 'notes/symbols.md') || target === join(data, 'notes/word.md')) {
+      throw Object.assign(new Error('denied'), { code: 'EACCES' });
+    }
+    return openSync(target, ...args);
+  } });
+  t.after(() => __setFsHooks());
+  check();
+});
+
+test('ineligible cards ranked before an eligible card do not hide it', (t) => {
+  const { put, reopen } = fixture(t);
+  for (let n = 0; n < 4; n++) put(`cards/a-idless-${n}.md`, { title: 'Needle' }, 'Needle');
+  put('cards/z-eligible.md', { id: 'c-000010', title: 'Eligible' }, `Needle ${'padding '.repeat(40)}`);
+  const { ctx, projects } = reopen();
+  const check = (context) => {
+    assert.equal(index.search(context, 'needle', { type: 'card', limit: 1 })[0].id, null);
+    // Exercise the same eligibility used by the web count/results with a SQL/scan limit of one.
+    const hits = index.search(context, 'needle', { type: 'card', limit: 1, validIdsOnly: true });
+    assert.deepEqual(hits.map((hit) => hit.ref), ['c-000010']);
+    const view = searchView(context, { q: 'needle', limit: 1 }, projects);
+    assert.deepEqual(view.results.card.map((hit) => hit.ref), ['c-000010']);
+    assert.equal(view.counts.card, 1);
+    assert.equal(view.more.card, false);
+  };
+  check(ctx);
+  const blocker = new DatabaseSync(ctx.indexPath);
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
+  blocker.exec('BEGIN IMMEDIATE');
+  check({ ...ctx, warnings: [], indexTimeoutMs: 10 });
+  blocker.exec('ROLLBACK');
+  blocker.close();
+});
+
+test('combining marks stay inside a word for windows and highlights', (t) => {
+  const { put, reopen } = fixture(t);
+  put('notes/trip.md', { id: 'n-000010', title: 'Trip' }, `${'intro '.repeat(40)}İstanbul meeting`);
+  const { ctx, projects } = reopen();
+  const check = (context) => {
+    const [note] = searchView(context, { q: 'istanbul' }, projects).results.note;
+    assert.equal(note.snippetHtml, `… ${'intro '.repeat(8)}<mark>İstanbul</mark> meeting`);
+  };
+  check(ctx);
+  const blocker = new DatabaseSync(ctx.indexPath);
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
+  blocker.exec('BEGIN IMMEDIATE');
+  check({ ...ctx, warnings: [], indexTimeoutMs: 10 });
+  blocker.exec('ROLLBACK');
+  blocker.close();
+});
+
+test('cards with an id the detail route rejects are left out', (t) => {
+  const { put, reopen } = fixture(t);
+  put('cards/legacy.md', { id: 'legacy-42', title: 'Needle legacy' }, 'Needle');
+  put('cards/noncanonical.md', { id: 'C-OOOOIO', title: 'Needle noncanonical' }, 'Needle');
+  put('cards/eligible.md', { id: 'c-000010', title: 'Needle eligible' }, 'Needle');
+  const { ctx, projects } = reopen();
+  const check = (context) => {
+    const view = searchView(context, { q: 'needle' }, projects);
+    assert.equal(view.counts.card, 1);
+    assert.deepEqual(view.results.card.map((hit) => hit.ref), ['c-000010']);
+  };
+  check(ctx);
+  const blocker = new DatabaseSync(ctx.indexPath);
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
+  blocker.exec('BEGIN IMMEDIATE');
+  check({ ...ctx, warnings: [], indexTimeoutMs: 10 });
+  blocker.exec('ROLLBACK');
+  blocker.close();
+});
