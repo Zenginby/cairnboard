@@ -584,3 +584,19 @@ test('search result refs open the right note even with spaces and Turkish letter
   assert.equal(note.json.data.ref, hit.ref);
   assert.match(note.json.data.content.body, /Yeni plan/u);
 });
+
+test('search lists only cards whose refs open in the detail route', async (t) => {
+  const f = fixture(t);
+  f.put('cards/legacy.md', { id: 'legacy-42', title: 'Needle legacy' });
+  f.put('cards/idless.md', { title: 'Needle idless' });
+  f.put('cards/noncanonical.md', { id: 'C-OOOOIO', title: 'Needle noncanonical' });
+  f.put('cards/eligible.md', { id: 'c-000011', title: 'Needle eligible' });
+  assert.equal((await request(f.app, '/api/cards/legacy-42')).status, 404);
+  assert.equal((await request(f.app, '/api/cards/c-000010')).status, 404, 'normalized id has no exact stored match');
+  const view = (await request(f.app, '/api/search?q=needle&type=card')).json.data;
+  assert.equal(view.counts.card, 1);
+  assert.deepEqual(view.results.card.map((hit) => hit.ref), ['c-000011']);
+  for (const hit of view.results.card) {
+    assert.equal((await request(f.app, `/api/cards/${hit.ref}`)).status, 200);
+  }
+});
