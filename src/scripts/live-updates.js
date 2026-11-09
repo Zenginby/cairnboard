@@ -30,6 +30,8 @@ if (region && status) {
         if (region.innerHTML === next.innerHTML) continue;
         const active = document.activeElement;
         const focusId = region.contains(active) ? active.id : null;
+        const field = focusId && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
+          ? { value: active.value, start: active.selectionStart, end: active.selectionEnd } : null;
         const href = region.contains(active) ? active.getAttribute('href') : null;
         const scroll = [window.scrollX, window.scrollY];
         const scrollable = [...region.querySelectorAll('*')].filter((element) => element.scrollLeft || element.scrollTop)
@@ -37,7 +39,16 @@ if (region && status) {
         region.replaceChildren(...next.childNodes);
         const focus = focusId ? document.getElementById(focusId)
           : href ? [...region.querySelectorAll('[href]')].find((element) => element.getAttribute('href') === href) : null;
-        if (focus) focus.focus({ preventScroll: true });
+        if (focus) {
+          if (field && (focus.tagName === 'INPUT' || focus.tagName === 'TEXTAREA')) {
+            focus.value = field.value;
+          }
+          focus.focus({ preventScroll: true });
+          if (field) {
+            try { focus.setSelectionRange(field.start, field.end); }
+            catch { /* Some input types do not support selection. */ }
+          }
+        }
         else if (active !== region && !active.isConnected) region.focus({ preventScroll: true });
         for (const [id, className, left, top] of scrollable) {
           const element = id ? document.getElementById(id)
