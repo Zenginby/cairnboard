@@ -8,11 +8,17 @@ export function selectAppPages(ctx, only = null) {
   const card = first('card');
   const note = first('note');
   if (!card || !note) throw new Error('The data folder needs at least one card and one note with an id.');
+  // A word that is certain to match: the first word of the first note's title.
+  const word = String(note.title ?? '').trim().split(/\s+/u)[0];
+  if (!word) throw new Error('The first note needs a title to search for.');
   const pages = [
     { name: 'home', path: '/' },
     { name: 'board', path: '/board' },
     { name: 'card', path: `/cards/${encodeURIComponent(card.id)}` },
     { name: 'note', path: `/notes/${encodeURIComponent(note.id)}` },
+    // `noscript`: the page is also loaded with JavaScript off and must still list results (plain GET form).
+    { name: 'search', path: `/search?q=${encodeURIComponent(word)}`, noscript: true },
+    { name: 'search-empty', path: '/search?q=zzzzqqq' },
     { name: 'not-found', path: MISSING_PATH, status: 404 },
     { name: 'signed-out', path: '/', status: 401, auth: false },
   ];

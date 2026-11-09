@@ -113,6 +113,16 @@ test('Home dictionaries share keys and the language is chosen in one place', () 
   for (const value of [...Object.values(tr), ...Object.values(en)]) assert.ok(value.trim());
 });
 
+test('t() fills {name} placeholders and leaves unknown ones as written', () => {
+  assert.equal(translate('search.titleWithQuery', { q: 'plan' }), tr['search.titleWithQuery'].replace('{q}', 'plan'));
+  const more = tr['search.moreOfType'].replace('{type}', 'x').replace('{n}', '0');
+  assert.equal(translate('search.moreOfType', { type: 'x', n: 0 }), more);
+  const literal = tr['search.titleWithQuery'].replace('{q}', () => '{n} $& $1');
+  assert.equal(translate('search.titleWithQuery', { q: '{n} $& $1' }), literal, 'values are inserted literally');
+  assert.equal(translate('search.count'), tr['search.count'], 'no values: placeholders stay');
+  assert.equal(translate('search.count', { toString: 1 }), tr['search.count'], 'only own keys count');
+});
+
 function documentFixture(t) {
   const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
   initDataDir(data, { home, env: {}, clock });

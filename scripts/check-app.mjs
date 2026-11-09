@@ -25,7 +25,8 @@ import { APP_ALLOWLIST } from './lib/design-check/allowlist.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const engines = { chromium, webkit, firefox };
 const reportPath = new URL('../design/check-app-report.json', import.meta.url);
-const usage = 'Usage: npm run check:app -- [--browser chrome|brave|chromium|webkit|firefox] [--only home|board|card|note|not-found|signed-out] [--quick] [--workers 4]';
+const usage = 'Usage: npm run check:app -- [--browser chrome|brave|chromium|webkit|firefox]'
+  + ' [--only home|board|card|note|search|search-empty|not-found|signed-out] [--quick] [--workers 4]';
 
 // Same one-time-token to cookie exchange a browser does at /auth; the token and the key stay in this process.
 function signIn(port, key, instance) {
@@ -40,6 +41,34 @@ function signIn(port, key, instance) {
     req.on('error', reject);
     req.end();
   });
+}
+
+// The search page is a plain GET form: with JavaScript off it must still answer with results for its query.
+async function checkNoScript(browser, baseURL, page, setup) {
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1280, height: 900 } });
+  const findings = [];
+  try {
+    await setup(context, page);
+    const tab = await context.newPage();
+    tab.setDefaultTimeout(5000);
+    const response = await tab.goto(`${baseURL}${page.path}`, { waitUntil: 'load' });
+    if (!response?.ok()) findings.push({ message: `JavaScript off: HTTP ${response?.status() ?? 'no response'}` });
+    else {
+      const rows = await tab.locator('.search-row').count();
+      if (!rows) findings.push({ message: 'JavaScript off: no .search-row results' });
+      const query = new URL(page.path, baseURL).searchParams.get('q');
+      if (await tab.locator('#search-query').inputValue() !== query) {
+        findings.push({ message: 'JavaScript off: #search-query does not hold the query' });
+      }
+    }
+  } catch (error) {
+    findings.push({ message: `JavaScript off: ${error.message}` });
+  } finally {
+    await context.close();
+  }
+  for (const finding of findings) console.error(`${page.name}: ${finding.message}`);
+  return { page: page.name, path: page.path, width: 1280, family: 'app', mode: 'noscript',
+    checks: { noscript: findings } };
 }
 
 async function main() {
@@ -115,6 +144,9 @@ async function main() {
         }
       }
     }));
+    for (const page of pages.filter((item) => item.noscript && !expired)) {
+      results.push(await checkNoScript(browser, baseURL, page, setup));
+    }
     report = aggregateResults(results);
     if (expired) throw new Error(`App check timed out; ${queue.length} of ${total} case(s) not started. Narrow with --only or --quick.`);
     code = exitCode(report);

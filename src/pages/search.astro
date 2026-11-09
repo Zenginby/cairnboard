@@ -1,0 +1,83 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import PageState from '../components/PageState.astro';
+import ReadWarnings from '../components/ReadWarnings.astro';
+import SearchResults from '../components/SearchResults.astro';
+import { t } from '../i18n/index.mjs';
+
+// A plain GET form: the page works without JavaScript. Every type gets up to 50 rows; "All" shows them in groups.
+const LIMIT = 50;
+const MAX_QUERY = 200;
+const q = Array.from(Astro.url.searchParams.get('q') ?? '').slice(0, MAX_QUERY).join('');
+let type = Astro.url.searchParams.get('type') || '';
+const run = () => Astro.locals.cairn.search({ q, type: type || undefined, limit: LIMIT });
+let result, state;
+try {
+  try {
+    result = await run();
+  } catch (error) {
+    // An unknown type is not an error for the reader: the filter is dropped and "All" is shown.
+    if (error?.code !== 'validation' || !type) throw error;
+    type = '';
+    result = await run();
+  }
+} catch (error) {
+  state = error?.code === 'data_not_ready' ? 'notReady' : 'server';
+  Astro.response.status = state === 'notReady' ? 409 : 500;
+  // Match the API: unexpected failures reach the server log, the page shows only a generic message.
+  if (state === 'server') console.error(error);
+}
+const data = result?.data;
+const query = data?.query ?? q.trim();
+const types = ['card', 'note'];
+const labels = { '': 'search.all', card: 'search.cards', note: 'search.notes' };
+// Counts may read "1000+" at the ceiling; a sum with a capped part stays capped.
+const total = data ? (types.some((kind) => typeof data.counts[kind] === 'string')
+  ? `${types.reduce((sum, kind) => sum + Number.parseInt(String(data.counts[kind]), 10), 0)}+`
+  : types.reduce((sum, kind) => sum + data.counts[kind], 0)) : 0;
+const countOf = (kind) => (kind ? data.counts[kind] : total);
+const filterHref = (kind) => `/search?${new URLSearchParams(kind ? { q: query, type: kind } : { q: query })}`;
+const groups = data ? types.filter((kind) => !type || kind === type)
+  .map((kind) => ({ type: kind, rows: data.results[kind], more: data.more[kind], count: data.counts[kind] })) : [];
+const shown = groups.reduce((sum, group) => sum + group.rows.length, 0);
+const shownCount = type ? countOf(type) : total;
+const title = query ? t('search.titleWithQuery', { q: query }) : t('search.title');
+---
+<AppShell live="card note project" title={title} searchPage surface>
+  {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`}
+    message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'}
+    status={Astro.response.status} /> : <div class="search-page">
+    <ReadWarnings codes={result.warnings} />
+    <h1 class="search-heading">{t('search.title')}</h1>
+    <form class="search-form" method="get" action="/search" role="search">
+      <label class="sr-only" for="search-query">{t('search.label')}</label>
+      <svg class="search-form-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>
+      </svg>
+      <input class="search-input" id="search-query" name="q" type="search" value={query} maxlength={MAX_QUERY}
+        autocomplete="off" spellcheck="false" />
+      {type && <input type="hidden" name="type" value={type} />}
+      <button class="search-submit" type="submit">{t('search.button')}</button>
+    </form>
+    {query ? <>
+      <div class="search-filters">
+        {['', ...types].map((kind) => <a class="search-filter" href={filterHref(kind)}
+          aria-current={kind === type ? 'true' : undefined}>
+          {t(labels[kind])}<span class="search-filter-count">{countOf(kind)}</span>
+        </a>)}
+      </div>
+      <p class="search-count" role="status">{t('search.count', { n: shownCount })}</p>
+      {shown > 0 ? <SearchResults groups={groups} query={query} headings={!type} />
+        : <section class="search-none" aria-labelledby="search-none-title">
+        <h2 id="search-none-title">{t('search.noResults')}</h2>
+        <div class="search-none-actions">
+          {type && <a class="action-link" href={filterHref('')}>{t('search.clearFilter')}</a>}
+          <a class="action-link" href="/search">{t('search.clear')}</a>
+        </div>
+      </section>}
+    </> : <>
+      <p class="search-hint">{t('search.emptyHint')}</p>
+      <ul class="search-recent" data-recent-searches aria-label={t('search.recent')} hidden></ul>
+    </>}
+  </div>}
+</AppShell>
