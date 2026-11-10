@@ -24,7 +24,8 @@ try {
         <header class="column-heading"><h2 id={`column-${index}`}>{column.label}</h2><span class="panel-count">{column.total}</span>
           {column.role === 'done' && column.total > column.cards.length && <span class="panel-count">{t('board.recent')}</span>}
         </header>
-        <a class="action-link column-add" href={`/cards/new?column=${encodeURIComponent(column.key)}`}>
+        <a class="action-link column-add" href={`/cards/new?column=${encodeURIComponent(column.key)}`}
+          aria-label={`${t('card.add')}: ${column.label}`}>
           {t('card.add')}
         </a>
         {column.cards.length ? <ul class="board-cards">{column.cards.map((card) => <li

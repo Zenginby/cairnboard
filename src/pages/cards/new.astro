@@ -12,12 +12,14 @@ try {
 }
 Astro.response.headers.set('Referrer-Policy', 'same-origin');
 const requested = Astro.url.searchParams.get('column');
-const column = view?.columns.find(({ key }) => key === requested)?.key ?? view?.columns[0].key;
+const ready = view?.state === 'ready';
+if (view && !ready) Astro.response.status = 409;
+const column = ready ? view.columns.find(({ key }) => key === requested)?.key ?? view.columns[0].key : undefined;
 ---
 <AppShell title={t('card.newTitle')} current="/board" surface>
   <meta slot="head" name="referrer" content="same-origin" />
-  <header class="screen-heading"><h1>{t('card.newTitle')}</h1></header>
-  {view ? <form class="card-form" method="post" action="/cards">
+  {ready ? <><header class="screen-heading"><h1>{t('card.newTitle')}</h1></header>
+  <form class="card-form" method="post" action="/cards">
     <input type="hidden" name="csrf" value={view.csrf} />
     <label class="card-field" for="card-title">{t('card.title')}
       <input id="card-title" name="title" type="text" required maxlength="200" />
@@ -43,5 +45,6 @@ const column = view?.columns.find(({ key }) => key === requested)?.key ?? view?.
       <button class="action-link" type="submit">{t('card.add')}</button>
       <a href="/board">{t('card.back')}</a>
     </div>
-  </form> : <PageState title="card.errorTitle" message="card.errorBody" />}
+  </form></> : view ? <PageState title="state.notReadyTitle" message="state.notReadyBody" init />
+    : <PageState title="card.errorTitle" message="card.errorBody" />}
 </AppShell>

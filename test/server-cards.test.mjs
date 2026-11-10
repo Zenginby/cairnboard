@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.mjs';
@@ -112,7 +112,9 @@ test('invalid card fields return 400 without opening a write context or changing
   const cases = [
     { title: '' }, { title: '  ' }, { title: undefined }, { title: 'x'.repeat(201) },
     { title: 'First\nSecond' }, { title: 'First\rSecond' }, { title: 'Trailing line\n' },
-    { title: 'First\u2028Second' }, { title: 'First\u2029Second' },
+    { title: 'First\u2028Second' }, { title: 'First\u2029Second' }, { title: 'First\tSecond' },
+    { title: 'First\u0085Second' }, { title: '\u200B' }, { title: 'Hid\u200Bden' }, { title: 'Right\u202Eleft' },
+    { title: 'Bell\u0007' }, { title: 'Soft\u00ADhyphen' },
     { column: undefined }, { column: '' }, { column: 'missing-column' }, { column: '__proto__' },
     { project: 'missing-project' }, { priority: 'high' }, { extra: 'value' },
   ];
@@ -139,6 +141,55 @@ test('a settings token or another session token cannot create a card', async (t)
   assert.equal(f.writeCalls(), 0);
   assert.deepEqual(f.stored(), before);
   assert.deepEqual(readEvents(f.open()), []);
+});
+
+test('the guard still decides who may post a card: session, origin, fetch site and the exact target', async (t) => {
+  const f = fixture(t);
+  const cookie = mintCookie(key, port);
+  const body = new URLSearchParams({ csrf: csrfToken(key, port, cookie, 'card'), title: 'A', column: f.column })
+    .toString();
+  const good = { origin: `http://${site}`, 'sec-fetch-site': 'same-origin',
+    'content-type': 'application/x-www-form-urlencoded', cookie: `${cookieName(port)}=${cookie}` };
+  const cases = [
+    ['no session', '/cards', { ...good, cookie: undefined }, 401],
+    ['no Origin', '/cards', { ...good, origin: undefined }, 403],
+    ['another Origin', '/cards', { ...good, origin: 'http://evil.test' }, 403],
+    ['cross-site fetch', '/cards', { ...good, 'sec-fetch-site': 'cross-site' }, 403],
+    ['a query string', '/cards?x=1', good, 405],
+    ['a trailing slash', '/cards/', good, 405],
+  ];
+  for (const [name, path, all, status] of cases) {
+    const headers = Object.fromEntries(Object.entries(all).filter(([, value]) => value !== undefined));
+    assert.equal((await call(f.app, { method: 'POST', path, headers, body })).status, status, name);
+  }
+  assert.equal(f.writeCalls(), 0);
+  assert.equal((await call(f.app, { method: 'POST', path: '/cards', headers: good, body })).status, 303);
+});
+
+test('a data folder that is not ready answers 409 on the form data and the write, not a field error', async (t) => {
+  const dataDir = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-08T12:00:00Z');
+  const open = () => openContext({ mode: 'read', dataDir, home, env: {}, clock });
+  const cards = createCards({ key, port, open, openWrite: () => assert.fail('nothing may be written') });
+  const cookie = mintCookie(key, port);
+  const view = cards.view(`${cookieName(port)}=${cookie}`);
+  assert.equal(view.state, 'notReady');
+  assert.equal(view.columns, undefined);
+  const result = cards.routes[0].run({ values: { title: 'A', column: 'todo' }, params: {} });
+  assert.deepEqual([result.status, result.title], [409, 'state.notReadyTitle']);
+});
+
+test('the form lists projects without a status and the write accepts the id the form sends', async (t) => {
+  const f = fixture(t);
+  const plain = project.create(f.openWrite(), { title: 'Reading garden' });
+  const file = join(f.dataDir, plain.entity.path);
+  writeFileSync(file, readFileSync(file, 'utf8').replace(/^status: .*\n/mu, ''));
+  const paused = project.create(f.openWrite(), { title: 'Winter drawings', status: 'paused' });
+  const view = f.cards.view(null);
+  assert.equal(view.state, 'ready');
+  assert.deepEqual(view.projects.map((item) => item.id), [plain.entity.id]);
+  assert.ok(!view.projects.some((item) => item.id === paused.entity.id));
+  assert.equal((await f.post({ project: plain.entity.id })).status, 303);
+  assert.equal(listCards(f.open(), { column: f.column }).at(-1).data.project, plain.entity.id);
 });
 
 test('the built card form has its session token, selected column and active projects; board links have anchors',

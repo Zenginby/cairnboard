@@ -25,7 +25,7 @@ test('app pages are picked from the data, in a fixed order, and --only narrows t
     ['home', 'board', 'card', 'note', 'search', 'search-empty', 'search-dialog', 'not-found', 'signed-out',
       'settings', 'cards-new']);
   assert.deepEqual(selectAppPages(sample(t), 'cards-new'),
-    [{ name: 'cards-new', path: '/cards/new', noscript: true }]);
+    [{ name: 'cards-new', path: '/cards/new' }]);
   assert.match(pages[2].path, /^\/cards\/c-[0-9a-z]+$/u);
   assert.match(pages[3].path, /^\/notes\/n-[0-9a-z]+$/u);
   assert.match(pages[4].path, /^\/search\?q=[^&\s]+$/u);

@@ -177,5 +177,6 @@
   "card.invalidProject": "Select an existing project for the card or leave the project empty.",
   "card.invalidPriority": "Choose urgent, important or low priority for the card, or leave it empty.",
   "card.errorTitle": "The card form could not be opened",
-  "card.errorBody": "The card form is unavailable. Return to the board and try again."
+  "card.errorBody": "We cannot show the card form right now. Try again shortly.",
+  "card.notReady": "Your data folder is not ready, so the card was not added. Check or create the folder."
 }

@@ -178,5 +178,6 @@
   "card.invalidProject": "Kart için var olan bir projeyi seç ya da proje alanını boş bırak.",
   "card.invalidPriority": "Kartın önceliğini acil, önemli veya düşük seç ya da boş bırak.",
   "card.errorTitle": "Kart formu açılamadı",
-  "card.errorBody": "Kart formunu şu an gösteremiyoruz. Panoya dönüp yeniden dene."
+  "card.errorBody": "Kart formunu şu an gösteremiyoruz. Biraz sonra yeniden dene.",
+  "card.notReady": "Veri klasörün hazır değil; kart eklenemedi. Klasörünü kontrol et ya da oluştur."
 }
