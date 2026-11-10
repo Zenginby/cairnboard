@@ -46,7 +46,8 @@ function fixture({ limit } = {}) {
         seen.push(['poke', params.id, values]);
         return `/things/${params.id}`;
       } },
-    { path: '/other', form: 'other', back, run: () => '/' },
+    { path: '/other', form: 'other', back,
+      run: ({ values }) => (values.to === undefined ? '/' : JSON.parse(values.to)) },
   ];
   const writes = createWrites({ key, port, routes, now: () => time, limit });
   const app = createApp({ root: repo, writes: writes.handle, handler: (req, res, next) => next(),
@@ -142,6 +143,15 @@ test('a route can refuse with its own page; core errors map to conflict, busy, i
     }
     f.failWith(new Error('boom'));
     assert.equal((await f.post('/things/t-1/poke', { title: 'A' })).status, 500);
+    const outside = ['//evil.test/', 'http://evil.test/', '/\\evil.test', '/a\nSet-Cookie: x=1', 'things', '', null,
+      { status: 200 }, { status: '200', title: 'a', message: 'b' }];
+    for (const to of outside) {
+      const response = await f.post('/other', { to: JSON.stringify(to) }, { form: 'other' });
+      assert.equal(response.status, 500, JSON.stringify(to));
+      assert.equal(response.headers.location, undefined);
+    }
+    const inside = await f.post('/other', { to: '"/board?x=1#c-1"' }, { form: 'other' });
+    assert.equal(inside.headers.location, '/board?x=1#c-1');
   } finally { console.error = log; }
   assert.deepEqual(f.seen, []);
 });

@@ -154,7 +154,18 @@ export function createWrites({ key, port, routes, now = Date.now, limit = 5 }) {
       console.error(error);
       return page({ status: 500, title: 'write.errorTitle', message: 'write.error' });
     }
-    if (typeof result !== 'string') return page(result);
+    const failed = () => page({ status: 500, title: 'write.errorTitle', message: 'write.error' });
+    if (typeof result !== 'string') {
+      if (Number.isSafeInteger(result?.status) && typeof result.title === 'string'
+        && typeof result.message === 'string') return page(result);
+      console.error(new TypeError('A write route returned neither an address nor a page.'));
+      return failed();
+    }
+    // Only a path on this site: `//host`, a scheme or a line break would send the owner elsewhere.
+    if (!/^\/(?![/\\])[^\r\n]*$/u.test(result)) {
+      console.error(new TypeError('A write route returned an address outside this site.'));
+      return failed();
+    }
     res.writeHead(303, { Location: result, 'Content-Length': 0 });
     res.end();
     return true;
