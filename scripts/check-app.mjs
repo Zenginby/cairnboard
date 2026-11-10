@@ -13,6 +13,8 @@ import { createApi } from '../server/api.mjs';
 import { watch } from '../core/watch.mjs';
 import { createEvents } from '../server/events.mjs';
 import { createSettings } from '../server/settings.mjs';
+import { createCards } from '../server/cards.mjs';
+import { createWrites } from '../server/writes.mjs';
 import { createRead } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
 import { listenLoopback, serverGroup } from '../server/listen.mjs';
@@ -124,9 +126,12 @@ async function main() {
     const openWrite = () => openContext({ mode: 'write', dataDir, home, env, platform: process.platform,
       actor: 'web:owner' });
     const settings = createSettings({ key, port, open: openRead, openWrite });
-    const app = createApp({ root, handler, guard: createGuard({ port, key, instance }), writes: settings.handle,
+    const cards = createCards({ key, port, open: openRead, openWrite });
+    const writes = createWrites({ key, port, routes: [...settings.routes, ...cards.routes] });
+    const app = createApp({ root, handler, writes: writes.handle,
+      guard: createGuard({ port, key, instance, writable: writes.writable }),
       api: createApi({ open: openRead, render, events, live: settings.liveUpdates }),
-      locals: { cairn: createRead({ open: openRead, render }), settings } });
+      locals: { cairn: createRead({ open: openRead, render }), settings, cards } });
     for (const server of servers) server.on('request', app);
     const session = await signIn(port, key, instance);
     const baseURL = `http://${session.host}`;

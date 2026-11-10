@@ -162,5 +162,21 @@
   "search.star": "Yıldızla",
   "search.unstar": "Yıldızı kaldır",
   "search.starLimit": "En fazla 8 arama yıldızlanabilir.",
-  "search.remove": "Listeden sil"
+  "search.remove": "Listeden sil",
+  "card.newTitle": "Yeni kart",
+  "card.add": "Kartı ekle",
+  "card.title": "Kart başlığı",
+  "card.column": "Sütun",
+  "card.project": "Proje (isteğe bağlı)",
+  "card.priority": "Öncelik (isteğe bağlı)",
+  "card.noProject": "Projesiz",
+  "card.noPriority": "Öncelik yok",
+  "card.back": "Panoya dön",
+  "card.invalidFields": "Kart için yalnız başlık, sütun, proje ve öncelik gönderebilirsin.",
+  "card.invalidTitle": "Kart başlığını tek satırda, 1–200 karakter olarak yaz.",
+  "card.invalidColumn": "Kart için panodaki bir sütunu seç.",
+  "card.invalidProject": "Kart için var olan bir projeyi seç ya da proje alanını boş bırak.",
+  "card.invalidPriority": "Kartın önceliğini acil, önemli veya düşük seç ya da boş bırak.",
+  "card.errorTitle": "Kart formu açılamadı",
+  "card.errorBody": "Kart formunu şu an gösteremiyoruz. Panoya dönüp yeniden dene."
 }
