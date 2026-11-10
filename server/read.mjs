@@ -8,6 +8,7 @@ import { effectiveColumn } from '../core/card.mjs';
 import { homeView, boardView, showView } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
 import { createRenderPool } from './render-pool.mjs';
+import { searchView } from './search.mjs';
 
 function journalDate(row) {
   for (const date of [row.data.date, basename(row.path, '.md')]) {
@@ -60,7 +61,7 @@ export function homeResult(ctx, view = homeView(ctx)) {
   return okEnvelope(view.data, [...ctx.warnings, ...(view.warnings ?? [])]);
 }
 
-function projectMap(ctx) {
+export function projectMap(ctx) {
   const titles = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
   const projects = index.rows(ctx, 'project').sort((a, b) => titles.compare(a.title, b.title)
     || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
@@ -125,6 +126,11 @@ export function createRead({ open, render = createRenderPool().render }) {
       return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
     },
     card(id) { return document('card', id); },
+    /** @param {{ q: string, type?: string, limit?: number }} params */
+    async search({ q, type, limit }) {
+      const ctx = await openRead();
+      return okEnvelope(searchView(ctx, { q, type, limit }, projectMap(ctx)), ctx.warnings);
+    },
     note(id) { return document('note', id); },
     async home() {
       let ctx;

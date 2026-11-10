@@ -10,7 +10,7 @@ import { revision } from './store.mjs';
 import { checkRuntime } from './runtime.mjs';
 import { CairnError } from './errors.mjs';
 import { extract } from './extract.mjs';
-import { entityRef } from './ids.mjs';
+import { entityRef, normalizeId } from './ids.mjs';
 import { linkTarget, parseLinks, parseJournal } from './links.mjs';
 
 await checkRuntime();
@@ -344,6 +344,22 @@ function readSource(ctx, item, onBytes) {
     return { text, large: true, hash: digest.digest('hex').slice(0, 16) };
   } finally {
     fs.closeSync(fd);
+  }
+}
+
+/**
+ * The unfolded body the index searched for a page, read with the indexer's own path and size rules; `null` when the
+ * file is over 5 MB, not UTF-8, no longer a page or cannot be read. Used to show search snippets in original spelling.
+ * @param {*} ctx @param {string} path
+ * @returns {string | null}
+ */
+export function searchBody(ctx, path) {
+  try {
+    const source = readSource(ctx, { path });
+    if (source.large || source.invalid) return null;
+    return extract(ctx.schema, path, source.text)?.body ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -686,6 +702,19 @@ export function rows(ctx, type, { kind } = {}) {
     (data) => data.rows.filter(matches).map((row) => ({ ...row, body: null })));
 }
 
+/**
+ * The rows of the given paths only (same shape as `rows`), without scanning the whole table.
+ * @param {*} ctx @param {string[]} paths
+ */
+export function rowsByPath(ctx, paths) {
+  const wanted = [...new Set(paths)];
+  if (!wanted.length) return [];
+  const marks = wanted.map(() => '?').join(', ');
+  return query(ctx, (db) => db.prepare(`SELECT * FROM files WHERE path IN (${marks}) ORDER BY path`).all(...wanted)
+    .map((row) => rowFrom(ctx, row)),
+  (data) => data.rows.filter((row) => wanted.includes(row.path)).map((row) => ({ ...row, body: null })));
+}
+
 export function backlinks(ctx, path) {
   return query(ctx, (db) => db.prepare(`SELECT DISTINCT src_path, line, field FROM links
     WHERE target_path = ? AND EXISTS (SELECT 1 FROM files WHERE path = ?) ORDER BY src_path, line`).all(path, path).map((row) => ({ ...row })),
@@ -739,33 +768,84 @@ export function journalEntries(ctx, { type, unprocessed = false, since } = {}) {
 
 export const SEARCH_TYPES = Object.freeze(['project', 'card', 'note', 'research', 'journal', 'raw']);
 
+const searchTerms = (q) => [...new Set(foldTr(q).match(/[\p{L}\p{N}]+/gu) ?? [])];
+const searchMatch = (terms, any) => (title, body) => {
+  const words = new Set(foldTr(`${title}\n${body ?? ''}`).match(/[\p{L}\p{N}]+/gu));
+  return any ? terms.some((term) => words.has(term)) : terms.every((term) => words.has(term));
+};
+
+function validSearchIds(db, enabled) {
+  if (!enabled) return '';
+  db.function('search_id', { deterministic: true }, normalizeId);
+  // Detail lookup normalizes the selector, then compares it with the stored id exactly.
+  return ' AND files.id = search_id(files.id)';
+}
+
+const validSearchId = (id) => id !== null && normalizeId(id) === id;
+
+/**
+ * Bounded page count without ranking, snippets or body reads from the index. `validIdsOnly` matches the detail
+ * route's id validation, just as in `search`; note keys need no such restriction.
+ * @param {*} ctx @param {string} q
+ * @param {{ type?: string, limit?: number, validIdsOnly?: boolean }} [options]
+ */
+export function searchCount(ctx, q, { type, limit = 1001, validIdsOnly = false } = {}) {
+  const terms = searchTerms(q);
+  if (!terms.length) return 0;
+  limit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 1001;
+  if (!limit) return 0;
+  const match = terms.map((term) => `"${term}"`).join(' AND ');
+  const hit = searchMatch(terms, false);
+  return query(ctx, (db) => Number(db.prepare(`SELECT count(*) AS total FROM (
+    SELECT 1 FROM fts JOIN files ON files.path = fts.path
+    WHERE fts MATCH ? AND fts.type IS NOT 'raw' AND (? IS NULL OR files.type = ?)${validSearchIds(db, validIdsOnly)}
+    LIMIT ?)`).get(match, type ?? null, type ?? null, limit).total), (data) => {
+    let count = 0;
+    for (const row of data.rows) {
+      if (!row.badEncoding && (type == null || row.type === type) && (!validIdsOnly || validSearchId(row.id))
+        && hit(row.title, row.body)) {
+        if (++count === limit) break;
+      }
+    }
+    return count;
+  });
+}
+
 /**
  * Full-text search. Pages by default (optionally one `type`); `type: 'raw'` searches raw sources instead (wiki spec §5),
  * which are never pages. All terms must match, or any term with `any` (ranked by relevance).
+ * With `mark` ([open, close]) the FTS snippet wraps hits in those strings and each result gets `marked: true`;
+ * the fallback scan cannot mark hits and returns `marked: false`. Without `mark` the result shape is unchanged.
+ * `validIdsOnly` filters pages by the detail route's normalized-id lookup before the limit and normalizes refs.
  * @param {*} ctx @param {string} q
- * @param {{ type?: string, limit?: number, any?: boolean }} [options]
+ * @param {{ type?: string, limit?: number, any?: boolean, mark?: [string, string], validIdsOnly?: boolean }} [options]
  */
-export function search(ctx, q, { type, limit = 20, any = false } = {}) {
-  const terms = [...new Set(foldTr(q).match(/[\p{L}\p{N}]+/gu) ?? [])];
+export function search(ctx, q, { type, limit = 20, any = false, mark, validIdsOnly = false } = {}) {
+  const terms = searchTerms(q);
   if (!terms.length) return [];
   limit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 20;
   const match = terms.map((term) => `"${term}"`).join(any ? ' OR ' : ' AND ');
-  const hit = (title, body) => {
-    const words = new Set(foldTr(`${title}\n${body ?? ''}`).match(/[\p{L}\p{N}]+/gu));
-    return any ? terms.some((term) => words.has(term)) : terms.every((term) => words.has(term));
-  };
+  const hit = searchMatch(terms, any);
+  const [open, close] = mark ?? ['', ''];
+  const flag = (marked) => mark ? { marked } : {};
   if (type === 'raw') {
-    return query(ctx, (db) => db.prepare(`SELECT path, title, snippet(fts, 3, '', '', '…', 24) AS snippet
-      FROM fts WHERE fts MATCH ? AND type = 'raw' ORDER BY rank, path LIMIT ?`).all(match, limit)
-      .map((row) => ({ path: row.path, type: 'raw', id: null, ref: null, title: rawTitle(row.path), snippet: row.snippet })),
+    return query(ctx, (db) => db.prepare(`SELECT path, title, snippet(fts, 3, ?, ?, '…', 24) AS snippet
+      FROM fts WHERE fts MATCH ? AND type = 'raw' ORDER BY rank, path LIMIT ?`).all(open, close, match, limit)
+      .map((row) => ({ path: row.path, type: 'raw', id: null, ref: null, title: rawTitle(row.path),
+        snippet: row.snippet, ...flag(true) })),
     (data) => data.raw.filter((row) => hit(row.title, row.body)).slice(0, limit)
-      .map(({ path, title, body }) => ({ path, type: 'raw', id: null, ref: null, title, snippet: foldTr(body).slice(0, 160) })),
+      .map(({ path, title, body }) => ({ path, type: 'raw', id: null, ref: null, title,
+        snippet: foldTr(body).slice(0, 160), ...flag(false) })),
     { raw: true });
   }
-  return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.id, files.title, snippet(fts, 3, '', '', '…', 24) AS snippet
-    FROM fts JOIN files ON files.path = fts.path WHERE fts MATCH ? AND fts.type IS NOT 'raw' AND (? IS NULL OR files.type = ?)
-    ORDER BY rank, files.path LIMIT ?`).all(match, type ?? null, type ?? null, limit)
-    .map((row) => ({ ...row, ref: entityRef(row) })), (data) => data.rows.filter((row) =>
-    !row.badEncoding && (type === undefined || row.type === type) && hit(row.title, row.body))
-    .slice(0, limit).map(({ path, type, id, ref, title, body }) => ({ path, type, id, ref, title, snippet: foldTr(body ?? '').slice(0, 160) })));
+  return query(ctx, (db) => db.prepare(`SELECT files.path, files.type, files.id, files.title,
+      snippet(fts, 3, ?, ?, '…', 24) AS snippet
+    FROM fts JOIN files ON files.path = fts.path
+    WHERE fts MATCH ? AND fts.type IS NOT 'raw' AND (? IS NULL OR files.type = ?)${validSearchIds(db, validIdsOnly)}
+    ORDER BY rank, files.path LIMIT ?`).all(open, close, match, type ?? null, type ?? null, limit)
+    .map((row) => ({ ...row, ref: validIdsOnly ? normalizeId(row.id) : entityRef(row), ...flag(true) })),
+  (data) => data.rows.filter((row) => !row.badEncoding && (type == null || row.type === type)
+    && (!validIdsOnly || validSearchId(row.id)) && hit(row.title, row.body))
+    .slice(0, limit).map(({ path, type, id, ref, title, body }) => ({ path, type, id,
+      ref: validIdsOnly ? normalizeId(id) : ref, title, snippet: foldTr(body ?? '').slice(0, 160), ...flag(false) })));
 }
