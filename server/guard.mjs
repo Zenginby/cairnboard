@@ -20,19 +20,26 @@ const SIGNED_IN = `<!doctype html>
 </main></body></html>
 `;
 
+// The only writes the server accepts, matched on the exact request target (no query string, no encoding tricks).
+export const WRITE_PATHS = Object.freeze(['/settings/feature', '/settings/clear-shadow']);
+
 function send(req, res, status, headers, body = '') {
   res.writeHead(status, headers);
   res.end(req.method === 'HEAD' ? undefined : body);
   return false;
 }
 
-/** Baseline for every response: security headers and read-only methods. Returns false when it answered. */
+/**
+ * Baseline for every response: security headers and read-only methods, except the two settings writes.
+ * Returns false when it answered.
+ */
 export function guard(req, res) {
   res.setHeader('Content-Security-Policy', CSP);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Cache-Control', 'no-store');
-  // Writes arrive in a later stage together with the Origin and Sec-Fetch-Site checks.
+  // createGuard adds the Origin and Sec-Fetch-Site checks for these; the handler checks the rest (spec §6.2).
+  if (req.method === 'POST' && WRITE_PATHS.includes(req.url)) return true;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return send(req, res, 405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' }, 'Method not allowed.');
   }
@@ -76,6 +83,15 @@ export function createGuard({ port, key, instance, now = Date.now }) {
       return send(req, res, 200, headers, SIGNED_IN);
     }
     if (plain && url.pathname.startsWith('/_astro/') && !/%2e/iu.test(raw)) return true;
-    return signedIn ? true : signedOut(req, res);
+    if (!signedIn) return signedOut(req, res);
+    if (req.method === 'POST') {
+      // Only a settings write gets this far. The page's own origin must send it: another site's form, or a script
+      // an agent runs, either lacks the header or names another origin. Fetch Metadata backs it up where present.
+      const fetchSite = req.headers['sec-fetch-site'];
+      if (req.headers.origin !== `http://${origin}` || (fetchSite !== undefined && fetchSite !== 'same-origin')) {
+        return send(req, res, 403, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Forbidden.');
+      }
+    }
+    return true;
   };
 }

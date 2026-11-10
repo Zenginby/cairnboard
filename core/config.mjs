@@ -7,6 +7,20 @@ import { LINT_CODES, RULE_NAMES, RULE_SEVERITIES, SEVERITIES } from './rules.mjs
 
 const version = 1;
 const invalid = () => new CairnError('validation', 'Invalid configuration.');
+const featureNames = ['changeTrail', 'changeContent', 'liveUpdates', 'mentions'];
+
+export function features(config) {
+  const values = config.features;
+  if (values !== undefined && (!values || typeof values !== 'object' || Array.isArray(values))) {
+    throw new CairnError('validation', 'Invalid configuration: features');
+  }
+  for (const [key, value] of Object.entries(values ?? {})) {
+    if (!featureNames.includes(key) || typeof value !== 'boolean') {
+      throw new CairnError('validation', `Invalid configuration: features.${key}`);
+    }
+  }
+  return Object.fromEntries(featureNames.map((name) => [name, values?.[name] ?? true]));
+}
 
 export function defaultConfig(language = 'en') {
   if (!['tr', 'en'].includes(language)) throw invalid();
@@ -37,7 +51,7 @@ function validateRules(rules) {
   for (const [key, value] of Object.entries(rules)) if (!RULE_NAMES.includes(key) || !RULE_SEVERITIES.includes(value)) throw invalid();
 }
 
-function validate(config) {
+export function validate(config) {
   if (!config || Array.isArray(config) || !Number.isInteger(config.formatVersion) || config.formatVersion < 0) throw invalid();
   if (config.formatVersion > version) throw new CairnError('format_too_new', 'Configuration requires a newer format.');
   if (!['tr', 'en'].includes(config.language) || !Number.isInteger(config.leaseMinutes) || config.leaseMinutes <= 0
@@ -52,6 +66,7 @@ function validate(config) {
   resolveSchema(config);
   validateLint(config.lint);
   validateRules(config.rules);
+  features(config);
   return config;
 }
 

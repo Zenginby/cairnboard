@@ -10,6 +10,8 @@ import { runCli } from './support/cli.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
 import { appendEvent, readEvents } from '../core/events.mjs';
 import { withLock } from '../core/lock.mjs';
+import { readSettings, setFeature } from '../core/settings.mjs';
+import { revision } from '../core/store.mjs';
 
 const clock = () => fixedClock('2026-11-01T12:00:00Z');
 const names = (pack) => pack.sections.map((section) => section.name);
@@ -216,5 +218,82 @@ test('owner changes are capped at ten and cursor writes are best effort', (t) =>
     assert.equal(value.split('\n').filter((line) => line.startsWith('- ')).length, 10);
     assert.match(value, /and 2 more; run changes --since 10/u);
     assert.ok(pack.warnings.includes('cursor_write_failed'));
+  });
+});
+
+test('settings section is omitted when features are enabled or only liveUpdates is off', (t) => {
+  const f = ownerFixture(t);
+  assert.equal(names(buildContext(f.ctx)).includes('settings'), false);
+
+  const { revision: rev } = readSettings(f.ctx);
+  setFeature({ ...f.ctx, actor: 'web:owner' }, { name: 'liveUpdates', value: false, expectedRevision: rev });
+  assert.equal(names(buildContext(f.ctx)).includes('settings'), false);
+});
+
+test('settings section reports disabled changeTrail and skips redundant changeContent line', async (t) => {
+  const f = ownerFixture(t);
+  mkdirSync(join(f.data, 'wiki'), { recursive: true });
+  writeFileSync(join(f.data, 'wiki/genel.md'), overview('Bugün: derle.'));
+  const readCtx = () => openContext({
+    mode: 'read', dataDir: f.data, home: f.home, env: {}, clock: clock(), actor: 'cli:acme',
+  });
+
+  const { revision: rev1 } = readSettings(f.ctx);
+  const { revision: rev2 } = setFeature({ ...f.ctx, actor: 'web:owner' },
+    { name: 'changeTrail', value: false, expectedRevision: rev1 });
+  const pack = buildContext(readCtx());
+  assert.deepEqual(names(pack).slice(0, 2), ['wakeup', 'settings']);
+  assert.equal(
+    text(pack, 'settings'),
+    'Change trail is off since 2026-11-01T12:00:00.000Z (web:owner): owner edits are not visible to you.',
+  );
+
+  // When changeTrail is already off, disabling changeContent adds no duplicate line.
+  setFeature({ ...f.ctx, actor: 'cli:owner' }, { name: 'changeContent', value: false, expectedRevision: rev2 });
+  const both = buildContext(readCtx());
+  assert.equal(text(both, 'settings').includes('Change content is off'), false);
+  // The later changeContent change must not re-date or re-attribute the trail.
+  assert.match(text(both, 'settings'), /^Change trail is off since 2026-11-01T12:00:00\.000Z: /u);
+
+  const cli = await runCli(['context', '--json'], { home: f.home, data: f.data, clock: clock() });
+  assert.equal(cli.code, 0, cli.stderr);
+  assert.ok(cli.json.warnings.includes('trail_disabled'));
+  assert.ok(cli.json.data.sections.some(({ name, content }) => name === 'settings'
+    && content.text.startsWith('Change trail is off since ')));
+
+  // Fallback when no prior lastChange record is available.
+  const cfgRev = revision(readFileSync(join(f.data, '.cairn/config.json')));
+  const statePath = join(f.data, '.cairn/settings-state.json');
+  const state = JSON.parse(readFileSync(statePath, 'utf8'));
+  writeFileSync(statePath, JSON.stringify({ ...state, rev: cfgRev, lastChange: null, trailOffSince: null }) + '\n');
+  assert.equal(
+    text(buildContext(readCtx()), 'settings'),
+    'Change trail is off since unknown: owner edits are not visible to you.',
+  );
+});
+
+test('settings section reports disabled changeContent and mentions without liveUpdates', (t) => {
+  const f = ownerFixture(t);
+  let rev = readSettings(f.ctx).revision;
+  for (const name of ['changeContent', 'mentions', 'liveUpdates']) {
+    rev = setFeature({ ...f.ctx, actor: 'web:owner' }, { name, value: false, expectedRevision: rev }).revision;
+  }
+  const pack = buildContext(f.ctx);
+  assert.equal(
+    text(pack, 'settings'),
+    'Change content is off: cairn changes --diff shows no diffs.\nUnlinked mentions are off.',
+  );
+  assert.match(
+    formatContext(pack),
+    /^# settings\nChange content is off: cairn changes --diff shows no diffs\.\nUnlinked mentions are off\.\n/mu,
+  );
+});
+
+test('settings read failure warns without failing buildContext', (t) => {
+  const f = ownerFixture(t);
+  withLock(f.ctx, '_config', () => {
+    const pack = buildContext(f.ctx);
+    assert.equal(names(pack).includes('settings'), false);
+    assert.ok(pack.warnings.includes('settings_read_failed'));
   });
 });

@@ -4,6 +4,8 @@ export const ERRORS = Object.freeze({
   index_unavailable: 1,
   usage: 2,
   actor_required: 2,
+  feature_disabled: 2,
+  owner_only: 2,
   not_found: 3,
   nothing_to_undo: 3,
   conflict: 4,

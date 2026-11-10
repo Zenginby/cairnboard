@@ -98,6 +98,17 @@ export function tokenVerifier(key, port, instance) {
   };
 }
 
+/** The anti-forgery token for the settings forms: bound to the session cookie, so another session's token fails. */
+export function csrfToken(key, port, cookie) {
+  if (typeof cookie !== 'string' || !cookie) throw new TypeError('A session cookie is required.');
+  return mac(key, 'cairn-v1', 'csrf', 'settings', port, cookie);
+}
+
+export function verifyCsrf(key, port, cookie, token) {
+  if (typeof cookie !== 'string' || !cookie || typeof token !== 'string' || token.length > 100) return false;
+  return equal(token, csrfToken(key, port, cookie));
+}
+
 /** Value of one cookie from a Cookie header, or null. Duplicate names are treated as absent. */
 export function readCookie(header, name) {
   if (typeof header !== 'string') return null;

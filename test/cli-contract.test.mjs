@@ -62,6 +62,18 @@ test('schema needs no data and matches the public snapshot', async (t) => {
       limit: { type: 'string', summary: 'Maximum changes, from 1 to 200 (default: 20).' } },
     mode: 'read', needsData: true, dangerous: false,
   });
+  const common = expected.commands.find(({ name }) => name === 'agent print').options;
+  expected.commands.splice(expected.commands.findIndex(({ name }) => name === 'doctor'), 0,
+    { name: 'config', summary: 'Show feature settings, shadow size and last change.', args: [], options: common,
+      mode: 'read', needsData: true, dangerous: false },
+    { name: 'config get', summary: 'Get one feature setting.', args: ['<feature>'], options: common,
+      mode: 'read', needsData: true, dangerous: false },
+    { name: 'config set', summary: 'Enable or disable a feature.', args: ['<feature>', '<value>'], options: common,
+      mode: 'write', needsData: true, dangerous: false, actor: false, agentVisible: false },
+    { name: 'config clear-shadow',
+      summary: 'Delete stored shadow content blobs while keeping change-trail revisions.',
+      args: [], options: common, mode: 'write', needsData: true, dangerous: false, actor: false,
+      agentVisible: false });
   assert.deepEqual(response.json.data, expected);
   assert.deepEqual(response.json.data.errors, Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })));
   const commands = response.json.data.commands;
