@@ -153,3 +153,20 @@ test('wiki hook honors explicit --data over discovery and --preset for an uninit
   assert.match(output.additionalContext, /Kaynaklar/u);
   assertUnchanged(before, vault);
 });
+
+test('a backslash in a POSIX file name is never a separator: such files are allowed unchecked',
+  { skip: process.platform === 'win32' }, (t) => {
+    const bad = '---\nkind: concept\ntags: [a]\nupdated: 2026-10-30\nsources: [a]\n---\nno heading\n';
+    const named = 'wiki/concepts/a\\b.md';
+    const f = make(t, { 'wiki/concepts/a/b.md': 'ALIAS\n', [named]: 'REAL\n' }, { required: 'error' });
+    const edit = { tool_name: 'Edit',
+      tool_input: { file_path: join(f.dir, named), old_string: 'ALIAS', new_string: bad } };
+    for (const input of [edit, write(f.dir, named, bad), write(f.dir, 'wiki\\concepts/x.md', bad)]) {
+      const result = evaluateHook(f.ctx, input);
+      assert.equal(result.decision, 'allow');
+      assert.equal(result.warnings.length, 1);
+      assert.match(result.warnings[0], /backslash/u);
+    }
+    const nested = evaluateHook(f.ctx, write(f.dir, 'wiki/concepts/a/b.md', bad));
+    assert.equal(nested.decision, 'deny', 'the real nested page is still checked');
+  });
