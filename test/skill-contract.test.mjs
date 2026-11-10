@@ -48,7 +48,8 @@ test('every fenced skill command succeeds with real fixtures and dry-run', async
   await run(['note', 'rm', note.id, '--actor', 'codex', '--json']);
   const trash = await run(['trash', 'list', '--json']);
   const values = { ...ids, '<date>': '2026-11-01', '<text>': 'x', '<query>': 'x', '<column>': 'doing', '<n>': '1',
-    '<path>': tempDir(t), '<target-path>': 'wiki/concepts/draft.md', '<actor>': 'codex', '<revision>': (await run(['card', 'show', ids['<card-id>'], '--json'])).revision,
+    '<feature>': 'live-updates', '<path>': tempDir(t), '<target-path>': 'wiki/concepts/draft.md', '<actor>': 'codex',
+    '<revision>': (await run(['card', 'show', ids['<card-id>'], '--json'])).revision,
     '<trash-id>': trash.items[0].trashId };
   const invocation = cliInvocation(join(home, 'Proje Notları'));
   const prefix = split(invocation);
@@ -81,8 +82,11 @@ test('every fenced skill command succeeds with real fixtures and dry-run', async
       count++;
     }
   }
-  assert.ok(count >= commands.filter(({ hidden }) => !hidden).length - 3);
-  for (const command of commands.filter(({ dangerous, hidden }) => dangerous !== true && !hidden)) assert.ok(seen.has(command.name), command.name);
+  const visible = commands.filter(({ hidden, agentVisible }) => !hidden && agentVisible !== false);
+  assert.ok(count >= visible.length - 3);
+  for (const command of visible.filter(({ dangerous }) => dangerous !== true)) {
+    assert.ok(seen.has(command.name), command.name);
+  }
   const sources = (map) => [...map].filter(([path]) => !/^\.cairn\/index\.db/u.test(path)).sort();
   assert.deepEqual(sources(snapshot(data)), sources(before), 'skill dry-runs changed source or state files');
   assert.deepEqual(fs.readdirSync(home).filter((name) => ['.claude', '.agents', '.gemini'].includes(name)), []);
@@ -103,6 +107,12 @@ test('wiki workflow gives runnable context, capture, draft check, index and lint
     assert.match(fragment, /wiki check/u);
     assert.match(wiki, /research update <research-id> --processed --if-revision <revision>/u);
     assert.match(fragment, /--processed/u);
+    const noMentions = renderSkill({
+      version: '1.2.3', invocation, actor, commands, features: { mentions: false },
+    });
+    assert.ok(Buffer.byteLength(noMentions) <= 24 * 1024);
+    assert.ok(!noMentions.includes('feature:mentions'));
+    assert.ok(noMentions.includes(`${invocation} wiki lint --json`));
   }
 });
 

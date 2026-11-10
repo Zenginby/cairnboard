@@ -13,6 +13,8 @@ import { pathKey, stripHidden } from './text.mjs';
 import * as entity from './entity.mjs';
 import { validateDate } from './dates.mjs';
 import { lineDiff } from './diff.mjs';
+import { features } from './config.mjs';
+import { checkConfigDrift } from './settings.mjs';
 
 function targetPath(path) {
   const rel = safeRelative(path).replace(/\\/gu, '/');
@@ -98,7 +100,7 @@ function diskBytes(ctx, path, trackStamp = false) {
 function baseline(ctx, paths, indexedBytes, nullHashes) {
   // A concurrent write is recognized by its durable event on the next scan; baseline needs no path locks.
   return withShadow(ctx, (record, shadow) => {
-    if (shadow.initialized) return false;
+    if (!features(ctx.config).changeTrail || shadow.initialized) return false;
     for (let at = 0; at < paths.length; at += BASELINE_BATCH) {
       const changes = paths.slice(at, at + BASELINE_BATCH).flatMap((path) => {
         if (reconcileTarget(ctx, path) === null) return [];
@@ -138,6 +140,7 @@ function refreshEvents(ctx, state) {
 
 function fullPrune(ctx, state) {
   return withShadow(ctx, (record, shadow) => {
+    if (!features(ctx.config).changeTrail) return shadow;
     pruneShadow(ctx, shadow);
     // Freeze event append while classifying histories; active writers retain their pending intent.
     withLock(ctx, '_events', () => {
@@ -182,6 +185,7 @@ function reconcileBatch(ctx, paths, state) {
   const lock = (index) => index === names.length ? run()
     : withLock(ctx, names[index], () => lock(index + 1));
   const run = () => withShadow(ctx, (record, shadow) => {
+    if (!features(ctx.config).changeTrail || !shadow.initialized) return [];
     const changes = [], seqs = [];
     const pending = pendingRevisions(ctx);
     for (const path of paths) {
@@ -227,12 +231,13 @@ function reconcilePath(ctx, path, state, shadow, changes, pending) {
       const saved = historyItem(ctx, gap.event, path);
       const preimage = saved && !saved.reason ? beforeBytes(saved) : null;
       const prefix = preimage?.bytes?.subarray(0, PREFIX_LIMIT) ?? file.prefix;
-      return emitExternal(ctx, { path, entry, before: shadowBytes(ctx, path, shadow), after: gap.before,
+      return emitExternal(ctx, { path, entry,
+        before: features(ctx.config).changeContent ? shadowBytes(ctx, path, shadow) : null, after: gap.before,
         prefix, afterTx: gap.event.tx, overwrittenBy: own.event.tx }, state);
     }
     return null;
   }
-  const before = shadowBytes(ctx, path, shadow);
+  const before = features(ctx.config).changeContent ? shadowBytes(ctx, path, shadow) : null;
   const prefix = file.rev === null ? before?.subarray(0, PREFIX_LIMIT) ?? Buffer.alloc(0) : file.prefix;
   const seq = emitExternal(ctx, { path, entry, before, after, prefix }, state);
   changes.push(change);
@@ -241,9 +246,12 @@ function reconcilePath(ctx, path, state, shadow, changes, pending) {
 
 function emitExternal(ctx, { path, entry, before, after, prefix, afterTx = undefined,
   overwrittenBy = undefined }, state) {
+  const keepContent = features(ctx.config).changeContent;
+  if (!keepContent) before = null;
   const target = normalizeId(parseFile(prefix.toString('utf8')).data?.id) ?? path;
   const tx = `x-${ctx.clock.now().getTime().toString(36)}-${randomBytes(8).toString('hex')}`;
   const item = { path, target, before: before === null ? null : before.toString('utf8'), after,
+    ...(!keepContent ? { contentNotKept: true } : {}),
     ...(afterTx ? { afterTx } : {}),
     ...(before !== null && !before.equals(Buffer.from(before.toString('utf8')))
       ? { beforeBytes: before.toString('base64') } : {}),
@@ -252,6 +260,7 @@ function emitExternal(ctx, { path, entry, before, after, prefix, afterTx = undef
   let seq;
   try {
     seq = appendEvent(ctx, { tx, op: 'external.change', actor: 'owner:external', target, rev: after,
+      ...(!keepContent ? { contentNotKept: true } : {}),
       before: entry?.rev ?? null, change: after === null ? 'delete' : entry ? 'modify' : 'create',
       ...(overwrittenBy ? { overwrittenBy } : {}),
       targets: [{ path, target, rev: after }] });
@@ -271,6 +280,11 @@ function emitExternal(ctx, { path, entry, before, after, prefix, afterTx = undef
 /** @param {*} ctx @param {{ paths?: string[], prune?: boolean }} [options] */
 export function reconcileExternal(ctx, { paths, prune = paths === undefined } = {}) {
   if (ctx.mode !== 'write') throw new CairnError('internal', 'Reconciliation requires write mode.');
+  checkConfigDrift(ctx);
+  if (!features(ctx.config).changeTrail) {
+    warn(ctx, 'trail_disabled');
+    return { recorded: 0, baseline: false, seqs: [] };
+  }
   const requested = paths?.flatMap((path) => {
     try {
       const rel = targetPath(path);
@@ -333,7 +347,8 @@ export function reconcileBeforeRun(ctx) {
     if (ctx.mode !== 'write') recover(write);
     // Orphan sweeps belong to the server's full scans, not the CLI's write preflight.
     reconcileExternal(write, { prune: false });
-    return [];
+    ctx.config = write.config;
+    return features(write.config).changeTrail ? [] : ['trail_disabled'];
   } catch (error) {
     if (fs.isPersistentFilesystemError(error)) return ['reconcile_failed'];
     if (fs.isFilesystemError(error) || error.code === 'locked' || error.exit === 6
@@ -382,6 +397,10 @@ function filterPath(ctx, ref) {
 /** @param {*} ctx @param {{ since?: number|string, target?: string, actor?: string, limit?: number }} [options]
  * @param {any[]} [events] */
 export function listChanges(ctx, { since, target, actor, limit = 20 } = {}, events = readEvents(ctx)) {
+  if (!features(ctx.config).changeTrail) {
+    warn(ctx, 'trail_disabled');
+    return [];
+  }
   const cursor = changeSince(since);
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200) {
     throw new CairnError('validation', 'Invalid --limit. Use an integer from 1 to 200.');
@@ -483,12 +502,14 @@ export function changeDiff(ctx, event, events = readEvents(ctx)) {
 
 function diffForEvent(ctx, event, events) {
   event = event.tx ? event : events.find(({ seq }) => seq === event.seq);
+  if (event?.contentNotKept) return { diff: null, reason: 'content_not_kept' };
   const path = event?.targets?.[0]?.path;
   if (!path || !targetPath(path)) return { diff: null, reason: 'history_pruned' };
   if (!validRevisions(event)) return { diff: null, reason: 'diff_unavailable' };
   const saved = historyItem(ctx, event, path);
   if (!saved) return { diff: null, reason: 'history_pruned' };
   if (saved.reason) return { diff: null, reason: saved.reason };
+  if (saved.contentNotKept) return { diff: null, reason: 'content_not_kept' };
   const before = beforeBytes(saved);
   if (before.reason) return { diff: null, reason: before.reason };
   const rev = event.targets[0].rev;

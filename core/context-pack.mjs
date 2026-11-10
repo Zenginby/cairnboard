@@ -13,6 +13,7 @@ import { readEvents } from './events.mjs';
 import { listChanges } from './changes.mjs';
 import { withLock } from './lock.mjs';
 import { ensureDataIgnore } from './roots.mjs';
+import { readSettings } from './settings.mjs';
 
 const DAY = 86_400_000;
 const SECTION_MAX_BYTES = 16 * 1024;
@@ -95,6 +96,34 @@ function ownerChanges(ctx, warnings) {
   } };
 }
 
+function settingsSummary(ctx, warnings) {
+  if (ctx.ephemeral) return '';
+  let settings;
+  try {
+    settings = readSettings(ctx, { stats: false });
+  } catch {
+    warnings.push('settings_read_failed');
+    return '';
+  }
+  const f = settings.features;
+  const lines = [];
+  if (!f.changeTrail) {
+    // Only the change that turned the trail off dates it; a later change to another feature does not.
+    const changed = settings.lastChange?.feature;
+    const last = changed === 'changeTrail' || (Array.isArray(changed) && changed.includes('changeTrail'))
+      ? settings.lastChange : null;
+    const when = settings.trailOffSince ?? last?.ts;
+    const ts = when ? line(when) : '';
+    const who = last?.actor ? line(last.actor) : '';
+    const since = ts ? `since ${ts}${who ? ` (${who})` : ''}` : 'since unknown';
+    lines.push(`Change trail is off ${since}: owner edits are not visible to you.`);
+  } else if (!f.changeContent) {
+    lines.push('Change content is off: cairn changes --diff shows no diffs.');
+  }
+  if (!f.mentions) lines.push('Unlinked mentions are off.');
+  return lines.join('\n');
+}
+
 /**
  * The session-start context pack (wiki spec §11): sections in priority order, each `{ name, source, content: { text },
  * truncated }`, plus warnings. Reads the cache through the ordinary readers (no strict index), never writes pages.
@@ -111,6 +140,7 @@ export function buildContext(ctx, { budget = 1200, project, advanceCursor = true
 
   const first = wakeup(ctx, warnings);
   if (first) add('wakeup', first.text, first.source);
+  add('settings', settingsSummary(ctx, warnings));
 
   const projects = selected ? [selected] : entity.list(ctx, 'project').filter((item) => (item.data.status ?? 'active') === 'active');
   add('projects', bullets(projects.map((item) => `${line(item.title)} (${item.data.status ?? 'active'}) ${item.id ?? item.path}`)));

@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
+import { features } from './config.mjs';
 import { requireCardOwner, resolve } from './entity.mjs';
 import { extract } from './extract.mjs';
 import { assertRules, checkPage, ruleWarnings } from './check.mjs';
@@ -139,6 +140,7 @@ function scan(text, names) {
 }
 
 export function mentions(ctx, ref, { limit = 50 } = {}) {
+  if (!features(ctx.config).mentions) throw new CairnError('feature_disabled', 'Unlinked mentions are disabled.');
   if (!Number.isSafeInteger(limit) || limit < 0 || limit > 500) throw invalid('Limit must be an integer from 0 to 500.');
   const target = resolve(ctx, 'note', ref);
   const names = namesOf(target);
@@ -160,6 +162,7 @@ export function mentions(ctx, ref, { limit = 50 } = {}) {
  * @param {import('./store.mjs').MutationOptions} [options]
  */
 export function linkMention(ctx, ref, location, { ifRevision, dryRun = false } = {}) {
+  if (!features(ctx.config).mentions) throw new CairnError('feature_disabled', 'Unlinked mentions are disabled.');
   const selected = typeof location === 'string' && /^(.*):([1-9]\d*)$/u.exec(location);
   if (!selected || !Number.isSafeInteger(Number(selected[2]))) throw invalid('Link needs a path:line location.');
   const path = safeRelative(selected[1]).replace(/\\/gu, '/');

@@ -81,6 +81,10 @@ if (region && status) {
     return reconcileRequest;
   }
 
+  // HEAD answers without opening a stream. Only a definite 404 counts; any failure to ask means "try again".
+  const probe = () => fetch('/api/events', { method: 'HEAD', credentials: 'same-origin' })
+    .then((response) => response.status === 404, () => false);
+
   function connect(recover = false) {
     if (source || document.visibilityState !== 'visible') return;
     const current = new EventSource('/api/events');
@@ -105,7 +109,12 @@ if (region && status) {
         clearTimeout(retryTimer);
         retryTimer = setTimeout(() => {
           retryTimer = undefined;
-          connect(true);
+          // An EventSource cannot see the status. A 404 means live updates were switched off in the settings:
+          // stop for good instead of retrying; a reload picks up the new state.
+          probe().then((gone) => {
+            if (gone) { showStatus(''); return; }
+            connect(true);
+          });
         }, retryDelays[Math.min(retryStep++, retryDelays.length - 1)]);
       }
     });

@@ -15,7 +15,7 @@ export function parse(argv) {
     if (initial.help || positionals[0] === 'help') return {
       command: commands.find((item) => item.name === 'help'),
       args: positionals[0] === 'help' && (!initial.help || positionals.length > 1) ? positionals.slice(1) : positionals,
-      opts: { json: initial.json, raw: initial.raw },
+      opts: { json: initial.json, raw: initial.raw, data: initial.data },
     };
     const command = [...commands].sort((a, b) => b.name.split(' ').length - a.name.split(' ').length)
       .find((item) => item.name.split(' ').every((word, index) => positionals[index] === word));

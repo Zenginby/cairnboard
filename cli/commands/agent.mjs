@@ -1,6 +1,7 @@
 import { platform } from 'node:os';
 import { resolve } from 'node:path';
 import { checkAgents, cliInvocation, hookStatus, prepareHook, prepareInstall, packageVersion, renderAgentsMd, repoRoot } from '../../core/agent.mjs';
+import { readConfiguredFeatures } from './config.mjs';
 
 export function agentCommands(commands) {
   const home = (io) => io.env.HOME ?? io.env.USERPROFILE;
@@ -20,7 +21,10 @@ export function agentCommands(commands) {
         hooks: { type: 'boolean', summary: 'Also add the Claude Code wiki write hook to its user settings.' } },
       mode: 'write', actor: false, needsData: false, dangerous: true,
       prepare: (args, opts, io) => {
-        const plan = prepareInstall({ home: home(io), commands, targets: opts.target, stderr: io.stderr });
+        const plan = prepareInstall({
+          home: home(io), commands, targets: opts.target, stderr: io.stderr,
+          features: readConfiguredFeatures(opts, io),
+        });
         if (!opts.hooks) return plan;
         const hook = prepareHook({ home: home(io), invocation: cliInvocation(resolve(repoRoot)), io });
         return { data: [...plan.data, hook.data], apply: () => { plan.apply(); hook.apply(); } };

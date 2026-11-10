@@ -233,6 +233,42 @@ export function saveHistory(ctx, record) {
   save(ctx, historyPath(record.tx), record);
 }
 
+function clearExternalFields(entry) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+  const dirty = Object.hasOwn(entry, 'before') || Object.hasOwn(entry, 'beforeBytes')
+    || entry.beforeUnavailable !== true || entry.contentNotKept !== true;
+  if (!dirty) return false;
+  delete entry.before;
+  delete entry.beforeBytes;
+  entry.beforeUnavailable = true;
+  entry.contentNotKept = true;
+  return true;
+}
+
+export function clearExternalHistory(ctx) {
+  let cleared = 0;
+  for (const name of listDir(ctx, '.cairn/history').sort()) {
+    // Every external record counts, including recovery's `<tx>-external` ones; the op decides, not the name.
+    if (!name.endsWith('.json') || name.endsWith('.pending.json')) continue;
+    const rel = `.cairn/history/${name}`;
+    const text = readChecked(ctx.root, rel, 'utf8');
+    if (text === null) continue;
+    let record;
+    try { record = JSON.parse(text); } catch { continue; }
+    if (!record || typeof record !== 'object' || Array.isArray(record) || record.op !== 'external.change') continue;
+    let dirty = clearExternalFields(record);
+    if (Array.isArray(record.items)) {
+      for (const item of record.items) {
+        if (clearExternalFields(item)) dirty = true;
+      }
+    }
+    if (!dirty) continue;
+    save(ctx, rel, record);
+    cleared++;
+  }
+  return cleared;
+}
+
 function updateShadow(ctx, readChanges, result) {
   try {
     withShadow(ctx, (record, shadow) => {

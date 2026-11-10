@@ -12,6 +12,7 @@ import { createGuard } from '../server/guard.mjs';
 import { createApi } from '../server/api.mjs';
 import { watch } from '../core/watch.mjs';
 import { createEvents } from '../server/events.mjs';
+import { createSettings } from '../server/settings.mjs';
 import { createRead } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
 import { listenLoopback, serverGroup } from '../server/listen.mjs';
@@ -27,7 +28,8 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const engines = { chromium, webkit, firefox };
 const reportPath = new URL('../design/check-app-report.json', import.meta.url);
 const usage = 'Usage: npm run check:app -- [--browser chrome|brave|chromium|webkit|firefox]'
-  + ' [--only home|board|card|note|search|search-empty|search-dialog|not-found|signed-out] [--quick] [--workers 4]';
+  + ' [--only home|board|card|note|search|search-empty|search-dialog|settings|not-found|signed-out]'
+  + ' [--quick] [--workers 4]';
 
 // Same one-time-token to cookie exchange a browser does at /auth; the token and the key stay in this process.
 function signIn(port, key, instance) {
@@ -119,8 +121,12 @@ async function main() {
     // Same wiring as server/start.mjs, so pages' live-update stream is served too.
     watcher = watch(openRead());
     events = createEvents(watcher);
-    const app = createApp({ root, handler, guard: createGuard({ port, key, instance }),
-      api: createApi({ open: openRead, render, events }), locals: { cairn: createRead({ open: openRead, render }) } });
+    const openWrite = () => openContext({ mode: 'write', dataDir, home, env, platform: process.platform,
+      actor: 'web:owner' });
+    const settings = createSettings({ key, port, open: openRead, openWrite });
+    const app = createApp({ root, handler, guard: createGuard({ port, key, instance }), writes: settings.handle,
+      api: createApi({ open: openRead, render, events, live: settings.liveUpdates }),
+      locals: { cairn: createRead({ open: openRead, render }), settings } });
     for (const server of servers) server.on('request', app);
     const session = await signIn(port, key, instance);
     const baseURL = `http://${session.host}`;

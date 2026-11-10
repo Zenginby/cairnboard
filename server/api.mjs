@@ -22,9 +22,11 @@ function send(req, res, status, envelope) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
-export function createApi({ open, events, render = createRenderPool().render }) {
+export function createApi({ open, events, render = createRenderPool().render, live }) {
   return async (req, res, path) => {
     if (!path?.startsWith('/api/') && !req.url.split('?')[0].startsWith('/api/')) return false;
+    // Live updates switched off in the settings: the stream does not exist, so an old tab's script gives up on the 404.
+    if (path === '/api/events' && live && !(await live())) return false;
     if (events?.handle(req, res, path)) return true;
     let ctx, phase = 'route';
     try {

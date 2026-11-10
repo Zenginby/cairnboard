@@ -303,6 +303,45 @@ configured rules, blocks errors and passes warnings as context. Missing data, am
 unexpected input fail open, so explicit draft checks remain useful. It covers Claude Code Write/Edit;
 shell writes and other agents are outside its scope. See the [Claude Code hook protocol](https://code.claude.com/docs/en/hooks).
 
+### Settings
+
+Owners can toggle four optional features from `/settings` in the web interface or with `cairn config`. All four
+default to on when omitted from `.cairn/config.json`:
+
+- **Change trail (`change-trail` / `changeTrail`)**: records external Markdown edits (who, when, which file). Turning
+  it off stops reconciliation; turning it back on rebases `.cairn/shadow` and records one `external.gap` event instead
+  of synthetic file changes. Own writes and `undo` history are unaffected.
+- **What changed (`change-content` / `changeContent`)**: keeps prior content copies in `.cairn/shadow` so
+  `changes --diff` can show diffs. Turning it off keeps revisions only (`content_not_kept`). Inactive while
+  `change-trail` is off.
+- **Live updates (`live-updates` / `liveUpdates`)**: reloads open web pages via `/api/events` when files change. When
+  off, `/api/events` returns 404 and pages reload manually; the server watcher still refreshes the index and change
+  trail.
+- **Unlinked mentions (`mentions`)**: finds and links unlinked note mentions. When off, `mentions` fails with
+  `feature_disabled`, `help` labels it `(disabled)` and `agent install` omits it from the agent skill. Previous links
+  stay intact.
+
+Inspect settings from any terminal, or change them and clear stored shadow content copies (leaving trail revisions
+intact) from your own interactive terminal or `/settings`:
+
+```sh
+node dist/cairn.mjs config --data "./cairn-data" --json
+node dist/cairn.mjs config get change-trail --data "./cairn-data"
+node dist/cairn.mjs config set change-content off --data "./cairn-data"
+node dist/cairn.mjs config clear-shadow --data "./cairn-data"
+```
+
+`config set <feature> on|off` and `config clear-shadow` run only in the owner's own interactive terminal (never with
+`--yes`): non-TTY streams or known coding-agent shells fail with `owner_only`. Confirmation asks you to type the
+feature name (`clear` for `clear-shadow`); `--actor` defaults to `owner` (`cli:owner`). `cairn context` lists disabled
+agent-facing features in a `settings` section.
+
+Settings are owner-only, though CLI ownership is not a cryptographic boundary: `--actor` is free text, a tool driving
+its own pseudo-terminal could respond, and `.cairn/config.json` can be edited on disk. The goal is no silent changes:
+writes require terminal confirmation or a protected `/settings` POST, toggles log `config.change` (clearing logs
+`shadow.clear`), manual `features` edits log `config.external` (`owner:external`), and disabled features appear in
+`context`.
+
 License: MIT.
 
 ## Türkçe
@@ -601,5 +640,44 @@ veri keşfini (`CAIRN_DATA` ya da kayıtlı varsayılan) kullanır; başlatılma
 uyarıları ajanın bağlamına verir. Veri bulunamazsa, düzenleme belirsizse ya da beklenmedik girdi
 gelirse izin verir; bu yüzden taslak denetimini de kullanın. Kapsam Claude Code Write/Edit'tir;
 kabukla yazma ve diğer ajanlar kapsam dışındadır. Ayrıntı: [Claude Code kanca protokolü](https://code.claude.com/docs/en/hooks).
+
+### Ayarlar
+
+Sahip web arayüzündeki `/settings` sayfasından ya da `cairn config` komutuyla dört isteğe bağlı özelliği açıp
+kapatabilir. `.cairn/config.json` içinde yazılmayan özellik varsayılan olarak açık sayılır:
+
+- **Değişiklik izi (`change-trail` / `changeTrail`)**: dış Markdown düzenlemelerini (kim, ne zaman, hangi dosya)
+  kaydeder. Kapatılınca uzlaştırma durur; yeniden açılınca sahte dosya olayları yerine `.cairn/shadow` yeniden taban
+  alır ve tek bir `external.gap` olayı yazılır. Kendi yazmaları ve `undo` geçmişi etkilenmez.
+- **Ne değişti (`change-content` / `changeContent`)**: `changes --diff` ile farkları gösterebilmek için `.cairn/shadow`
+  içinde önceki içerik kopyalarını saklar. Kapatılınca yalnız revizyonlar tutulur (`content_not_kept`).
+  `change-trail` kapalıyken etkisizdir.
+- **Canlı güncelleme (`live-updates` / `liveUpdates`)**: dosyalar değişince açık web sayfalarını `/api/events`
+  üzerinden yeniler. Kapalıyken `/api/events` 404 döner ve sayfalar elle yenilenir; sunucu izleyicisi dizini ve
+  açıksa değişiklik izini güncellemeyi sürdürür.
+- **Bağlantısız anmalar (`mentions`)**: bağlantısız not anmalarını bulur ve bağlar. Kapalıyken `mentions`
+  `feature_disabled` hatası verir, `help` komutu `(disabled)` gösterir ve `agent install` ajanın skill belgesinden
+  çıkarır. Önceki bağlantılara dokunulmaz.
+
+Ayarları herhangi bir terminalden okuyabilir, kendi etkileşimli terminalinizden ya da `/settings` sayfasından
+değiştirebilir ve iz revizyonlarını koruyarak saklanan içerik kopyalarını temizleyebilirsiniz:
+
+```sh
+node dist/cairn.mjs config --data "./cairn-data" --json
+node dist/cairn.mjs config get change-trail --data "./cairn-data"
+node dist/cairn.mjs config set change-content off --data "./cairn-data"
+node dist/cairn.mjs config clear-shadow --data "./cairn-data"
+```
+
+`config set <özellik> on|off` ve `config clear-shadow` yalnız sahibin kendi etkileşimli terminalinde çalışır (`--yes`
+yoktur): TTY olmayan akışlarda veya bilinen bir kodlama ajanı kabuğunda `owner_only` hatası verir. Onay için
+özellik adını (`clear-shadow` için `clear`) yazmanız istenir; `--actor` verilmezse `owner` (`cli:owner`) kullanılır.
+`cairn context`, ajanı etkileyen kapalı özellikleri `settings` bölümünde açıkça listeler.
+
+Ayarlar yalnız sahip içindir, ancak CLI sahipliği kriptografik bir sınır değildir: `--actor` serbest yazıdır, kendi
+sahte terminalini süren bir araç yanıt verebilir ve `.cairn/config.json` diskte doğrudan düzenlenebilir. Amaç sessiz
+değişiklik olmamasıdır: yazmalar terminal onayı ya da korumalı `/settings` POST isteği gerektirir, değişiklikler
+`config.change` (temizleme `shadow.clear`) yazar, `features` alanındaki elle düzenlemeler `config.external`
+(`owner:external`) olarak kaydedilir ve kapalı özellikler `context` çıktısında görünür.
 
 Lisans: MIT.

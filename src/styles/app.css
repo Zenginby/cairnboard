@@ -128,6 +128,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .warnings ul { padding-inline-start: var(--space-lg); }
 .page-state { max-width: var(--space-content-max); margin-block: var(--space-xl); }
 .page-state h1 { margin-block: var(--space-sm) var(--space-md); font-family: var(--font-display-family); font-size: var(--font-display-size); font-weight: var(--font-display-weight); line-height: var(--font-display-line-height); letter-spacing: var(--font-display-letter-spacing); }
+.page-state h2 { margin-bottom: var(--space-md); }
 .page-state p { color: var(--color-text-2); }
 .page-state code { display: inline-block; margin-top: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-sm); background: var(--color-surface-inset); color: var(--color-text); font-family: var(--font-code-family); font-size: var(--font-code-size); }
 .page-state .action-link { margin-top: var(--space-lg); }
@@ -525,6 +526,18 @@ a, button { -webkit-tap-highlight-color: transparent; }
     background-color: var(--color-surface-inset-2);
   }
 }
+.settings { display: grid; gap: var(--space-md); max-width: calc(var(--space-md) * 46); }
+.settings-list { display: grid; gap: var(--space-md); margin: 0; padding: 0; list-style: none; }
+.settings-row form, .settings-shadow form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
+.settings-text { display: grid; flex: 1 1 var(--space-search-width); gap: var(--space-xs); }
+.settings-state { color: var(--color-text-2); font-size: var(--font-ui-size); font-weight: var(--font-ui-weight); }
+.settings-saved { color: var(--color-text); }
+.settings-shadow form { margin-top: var(--space-md); }
+.settings-facts, .settings-last { color: var(--color-text-2); font-size: var(--font-small-size); }
+.settings-facts { margin-top: var(--space-sm); }
+.settings-confirm { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--font-ui-size); }
+button.action-link { border: 0; cursor: pointer; }
+button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(root) { z-index: 1; }
 :root:active-view-transition * { transition: none; }

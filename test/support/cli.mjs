@@ -20,10 +20,13 @@ function result(code, stdout, stderr) {
 
 export async function runCli(args, opts = {}) {
   let stdout = '', stderr = '';
+  const tty = opts.isTTY ?? false;
+  const stdin = typeof opts.stdin === 'object' && !Buffer.isBuffer(opts.stdin) ? opts.stdin
+    : Object.assign(Readable.from([opts.stdin ?? '']), tty ? { isTTY: true } : {});
+  const out = { ...(tty ? { isTTY: true } : {}), ...opts.stdout,
+    write: (text) => { opts.stdout?.write?.(text); stdout += text; } };
   const code = await main(args, {
-    env: environment(opts), cwd: opts.cwd ?? opts.home ?? process.cwd(), isTTY: opts.isTTY ?? false,
-    stdin: typeof opts.stdin === 'object' && !Buffer.isBuffer(opts.stdin) ? opts.stdin : Readable.from([opts.stdin ?? '']),
-    stdout: { write: (text) => { stdout += text; } },
+    env: environment(opts), cwd: opts.cwd ?? opts.home ?? process.cwd(), isTTY: tty, stdin, stdout: out,
     stderr: { write: (text) => { stderr += text; } }, clock: opts.clock, openBrowser: opts.openBrowser, isAlive: opts.isAlive,
   });
   return result(code, stdout, stderr);

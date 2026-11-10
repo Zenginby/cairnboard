@@ -1,0 +1,82 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import { t } from '../i18n/index.mjs';
+
+const names = ['changeTrail', 'changeContent', 'liveUpdates', 'mentions'];
+const view = (await Astro.locals.settings?.view(Astro.request.headers.get('cookie'))) ?? { state: 'error' };
+Astro.response.status = { ready: 200, invalid: 200, notReady: 409, busy: 503, error: 500 }[view.state] ?? 500;
+// A same-origin form post must carry the real Origin header; the site-wide no-referrer policy would make it "null".
+Astro.response.headers.set('Referrer-Policy', 'same-origin');
+const requested = Astro.url.searchParams.get('saved');
+const saved = [...names, 'shadow'].includes(requested) ? requested : null;
+const label = (name) => t(`settings.${name}`);
+const kib = (bytes) => `${(bytes / 1024).toFixed(1)} KiB`;
+const ready = view.state === 'ready';
+const last = ready ? view.lastChange : null;
+// An owner's hand edit can change several features at once, so `feature` and `after` may be lists.
+const lastFeatures = last ? [last.feature].flat().map(label).join(', ') : '';
+const lastAfter = last ? [typeof last.after === 'boolean' ? last.after : Object.values(last.after)].flat() : [];
+const lastState = lastAfter.every(Boolean) ? t('settings.on') : t('settings.off');
+---
+<AppShell title={t('settings.title')} current="/settings" surface>
+  <meta slot="head" name="referrer" content="same-origin" />
+  <header class="screen-heading">
+    <h1>{t('settings.title')}</h1>
+    <p class="panel-subtitle">{t('settings.summary')}</p>
+  </header>
+  {ready ? <div class="settings">
+    {saved && <p class="settings-saved panel" role="status">
+      {t('settings.saved')}: {saved === 'shadow' ? t('settings.shadowTitle') : label(saved)}
+    </p>}
+    <ul class="settings-list">
+      {names.map((name) => {
+        const on = view.features[name];
+        const passive = name === 'changeContent' && !view.features.changeTrail;
+        const action = on ? t('settings.turnOff') : t('settings.turnOn');
+        return <li class="panel settings-row">
+          <form method="post" action="/settings/feature">
+            <input type="hidden" name="csrf" value={view.csrf} />
+            <input type="hidden" name="name" value={name} />
+            <input type="hidden" name="value" value={on ? 'off' : 'on'} />
+            <input type="hidden" name="revision" value={view.revision} />
+            <div class="settings-text">
+              <h2>{label(name)}</h2>
+              <p class="panel-subtitle">{t(`settings.${name}.about`)}</p>
+              {passive && <p class="panel-subtitle">{t('settings.needsTrail')}</p>}
+            </div>
+            <p class="settings-state" data-state={on ? 'on' : 'off'}>{on ? t('settings.on') : t('settings.off')}</p>
+            <button type="submit" class="action-link" disabled={passive} aria-label={`${label(name)}: ${action}`}>
+              {action}
+            </button>
+          </form>
+        </li>;
+      })}
+    </ul>
+    <section class="panel settings-shadow" aria-labelledby="shadow-title">
+      <h2 id="shadow-title">{t('settings.shadowTitle')}</h2>
+      <p class="panel-subtitle">{t('settings.shadowAbout')}</p>
+      <p class="settings-facts">
+        {t('settings.shadowBlobs')}: {view.shadow.blobs} · {t('settings.shadowSize')}: {kib(view.shadow.bytes)}
+      </p>
+      <form method="post" action="/settings/clear-shadow">
+        <input type="hidden" name="csrf" value={view.csrf} />
+        <label class="settings-confirm">
+          <input type="checkbox" name="confirm" value="yes" /> {t('settings.shadowConfirm')}
+        </label>
+        <button type="submit" class="action-link">{t('settings.shadowClear')}</button>
+      </form>
+    </section>
+    <p class="settings-last">{last
+      ? <>{t('settings.lastChange')}: {lastFeatures} → {lastState} · {last.actor ?? t('settings.unknownActor')} ·
+        <time datetime={last.ts}>{last.ts.slice(0, 16).replace('T', ' ')} UTC</time></>
+      : t('settings.noChange')}</p>
+  </div> : view.state === 'invalid' ? <section class="panel page-state" aria-labelledby="state-title">
+    <h2 id="state-title">{t('settings.invalidTitle')}</h2>
+    <p>{t('settings.invalidBody')}</p>
+    <p><code>{view.detail}</code></p>
+    <p>{t('settings.invalidFix')}</p>
+  </section> : <section class="panel page-state" aria-labelledby="state-title">
+    <h2 id="state-title">{t(`settings.${view.state}Title`)}</h2>
+    <p>{t(`settings.${view.state}Body`)}</p>
+  </section>}
+</AppShell>

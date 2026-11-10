@@ -6,7 +6,7 @@ import { setImmediate } from 'node:timers/promises';
 
 function fixture(visibility = 'visible', { notReady = false } = {}) {
   const documentEvents = {}, windowEvents = {}, requests = [], sources = [], timers = new Map();
-  let now = 100_000, timerId = 0, html = 'new content', replacements = 0;
+  let now = 100_000, timerId = 0, html = 'new content', replacements = 0, probeStatus = 200;
   const status = { textContent: '', dataset: { paused: 'Live updates paused', updated: 'Updated' } };
   const focused = { id: 'card-link', isConnected: true, getAttribute: () => '/cards/c-000001',
     focus(options) { this.restored = options.preventScroll; } };
@@ -29,6 +29,7 @@ function fixture(visibility = 'visible', { notReady = false } = {}) {
   }
   const fetch = async (url, options) => {
     requests.push({ url, options });
+    if (options?.method === 'HEAD') return { status: probeStatus };
     return { ok: true, text: async () => html };
   };
   runInNewContext(readFileSync(new URL('../src/scripts/live-updates.js', import.meta.url), 'utf8'), {
@@ -56,7 +57,8 @@ function fixture(visibility = 'visible', { notReady = false } = {}) {
   };
   const visible = async (state) => { document.visibilityState = state; documentEvents.visibilitychange(); await setImmediate(); };
   return { status, requests, document, window, focused, emit, advance, visible, sources, region,
-    setHTML: (text) => { html = text; }, documentEvents, windowEvents, replacements: () => replacements };
+    setHTML: (text) => { html = text; }, setProbe: (status) => { probeStatus = status; },
+    documentEvents, windowEvents, replacements: () => replacements };
 }
 
 test('live client replaces only affected content, preserving focus and scroll without navigation', async () => {
@@ -163,4 +165,32 @@ test('unchanged content is not swapped and update announcements clear and can re
   await f.emit('change', { kinds: ['card'] });
   assert.equal(f.status.textContent, 'Updated');
   assert.equal(f.replacements(), 2);
+});
+
+test('a 404 on the stream (live updates switched off) stops the retries for good', async () => {
+  const f = fixture();
+  f.setProbe(404);
+  f.sources.at(-1).readyState = 2;
+  await f.emit('error');
+  assert.equal(f.status.textContent, 'Live updates paused');
+  await f.advance(2000);
+  assert.equal(f.sources.length, 1, 'no new connection');
+  assert.equal(f.status.textContent, '', 'the paused notice is not left behind');
+  await f.advance(10 * 60_000);
+  assert.equal(f.sources.length, 1);
+  assert.deepEqual(f.requests.map(({ options }) => options?.method), ['HEAD'], 'one probe, then silence');
+  assert.equal(f.requests[0].url, '/api/events');
+});
+
+test('a failed probe or a non-404 answer keeps retrying with the usual backoff', async () => {
+  const f = fixture();
+  f.setProbe(503);
+  f.sources.at(-1).readyState = 2;
+  await f.emit('error');
+  await f.advance(2000);
+  assert.equal(f.sources.length, 2);
+  f.sources.at(-1).readyState = 2;
+  await f.emit('error');
+  await f.advance(5000);
+  assert.equal(f.sources.length, 3);
 });

@@ -3,6 +3,21 @@
 ## [Unreleased]
 
 - Search: ⌘K dialog on every page and a /search page (cards and notes).
+- Add optional `features` settings (`changeTrail`, `changeContent`, `liveUpdates`, `mentions`) with single-entry
+  reconcile gaps (`external.gap`), revision-only diff mode (`content_not_kept`), manual drift events
+  (`config.external`), `clearShadow` (`shadow.clear`) and `feature_disabled` gates.
+- Add `cairn config` (`get`, interactive owner-only `set` and `clear-shadow`), report disabled `mentions` in `help`
+  and omit it from installed agent skills via template markers.
+- Add the web `/settings` page and the first POST write path (`/settings/feature`, `/settings/clear-shadow`) with
+  `Origin`, `Sec-Fetch-Site`, session-bound CSRF, body-size and rate checks; disable `/api/events` and the live
+  script when `liveUpdates` is off.
+- Report disabled agent-facing features in session `context`, forbid `.cairn/config.json` edits in the agent skill
+  and document settings in English and Turkish.
+- Fix change-trail review findings: track rebuilt undo revisions, run orphan pruning on full scans only, match
+  filesystem case sensitivity with O(1) shadow lookups and size/mtime stamps, scope 8.3 short-name checks to
+  Windows, validate event revisions, record file/folder swaps, block post-preflight `board.md` export overwrites and
+  report disk failures as `reconcile_failed`.
+
 - Record external Markdown edits with prior content, five-second watcher coalescing and one reconcile before CLI writes.
 - Add `changes` with bounded line diffs, owner changes in session context, actor cursors and revision-conflict
   attribution.

@@ -23,6 +23,7 @@ export function selectAppPages(ctx, only = null) {
     { name: 'search-dialog', path: '/', interaction: 'search-dialog' },
     { name: 'not-found', path: MISSING_PATH, status: 404 },
     { name: 'signed-out', path: '/', status: 401, auth: false },
+    { name: 'settings', path: '/settings' },
   ];
   if (only === null) return pages;
   const selected = pages.filter((page) => page.name === only);
