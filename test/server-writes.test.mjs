@@ -39,7 +39,8 @@ function fixture({ limit } = {}) {
   const routes = [
     { path: '/things', form: 'thing', back,
       run: ({ values }) => { seen.push(['add', values]); return '/things/t-1'; } },
-    { path: /^\/things\/(?<id>t-[0-9a-z]{1,26})\/poke$/u, form: 'thing', back, bodyLimit: 64,
+    { path: /^\/things\/(?<id>t-[0-9a-z]{1,26})\/poke$/u, form: 'thing', bodyLimit: 64,
+      back: ({ id }) => ({ href: `/things/${id}`, label: 'shell.board' }),
       run: ({ values, params }) => {
         if (fail) throw fail;
         if (values.title === '') return { status: 400, title: 'write.badRequestTitle', message: 'write.badRequest' };
@@ -129,7 +130,11 @@ test('a route can refuse with its own page; core errors map to conflict, busy, i
   const f = fixture({ limit: 50 });
   const refused = await f.post('/things/t-1/poke', { title: '' });
   assert.equal(refused.status, 400);
-  assert.match(refused.body, /href="\/things"/u, 'error pages link back to where the form lives');
+  assert.match(refused.body, /href="\/things\/t-1"/u, 'error pages link back to the record the form lives on');
+  const early = await f.post('/things/t-7/poke', { title: 'A' }, { form: 'other' });
+  assert.equal(early.status, 403);
+  assert.match(early.body, /href="\/things\/t-7"/u, 'also for refusals before the route runs');
+  assert.match((await f.post('/things', {}, { form: 'other' })).body, /href="\/things"/u);
   const cases = [['conflict', 409], ['locked', 503], ['validation', 400], ['not_found', 404], ['unsafe_path', 500]];
   const log = console.error;
   console.error = () => {};

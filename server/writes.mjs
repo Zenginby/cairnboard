@@ -74,7 +74,7 @@ function checkRoute(route) {
   if (!exact && !pattern) throw new TypeError('A write route needs an absolute path or an anchored pattern.');
   if (typeof form !== 'string' || !FORM.test(form)) throw new TypeError('A write route needs a form name.');
   if (typeof run !== 'function') throw new TypeError('A write route needs a run function.');
-  if (typeof back?.href !== 'string' || typeof back?.label !== 'string') {
+  if (typeof back !== 'function' && (typeof back?.href !== 'string' || typeof back?.label !== 'string')) {
     throw new TypeError('A write route needs a back link.');
   }
   if (!Number.isSafeInteger(bodyLimit) || bodyLimit < 1) throw new TypeError('A write route needs a body limit.');
@@ -84,7 +84,8 @@ function checkRoute(route) {
 
 /**
  * @param {{ key: Buffer, port: number, now?: () => number, limit?: number, routes: Array<{
- *   path: string | RegExp, form: string, back: { href: string, label: string }, bodyLimit?: number,
+ *   path: string | RegExp, form: string, bodyLimit?: number,
+ *   back: { href: string, label: string } | ((params: Record<string, string>) => { href: string, label: string }),
  *   run: (input: { values: Record<string, string>, params: Record<string, string> }) => any,
  *   failure?: (error: CairnError) => any }> }} options
  * `run` returns the address to redirect to (303), or `{ status, title, message, headers? }` to refuse with a page;
@@ -124,7 +125,9 @@ export function createWrites({ key, port, routes, now = Date.now, limit = 5 }) {
     const found = req.method === 'POST' ? find(req.url) : null;
     if (!found) return false;
     const { route, params } = found;
-    const page = ({ status, title, message, headers }) => messagePage(res, status, title, message, route.back, headers);
+    // A route with path parameters links back to its own record; the parameters already passed the route's pattern.
+    const back = typeof route.back === 'function' ? route.back(params) : route.back;
+    const page = ({ status, title, message, headers }) => messagePage(res, status, title, message, back, headers);
     const cookie = readCookie(req.headers.cookie, name);
     if (limited(cookie ?? '')) {
       return page({ status: 429, title: 'write.rateTitle', message: 'write.rate', headers: { 'Retry-After': '1' } });
