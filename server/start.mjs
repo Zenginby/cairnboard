@@ -10,6 +10,7 @@ import { openLogin } from './open-browser.mjs';
 import { watch } from '../core/watch.mjs';
 import { createEvents } from './events.mjs';
 import { createSettings } from './settings.mjs';
+import { createWrites } from './writes.mjs';
 import { createLiveWatcher } from './live.mjs';
 import { installShutdown } from './shutdown.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
@@ -49,7 +50,10 @@ async function start() {
   const events = createEvents(watcher);
   const settings = createSettings({ key, port, open: openRead,
     openWrite: () => openContext({ mode: 'write', actor: 'web:owner' }) });
-  const app = createApp({ root, handler, guard: createGuard({ port, key, instance }), writes: settings.handle,
+  // One table for every write, so the guard, the rate limit and the checks are the same for all of them.
+  const writes = createWrites({ key, port, routes: [...settings.routes] });
+  const app = createApp({ root, handler, guard: createGuard({ port, key, instance, writable: writes.writable }),
+    writes: writes.handle,
     api: createApi({ open: openRead, render, events, live: settings.liveUpdates }),
     locals: { cairn: createRead({ open: openRead, render }), settings } });
   for (const server of servers) server.on('request', app);

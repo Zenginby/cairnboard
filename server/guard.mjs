@@ -20,8 +20,10 @@ const SIGNED_IN = `<!doctype html>
 </main></body></html>
 `;
 
-// The only writes the server accepts, matched on the exact request target (no query string, no encoding tricks).
+// The writes a server without a route table accepts, matched on the exact request target (no query string, no
+// encoding tricks). A server with more routes passes its table's `writable` (server/writes.mjs) instead.
 export const WRITE_PATHS = Object.freeze(['/settings/feature', '/settings/clear-shadow']);
+const settingsOnly = (target) => WRITE_PATHS.includes(target);
 
 function send(req, res, status, headers, body = '') {
   res.writeHead(status, headers);
@@ -30,16 +32,16 @@ function send(req, res, status, headers, body = '') {
 }
 
 /**
- * Baseline for every response: security headers and read-only methods, except the two settings writes.
+ * Baseline for every response: security headers and read-only methods, except the targets `writable` accepts.
  * Returns false when it answered.
  */
-export function guard(req, res) {
+export function guard(req, res, writable = settingsOnly) {
   res.setHeader('Content-Security-Policy', CSP);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Cache-Control', 'no-store');
   // createGuard adds the Origin and Sec-Fetch-Site checks for these; the handler checks the rest (spec §6.2).
-  if (req.method === 'POST' && WRITE_PATHS.includes(req.url)) return true;
+  if (req.method === 'POST' && writable(req.url) === true) return true;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return send(req, res, 405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' }, 'Method not allowed.');
   }
@@ -53,15 +55,16 @@ export function guard(req, res) {
  * - /auth?t=<one-time token> sets the session cookie and moves on to / so the token leaves the address bar.
  * - Every other request, reads included, needs the cookie; built assets under /_astro/ are public.
  */
-export function createGuard({ port, key, instance, now = Date.now }) {
+export function createGuard({ port, key, instance, now = Date.now, writable = settingsOnly }) {
   if (!Number.isSafeInteger(port) || !Buffer.isBuffer(key)) throw new TypeError('createGuard needs a port and a key.');
+  if (typeof writable !== 'function') throw new TypeError('writable must be a function.');
   const origin = `${siteHost(key)}:${port}`;
   const name = cookieName(port);
   const useToken = tokenVerifier(key, port, instance);
   const signedOut = (req, res) => send(req, res, 401, { 'Content-Type': 'text/html; charset=utf-8' }, SIGNED_OUT);
 
   return (req, res) => {
-    if (guard(req, res) === false) return false;
+    if (guard(req, res, writable) === false) return false;
     if (req.headers.host !== origin) {
       return send(req, res, 421, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Open Cairnboard with: cairn open\n');
     }
@@ -85,10 +88,12 @@ export function createGuard({ port, key, instance, now = Date.now }) {
     if (plain && url.pathname.startsWith('/_astro/') && !/%2e/iu.test(raw)) return true;
     if (!signedIn) return signedOut(req, res);
     if (req.method === 'POST') {
-      // Only a settings write gets this far. The page's own origin must send it: another site's form, or a script
-      // an agent runs, either lacks the header or names another origin. Fetch Metadata backs it up where present.
+      // Only a write the table accepts gets this far. The page's own origin must send it: another site's form, or a
+      // script an agent runs, either lacks the header or names another origin. Fetch Metadata backs it up where
+      // present.
       const fetchSite = req.headers['sec-fetch-site'];
-      if (req.headers.origin !== `http://${origin}` || (fetchSite !== undefined && fetchSite !== 'same-origin')) {
+      if (req.headers.origin !== `http://${origin}`
+        || (fetchSite !== undefined && fetchSite !== 'same-origin')) {
         return send(req, res, 403, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Forbidden.');
       }
     }

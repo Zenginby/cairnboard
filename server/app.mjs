@@ -73,7 +73,7 @@ export function createApp({ root, handler, guard, api, writes, locals = {} }) {
       if (await guard(req, res) === false) return;
       const path = requestPath(req.url);
       if (req.method === 'POST') {
-        // Only the settings writes reach this point (see guard); anything else a guard let through stays refused.
+        // Only table writes reach this point (see guard); anything else a guard let through stays refused.
         if (path && writes && await writes(req, res, path)) return;
         res.writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Method not allowed.');
