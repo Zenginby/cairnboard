@@ -6,6 +6,8 @@
 - Move the shared checks of web writes (rate, content type, body size, CSRF, repeated fields) into one route table
   (`server/writes.mjs`); CSRF tokens are bound to a form name. Settings behave as before.
 - Search: ⌘K dialog on every page and a /search page (cards and notes).
+- Fix the edit hook reading a different file for a POSIX name that contains a backslash; such files are allowed
+  unchecked with a warning.
 - Add optional `features` settings (`changeTrail`, `changeContent`, `liveUpdates`, `mentions`) with single-entry
   reconcile gaps (`external.gap`), revision-only diff mode (`content_not_kept`), manual drift events
   (`config.external`), `clearShadow` (`shadow.clear`) and `feature_disabled` gates.
