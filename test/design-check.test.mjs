@@ -233,15 +233,21 @@ test('keyboard waits for focus transitions, including delayed skip-link entry an
   assert.match((await fixture.inspect())[0].message, /outside the viewport/);
 });
 
-test('keyboard accepts a focused text area once its first line is on screen, as browsers do', async () => {
+test('keyboard accepts a focused text area whose first line is on screen while the page can scroll on', async () => {
   const fixture = focusFixture();
   fixture.input.tagName = 'TEXTAREA';
   Object.assign(fixture.input.style, { outlineStyle: 'solid', outlineWidth: '2px', outlineColor: 'rgb(0, 0, 0)',
     paddingTop: '8px', lineHeight: '24px', fontSize: '16px' });
   Object.assign(fixture.input.rect, { y: 789, height: 127 });
+  assert.match((await fixture.inspect())[0].message, /outside the viewport/, 'a page that cannot scroll on');
+  fixture.document.scrollingElement = { scrollTop: 0, scrollHeight: 1055 };
   assert.equal((await fixture.inspect()).length, 0);
   fixture.input.rect.y = 880;
   assert.match((await fixture.inspect())[0].message, /outside the viewport/);
+  fixture.input.rect.y = 789;
+  fixture.document.scrollingElement.scrollTop = 155;
+  assert.match((await fixture.inspect())[0].message, /outside the viewport/, 'already at the end of the page');
+  fixture.document.scrollingElement.scrollTop = 0;
   fixture.input.tagName = 'INPUT';
   fixture.input.rect.y = 789;
   assert.match((await fixture.inspect())[0].message, /outside the viewport/);

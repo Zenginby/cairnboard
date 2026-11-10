@@ -199,5 +199,8 @@
   "card.claimedTitle": "Kart bir ajanda",
   "card.claimed":
 "Bu kart şu anda bir ajanda. Ajan bırakana ya da süresi dolana kadar değiştirilemez; yorum ekleyebilirsin.",
+  "card.blockedTitle": "Kart dosyası onarım istiyor",
+  "card.blocked":
+"Bu kartın dosyası buradan değiştirilemiyor: kimliği yineleniyor ya da üst bilgisi desteklenmiyor.",
   "card.acceptanceItem": "Kabul maddesi {n}"
 }

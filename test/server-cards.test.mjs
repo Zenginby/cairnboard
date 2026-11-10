@@ -17,6 +17,7 @@ import { openContext } from '../core/context.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { readEvents } from '../core/events.mjs';
 import { renderMarkdown } from '../core/render.mjs';
+import { acceptanceItems } from '../core/frontmatter.mjs';
 import { cardControls } from '../server/card-controls.mjs';
 import { CairnError } from '../core/errors.mjs';
 import { resolve, update } from '../core/entity.mjs';
@@ -246,7 +247,9 @@ function actionFixture(t, options) {
   const current = () => resolve(f.open(), 'card', id);
   const edit = () => ({ title: 'Revised plan', project: '', priority: '', body, revision: current().revision });
   const send = (suffix, fields, options = {}) => f.post(fields, { path: `/cards/${id}${suffix}`, ...options });
-  return { ...f, id, body, current, edit, send };
+  // What the page's check form sends for item `n`: its number, the wanted state and the mark of its text.
+  const check = (n, checked) => ({ n: String(n), checked, mark: f.cards.view(null, id).items[n - 1].mark });
+  return { ...f, id, body, current, edit, send, check };
 }
 
 test('editing saves mapped fields and the complete Markdown, clears empty options and records web:owner', async (t) => {
@@ -275,8 +278,8 @@ test('moving appends to the target column; checking and commenting preserve the 
   const first = addCard(f.openWrite(), { title: 'Earlier card', column });
   for (const [suffix, fields, op] of [
     ['/move', { column }, 'card.move'],
-    ['/check', { n: '1', checked: 'on' }, 'card.check'],
-    ['/check', { n: '2', checked: 'off' }, 'card.check'],
+    ['/check', f.check(1, 'on'), 'card.check'],
+    ['/check', f.check(2, 'off'), 'card.check'],
     ['/comment', { text: '  Another thought\nwith a second line  ' }, 'card.comment'],
   ]) {
     const response = await f.send(suffix, fields);
@@ -287,7 +290,7 @@ test('moving appends to the target column; checking and commenting preserve the 
   }
   assert.deepEqual(listCards(f.open(), { column, includeDone: true }).map((card) => card.id), [first.entity.id, f.id]);
   assert.equal(f.current().body, f.body.replace('- [ ] Choose', '- [x] Choose').replace('- [x] Read', '- [ ] Read')
-    + '- 2026-11-08T12:00:00.000Z owner:   Another thought with a second line  \n');
+    + '- 2026-11-08T12:00:00.000Z owner: Another thought with a second line\n');
 });
 
 test('all action fields are strict and invalid requests do not open a write context or change files or events',
@@ -304,9 +307,10 @@ test('all action fields are strict and invalid requests do not open a write cont
         { revision: 'z'.repeat(16) }, { body: 'x'.repeat(5 * 1024 * 1024 + 1) },
       ]],
       ['/move', { column: f.column }, [{ column: '' }, { column: 'missing' }, { column: '__proto__' }]],
-      ['/check', { n: '1', checked: 'on' }, [
+      ['/check', f.check(1, 'on'), [
         { n: '0' }, { n: '-1' }, { n: '1.5' }, { n: '01' }, { n: '1e0' }, { n: ' 1' },
-        { n: '9007199254740992' }, { n: '3' }, { checked: '' }, { checked: 'yes' },
+        { n: '9007199254740992' }, { mark: '' }, { mark: 'z'.repeat(16) }, { mark: 'A'.repeat(16) },
+        { checked: '' }, { checked: 'yes' },
       ]],
       ['/comment', { text: 'A thought' }, [{ text: '' }, { text: ' \n ' }, { text: 'x'.repeat(2001) }]],
     ];
@@ -346,7 +350,7 @@ test('a card held by an agent answers 409 with its own page for edit, move and c
     claimCard(openContext({ mode: 'write', ...f.options, actor: 'agent:reader' }), f.id);
     const before = f.stored(), events = readEvents(f.open());
     const column = f.open().config.columns[0].key;
-    for (const [suffix, fields] of [['', f.edit()], ['/move', { column }], ['/check', { n: '1', checked: 'on' }]]) {
+    for (const [suffix, fields] of [['', f.edit()], ['/move', { column }], ['/check', f.check(1, 'on')]]) {
       const response = await f.send(suffix, fields);
       assert.equal(response.status, 409, suffix);
       assert.match(response.body, /Kart bir ajanda/u);
@@ -373,7 +377,7 @@ test('every action handles missing cards, wrong-form tokens, exact targets, conf
   const f = actionFixture(t);
   for (const [suffix, fields] of [
     ['', f.edit()], ['/move', { column: f.column }],
-    ['/check', { n: '1', checked: 'on' }], ['/comment', { text: 'A thought' }],
+    ['/check', f.check(1, 'on')], ['/comment', { text: 'A thought' }],
   ]) {
     f.failWrites(undefined);
     const before = f.stored(), events = readEvents(f.open()), writes = f.writeCalls();
@@ -383,12 +387,14 @@ test('every action handles missing cards, wrong-form tokens, exact targets, conf
     assert.ok(forbidden.body.includes(`href="/cards/${f.id}"`), 'even pre-run refusals link to this card');
     assert.equal((await f.send(suffix, fields, { path: `/cards/${f.id}${suffix}?x=1` })).status, 405);
     assert.equal(f.writeCalls(), writes);
-    for (const [code, status] of [['conflict', 409], ['locked', 503]]) {
+    for (const [code, status] of [['conflict', 409], ['locked', 503], ['duplicate_id', 409],
+      ['unsupported_frontmatter', 409]]) {
       f.failWrites(new CairnError(code, 'Test refusal.'));
       const response = await f.send(suffix, fields);
       assert.equal(response.status, status);
       if (code === 'conflict') assert.match(response.body, /Kart başka yerde değişti/u);
       if (code === 'locked') assert.equal(response.headers['retry-after'], '1');
+      if (status === 409 && code !== 'conflict') assert.match(response.body, /Kart dosyası onarım istiyor/u);
     }
     assert.deepEqual(f.stored(), before);
     assert.deepEqual(readEvents(f.open()), events);
@@ -402,7 +408,7 @@ test('all actions refuse an uninitialised data folder before opening a write con
     openWrite: () => assert.fail('nothing may be written') });
   const values = [
     { title: 'Reading plan', project: '', priority: '', body: '', revision: 'a'.repeat(16) },
-    { column: 'todo' }, { n: '1', checked: 'on' }, { text: 'A thought' },
+    { column: 'todo' }, { n: '1', checked: 'on', mark: 'a'.repeat(16) }, { text: 'A thought' },
   ];
   for (const [index, route] of cards.routes.slice(1).entries()) {
     const response = route.run({ values: values[index], params: { id: 'c-000000' } });
@@ -410,20 +416,118 @@ test('all actions refuse an uninitialised data folder before opening a write con
   }
 });
 
+const buttons = /<button class="card-check"[^]*?<\/button>/gu;
+const items = (body) => acceptanceItems(body);
+
 test('acceptance controls preserve renderer labels and leave other Markdown checkboxes read-only', () => {
   const body = '- [ ] Outside\n\n## Acceptance\n\n- [ ] **Choose** > <tag> & "books"\n  - [x] Nested\n\n'
     + '```md\n- [ ] Code task\n```\n\n- [ ]\n\n## Other\n\n- [ ] Outside again\n';
   const rendered = renderMarkdown(body).html;
-  const controls = cardControls(rendered, body);
-  assert.equal((controls.match(/class="card-check"/gu) ?? []).length, 2);
+  const controls = cardControls(rendered, items(body));
+  assert.deepEqual([...controls.wired], [1, 2]);
+  assert.equal((controls.html.match(buttons) ?? []).length, 2);
   for (const label of rendered.match(/aria-label="[^"]*"/gu).slice(1, 3)) {
-    assert.ok(controls.includes(label));
+    assert.ok(controls.html.includes(label));
   }
-  assert.match(controls, /form="card-check-1" role="checkbox" aria-checked="false"/u);
-  assert.match(controls, /form="card-check-2" role="checkbox" aria-checked="true"/u);
-  assert.equal((controls.match(/<input/gu) ?? []).length, 2);
-  assert.equal(cardControls(null, body), null);
-  assert.equal(cardControls('<p>No checkboxes</p>', body), '<p>No checkboxes</p>');
+  assert.match(controls.html, /form="card-check-1" role="checkbox" aria-checked="false"/u);
+  assert.match(controls.html, /form="card-check-2" role="checkbox" aria-checked="true"/u);
+  assert.equal((controls.html.match(/<input/gu) ?? []).length, 2);
+  assert.deepEqual(cardControls(null, items(body)), { html: null, wired: new Set() });
+  assert.equal(cardControls('<p>No checkboxes</p>', items(body)).html, '<p>No checkboxes</p>');
+  assert.equal(cardControls(rendered, []).html, rendered);
+});
+
+test('acceptance controls change real checkbox tags only, whatever link titles and labels contain', () => {
+  const body = "## Acceptance\n\n[l](http://a '<input aria-label=')\n\n- [ ] one > \\<meta http-equiv=refresh "
+    + "content=0;url=https://example.org>\\<form method=post action=/cards/c-000000/check>\n- [ ] two\n\n"
+    + "[m](http://b '<input type=\"checkbox\" data-acceptance=\"2\" aria-label=\"x\">')\n";
+  const rendered = renderMarkdown(body).html;
+  const tags = rendered.match(/<input type="checkbox" disabled aria-label="[^"]*" data-acceptance="\d+">/gu);
+  assert.equal(tags.length, 2);
+  const controls = cardControls(rendered, items(body));
+  assert.deepEqual([...controls.wired], [1, 2]);
+  // Everything outside the two tags is byte for byte what the sanitizer produced.
+  assert.equal(controls.html.replace(buttons, '<box>'),
+    tags.reduce((html, tag) => html.replace(tag, '<box>'), rendered));
+  assert.doesNotMatch(controls.html.replace(/"[^"]*"/gu, '""'), /<meta|<form/u, 'nothing leaves its attribute');
+});
+
+test('acceptance controls follow the items the core counts, with hidden characters and stray line breaks', () => {
+  const stray = '## Acceptance\n\ntext\rmore\n- [ ] a\n- [x] b\n';
+  const first = cardControls(renderMarkdown(stray).html, items(stray));
+  assert.match(first.html, /form="card-check-1" role="checkbox" aria-checked="false" aria-label="a"/u);
+  assert.match(first.html, /form="card-check-2" role="checkbox" aria-checked="true" aria-label="b"/u);
+  const hidden = '## Acceptance\n\n- [ ] ​\n- [ ] B\n- [​ ] C\n';
+  assert.deepEqual(items(hidden).map((item) => item.text), ['​', 'B']);
+  const second = cardControls(renderMarkdown(hidden).html, items(hidden));
+  assert.deepEqual([...second.wired], [2], 'the invisible item gets a labelled button below the body instead');
+  assert.match(second.html, /form="card-check-2" role="checkbox" aria-checked="false" aria-label="B"/u);
+  assert.match(second.html, /<input type="checkbox" disabled aria-label="C">/u, 'not an item for the core');
+  // A forged number, a repeated number and a box without a name are left alone.
+  const forged = '<input type="checkbox" disabled aria-label="x" data-acceptance="9">'
+    + '<input type="checkbox" disabled aria-label="" data-acceptance="1">'
+    + '<input type="checkbox" disabled aria-label="y" data-acceptance="2">'
+    + '<input type="checkbox" disabled aria-label="z" data-acceptance="2">';
+  const third = cardControls(forged, [{ checked: false }, { checked: false }]);
+  assert.deepEqual([...third.wired], [2]);
+  assert.equal((third.html.match(/<input/gu) ?? []).length, 3);
+});
+
+test('acceptance controls stay fast on a body full of look-alike tags', () => {
+  const body = `## Acceptance\n\n- [ ] one\n\n${"[l](/a '<input x') ".repeat(8000)}\n`;
+  const rendered = renderMarkdown(body).html;
+  const start = performance.now();
+  const controls = cardControls(rendered, items(body));
+  assert.ok(performance.now() - start < 250, 'one linear pass over the HTML');
+  assert.deepEqual([...controls.wired], [1]);
+});
+
+test('a check names the item the owner saw: a changed list answers 409, an item already as asked is not rewritten',
+  async (t) => {
+    const f = actionFixture(t), second = f.check(2, 'off'), first = f.check(1, 'on');
+    const longer = f.body.replace('- [ ] Choose', '- [ ] Added above\n- [ ] Choose');
+    update(f.openWrite(), 'card', f.id, {}, { body: longer });
+    const before = f.stored(), events = readEvents(f.open()), writes = f.writeCalls();
+    for (const stale of [second, first, { ...second, n: '4' }]) {
+      const response = await f.send('/check', stale);
+      assert.equal(response.status, 409, JSON.stringify(stale));
+      assert.match(response.body, /Kart başka yerde değişti/u);
+    }
+    assert.equal((await f.send('/check', f.check(3, 'on'))).status, 303, 'already ticked');
+    assert.equal((await f.send('/check', f.check(1, 'off'))).status, 303, 'already open');
+    assert.equal(f.writeCalls(), writes);
+    assert.deepEqual(f.stored(), before);
+    assert.deepEqual(readEvents(f.open()), events);
+    assert.equal((await f.send('/check', f.check(2, 'on'))).status, 303);
+    assert.match(f.current().body, /- \[ \] Added above\n- \[x\] Choose books\n- \[x\] Read the list/u);
+  });
+
+test('saving writes only what the owner changed: heading titles, odd priorities and lost projects stay', async (t) => {
+  const f = actionFixture(t);
+  const file = join(f.dataDir, f.current().path);
+  const rewrite = (change) => writeFileSync(file, change(readFileSync(file, 'utf8')));
+  const same = () => ({ ...f.edit(), title: f.current().title });
+  const writes = f.writeCalls(), events = readEvents(f.open());
+  assert.equal((await f.send('', same())).status, 303);
+  assert.equal(f.writeCalls(), writes, 'a form sent back unchanged writes nothing');
+  assert.deepEqual(readEvents(f.open()), events);
+  rewrite((text) => text.replace(/^title: .*\n/mu, '').replace(/^---\n/u, '---\nproject: p-zzzzzz\n'));
+  assert.equal(f.current().title, 'Plan', 'the title now comes from the heading');
+  const body = `${f.body}\nA new paragraph.\n`;
+  assert.equal((await f.send('', { ...same(), project: 'p-zzzzzz', body })).status, 303);
+  assert.equal(f.current().body, body);
+  assert.doesNotMatch(readFileSync(file, 'utf8'), /^title:/mu, 'no title field appears for an untouched title');
+  assert.equal(f.current().data.project, 'p-zzzzzz', 'a project that no longer resolves is kept');
+  assert.equal((await f.send('', { ...same(), project: 'p-yyyyyy', body })).status, 400, 'but cannot be chosen');
+  rewrite((text) => text.replace(/^---\n/u, '---\npriority: high\n'));
+  const view = f.cards.view(null, f.id);
+  assert.deepEqual([view.priority, view.project], ['high', 'p-zzzzzz']);
+  const kept = readFileSync(file, 'utf8');
+  const response = await f.send('', { ...same(), project: 'p-zzzzzz', priority: 'high', body: `${body}More.\n` });
+  assert.equal(response.status, 400, 'the core refuses to save over a priority it does not know');
+  assert.equal(readFileSync(file, 'utf8'), kept, 'and the odd value is not silently dropped');
+  assert.equal((await f.send('', { ...same(), project: '', priority: 'low', body })).status, 303);
+  assert.deepEqual([f.current().data.priority, f.current().data.project], ['low', undefined]);
 });
 
 test('built card pages show token-bound actions and the edit form preserves the full raw body', async (t) => {
@@ -443,6 +547,7 @@ test('built card pages show token-bound actions and the edit form preserves the 
     assert.ok(page.body.includes(`action="/cards/${f.id}${suffix}"`));
   }
   assert.ok(page.body.includes('id="comments"'));
+  assert.equal((page.body.match(/name="mark" value="[0-9a-f]{16}"/gu) ?? []).length, 2);
   assert.match(page.body, /role="checkbox" aria-checked="false" aria-label="Choose books"/u);
   assert.match(page.body, /role="checkbox" aria-checked="true" aria-label="Read the list"/u);
   assert.equal((page.body.match(/name="csrf" value="([^"]+)"/gu) ?? []).length, 4);

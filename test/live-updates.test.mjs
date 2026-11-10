@@ -143,6 +143,46 @@ test('live swap refreshes pristine fields but keeps a draft cleared by the owner
   assert.equal(cleared.current().value, '', 'deleting the default text is also a draft');
 });
 
+test('live swap keeps a choice the owner changed in a select while the option still exists', async () => {
+  const run = async (options, picked, nextOptions) => {
+    const handlers = new Map();
+    const select = (values, chosen) => {
+      const list = values.map((value, index) => ({ value, defaultSelected: index === 0,
+        selected: value === chosen }));
+      const element = { id: 'card-column', tagName: 'SELECT', options: list, isConnected: true };
+      Object.defineProperty(element, 'value', { get: () => list.find((option) => option.selected)?.value,
+        set(next) { for (const option of list) option.selected = option.value === next; } });
+      return element;
+    };
+    let current = select(options, picked);
+    const body = { isConnected: true, tagName: 'BODY', getAttribute: () => null };
+    const region = { dataset: { live: 'card' }, innerHTML: 'old', contains: (element) => element === current,
+      querySelectorAll: (selector) => (selector === 'select' ? [current] : []), focus() {},
+      replaceChildren() { current = select(nextOptions, nextOptions[0]); this.innerHTML = 'new'; } };
+    const status = { textContent: '', dataset: { updated: 'Updated' } };
+    const document = { visibilityState: 'visible', activeElement: body, addEventListener() {},
+      querySelector: (selector) => (selector === '[data-live]' ? region : status),
+      getElementById: (id) => (id === 'card-column' ? current : null) };
+    runInNewContext(readFileSync(new URL('../src/scripts/live-updates.js', import.meta.url), 'utf8'), {
+      document, location: { href: 'http://example.test/cards/c-000000' },
+      EventSource: class { addEventListener(type, handler) { handlers.set(type, handler); } },
+      DOMParser: class {
+        parseFromString() { return { title: '', querySelector: () => ({ innerHTML: 'new', childNodes: [] }) }; }
+      },
+      window: { scrollX: 0, scrollY: 0, scrollTo() {}, addEventListener() {} },
+      fetch: async () => ({ ok: true, text: async () => 'new' }), setTimeout() {}, clearTimeout() {},
+    });
+    handlers.get('change')({ data: '{"kinds":["card"]}' });
+    await setImmediate();
+    assert.equal(status.textContent, 'Updated');
+    return current.value;
+  };
+  assert.equal(await run(['todo', 'doing', 'done'], 'done', ['todo', 'doing', 'done']), 'done');
+  const all = ['todo', 'doing', 'done'];
+  assert.equal(await run(all, 'todo', ['doing', 'done']), 'doing', 'an untouched select refreshes');
+  assert.equal(await run(all, 'done', ['todo', 'doing']), 'todo', 'a vanished option is not kept');
+});
+
 test('live swap leaves unfocused non-text fields and matching ids outside the region alone', async () => {
   for (const type of ['checkbox', 'file', 'hidden']) {
     const f = focusedFieldFixture(type, { blurred: true });

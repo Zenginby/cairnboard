@@ -3,17 +3,18 @@ import AppShell from '../../layouts/AppShell.astro';
 import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
 import ReadDocument from '../../components/ReadDocument.astro';
-import { acceptanceItems } from '../../../core/frontmatter.mjs';
 import { cardControls } from '../../../server/card-controls.mjs';
 import { t } from '../../i18n/index.mjs';
 
-let result, state, view;
+let result, state, view, wired = new Set();
 try {
   result = await Astro.locals.cairn.card(Astro.params.id);
   if (result.data.id && Astro.locals.cards) {
     view = await Astro.locals.cards.view(Astro.request.headers.get('cookie'), result.data.id);
     if (view.state === 'ready') {
-      result.data.content.html = cardControls(result.data.content.html, view.card.body);
+      const controls = cardControls(result.data.content.html, view.items);
+      result.data.content.html = controls.html;
+      wired = controls.wired;
     }
   }
 } catch (error) {
@@ -25,7 +26,7 @@ try {
 const writable = !state && view?.state === 'ready';
 if (writable) Astro.response.headers.set('Referrer-Policy', 'same-origin');
 const id = result?.data.id;
-const items = writable ? acceptanceItems(view.card.body) : [];
+const items = writable ? view.items : [];
 const columns = writable ? view.columns.filter((column) => column.key !== result.data.column.key) : [];
 ---
 <AppShell live="card project board" title={result?.data.content.title || t('type.card')} current="/board" surface>
@@ -46,16 +47,15 @@ const columns = writable ? view.columns.filter((column) => column.key !== result
         </form>}
       </div>}
       {writable && <div slot="after-body">
-        {items.map((item, index) => <form id={`card-check-${index + 1}`} method="post"
-          action={`/cards/${id}/check`}>
+        {items.map((item) => <form id={`card-check-${item.n}`} method="post" action={`/cards/${id}/check`}>
           <input type="hidden" name="csrf" value={view.csrf} />
-          <input type="hidden" name="n" value={index + 1} />
+          <input type="hidden" name="n" value={item.n} />
           <input type="hidden" name="checked" value={item.checked ? 'off' : 'on'} />
-          {!result.data.content.html?.includes(`form="card-check-${index + 1}"`) && <button
-            class="card-check" type="submit" role="checkbox" aria-checked={item.checked}
-            aria-label={item.text || t('card.acceptanceItem', { n: index + 1 })}>
+          <input type="hidden" name="mark" value={item.mark} />
+          {!wired.has(item.n) && <button class="card-check" type="submit" role="checkbox"
+            aria-checked={item.checked} aria-label={item.text || t('card.acceptanceItem', { n: item.n })}>
             <span aria-hidden="true">{item.checked ? '☑' : '☐'}</span>
-            {item.text || t('card.acceptanceItem', { n: index + 1 })}
+            {item.text || t('card.acceptanceItem', { n: item.n })}
           </button>}
         </form>)}
         <form id="comments" class="card-form" method="post" action={`/cards/${id}/comment`}>

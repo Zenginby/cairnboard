@@ -15,7 +15,10 @@ Astro.response.headers.set('Referrer-Policy', 'same-origin');
 const ready = view?.state === 'ready';
 if (view && !ready) Astro.response.status = view.state === 'notFound' ? 404 : 409;
 const card = view?.card;
-const project = card?.data.project ?? '';
+// The file's own project and priority stay selectable as they are, so saving something else leaves them alone.
+const project = view?.project ?? '';
+const priority = view?.priority ?? '';
+const priorities = ['urgent', 'important', 'low'];
 // A card may name its project by id or by reference.
 const chosen = (item) => item.id === project || item.ref === project;
 const knownProject = view?.projects?.some(chosen);
@@ -33,15 +36,16 @@ const knownProject = view?.projects?.some(chosen);
         <select id="card-project" name="project">
           <option value="" selected={!project}>{t('card.noProject')}</option>
           {project && !knownProject && <option value={project} selected>{project}</option>}
-          {view.projects.map((item) => <option value={item.id ?? item.ref}
+          {view.projects.map((item) => <option value={chosen(item) ? project : item.id ?? item.ref}
             selected={chosen(item)}>{item.title}</option>)}
         </select>
       </label>
       <label class="card-field" for="card-priority">{t('card.priority')}
         <select id="card-priority" name="priority">
-          <option value="" selected={!card.data.priority}>{t('card.noPriority')}</option>
-          {['urgent', 'important', 'low'].map((value) => <option value={value}
-            selected={card.data.priority === value}>{t(`priority.${value}`)}</option>)}
+          <option value="" selected={!priority}>{t('card.noPriority')}</option>
+          {priority && !priorities.includes(priority) && <option value={priority} selected>{priority}</option>}
+          {priorities.map((value) => <option value={value}
+            selected={priority === value}>{t(`priority.${value}`)}</option>)}
         </select>
       </label>
       <label class="card-field" for="card-body">{t('card.body')}

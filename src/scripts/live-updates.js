@@ -41,6 +41,10 @@ if (region && status) {
         const drafts = [...region.querySelectorAll('input, textarea')]
           .filter((element) => element.id && isTextField(element) && element.value !== element.defaultValue)
           .map((element) => [element.id, element.value]);
+        // A choice the owner changed but has not sent yet survives too, while its option still exists.
+        const choices = [...region.querySelectorAll('select')]
+          .filter((element) => element.id && [...element.options].some((o) => o.selected !== o.defaultSelected))
+          .map((element) => [element.id, element.value]);
         const href = region.contains(active) ? active.getAttribute('href') : null;
         const scroll = [window.scrollX, window.scrollY];
         const scrollable = [...region.querySelectorAll('*')].filter((element) => element.scrollLeft || element.scrollTop)
@@ -49,6 +53,11 @@ if (region && status) {
         for (const [id, value] of drafts) {
           const element = document.getElementById(id);
           if (region.contains(element) && isTextField(element)) element.value = value;
+        }
+        for (const [id, value] of choices) {
+          const element = document.getElementById(id);
+          if (region.contains(element) && element.tagName === 'SELECT'
+            && [...element.options].some((option) => option.value === value)) element.value = value;
         }
         // Scripts that fill parts of the region (recent searches on /search) redraw them before focus returns.
         // (Guarded: test/live-client.test.mjs runs this file against a document without events.)

@@ -198,5 +198,8 @@
   "card.claimedTitle": "An agent holds this card",
   "card.claimed":
 "An agent holds this card. It cannot be changed until the agent releases it or its lease ends; you can comment.",
+  "card.blockedTitle": "The card file needs repair",
+  "card.blocked":
+"This card cannot be changed here: its id is used twice or its front matter is not supported.",
   "card.acceptanceItem": "Acceptance item {n}"
 }

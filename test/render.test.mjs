@@ -140,6 +140,22 @@ test('oversized UTF-8 inputs return before parsing or resolving', () => {
   assert.ok(performance.now() - start < 1000);
 });
 
+test('task boxes the core counts as Acceptance items carry their one-based number; others carry none', () => {
+  const body = '- [ ] Outside\n\n## Acceptance\n\n- [ ] First\n  - [x] Nested\n\n```md\n- [ ] Code\n```\n\n'
+    + '- [\u200b ] Hidden bracket\n- [ ] \u200b\n- [x] Last\n\n## Notes\n\n- [ ] After\n';
+  const rendered = renderMarkdown(body).html;
+  const numbers = [...rendered.matchAll(/aria-label="([^"]*)"(?: data-acceptance="(\d+)")?>/gu)]
+    .map((match) => [match[1].split(/\s/u)[0], match[2]]);
+  assert.deepEqual(numbers, [['Outside', undefined], ['First', '1'], ['Nested', '2'], ['Hidden', undefined],
+    ['Last', '4'], ['After', undefined]], 'the invisible third item has no box; the fourth keeps its number');
+  assert.doesNotMatch(renderMarkdown('- [ ] Plain <input type="checkbox" data-acceptance="1">').html,
+    /data-acceptance/u, 'only the renderer sets the number');
+  // The same visible text with a different stored item list must not share a cached page.
+  const visible = '## Acceptance\n\n- [ ] A\n- [ ] B\n';
+  assert.match(renderMarkdown(visible).html, /aria-label="A" data-acceptance="1"/u);
+  assert.match(renderMarkdown(visible.replace('- [ ] A', '- [\u200b ] A')).html, /aria-label="A">/u);
+});
+
 test('cached output is identical and changed or missing link resolutions invalidate it', () => {
   assert.equal(typeof RENDER_POLICY, 'string');
   const markdown = 'Cache [[Target]]';
