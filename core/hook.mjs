@@ -75,6 +75,12 @@ function evaluate(ctx, input) {
   if (!given || typeof given.file_path !== 'string' || !isAbsolute(given.file_path)) throw new TypeError('Hook input has no absolute file_path.');
   const rel = rootRelative(ctx.root, given.file_path);
   if (rel === null) return allow();
+  // A POSIX name may hold a backslash, which path handling reads as a separator: `a\b.md` would be judged as
+  // `a/b.md`. The index skips such files, so they are not pages; Windows cannot create them.
+  if (sep === '/' && rel.includes('\\')) {
+    return allow('The file path contains a backslash; '
+      + 'Cairnboard skips such files, so the wiki rules were not checked.');
+  }
   const { text, skip } = newText(ctx, rel, name, given);
   if (skip !== undefined) return allow(skip);
   let entity;
