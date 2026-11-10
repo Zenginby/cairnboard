@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Add cards from the web board with validated fields and a session-bound, form-specific CSRF token.
 - Move the shared checks of web writes (rate, content type, body size, CSRF, repeated fields) into one route table
   (`server/writes.mjs`); CSRF tokens are bound to a form name. Settings behave as before.
 - Search: ⌘K dialog on every page and a /search page (cards and notes).

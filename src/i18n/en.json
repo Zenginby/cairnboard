@@ -161,5 +161,22 @@
   "search.star": "Star",
   "search.unstar": "Unstar",
   "search.starLimit": "Up to 8 searches can be starred.",
-  "search.remove": "Remove"
+  "search.remove": "Remove",
+  "card.newTitle": "New card",
+  "card.add": "Add card",
+  "card.title": "Card title",
+  "card.column": "Column",
+  "card.project": "Project (optional)",
+  "card.priority": "Priority (optional)",
+  "card.noProject": "No project",
+  "card.noPriority": "No priority",
+  "card.back": "Back to board",
+  "card.invalidFields": "Only title, column, project and priority are accepted for a card.",
+  "card.invalidTitle": "Enter a card title of 1–200 characters on a single line.",
+  "card.invalidColumn": "Select a column from the board for the card.",
+  "card.invalidProject": "Select an existing project for the card or leave the project empty.",
+  "card.invalidPriority": "Choose urgent, important or low priority for the card, or leave it empty.",
+  "card.errorTitle": "The card form could not be opened",
+  "card.errorBody": "We cannot show the card form right now. Try again shortly.",
+  "card.notReady": "Your data folder is not ready, so the card was not added. Check or create the folder."
 }

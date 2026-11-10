@@ -1,0 +1,50 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import PageState from '../../components/PageState.astro';
+import { t } from '../../i18n/index.mjs';
+
+let view;
+try {
+  view = await Astro.locals.cards.view(Astro.request.headers.get('cookie'));
+} catch (error) {
+  console.error(error);
+  Astro.response.status = 500;
+}
+Astro.response.headers.set('Referrer-Policy', 'same-origin');
+const requested = Astro.url.searchParams.get('column');
+const ready = view?.state === 'ready';
+if (view && !ready) Astro.response.status = 409;
+const column = ready ? view.columns.find(({ key }) => key === requested)?.key ?? view.columns[0].key : undefined;
+---
+<AppShell title={t('card.newTitle')} current="/board" surface>
+  <meta slot="head" name="referrer" content="same-origin" />
+  {ready ? <><header class="screen-heading"><h1>{t('card.newTitle')}</h1></header>
+  <form class="card-form" method="post" action="/cards">
+    <input type="hidden" name="csrf" value={view.csrf} />
+    <label class="card-field" for="card-title">{t('card.title')}
+      <input id="card-title" name="title" type="text" required maxlength="200" />
+    </label>
+    <label class="card-field" for="card-column">{t('card.column')}
+      <select id="card-column" name="column" required>
+        {view.columns.map((item) => <option value={item.key} selected={item.key === column}>{item.label}</option>)}
+      </select>
+    </label>
+    <label class="card-field" for="card-project">{t('card.project')}
+      <select id="card-project" name="project">
+        <option value="">{t('card.noProject')}</option>
+        {view.projects.map((item) => <option value={item.id ?? item.ref}>{item.title}</option>)}
+      </select>
+    </label>
+    <label class="card-field" for="card-priority">{t('card.priority')}
+      <select id="card-priority" name="priority">
+        <option value="">{t('card.noPriority')}</option>
+        {['urgent', 'important', 'low'].map((value) => <option value={value}>{t(`priority.${value}`)}</option>)}
+      </select>
+    </label>
+    <div class="card-actions">
+      <button class="action-link" type="submit">{t('card.add')}</button>
+      <a href="/board">{t('card.back')}</a>
+    </div>
+  </form></> : view ? <PageState title="state.notReadyTitle" message="state.notReadyBody" init />
+    : <PageState title="card.errorTitle" message="card.errorBody" />}
+</AppShell>
