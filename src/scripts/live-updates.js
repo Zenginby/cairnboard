@@ -1,5 +1,9 @@
 const region = document.querySelector('[data-live]');
 const status = document.querySelector('[data-live-status]');
+// Only these fields get their typed value back after a swap; a checkbox or file input keeps the server's.
+const TEXT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'password']);
+const isTextField = (element) => element?.tagName === 'TEXTAREA'
+  || (element?.tagName === 'INPUT' && TEXT_TYPES.has(String(element.type || 'text').toLowerCase()));
 
 if (region && status) {
   let source, retryTimer, statusTimer, reconcileRequest;
@@ -30,14 +34,30 @@ if (region && status) {
         if (region.innerHTML === next.innerHTML) continue;
         const active = document.activeElement;
         const focusId = region.contains(active) ? active.id : null;
+        const field = focusId && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
+          ? { value: active.value, start: active.selectionStart, end: active.selectionEnd, text: isTextField(active) }
+          : null;
         const href = region.contains(active) ? active.getAttribute('href') : null;
         const scroll = [window.scrollX, window.scrollY];
         const scrollable = [...region.querySelectorAll('*')].filter((element) => element.scrollLeft || element.scrollTop)
           .map((element) => [element.id, element.className, element.scrollLeft, element.scrollTop]);
         region.replaceChildren(...next.childNodes);
-        const focus = focusId ? document.getElementById(focusId)
+        // Scripts that fill parts of the region (recent searches on /search) redraw them before focus returns.
+        // (Guarded: test/live-client.test.mjs runs this file against a document without events.)
+        if (typeof CustomEvent === 'function') document.dispatchEvent?.(new CustomEvent('live:updated'));
+        let focus = focusId ? document.getElementById(focusId)
           : href ? [...region.querySelectorAll('[href]')].find((element) => element.getAttribute('href') === href) : null;
-        if (focus) focus.focus({ preventScroll: true });
+        if (focus && !region.contains(focus)) focus = null;
+        if (focus) {
+          if (field?.text && isTextField(focus)) {
+            try { focus.value = field.value; } catch { /* Keep the server's value. */ }
+          }
+          focus.focus({ preventScroll: true });
+          if (field) {
+            try { focus.setSelectionRange(field.start, field.end); }
+            catch { /* Some input types do not support selection. */ }
+          }
+        }
         else if (active !== region && !active.isConnected) region.focus({ preventScroll: true });
         for (const [id, className, left, top] of scrollable) {
           const element = id ? document.getElementById(id)

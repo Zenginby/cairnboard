@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Search: ⌘K dialog on every page and a /search page (cards and notes).
 - Add optional `features` settings (`changeTrail`, `changeContent`, `liveUpdates`, `mentions`) with single-entry
   reconcile gaps (`external.gap`), revision-only diff mode (`content_not_kept`), manual drift events
   (`config.external`), `clearShadow` (`shadow.clear`) and `feature_disabled` gates.

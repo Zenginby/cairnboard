@@ -1,0 +1,40 @@
+---
+import { language, t } from '../i18n/index.mjs';
+// Result rows for the /search page. `groups` is [{ type, rows, more, count }]; `headings` shows the group
+// titles ("All" lists both types). Only `snippetHtml` is HTML (the server lets through nothing but <mark>);
+// every other field is printed as text.
+const { groups, query, headings = true } = Astro.props;
+const groupLabel = { card: 'search.cards', note: 'search.notes' };
+const path = { card: 'cards', note: 'notes' };
+const toneOf = (project) => {
+  const tone = project?.tone;
+  return Number.isInteger(tone) && tone >= 1 && tone <= 8 ? tone : 7;
+};
+const moreHref = (type) => `/search?${new URLSearchParams({ q: query, type })}`;
+const moreText = (group) => t('search.moreOfType',
+  { type: t(groupLabel[group.type]).toLocaleLowerCase(language), n: group.count });
+---
+{groups.filter((group) => group.rows.length > 0).map((group) => <section class="search-section"
+  aria-labelledby={headings ? `search-group-${group.type}` : undefined}
+  aria-label={headings ? undefined : t(groupLabel[group.type])}>
+  {headings && <h2 class="search-group" id={`search-group-${group.type}`}>{t(groupLabel[group.type])}</h2>}
+  <ul class="search-rows">
+    {group.rows.map((row) => <li>
+      <a class="search-row" href={`/${path[row.type]}/${encodeURIComponent(row.ref)}`}>
+        <span class="search-row-top">
+          <span class="search-row-title">{row.title || t('home.untitled')}</span>
+          <span class:list={['chip', 'search-row-kind', `search-row-kind--${row.type}`]}>{t(`type.${row.type}`)}</span>
+        </span>
+        {row.snippetHtml && <span class="search-row-snippet" set:html={row.snippetHtml} />}
+        {(row.project || row.column || row.updated) && <span class="search-row-meta">
+          {row.project && <span class:list={['search-row-project', `tone-${toneOf(row.project)}`]}>
+            <span class="search-row-dot" aria-hidden="true" />{row.project.name || t('home.untitled')}
+          </span>}
+          {row.column && <span class="search-row-column">{row.column}</span>}
+          {row.updated && <time class="search-row-date" datetime={row.updated}>{row.updated.slice(0, 10)}</time>}
+        </span>}
+      </a>
+    </li>)}
+  </ul>
+  {headings && group.more && <a class="action-link search-more" href={moreHref(group.type)}>{moreText(group)}</a>}
+</section>)}

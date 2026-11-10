@@ -7,7 +7,8 @@ import themeBoot from '../scripts/theme-boot.js?url';
 import liveScript from '../scripts/live-updates.js?url';
 import { language, t } from '../i18n/index.mjs';
 
-const { title = t('shell.home'), current, surface = false, live = '' } = Astro.props;
+// `searchPage`: /search marks its body, so the search dialog focuses the page's own field instead of opening.
+const { title = t('shell.home'), current, surface = false, live = '', searchPage = false } = Astro.props;
 const tabs = [
   { href: '/', label: 'shell.home' },
   { href: '/board', label: 'shell.board' },
@@ -26,13 +27,18 @@ const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
     <title>{title} · {t('app.name')}</title>
     <slot name="head" />
   </head>
-  <body class:list={{ 'surface-page': surface }}>
+  <body class:list={{ 'surface-page': surface }} data-search-page={searchPage || undefined}>
     <a class="skip-link action-link" href="#main">{t('shell.skip')}</a>
     <header class="app-shell">
       <div class="shell-top-row">
         <a class="brand" href="/">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect class="brand-one" x="1" y="1" width="9" height="9" rx="2"/><rect class="brand-two" x="14" y="1" width="9" height="9" rx="2"/><rect class="brand-three" x="1" y="14" width="9" height="9" rx="2"/><rect class="brand-four" x="14" y="14" width="9" height="9" rx="2"/></svg>
           {t('app.name')}
+        </a>
+        <a class="shell-search" href="/search" data-search-open aria-current={searchPage ? 'page' : undefined}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg>
+          <span class="search-caption">{t('search.button')}</span>
+          <kbd class="search-key" data-shortcut aria-hidden="true">⌘K</kbd>
         </a>
         <button type="button" class="theme-toggle" data-theme-toggle data-dark-label={t('shell.dark')} data-light-label={t('shell.light')} aria-label={t('shell.dark')}>
           <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg>
@@ -50,7 +56,48 @@ const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
     </main>
     {liveUpdates && <p class="live-status" role="status" aria-live="polite" data-live-status
       data-updated={t('live.updated')} data-paused={t('live.paused')}></p>}
+    {/* The ⌘K search dialog: drawn here with every text, search-dialog.js only adds behaviour. */}
+    <dialog class="search-dialog" data-search-dialog aria-labelledby="search-dialog-label"
+      data-cards={t('search.cards')} data-notes={t('search.notes')} data-kind-card={t('type.card')}
+      data-kind-note={t('type.note')} data-untitled={t('home.untitled')} data-count={t('search.count')}
+      data-more={t('search.moreOfType')} data-no-results={t('search.noResults')} data-failed={t('search.failed')}
+      data-not-ready={t('state.notReadyTitle')} data-empty-hint={t('search.emptyHint')} data-star={t('search.star')}
+      data-unstar={t('search.unstar')} data-star-limit={t('search.starLimit')} data-remove={t('search.remove')}
+      data-lang={language}>
+      <div class="search-dialog-panel">
+        <div class="search-dialog-field">
+          <label class="sr-only" id="search-dialog-label" for="search-dialog-input">{t('search.label')}</label>
+          <svg class="search-dialog-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>
+          </svg>
+          <input class="search-dialog-input" id="search-dialog-input" type="search" role="combobox"
+            aria-expanded="false" aria-controls="search-dialog-results" aria-autocomplete="list" maxlength="200"
+            autocomplete="off" spellcheck="false" data-search-input />
+        </div>
+        <div class="search-dialog-body">
+          <div class="search-dialog-state">
+            <p class="search-dialog-status" role="status" aria-live="polite" data-search-status></p>
+            <button type="button" class="action-link" data-search-retry hidden>{t('search.retry')}</button>
+          </div>
+          <section class="search-dialog-recent" aria-labelledby="search-dialog-recent-title" data-search-recent hidden>
+            <h2 class="search-dialog-heading search-group" id="search-dialog-recent-title">{t('search.recent')}</h2>
+            <ul class="search-recent-list" data-search-recent-list></ul>
+          </section>
+          <div class="search-dialog-results" id="search-dialog-results" role="listbox" aria-label={t('search.label')}
+            data-search-results hidden></div>
+        </div>
+        <div class="search-dialog-footer">
+          <p class="search-dialog-hints" aria-hidden="true">
+            <span><kbd>↵</kbd> {t('search.hintSelect')}</span>
+            <span><kbd>↑</kbd><kbd>↓</kbd> {t('search.hintNavigate')}</span>
+            <span><kbd>esc</kbd> {t('search.hintClose')}</span>
+          </p>
+          <a class="action-link search-dialog-all" href="/search" data-search-all>{t('search.openAll')}</a>
+        </div>
+      </div>
+    </dialog>
     <script src="../scripts/theme-toggle.js"></script>
     {liveUpdates && <script is:inline type="module" src={liveScript}></script>}
+    <script src="../scripts/search-dialog.js"></script>
   </body>
 </html>

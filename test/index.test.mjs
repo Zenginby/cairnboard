@@ -5,7 +5,9 @@ import { DatabaseSync } from 'node:sqlite';
 import * as fs from '../core/fsx.mjs';
 import { tempDir } from './support/env.mjs';
 import { PRESETS } from '../core/presets.mjs';
-import { openIndex, refresh, rows, search, findById, backlinks, outlinks, journalEntries, indexPath, dropPath } from '../core/index.mjs';
+import {
+  openIndex, refresh, rows, search, searchCount, findById, backlinks, outlinks, journalEntries, indexPath, dropPath,
+} from '../core/index.mjs';
 
 function setup(t, preset = 'default') {
   const root = tempDir(t);
@@ -322,6 +324,55 @@ test('search is answered by the index, with the original title', (t) => {
   const [hit] = search(ctx, 'isik');
   assert.equal(hit.title, 'IŞIK');
   assert.deepEqual(ctx.warnings, []);
+});
+
+test('search marks FTS snippet hits only when asked', (t) => {
+  const ctx = setup(t);
+  put(ctx, 'notes/a.md', '# Trip\nİstanbul toplantısı notları');
+  refresh(ctx);
+  const plain = search(ctx, 'istanbul');
+  assert.equal(plain[0].snippet.includes('\uE000'), false);
+  assert.equal(plain[0].marked, undefined, 'the default result shape is unchanged');
+  // The index stores folded text, so the snippet carries the folded word between the marks.
+  const marked = search(ctx, 'ISTANBUL', { mark: ['\uE000', '\uE001'] });
+  assert.match(marked[0].snippet, /\uE000istanbul\uE001/u);
+  assert.equal(marked[0].marked, true);
+  const blocker = new DatabaseSync(ctx.indexPath);
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
+  blocker.exec('BEGIN IMMEDIATE');
+  const fallback = search({ ...ctx, warnings: [] }, 'istanbul', { mark: ['\uE000', '\uE001'] });
+  assert.equal(fallback[0].marked, false);
+  assert.equal(fallback[0].snippet.includes('\uE000'), false);
+  blocker.exec('ROLLBACK');
+  blocker.close();
+});
+
+test('search counts eligible matches without snippets and stops at the ceiling', (t) => {
+  const ctx = setup(t);
+  put(ctx, 'cards/a.md', '---\nid: legacy-42\ntitle: Needle\n---\nNeedle');
+  put(ctx, 'cards/b.md', '---\ntitle: Needle\n---\nNeedle');
+  put(ctx, 'cards/c.md', '---\nid: c-000001\n---\nNeedle');
+  put(ctx, 'cards/d.md', '---\nid: c-000002\n---\nNeedle');
+  put(ctx, 'notes/a.md', '# Needle');
+  refresh(ctx);
+  const check = (context) => {
+    assert.equal(searchCount(context, 'needle', { type: 'card', validIdsOnly: true }), 2);
+    assert.equal(searchCount(context, 'needle', { type: 'card', validIdsOnly: true, limit: 1 }), 1);
+    assert.equal(searchCount(context, 'needle', { type: 'card', validIdsOnly: true, limit: 0 }), 0);
+    assert.equal(searchCount(context, 'needle', { type: 'note' }), 1);
+    assert.equal(searchCount(context, 'needle', { type: 'card' }), 4);
+    assert.equal(searchCount(context, 'missing', { type: 'card', validIdsOnly: true }), 0);
+    assert.equal(searchCount(context, '%%', { type: 'card', validIdsOnly: true }), 0);
+    assert.equal(search(context, 'needle', { type: 'card', limit: 1 })[0].id, 'legacy-42',
+      'CLI search keeps external ids');
+  };
+  check(ctx);
+  const blocker = new DatabaseSync(ctx.indexPath);
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
+  blocker.exec('BEGIN IMMEDIATE');
+  check({ ...ctx, warnings: [] });
+  blocker.exec('ROLLBACK');
+  blocker.close();
 });
 
 test('a schema change resets the cache in place instead of replacing the file', (t) => {

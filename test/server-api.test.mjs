@@ -540,3 +540,65 @@ test('shown JSON and rendered HTML reuse one full source read', async (t) => {
   assert.equal(response.json.data.content.body, 'Quick body');
   assert.equal(response.json.data.content.html, '<p>Quick body</p>');
 });
+
+test('search endpoint returns grouped results and validates type', async (t) => {
+  const f = fixture(t);
+  f.put('notes/plan.md', { id: 'n-000003', title: 'Plan <script>x</script>' }, 'The plan <script>alert(1)</script>');
+  const ok = await request(f.app, '/api/search?q=plan');
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.ok, true);
+  assert.ok(Array.isArray(ok.json.data.results.card));
+  assert.equal(ok.json.data.results.note[0].ref, 'n-000003');
+  assert.equal(ok.json.data.results.note[0].title, 'Plan <script>x</script>');
+  assert.doesNotMatch(ok.json.data.results.note[0].snippetHtml, /<script/u);
+  assert.match(ok.json.data.results.note[0].snippetHtml, /<mark>plan<\/mark> &lt;script&gt;/u);
+  const empty = await request(f.app, '/api/search?q=');
+  assert.equal(empty.status, 200);
+  assert.deepEqual([empty.json.data.results, empty.json.data.counts], [{ card: [], note: [] }, { card: 0, note: 0 }]);
+  for (let n = 2; n <= 8; n++) f.put(`cards/plan-${n}.md`, { id: `c-00000${n}`, title: `Plan ${n}`, column: 'doing' });
+  assert.equal((await request(f.app, '/api/search?q=plan&type=card&limit=3')).json.data.results.card.length, 3);
+  assert.equal((await request(f.app, '/api/search?q=plan&type=card&limit=x')).json.data.results.card.length, 5);
+  assert.equal((await request(f.app, '/api/search?q=plan&type=card&limit=0')).json.data.results.card.length, 5);
+  assert.equal((await request(f.app, '/api/search?q=plan&type=card&limit=99')).json.data.results.card.length, 7);
+  assert.equal((await request(f.app, '/api/search?q=plan&type=')).status, 200, 'an empty type means every type');
+  const invalid = await request(f.app, '/api/search?q=plan&type=project');
+  assert.equal(invalid.status, 400);
+  assert.deepEqual(invalid.json, {
+    v: 1, ok: false, error: { code: 'validation', message: 'Invalid search type.' }, warnings: [],
+  });
+  assert.equal((await request(f.app, '/api/search?q=plan', { signedIn: false })).status, 401);
+  const unopened = createApi({ open: () => assert.fail('an invalid type must not open data') });
+  assert.equal((await request(f.appFor(unopened), '/api/search?q=plan&type=raw')).status, 400);
+  assert.equal((await request(f.app, '/api/search/extra?q=plan')).status, 404);
+  const api = createApi({ open: () => { throw new Error('private open failure'); } });
+  t.mock.method(console, 'error', () => {});
+  assert.equal((await request(f.appFor(api), '/api/search?q=plan')).status, 409);
+});
+
+test('search result refs open the right note even with spaces and Turkish letters', async (t) => {
+  const f = fixture(t);
+  mkdirSync(join(f.data, 'notes'), { recursive: true });
+  writeFileSync(join(f.data, 'notes/Toplantı notu.md'), '# Toplantı notu\nYeni plan için toplantı.');
+  const [hit] = (await request(f.app, '/api/search?q=plan&type=note')).json.data.results.note;
+  assert.equal(hit.title, 'Toplantı notu');
+  const note = await request(f.app, `/api/notes/${encodeURIComponent(hit.ref)}`);
+  assert.equal(note.status, 200);
+  assert.equal(note.json.data.ref, hit.ref);
+  assert.match(note.json.data.content.body, /Yeni plan/u);
+});
+
+test('search lists only cards whose refs open in the detail route', async (t) => {
+  const f = fixture(t);
+  f.put('cards/legacy.md', { id: 'legacy-42', title: 'Needle legacy' });
+  f.put('cards/idless.md', { title: 'Needle idless' });
+  f.put('cards/noncanonical.md', { id: 'C-OOOOIO', title: 'Needle noncanonical' });
+  f.put('cards/eligible.md', { id: 'c-000011', title: 'Needle eligible' });
+  assert.equal((await request(f.app, '/api/cards/legacy-42')).status, 404);
+  assert.equal((await request(f.app, '/api/cards/c-000010')).status, 404, 'normalized id has no exact stored match');
+  const view = (await request(f.app, '/api/search?q=needle&type=card')).json.data;
+  assert.equal(view.counts.card, 1);
+  assert.deepEqual(view.results.card.map((hit) => hit.ref), ['c-000011']);
+  for (const hit of view.results.card) {
+    assert.equal((await request(f.app, `/api/cards/${hit.ref}`)).status, 200);
+  }
+});

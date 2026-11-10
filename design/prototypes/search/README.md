@@ -8,3 +8,15 @@ Full search over notes, cards, wiki pages, research and journal entries. Preview
 - **Keyboard:** the field is a combobox. Arrow keys move the active result while focus stays in the field. Ctrl+Home and Ctrl+End go to the first and last result, Enter opens the active result and Escape clears the field. On this page, `/`, `⌘K` and the top bar's search button focus the big field instead of opening the dialog.
 - **Motion:** a new result list fades in over `duration-quick`. Nothing moves while you type within the same results. Hovering or making a row active changes only its background, with no animation.
 - **Known limits:** results open the detail pages (`../note/`, `../card/`, `../research-item/`, `../journal-day/`), which another prototype provides. Matching is substring only: no stemming and no typo tolerance.
+
+## Sahip kararı 2026-11-09
+
+The web app's search dialog takes four additions from the Homebrew documentation site's search. They are built
+directly in Astro (`src/layouts/AppShell.astro`, `src/scripts/search-dialog.js`); this frozen prototype is unchanged.
+
+1. **Groups by type:** results sit under **Kartlar** and **Notlar** headings; an empty group is hidden, and a group
+   with more hits ends with "Tüm kartlar (N)" to `/search?q=…&type=…`.
+2. **Recent searches in the dialog:** with an empty field the dialog lists recent searches (star keeps one at the
+   top, × removes it). Stored in `localStorage` (`cairn.recent-searches.v1`); without storage the list is hidden.
+3. **Keyboard hints in the footer:** `↵ seç · ↑↓ gez · esc kapat`, next to "Tüm sonuçları aç".
+4. **Filled active row:** the active row is filled with the accent colour and shows `↵` on its right.
