@@ -513,6 +513,8 @@ test('built Board, Card and Note routes use injected data, safe states and exter
       assert.match(response.body, /<h2>Rendered body<\/h2>/u);
       assert.match(response.body, /1\.11\.2026/u);
       if (method === 'card') {
+        assert.doesNotMatch(response.body, /<form\b|name="csrf"|<meta name="referrer"/u);
+        assert.match(response.body, /data-live="card project board"/u);
         assert.match(response.body, /Working column/u);
         assert.match(response.body, /href="\/cards\/c-000002"[^>]*>Related card/u);
       } else {

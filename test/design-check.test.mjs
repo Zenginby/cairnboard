@@ -233,6 +233,20 @@ test('keyboard waits for focus transitions, including delayed skip-link entry an
   assert.match((await fixture.inspect())[0].message, /outside the viewport/);
 });
 
+test('keyboard accepts a focused text area once its first line is on screen, as browsers do', async () => {
+  const fixture = focusFixture();
+  fixture.input.tagName = 'TEXTAREA';
+  Object.assign(fixture.input.style, { outlineStyle: 'solid', outlineWidth: '2px', outlineColor: 'rgb(0, 0, 0)',
+    paddingTop: '8px', lineHeight: '24px', fontSize: '16px' });
+  Object.assign(fixture.input.rect, { y: 789, height: 127 });
+  assert.equal((await fixture.inspect()).length, 0);
+  fixture.input.rect.y = 880;
+  assert.match((await fixture.inspect())[0].message, /outside the viewport/);
+  fixture.input.tagName = 'INPUT';
+  fixture.input.rect.y = 789;
+  assert.match((await fixture.inspect())[0].message, /outside the viewport/);
+});
+
 test('keyboard accepts hidden native choices only with a visible nearby ancestor focus indicator', async () => {
   for (const type of ['radio', 'checkbox']) {
     for (const indicator of ['outline', 'shadow']) {

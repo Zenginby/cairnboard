@@ -16,7 +16,11 @@ import { cookieName, csrfToken, mintCookie, siteHost, verifyCsrf } from '../serv
 import { openContext } from '../core/context.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { readEvents } from '../core/events.mjs';
-import { addCard, listCards } from '../core/card.mjs';
+import { renderMarkdown } from '../core/render.mjs';
+import { cardControls } from '../server/card-controls.mjs';
+import { CairnError } from '../core/errors.mjs';
+import { resolve, update } from '../core/entity.mjs';
+import { addCard, claimCard, listCards } from '../core/card.mjs';
 import * as project from '../core/project.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 
@@ -47,9 +51,10 @@ function fixture(t, { handler } = {}) {
   initDataDir(dataDir, { home, env: {}, clock });
   const options = { dataDir, home, env: {}, clock };
   const open = () => openContext({ mode: 'read', ...options });
-  let writeCalls = 0;
+  let writeCalls = 0, writeError;
   const openWrite = () => {
     writeCalls += 1;
+    if (writeError) throw writeError;
     return openContext({ mode: 'write', ...options, actor: 'web:owner' });
   };
   const cards = createCards({ key, port, open, openWrite });
@@ -57,12 +62,13 @@ function fixture(t, { handler } = {}) {
   const writes = createWrites({ key, port, routes: [...settings.routes, ...cards.routes] });
   const app = createApp({ root: repo, guard: createGuard({ key, port, instance, writable: writes.writable }),
     writes: writes.handle, handler: handler ?? ((req, res, next) => next()),
-    locals: { cards, settings, cairn: createRead({ open, render: async () => ({ html: '' }) }) } });
+    locals: { cards, settings, cairn: createRead({ open, render: async (body) => renderMarkdown(body) }) } });
   const column = open().config.columns[1].key;
-  const post = (fields = {}, { cookie = mintCookie(key, port), form = 'card', token } = {}) => {
-    const values = { title: 'Prepare the reading list', column, project: '', priority: '', ...fields };
+  const post = (fields = {}, { cookie = mintCookie(key, port), form = 'card', token, path = '/cards' } = {}) => {
+    const values = path === '/cards'
+      ? { title: 'Prepare the reading list', column, project: '', priority: '', ...fields } : fields;
     const present = Object.entries(values).filter(([, value]) => value !== undefined);
-    return call(app, { method: 'POST', path: '/cards',
+    return call(app, { method: 'POST', path,
       body: new URLSearchParams({ csrf: token ?? csrfToken(key, port, cookie, form),
         ...Object.fromEntries(present) }).toString(),
       headers: { origin: `http://${site}`, 'sec-fetch-site': 'same-origin',
@@ -70,7 +76,8 @@ function fixture(t, { handler } = {}) {
   };
   const stored = () => readdirSync(dataDir, { recursive: true }).filter((path) => path.endsWith('.md')).sort()
     .map((path) => [path, readFileSync(join(dataDir, path), 'utf8')]);
-  return { dataDir, open, openWrite, cards, app, column, post, stored, writeCalls: () => writeCalls };
+  return { dataDir, options, open, openWrite, cards, app, column, post, stored, writeCalls: () => writeCalls,
+    failWrites: (error) => { writeError = error; } };
 }
 
 test('a valid card add appends in the selected column and records web:owner', async (t) => {
@@ -230,3 +237,231 @@ test('the built card form has its session token, selected column and active proj
       assert.ok(board.body.includes(`href="/cards/new?column=${encodeURIComponent(column.key)}"`));
     }
   });
+
+function actionFixture(t, options) {
+  const f = fixture(t, options);
+  const body = '# Plan\n\n## Acceptance\n\n- [ ] Choose books\n- [x] Read the list\n\n## Comments\n\n- Earlier note\n';
+  const added = addCard(f.openWrite(), { title: 'Reading plan', column: f.column }, body);
+  const id = added.entity.id;
+  const current = () => resolve(f.open(), 'card', id);
+  const edit = () => ({ title: 'Revised plan', project: '', priority: '', body, revision: current().revision });
+  const send = (suffix, fields, options = {}) => f.post(fields, { path: `/cards/${id}${suffix}`, ...options });
+  return { ...f, id, body, current, edit, send };
+}
+
+test('editing saves mapped fields and the complete Markdown, clears empty options and records web:owner', async (t) => {
+  const f = actionFixture(t);
+  const selected = project.create(f.openWrite(), { title: 'Reading garden' });
+  const body = `# Changed\n\n${'Some text\n'.repeat(8000)}\u200b\n`;
+  const response = await f.send('', { ...f.edit(), title: '  Revised plan  ',
+    priority: 'important', project: 'Reading garden', body });
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.location, `/cards/${f.id}`);
+  assert.equal(f.current().title, 'Revised plan');
+  assert.equal(f.current().data.project, selected.entity.id);
+  assert.equal(f.current().data.priority, 'important');
+  assert.equal(f.current().body, body, 'no truncation or hidden-character stripping in the body');
+  assert.equal(readEvents(f.open()).at(-1).op, 'card.update');
+  assert.equal(readEvents(f.open()).at(-1).actor, 'web:owner');
+  assert.equal((await f.send('', { ...f.edit(), body: '' })).status, 303);
+  assert.equal(f.current().body, '');
+  assert.equal(f.current().data.priority, undefined);
+  assert.equal(f.current().data.project, undefined);
+});
+
+test('moving appends to the target column; checking and commenting preserve the other content', async (t) => {
+  const f = actionFixture(t);
+  const column = f.open().config.columns[0].key;
+  const first = addCard(f.openWrite(), { title: 'Earlier card', column });
+  for (const [suffix, fields, op] of [
+    ['/move', { column }, 'card.move'],
+    ['/check', { n: '1', checked: 'on' }, 'card.check'],
+    ['/check', { n: '2', checked: 'off' }, 'card.check'],
+    ['/comment', { text: '  Another thought\nwith a second line  ' }, 'card.comment'],
+  ]) {
+    const response = await f.send(suffix, fields);
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.location, `/cards/${f.id}${suffix === '/comment' ? '#comments' : ''}`);
+    assert.equal(readEvents(f.open()).at(-1).op, op);
+    assert.equal(readEvents(f.open()).at(-1).actor, 'web:owner');
+  }
+  assert.deepEqual(listCards(f.open(), { column, includeDone: true }).map((card) => card.id), [first.entity.id, f.id]);
+  assert.equal(f.current().body, f.body.replace('- [ ] Choose', '- [x] Choose').replace('- [x] Read', '- [ ] Read')
+    + '- 2026-11-08T12:00:00.000Z owner:   Another thought with a second line  \n');
+});
+
+test('all action fields are strict and invalid requests do not open a write context or change files or events',
+  async (t) => {
+    const f = actionFixture(t);
+    const edit = f.edit();
+    const actions = [
+      ['', edit, [
+        { title: '' }, { title: ' ' }, { title: 'x'.repeat(201) }, { title: 'New\nline' },
+        { title: 'Hidden\u200btitle' }, { title: 'New\tline' }, { title: 'New\rline' },
+        { title: 'Soft\u00adhyphen' }, { title: 'Bell\u0007' }, { title: 'Right\u202eleft' },
+        { title: 'New\u0085line' }, { title: 'New\u2028line' }, { title: 'New\u2029line' },
+        { priority: 'high' }, { project: 'missing-project' }, { revision: '' }, { revision: 'f'.repeat(15) },
+        { revision: 'z'.repeat(16) }, { body: 'x'.repeat(5 * 1024 * 1024 + 1) },
+      ]],
+      ['/move', { column: f.column }, [{ column: '' }, { column: 'missing' }, { column: '__proto__' }]],
+      ['/check', { n: '1', checked: 'on' }, [
+        { n: '0' }, { n: '-1' }, { n: '1.5' }, { n: '01' }, { n: '1e0' }, { n: ' 1' },
+        { n: '9007199254740992' }, { n: '3' }, { checked: '' }, { checked: 'yes' },
+      ]],
+      ['/comment', { text: 'A thought' }, [{ text: '' }, { text: ' \n ' }, { text: 'x'.repeat(2001) }]],
+    ];
+    const before = f.stored(), events = readEvents(f.open()), writes = f.writeCalls();
+    for (const [suffix, valid, invalid] of actions) {
+      const missing = Object.keys(valid).map((field) => ({ [field]: undefined }));
+      for (const fields of [...invalid, ...missing, { extra: 'unexpected' }]) {
+        const response = await f.send(suffix, { ...valid, ...fields });
+        assert.equal(response.status, 400, `${suffix}: ${Object.keys(fields)}`);
+        assert.ok(response.body.includes(`href="/cards/${f.id}"`));
+        assert.ok(!response.body.includes('card.invalid'), 'the card-specific message is translated');
+      }
+    }
+    assert.equal(f.writeCalls(), writes);
+    assert.deepEqual(f.stored(), before);
+    assert.deepEqual(readEvents(f.open()), events);
+  });
+
+test('the CRLF line breaks a browser submits do not change the line endings of the file', async (t) => {
+  const f = actionFixture(t), crlf = (text) => text.replaceAll('\n', '\r\n');
+  assert.equal((await f.send('', { ...f.edit(), body: crlf(f.body) })).status, 303);
+  assert.equal(f.current().body, f.body, 'an unchanged form leaves an LF body as it was');
+  const file = join(f.dataDir, f.current().path);
+  writeFileSync(file, crlf(readFileSync(file, 'utf8')));
+  for (const body of [f.body, crlf(f.body)]) {
+    assert.equal((await f.send('', { ...f.edit(), body })).status, 303);
+    assert.equal(f.current().body, crlf(f.body), 'a CRLF file stays CRLF');
+  }
+  const text = crlf(`${'a'.repeat(999)}\n${'b'.repeat(1000)}`);
+  assert.equal((await f.send('/comment', { text })).status, 303, 'a line break counts once, as in the form');
+  assert.equal((await f.send('/comment', { text: `${text}c` })).status, 400);
+});
+
+test('a card held by an agent answers 409 with its own page for edit, move and check; comments still work',
+  async (t) => {
+    const f = actionFixture(t);
+    claimCard(openContext({ mode: 'write', ...f.options, actor: 'agent:reader' }), f.id);
+    const before = f.stored(), events = readEvents(f.open());
+    const column = f.open().config.columns[0].key;
+    for (const [suffix, fields] of [['', f.edit()], ['/move', { column }], ['/check', { n: '1', checked: 'on' }]]) {
+      const response = await f.send(suffix, fields);
+      assert.equal(response.status, 409, suffix);
+      assert.match(response.body, /Kart bir ajanda/u);
+      assert.ok(response.body.includes(`href="/cards/${f.id}"`));
+    }
+    assert.deepEqual(f.stored(), before);
+    assert.deepEqual(readEvents(f.open()), events);
+    assert.equal((await f.send('/comment', { text: 'Please also read the appendix.' })).status, 303);
+  });
+
+test('stale edits answer 409 with a card warning and leave files and events unchanged', async (t) => {
+  const f = actionFixture(t), stale = f.edit();
+  update(f.openWrite(), 'card', f.id, { title: 'Changed elsewhere' });
+  const before = f.stored(), events = readEvents(f.open());
+  const response = await f.send('', stale);
+  assert.equal(response.status, 409);
+  assert.match(response.body, /Kart başka yerde değişti/u);
+  assert.ok(response.body.includes(`href="/cards/${f.id}"`));
+  assert.deepEqual(f.stored(), before);
+  assert.deepEqual(readEvents(f.open()), events);
+});
+
+test('every action handles missing cards, wrong-form tokens, exact targets, conflicts and locked writes', async (t) => {
+  const f = actionFixture(t);
+  for (const [suffix, fields] of [
+    ['', f.edit()], ['/move', { column: f.column }],
+    ['/check', { n: '1', checked: 'on' }], ['/comment', { text: 'A thought' }],
+  ]) {
+    f.failWrites(undefined);
+    const before = f.stored(), events = readEvents(f.open()), writes = f.writeCalls();
+    assert.equal((await f.send(suffix, fields, { path: `/cards/c-000000${suffix}` })).status, 404);
+    const forbidden = await f.send(suffix, fields, { form: 'settings' });
+    assert.equal(forbidden.status, 403);
+    assert.ok(forbidden.body.includes(`href="/cards/${f.id}"`), 'even pre-run refusals link to this card');
+    assert.equal((await f.send(suffix, fields, { path: `/cards/${f.id}${suffix}?x=1` })).status, 405);
+    assert.equal(f.writeCalls(), writes);
+    for (const [code, status] of [['conflict', 409], ['locked', 503]]) {
+      f.failWrites(new CairnError(code, 'Test refusal.'));
+      const response = await f.send(suffix, fields);
+      assert.equal(response.status, status);
+      if (code === 'conflict') assert.match(response.body, /Kart başka yerde değişti/u);
+      if (code === 'locked') assert.equal(response.headers['retry-after'], '1');
+    }
+    assert.deepEqual(f.stored(), before);
+    assert.deepEqual(readEvents(f.open()), events);
+  }
+});
+
+test('all actions refuse an uninitialised data folder before opening a write context', (t) => {
+  const dataDir = tempDir(t), home = tempDir(t);
+  const cards = createCards({ key, port,
+    open: () => openContext({ mode: 'read', dataDir, home, env: {}, clock: fixedClock('2026-11-08T12:00:00Z') }),
+    openWrite: () => assert.fail('nothing may be written') });
+  const values = [
+    { title: 'Reading plan', project: '', priority: '', body: '', revision: 'a'.repeat(16) },
+    { column: 'todo' }, { n: '1', checked: 'on' }, { text: 'A thought' },
+  ];
+  for (const [index, route] of cards.routes.slice(1).entries()) {
+    const response = route.run({ values: values[index], params: { id: 'c-000000' } });
+    assert.deepEqual([response.status, response.message], [409, 'card.notReady']);
+  }
+});
+
+test('acceptance controls preserve renderer labels and leave other Markdown checkboxes read-only', () => {
+  const body = '- [ ] Outside\n\n## Acceptance\n\n- [ ] **Choose** > <tag> & "books"\n  - [x] Nested\n\n'
+    + '```md\n- [ ] Code task\n```\n\n- [ ]\n\n## Other\n\n- [ ] Outside again\n';
+  const rendered = renderMarkdown(body).html;
+  const controls = cardControls(rendered, body);
+  assert.equal((controls.match(/class="card-check"/gu) ?? []).length, 2);
+  for (const label of rendered.match(/aria-label="[^"]*"/gu).slice(1, 3)) {
+    assert.ok(controls.includes(label));
+  }
+  assert.match(controls, /form="card-check-1" role="checkbox" aria-checked="false"/u);
+  assert.match(controls, /form="card-check-2" role="checkbox" aria-checked="true"/u);
+  assert.equal((controls.match(/<input/gu) ?? []).length, 2);
+  assert.equal(cardControls(null, body), null);
+  assert.equal(cardControls('<p>No checkboxes</p>', body), '<p>No checkboxes</p>');
+});
+
+test('built card pages show token-bound actions and the edit form preserves the full raw body', async (t) => {
+  if (!built) return t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const f = actionFixture(t, { handler });
+  const selected = project.create(f.openWrite(), { title: 'Reading garden', status: 'paused' });
+  const body = f.body + '\n' + 'Body & <text>\u200b\n'.repeat(6000);
+  update(f.openWrite(), 'card', f.id, { priority: 'urgent', project: selected.entity.id }, { body });
+  const cookie = mintCookie(key, port), headers = { cookie: `${cookieName(port)}=${cookie}` };
+  const token = csrfToken(key, port, cookie, 'card');
+  const page = await call(f.app, { path: `/cards/${f.id}`, headers });
+  assert.equal(page.status, 200);
+  assert.equal(page.headers['referrer-policy'], 'same-origin');
+  assert.ok(page.body.includes(`href="/cards/${f.id}/edit"`));
+  for (const suffix of ['/move', '/check', '/comment']) {
+    assert.ok(page.body.includes(`action="/cards/${f.id}${suffix}"`));
+  }
+  assert.ok(page.body.includes('id="comments"'));
+  assert.match(page.body, /role="checkbox" aria-checked="false" aria-label="Choose books"/u);
+  assert.match(page.body, /role="checkbox" aria-checked="true" aria-label="Read the list"/u);
+  assert.equal((page.body.match(/name="csrf" value="([^"]+)"/gu) ?? []).length, 4);
+  assert.ok([...page.body.matchAll(/name="csrf" value="([^"]+)"/gu)].every((match) => match[1] === token));
+  assert.match(page.body, /data-live="card project board"/u);
+  const edit = await call(f.app, { path: `/cards/${f.id}/edit`, headers });
+  assert.equal(edit.status, 200);
+  assert.equal(edit.headers['referrer-policy'], 'same-origin');
+  assert.ok(edit.body.includes(`name="csrf" value="${token}"`));
+  assert.ok(edit.body.includes(`name="revision" value="${f.current().revision}"`));
+  assert.match(edit.body, /name="title"[^>]*value="Reading plan"/u);
+  assert.ok(edit.body.includes(`value="${selected.entity.id}" selected`), 'the current paused project stays selected');
+  assert.ok(edit.body.includes('value="urgent" selected'));
+  const escaped = body.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+  assert.ok(edit.body.includes(`rows="20">\n${escaped}</textarea>`),
+    'the parser drops one line break after the tag, so the page adds one and the body keeps its own first line');
+  const missing = await call(f.app, { path: '/cards/c-000000/edit', headers });
+  assert.equal(missing.status, 404);
+  const path = f.current().path, file = join(f.dataDir, path);
+  writeFileSync(file, readFileSync(file, 'utf8').replace(/^id: .*\n/mu, ''));
+  assert.equal(f.cards.view(null, `@${path}`).state, 'notFound');
+});

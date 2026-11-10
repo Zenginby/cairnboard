@@ -3,21 +3,69 @@ import AppShell from '../../layouts/AppShell.astro';
 import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
 import ReadDocument from '../../components/ReadDocument.astro';
+import { acceptanceItems } from '../../../core/frontmatter.mjs';
+import { cardControls } from '../../../server/card-controls.mjs';
 import { t } from '../../i18n/index.mjs';
 
-let result, state;
+let result, state, view;
 try {
   result = await Astro.locals.cairn.card(Astro.params.id);
+  if (result.data.id && Astro.locals.cards) {
+    view = await Astro.locals.cards.view(Astro.request.headers.get('cookie'), result.data.id);
+    if (view.state === 'ready') {
+      result.data.content.html = cardControls(result.data.content.html, view.card.body);
+    }
+  }
 } catch (error) {
   state = error?.code === 'data_not_ready' ? 'notReady' : error?.code === 'entity_not_found' ? 'notFound' : 'server';
   Astro.response.status = state === 'notReady' ? 409 : state === 'notFound' ? 404 : 500;
   // Match the API: unexpected failures reach the server log, the page shows only a generic message.
   if (state === 'server') console.error(error);
 }
+const writable = !state && view?.state === 'ready';
+if (writable) Astro.response.headers.set('Referrer-Policy', 'same-origin');
+const id = result?.data.id;
+const items = writable ? acceptanceItems(view.card.body) : [];
+const columns = writable ? view.columns.filter((column) => column.key !== result.data.column.key) : [];
 ---
 <AppShell live="card project board" title={result?.data.content.title || t('type.card')} current="/board" surface>
+  {writable && <meta slot="head" name="referrer" content="same-origin" />}
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`} message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'} status={Astro.response.status} /> : <>
     <ReadWarnings codes={result.warnings} />
-    <ReadDocument item={result.data} />
+    <ReadDocument item={result.data}>
+      {writable && <div slot="actions" class="card-actions">
+        <a href={`/cards/${id}/edit`}>{t('card.edit')}</a>
+        {columns.length > 0 && <form class="card-actions" method="post" action={`/cards/${id}/move`}>
+          <input type="hidden" name="csrf" value={view.csrf} />
+          <label class="card-field" for="card-column">{t('card.column')}
+            <select id="card-column" name="column" required>
+              {columns.map((column) => <option value={column.key}>{column.label}</option>)}
+            </select>
+          </label>
+          <button class="action-link" type="submit">{t('card.move')}</button>
+        </form>}
+      </div>}
+      {writable && <div slot="after-body">
+        {items.map((item, index) => <form id={`card-check-${index + 1}`} method="post"
+          action={`/cards/${id}/check`}>
+          <input type="hidden" name="csrf" value={view.csrf} />
+          <input type="hidden" name="n" value={index + 1} />
+          <input type="hidden" name="checked" value={item.checked ? 'off' : 'on'} />
+          {!result.data.content.html?.includes(`form="card-check-${index + 1}"`) && <button
+            class="card-check" type="submit" role="checkbox" aria-checked={item.checked}
+            aria-label={item.text || t('card.acceptanceItem', { n: index + 1 })}>
+            <span aria-hidden="true">{item.checked ? '☑' : '☐'}</span>
+            {item.text || t('card.acceptanceItem', { n: index + 1 })}
+          </button>}
+        </form>)}
+        <form id="comments" class="card-form" method="post" action={`/cards/${id}/comment`}>
+          <input type="hidden" name="csrf" value={view.csrf} />
+          <label class="card-field" for="card-comment">{t('card.comment')}
+            <textarea id="card-comment" name="text" rows="4" required maxlength="2000"></textarea>
+          </label>
+          <button class="action-link" type="submit">{t('card.addComment')}</button>
+        </form>
+      </div>}
+    </ReadDocument>
   </>}
 </AppShell>

@@ -88,7 +88,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
 }
 .card-form { display: grid; gap: var(--space-md); margin-top: var(--space-lg); }
 .card-field { display: grid; gap: var(--space-xs); font-size: var(--font-ui-size); }
-.card-field input, .card-field select {
+.card-field input, .card-field select, .card-field textarea {
   min-width: 0;
   width: 100%;
   min-height: calc(var(--space-xl) + var(--space-xs));
@@ -101,6 +101,9 @@ a, button { -webkit-tap-highlight-color: transparent; }
   font-size: var(--font-body-size);
 }
 .card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
+.card-field textarea { resize: vertical; }
+.document-heading > .card-actions { margin-top: var(--space-md); }
+.card-check { padding: var(--space-xs); color: var(--color-link); background: var(--color-surface-inset); }
 .board-cards { display: grid; gap: var(--space-sm); list-style: none; margin: 0; padding: 0 var(--space-sm) var(--space-sm); }
 .board-card { display: block; scroll-margin-inline: var(--space-sm); padding: var(--space-md); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-box); text-decoration: none; }
 .board-card h3 { font-size: var(--font-small-size); font-weight: var(--font-title-weight); line-height: var(--font-small-line-height); }
