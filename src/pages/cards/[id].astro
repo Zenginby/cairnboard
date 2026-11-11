@@ -8,9 +8,16 @@ import { t } from '../../i18n/index.mjs';
 
 let result, state, view, wired = new Set();
 try {
-  result = await Astro.locals.cairn.card(Astro.params.id);
-  if (result.data.id && Astro.locals.cards) {
+  // The page and the forms come from two reads: button labels from the first, item numbers and marks
+  // from the second. Both must describe the same file, so retry a changed file, then show no forms.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    result = await Astro.locals.cairn.card(Astro.params.id);
+    if (!result.data.id || !Astro.locals.cards) { view = undefined; break; }
     view = await Astro.locals.cards.view(Astro.request.headers.get('cookie'), result.data.id);
+    if (view.state !== 'ready' || view.card?.revision === result.data.revision) break;
+    view = { ...view, state: 'changed' };
+  }
+  if (view) {
     if (view.state === 'ready') {
       const controls = cardControls(result.data.content.html, view.items);
       result.data.content.html = controls.html;
