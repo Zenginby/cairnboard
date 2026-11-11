@@ -346,7 +346,7 @@ test('home uses title order to break featured ties and returns null when project
   initDataDir(data, { home, env: {} });
   const ctx = openContext({ mode: 'read', dataDir: data, home, env: {} });
   assert.deepEqual(homeView(ctx).data, { pinned: [], recentNotes: [], openCards: [], journal: null, projects: [],
-    featuredProject: null, journalCount: 0, agents: null });
+    featuredProject: null, journalCount: 0 });
   const f = fixture(t);
   f.put('projects/beta.md', { id: 'p-000002', title: 'Beta' });
   f.put('cards/beta.md', { column: 'doing', project: 'p-000002' });

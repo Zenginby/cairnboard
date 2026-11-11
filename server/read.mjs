@@ -136,7 +136,7 @@ export function createRead({ open, render = createRenderPool().render }) {
     async home() {
       let ctx;
       try { ctx = await open(); } catch (error) { throw new DataNotReadyError(error); }
-      const view = homeView(ctx);
+      const view = homeView(ctx, {}, { scope: 'owner' });
       if (view.journalEntity) {
         await renderView(ctx, { entity: view.journalEntity, data: view.data.journal, warnings: view.warnings }, render);
       }

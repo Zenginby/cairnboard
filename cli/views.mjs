@@ -69,11 +69,15 @@ export function agentProject(ctx) {
   return { id: project.id, refs: new Set(refs) };
 }
 
-export function homeView(ctx, opts = {}) {
+// `scope: 'owner'` (web Home only): agent work and the agents project are left out and counted per column instead.
+// Without a scope the result is the same as before the setting existed (CLI `home`, `/api/home`).
+export function homeView(ctx, opts = {}, { scope } = {}) {
   const all = entity.list(ctx);
-  const agents = agentProject(ctx);
+  const agents = scope === 'owner' ? agentProject(ctx) : null;
   const isAgentCard = (card) => agents !== null && agents.refs.has(card.data.project);
-  const projects = all.filter((item) => item.type === 'project' && item.id !== agents?.id
+  const isAgentItem = (item) => agents !== null && (item.id === agents.id
+    || (item.type === 'card' && agents.refs.has(item.data.project)));
+  const projects = all.filter((item) => item.type === 'project' && !isAgentItem(item)
     && (item.data.status === undefined || item.data.status === 'active')).sort(titleOrder);
   const allCards = listCards(ctx, { includeDone: true }, all.filter((item) => item.type === 'card'));
   // Agent work has its own board: Home lists only the owner's open cards and counts agent cards per visible column.
@@ -88,6 +92,8 @@ export function homeView(ctx, opts = {}) {
     try { featuredProject = entity.resolve(ctx, 'project', configured).id; } catch {
       // A configured feature is optional; any read failure uses the computed fallback.
     }
+    // The agents project is not on the owner's Home, so it cannot be its featured project either.
+    if (agents !== null && featuredProject === agents.id) featuredProject = null;
   }
   if (featuredProject === null && projects.length) {
     const counts = new Map();
@@ -107,7 +113,7 @@ export function homeView(ctx, opts = {}) {
     return shown.data.items;
   };
   return { data: {
-    pinned: shape(all.filter((item) => item.data.pinned === true).sort(newest)),
+    pinned: shape(all.filter((item) => item.data.pinned === true && !isAgentItem(item)).sort(newest)),
     recentNotes: shape(all.filter((item) => item.type === 'note' && item.kind === 'note').sort(newest).slice(0, 10)),
     // Stable sorting preserves listCards' position and path order within each priority.
     openCards: shape(cards.sort((a, b) => (priorities.get(a.data.priority) ?? 3) - (priorities.get(b.data.priority) ?? 3)).slice(0, 50)),
@@ -115,8 +121,8 @@ export function homeView(ctx, opts = {}) {
     projects: shape(projects), featuredProject,
     // Additive: lets the Home page show the journal panel only when some journal entry exists.
     journalCount: all.filter((item) => item.type === 'journal').length,
-    // Additive: null when no agents project is configured; otherwise the visible columns holding agent cards.
-    agents: agentColumns,
+    // Owner scope only: null when no agents project is configured; otherwise the visible columns holding agent cards.
+    ...(scope === 'owner' ? { agents: agentColumns } : {}),
   }, warnings, journalEntity: today };
 }
 
@@ -134,7 +140,8 @@ export function boardView(ctx, opts = {}, { scope } = {}) {
     : ctx.config.columns.filter((column) => (column.hidden === true) === (scope === 'archive'));
   const columns = shownColumns.map(({ key, label, role, hidden }) => {
     const items = cards.filter((card) => effectiveColumn(ctx.config, card).key === key);
-    const recent = role === 'done' && hidden !== true ? new Set([...items].sort(newest).slice(0, 50)) : null;
+    // The archive view lists every archived card; everywhere else a done column shows its 50 newest.
+    const recent = role === 'done' && scope !== 'archive' ? new Set([...items].sort(newest).slice(0, 50)) : null;
     const shown = result(ctx, recent ? items.filter((item) => recent.has(item)) : items, opts);
     warnings.push(...shown.warnings);
     return { key, label, role, ...(hidden === true ? { hidden } : {}), cards: shown.data.items, total: items.length };
