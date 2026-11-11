@@ -119,9 +119,10 @@ export function createRead({ open, render = createRenderPool().render }) {
     return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
   };
   return {
-    async board() {
+    /** @param {{ scope?: 'owner' | 'agents' | 'archive' }} [options] */
+    async board({ scope } = {}) {
       const ctx = await openRead();
-      const view = boardView(ctx);
+      const view = boardView(ctx, {}, { scope });
       joinProjects(view, projectMap(ctx));
       return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
     },

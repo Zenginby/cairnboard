@@ -1,0 +1,29 @@
+---
+import EntityMeta from './EntityMeta.astro';
+import { t } from '../i18n/index.mjs';
+// `add`: each column links to the new-card form; `updated`: cards show when they last changed (agent work).
+const { columns, add = true, updated = false } = Astro.props;
+---
+<div class="board" role="region" aria-label={t('board.columns')} tabindex="0">
+  {columns.map((column, index) => <section class="board-column" aria-labelledby={`column-${index}`}>
+    <header class="column-heading">
+      <h2 id={`column-${index}`}>{column.label}</h2><span class="panel-count">{column.total}</span>
+      {column.role === 'done' && column.total > column.cards.length
+        && <span class="panel-count">{t('board.recent')}</span>}
+    </header>
+    {add && <a class="action-link column-add" href={`/cards/new?column=${encodeURIComponent(column.key)}`}
+      aria-label={`${t('card.add')}: ${column.label}`}>
+      {t('card.add')}
+    </a>}
+    {column.cards.length ? <ul class="board-cards">{column.cards.map((card) => <li
+      id={card.id ? `card-${card.id}` : undefined}>
+      {card.id ? <a class="board-card" href={`/cards/${encodeURIComponent(card.id)}`}>
+        <h3>{card.content.title || t('home.untitled')}</h3>
+        <EntityMeta item={card} updated={updated} />
+      </a> : <div class="board-card">
+        <h3>{card.content.title || t('home.untitled')}</h3>
+        <EntityMeta item={card} updated={updated} />
+      </div>}
+    </li>)}</ul> : <p class="column-empty">{t('board.empty')}</p>}
+  </section>)}
+</div>

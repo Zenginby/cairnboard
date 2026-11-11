@@ -29,6 +29,12 @@ never in the data folder.
 
 The cookie-protected read API serves `/api/home`, `/api/board`, `/api/cards/:id` and `/api/notes/:id` via GET (HEAD is also supported).
 
+**Agent board.** Keep agent work in one project and name it in `.cairn/config.json` as
+`"agents": { "project": "<project-id>" }`. Its cards then leave the main board and Home and appear on `/agents` (the
+robot button beside search); Home shows how many sit in each column. A column with `"hidden": true` (for example
+`{ "key": "archive", "label": "Archive", "role": "done", "hidden": true }`) is left off both boards: move reviewed
+agent cards there and open them from the board's Archive link. The CLI and the API still list every column and card.
+
 ### CLI
 
 Requires Node.js ≥ 22.23.4. From a fresh clone:
@@ -371,6 +377,13 @@ olmayan tarayıcı `cairn open` çalıştırmanızı isteyen bir sayfa görür. 
 durum klasöründe tutulur.
 
 Oturum çereziyle korunan okuma API’si `/api/home`, `/api/board`, `/api/cards/:id` ve `/api/notes/:id` yollarında yalnız GET sunar (HEAD de desteklenir).
+
+**Ajan panosu.** Ajan işlerini bir projede toplayın ve `.cairn/config.json` dosyasına
+`"agents": { "project": "<proje-kimliği>" }` olarak yazın. Bu projenin kartları ana panodan ve Ana sayfadan çıkar,
+`/agents` sayfasında (aramanın yanındaki robot düğmesi) görünür; Ana sayfa her sütunda kaç iş olduğunu gösterir.
+`"hidden": true` taşıyan sütun (örneğin `{ "key": "archive", "label": "Arşiv", "role": "done", "hidden": true }`) iki
+panoda da görünmez: incelenen ajan kartlarını oraya taşıyın, panonun Arşiv bağlantısından açın. CLI ve API bütün
+sütunları ve kartları listelemeyi sürdürür.
 
 ### CLI
 

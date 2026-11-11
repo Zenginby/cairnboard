@@ -12,7 +12,6 @@ const { title = t('shell.home'), current, surface = false, live = '', searchPage
 const tabs = [
   { href: '/', label: 'shell.home' },
   { href: '/board', label: 'shell.board' },
-  { href: '/settings', label: 'shell.settings' },
 ];
 // Settings > Live updates: when off the page carries no script, no status line and no live region; unknown means on.
 const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
@@ -35,15 +34,32 @@ const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect class="brand-one" x="1" y="1" width="9" height="9" rx="2"/><rect class="brand-two" x="14" y="1" width="9" height="9" rx="2"/><rect class="brand-three" x="1" y="14" width="9" height="9" rx="2"/><rect class="brand-four" x="14" y="14" width="9" height="9" rx="2"/></svg>
           {t('app.name')}
         </a>
+        <div class="shell-actions">
         <a class="shell-search" href="/search" data-search-open aria-current={searchPage ? 'page' : undefined}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg>
           <span class="search-caption">{t('search.button')}</span>
           <kbd class="search-key" data-shortcut aria-hidden="true">⌘K</kbd>
         </a>
+        {/* Settings and the agent board are round icon buttons beside search, not tabs. */}
+        <a class="shell-icon" href="/settings" aria-label={t('shell.settings')} title={t('shell.settings')}
+          aria-current={current === '/settings' ? 'page' : undefined}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7"/>
+            <path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9 7 7m10 10 2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>
+          </svg>
+        </a>
+        <a class="shell-icon" href="/agents" aria-label={t('shell.agents')} title={t('shell.agents')}
+          aria-current={current === '/agents' ? 'page' : undefined}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="4" y="8" width="16" height="12" rx="3"/><circle cx="12" cy="3.5" r="1"/>
+            <path d="M12 4.5V8M9 13v1m6-1v1M2 13v3m20-3v3"/>
+          </svg>
+        </a>
         <button type="button" class="theme-toggle" data-theme-toggle data-dark-label={t('shell.dark')} data-light-label={t('shell.light')} aria-label={t('shell.dark')}>
           <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg>
           <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z"/></svg>
         </button>
+        </div>
       </div>
       <nav class="app-navigation" aria-label={t('shell.navigation')}>
         <div class="app-tabs">

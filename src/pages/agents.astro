@@ -1,0 +1,42 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import PageState from '../components/PageState.astro';
+import ReadWarnings from '../components/ReadWarnings.astro';
+import BoardColumns from '../components/BoardColumns.astro';
+import { t } from '../i18n/index.mjs';
+
+// Agent work: the cards of the configured agents project. `?archive` shows the hidden columns they are moved to
+// once reviewed, so the board itself stays short.
+const archive = Astro.url.searchParams.has('archive');
+let result, state;
+try {
+  result = await Astro.locals.cairn.board({ scope: archive ? 'archive' : 'agents' });
+} catch (error) {
+  state = error?.code === 'data_not_ready' ? 'notReady' : 'error';
+  Astro.response.status = state === 'notReady' ? 409 : 500;
+  if (state === 'error') console.error(error);
+}
+const data = result?.data;
+const title = t(archive ? 'agents.archiveTitle' : 'agents.title');
+---
+<AppShell live="card project board" title={title} current="/agents" surface>
+  {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'board.errorTitle'}
+    message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'} /> : <>
+    <ReadWarnings codes={result.warnings} />
+    <header class="screen-heading agents-heading">
+      <h1>{title}</h1>
+      {data.agentProject && (archive
+        ? <a class="action-link" href="/agents">{t('agents.back')}</a>
+        : data.archived > 0 && <a class="action-link" href="/agents?archive">
+          {t('agents.archive')} <span class="panel-count">{data.archived}</span></a>)}
+    </header>
+    {data.agentProject === null
+      ? <section class="panel agents-setup"><h2>{t('agents.setupTitle')}</h2>
+        <p class="panel-subtitle">{t('agents.setupBody')}</p>
+        <pre class="agents-setup-code"><code>{'"agents": { "project": "<project-id>" }'}</code></pre></section>
+      : data.columns.length
+        ? <BoardColumns columns={data.columns} add={false} updated />
+        : <p class="column-empty agents-empty">{t(archive ? 'agents.archiveEmpty' : 'board.empty')}</p>}
+  </>}
+  <script src="../scripts/board-focus.js"></script>
+</AppShell>

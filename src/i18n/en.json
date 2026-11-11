@@ -201,5 +201,16 @@
   "card.blockedTitle": "The card file needs repair",
   "card.blocked":
 "This card cannot be changed here: its id is used twice or its front matter is not supported.",
-  "card.acceptanceItem": "Acceptance item {n}"
+  "card.acceptanceItem": "Acceptance item {n}",
+  "shell.agents": "Agent board",
+  "agents.title": "Agent board",
+  "agents.archiveTitle": "Agent archive",
+  "agents.archive": "Archive",
+  "agents.back": "Back to the agent board",
+  "agents.archiveEmpty": "No agent work in the archive.",
+  "agents.setupTitle": "No agents project chosen",
+  "agents.setupBody":
+"Put agent work in one project and write its id to .cairn/config.json; its cards stay off the main board.",
+  "home.agents": "Agent work",
+  "home.agentsOpen": "Open the agent board"
 }

@@ -60,9 +60,16 @@ export function validate(config) {
   for (const column of config.columns) {
     if (!column || typeof column.key !== 'string' || !/^[a-z][a-z0-9-]*$/u.test(column.key)
       || typeof column.label !== 'string' || !column.label.trim() || !['todo', 'doing', 'done'].includes(column.role)
-      || keys.has(column.key)) throw invalid();
+      || keys.has(column.key)
+      || (column.hidden !== undefined && typeof column.hidden !== 'boolean')) throw invalid();
     keys.add(column.key);
   }
+  // `hidden`: the web board leaves the column out (an archive); the CLI and card moves still use it.
+  if (config.columns.every((column) => column.hidden === true)) throw invalid();
+  // `agents.project`: the project whose cards form the agent board instead of the owner's board.
+  const { agents } = config;
+  if (agents !== undefined && (!agents || typeof agents !== 'object' || Array.isArray(agents)
+    || (agents.project !== undefined && typeof agents.project !== 'string'))) throw invalid();
   resolveSchema(config);
   validateLint(config.lint);
   validateRules(config.rules);

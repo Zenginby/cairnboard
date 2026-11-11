@@ -35,6 +35,15 @@ const showEmpty = Boolean(data) && !projects.length && !hasContent;
         <p class="hero-summary">{t('home.summary')}</p>
         <a class="action-link" href="/board">{t('home.board')}</a>
       </section>
+      {data.agents && <section class="panel agents-box" aria-labelledby="agents-title">
+        <header class="panel-header"><h2 id="agents-title">{t('home.agents')}</h2>
+          <span class="panel-count">{data.agents.reduce((total, column) => total + column.count, 0)}</span></header>
+        {data.agents.length > 0 && <ul class="agents-counts">{data.agents.map((column) => <li>
+          <span class:list={['chip', column.role !== 'todo' && `status-${column.role}`]}>{column.label}</span>
+          <span class="panel-count">{column.count}</span>
+        </li>)}</ul>}
+        <a class="action-link" href="/agents">{t('home.agentsOpen')}</a>
+      </section>}
       <HomeList items={data.pinned} title="home.pinned" subtitle="home.pinnedSubtitle" className="pinned" />
       {projects.length ? projects.map((project, index) => {
         const featured = project.id !== null && project.id === data.featuredProject;

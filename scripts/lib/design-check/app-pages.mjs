@@ -26,6 +26,7 @@ export function selectAppPages(ctx, only = null) {
     { name: 'settings', path: '/settings' },
     { name: 'cards-new', path: '/cards/new' },
     { name: 'card-edit', path: `/cards/${encodeURIComponent(card.id)}/edit` },
+    { name: 'agents', path: '/agents' },
   ];
   if (only === null) return pages;
   const selected = pages.filter((page) => page.name === only);
