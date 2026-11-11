@@ -20,12 +20,13 @@ import { spawnCli } from './support/cli.mjs';
 import { tempDir } from './support/env.mjs';
 import { liveBudgetMs, liveCleanup, liveUnavailable } from './support/live.mjs';
 
-function focusedFieldFixture(type = 'text', { outside = false } = {}) {
+function focusedFieldFixture(type = 'text', { outside = false, blurred = false, pristine = false } = {}) {
   const handlers = new Map();
   const status = { textContent: '', dataset: { updated: 'Updated' } };
   const selectable = !['checkbox', 'file'].includes(type);
   const field = (value) => {
-    const element = { id: 'search-query', tagName: 'INPUT', type, isConnected: true,
+    const element = { id: 'search-query', tagName: type === 'textarea' ? 'TEXTAREA' : 'INPUT', type, isConnected: true,
+      defaultValue: pristine ? value : '',
       selectionStart: selectable ? value.length : null, selectionEnd: selectable ? value.length : null,
       getAttribute: () => null,
       focus() { document.activeElement = this; },
@@ -45,13 +46,14 @@ function focusedFieldFixture(type = 'text', { outside = false } = {}) {
   const other = field('elsewhere');
   let current = field('pla'), nextHTML = '<input id="search-query" value="plan"><p>New results</p>';
   const region = { dataset: { live: 'card' }, innerHTML: '<input id="search-query" value=""><p>Old results</p>',
-    contains: (element) => element === current, querySelectorAll: () => [],
+    contains: (element) => element === current,
+    querySelectorAll: (selector) => selector === 'input, textarea' ? [current] : [],
     focus() { document.activeElement = this; },
     replaceChildren(...nodes) {
       current.isConnected = false; current = field('plan'); this.innerHTML = nodes.join('');
     } };
   const events = [];
-  const document = { visibilityState: 'visible', activeElement: current,
+  const document = { visibilityState: 'visible', activeElement: blurred ? other : current,
     querySelector: (selector) => selector === '[data-live]' ? region : status,
     getElementById: (id) => (id !== 'search-query' ? null : outside ? other : current), addEventListener() {},
     dispatchEvent(event) { events.push(event.type); return true; } };
@@ -120,6 +122,78 @@ test('live swap leaves an element with the same id outside the region alone', as
   assert.equal(f.other.value, 'elsewhere');
   assert.notEqual(f.document.activeElement, f.other);
   assert.equal(f.status.textContent, 'Updated');
+});
+
+test('live swap keeps an unfocused comment draft without moving focus to it', async () => {
+  const f = focusedFieldFixture('textarea', { blurred: true });
+  f.current().value = 'A comment\nwith two lines';
+  await f.swap();
+  assert.equal(f.current().value, 'A comment\nwith two lines');
+  assert.equal(f.document.activeElement, f.other);
+  assert.equal(f.status.textContent, 'Updated');
+});
+
+test('live swap refreshes pristine fields but keeps a draft cleared by the owner', async () => {
+  const pristine = focusedFieldFixture('textarea', { blurred: true, pristine: true });
+  await pristine.swap();
+  assert.equal(pristine.current().value, 'plan', 'an untouched field gets the server value');
+  const cleared = focusedFieldFixture('textarea', { blurred: true, pristine: true });
+  cleared.current().value = '';
+  await cleared.swap();
+  assert.equal(cleared.current().value, '', 'deleting the default text is also a draft');
+});
+
+test('live swap keeps a choice the owner changed in a select while the option still exists', async () => {
+  const run = async (options, picked, nextOptions) => {
+    const handlers = new Map();
+    const select = (values, chosen) => {
+      const list = values.map((value, index) => ({ value, defaultSelected: index === 0,
+        selected: value === chosen }));
+      const element = { id: 'card-column', tagName: 'SELECT', options: list, isConnected: true };
+      Object.defineProperty(element, 'value', { get: () => list.find((option) => option.selected)?.value,
+        set(next) { for (const option of list) option.selected = option.value === next; } });
+      return element;
+    };
+    let current = select(options, picked);
+    const body = { isConnected: true, tagName: 'BODY', getAttribute: () => null };
+    const region = { dataset: { live: 'card' }, innerHTML: 'old', contains: (element) => element === current,
+      querySelectorAll: (selector) => (selector === 'select' ? [current] : []), focus() {},
+      replaceChildren() { current = select(nextOptions, nextOptions[0]); this.innerHTML = 'new'; } };
+    const status = { textContent: '', dataset: { updated: 'Updated' } };
+    const document = { visibilityState: 'visible', activeElement: body, addEventListener() {},
+      querySelector: (selector) => (selector === '[data-live]' ? region : status),
+      getElementById: (id) => (id === 'card-column' ? current : null) };
+    runInNewContext(readFileSync(new URL('../src/scripts/live-updates.js', import.meta.url), 'utf8'), {
+      document, location: { href: 'http://example.test/cards/c-000000' },
+      EventSource: class { addEventListener(type, handler) { handlers.set(type, handler); } },
+      DOMParser: class {
+        parseFromString() { return { title: '', querySelector: () => ({ innerHTML: 'new', childNodes: [] }) }; }
+      },
+      window: { scrollX: 0, scrollY: 0, scrollTo() {}, addEventListener() {} },
+      fetch: async () => ({ ok: true, text: async () => 'new' }), setTimeout() {}, clearTimeout() {},
+    });
+    handlers.get('change')({ data: '{"kinds":["card"]}' });
+    await setImmediate();
+    assert.equal(status.textContent, 'Updated');
+    return current.value;
+  };
+  assert.equal(await run(['todo', 'doing', 'done'], 'done', ['todo', 'doing', 'done']), 'done');
+  const all = ['todo', 'doing', 'done'];
+  assert.equal(await run(all, 'todo', ['doing', 'done']), 'doing', 'an untouched select refreshes');
+  assert.equal(await run(all, 'done', ['todo', 'doing']), 'todo', 'a vanished option is not kept');
+});
+
+test('live swap leaves unfocused non-text fields and matching ids outside the region alone', async () => {
+  for (const type of ['checkbox', 'file', 'hidden']) {
+    const f = focusedFieldFixture(type, { blurred: true });
+    await f.swap();
+    assert.equal(f.current().value, 'plan');
+    assert.equal(f.status.textContent, 'Updated');
+  }
+  const outside = focusedFieldFixture('textarea', { blurred: true, outside: true });
+  await outside.swap();
+  assert.equal(outside.other.value, 'elsewhere');
+  assert.equal(outside.status.textContent, 'Updated');
 });
 
 test('Board moves a CLI-claimed card without navigation or CSP and console errors', async (t) => {

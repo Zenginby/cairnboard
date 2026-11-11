@@ -98,7 +98,14 @@ export async function inspectFocus() {
     const rect = node.getBoundingClientRect();
     const style = getComputedStyle(node);
     // A region taller than the viewport (a focusable scroll container) can never fit; its top edge must be on screen.
-    const fitsY = rect.height > innerHeight ? rect.top < innerHeight && rect.bottom > 0 : rect.top >= -1 && rect.bottom <= innerHeight + 1;
+    // Focusing a multi-line text field reveals its caret line, not the whole box: its first line must fit, and
+    // the page must be able to scroll on to the rest.
+    const line = parseFloat(style.paddingTop) + (parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5);
+    const page = document.scrollingElement;
+    const more = page && page.scrollTop + innerHeight < page.scrollHeight - 1;
+    const bottom = node.tagName === 'TEXTAREA' && more ? rect.top + Math.min(rect.height, line) : rect.bottom;
+    const fitsY = rect.height > innerHeight ? rect.top < innerHeight && rect.bottom > 0
+      : rect.top >= -1 && bottom <= innerHeight + 1;
     if (!rect.width || !rect.height || rect.left < -1 || rect.right > innerWidth + 1 || !fitsY || ['hidden', 'collapse'].includes(style.visibility)) return false;
     for (let parent = node; parent; parent = parent.parentElement) {
       if (Number(getComputedStyle(parent).opacity) === 0) return false;

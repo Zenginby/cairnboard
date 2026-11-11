@@ -3,21 +3,76 @@ import AppShell from '../../layouts/AppShell.astro';
 import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
 import ReadDocument from '../../components/ReadDocument.astro';
+import { cardControls } from '../../../server/card-controls.mjs';
 import { t } from '../../i18n/index.mjs';
 
-let result, state;
+let result, state, view, wired = new Set();
 try {
-  result = await Astro.locals.cairn.card(Astro.params.id);
+  // The page and the forms come from two reads: button labels from the first, item numbers and marks
+  // from the second. Both must describe the same file, so retry a changed file, then show no forms.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    result = await Astro.locals.cairn.card(Astro.params.id);
+    if (!result.data.id || !Astro.locals.cards) { view = undefined; break; }
+    view = await Astro.locals.cards.view(Astro.request.headers.get('cookie'), result.data.id);
+    if (view.state !== 'ready' || view.card?.revision === result.data.revision) break;
+    view = { ...view, state: 'changed' };
+  }
+  if (view) {
+    if (view.state === 'ready') {
+      const controls = cardControls(result.data.content.html, view.items);
+      result.data.content.html = controls.html;
+      wired = controls.wired;
+    }
+  }
 } catch (error) {
   state = error?.code === 'data_not_ready' ? 'notReady' : error?.code === 'entity_not_found' ? 'notFound' : 'server';
   Astro.response.status = state === 'notReady' ? 409 : state === 'notFound' ? 404 : 500;
   // Match the API: unexpected failures reach the server log, the page shows only a generic message.
   if (state === 'server') console.error(error);
 }
+const writable = !state && view?.state === 'ready';
+if (writable) Astro.response.headers.set('Referrer-Policy', 'same-origin');
+const id = result?.data.id;
+const items = writable ? view.items : [];
+const columns = writable ? view.columns.filter((column) => column.key !== result.data.column.key) : [];
 ---
 <AppShell live="card project board" title={result?.data.content.title || t('type.card')} current="/board" surface>
+  {writable && <meta slot="head" name="referrer" content="same-origin" />}
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`} message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'} status={Astro.response.status} /> : <>
     <ReadWarnings codes={result.warnings} />
-    <ReadDocument item={result.data} />
+    <ReadDocument item={result.data}>
+      {writable && <div slot="actions" class="card-actions">
+        <a href={`/cards/${id}/edit`}>{t('card.edit')}</a>
+        {columns.length > 0 && <form class="card-actions" method="post" action={`/cards/${id}/move`}>
+          <input type="hidden" name="csrf" value={view.csrf} />
+          <label class="card-field" for="card-column">{t('card.column')}
+            <select id="card-column" name="column" required>
+              {columns.map((column) => <option value={column.key}>{column.label}</option>)}
+            </select>
+          </label>
+          <button class="action-link" type="submit">{t('card.move')}</button>
+        </form>}
+      </div>}
+      {writable && <div slot="after-body">
+        {items.map((item) => <form id={`card-check-${item.n}`} method="post" action={`/cards/${id}/check`}>
+          <input type="hidden" name="csrf" value={view.csrf} />
+          <input type="hidden" name="n" value={item.n} />
+          <input type="hidden" name="checked" value={item.checked ? 'off' : 'on'} />
+          <input type="hidden" name="mark" value={item.mark} />
+          {!wired.has(item.n) && <button class="card-check" type="submit" role="checkbox"
+            aria-checked={item.checked} aria-label={item.text || t('card.acceptanceItem', { n: item.n })}>
+            <span aria-hidden="true">{item.checked ? '☑' : '☐'}</span>
+            {item.text || t('card.acceptanceItem', { n: item.n })}
+          </button>}
+        </form>)}
+        <form id="comments" class="card-form" method="post" action={`/cards/${id}/comment`}>
+          <input type="hidden" name="csrf" value={view.csrf} />
+          <label class="card-field" for="card-comment">{t('card.comment')}
+            <textarea id="card-comment" name="text" rows="4" required maxlength="2000"></textarea>
+          </label>
+          <button class="action-link" type="submit">{t('card.addComment')}</button>
+        </form>
+      </div>}
+    </ReadDocument>
   </>}
 </AppShell>

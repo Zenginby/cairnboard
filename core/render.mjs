@@ -8,8 +8,9 @@ import rehypeStringify from 'rehype-stringify';
 import { linkTarget } from './links.mjs';
 import { normalizeId, isNoteKey } from './ids.mjs';
 import { slugify, stripHidden } from './text.mjs';
+import { acceptanceItems } from './frontmatter.mjs';
 
-export const RENDER_POLICY = '2';
+export const RENDER_POLICY = '3';
 const MAX_INPUT = 5 * 1024 * 1024;
 const MAX_ENTRIES = 200;
 const MAX_HTML = 20 * 1024 * 1024;
@@ -27,7 +28,7 @@ const schema = {
     ul: [['className', 'contains-task-list']],
     ol: ['start', ['className', 'contains-task-list']],
     li: [['className', 'task-list-item']],
-    input: [['type', 'checkbox'], ['disabled', true], 'checked', 'ariaLabel'],
+    input: [['type', 'checkbox'], ['disabled', true], 'checked', 'ariaLabel', 'dataAcceptance'],
     th: ['align'], td: ['align'],
   },
   protocols: { href: ['http', 'https', 'mailto', 'obsidian'] },
@@ -116,14 +117,19 @@ function textOf(node) {
   return node.type === 'text' ? node.value : (node.children ?? []).map(textOf).join('');
 }
 
+// Labels every task checkbox and marks those the core counts as Acceptance items with their one-based number, so
+// a page can offer exactly the items `card check` would change. The number comes from the item's source line.
 function taskLabels() {
-  return (tree) => {
+  return (tree, file) => {
+    const numbers = file.data.acceptance ?? new Map();
     function walk(node, item) {
       if (node.type === 'element' && node.tagName === 'li') {
         item = node.properties.className?.includes('task-list-item') ? node : null;
       }
       if (item && node.type === 'element' && node.tagName === 'input' && node.properties.type === 'checkbox') {
         node.properties.ariaLabel = textOf(item).trim().slice(0, 120).trimEnd();
+        const number = numbers.get(item.position?.start.line);
+        if (number) node.properties.dataAcceptance = number;
       }
       for (const child of node.children ?? []) walk(child, item);
     }
@@ -174,15 +180,19 @@ function render(markdown, { resolveLink = () => null } = {}) {
     }
     return [node];
   });
+  // Hidden characters are stripped for display only; the core reads the stored text, so items are counted there.
+  // Stripping never removes a line feed, so line numbers agree.
+  const acceptance = new Map(acceptanceItems(markdown).map((item, index) => [item.line, index + 1]));
   const digest = createHash('sha256').update(cleaned).update('\0').update(RENDER_POLICY)
-    .update('\0').update(JSON.stringify([...resolutions])).digest('hex');
+    .update('\0').update(JSON.stringify([...resolutions])).update('\0').update(JSON.stringify([...acceptance]))
+    .digest('hex');
   const hit = cache.get(digest);
   if (hit) {
     cache.delete(digest);
     cache.set(digest, hit);
     return { html: hit.html };
   }
-  const html = processor.stringify(processor.runSync(tree, { data: { resolutions } }));
+  const html = processor.stringify(processor.runSync(tree, { data: { resolutions, acceptance } }));
   const bytes = Buffer.byteLength(html, 'utf8');
   if (bytes <= MAX_HTML) {
     cache.set(digest, { html, bytes });
