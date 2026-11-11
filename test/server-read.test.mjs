@@ -31,7 +31,7 @@ function fixture(t, body) {
 test('in-process Home returns the CLI envelope and combines context and view warnings', async (t) => {
   const { ctx } = fixture(t);
   ctx.warnings.push('pending_recovery', 'pending_recovery');
-  const view = homeView(ctx);
+  const view = homeView(ctx, {}, { scope: 'owner' });
   let opens = 0;
   const reader = createRead({ open: () => { opens++; return ctx; } });
   const result = await reader.home();

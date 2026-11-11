@@ -267,7 +267,11 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.equal(page.status, 200);
   assert.equal(page.headers['referrer-policy'], 'same-origin');
   assert.match(page.body, /<meta name="referrer" content="same-origin"/u);
-  assert.match(page.body, /href="\/settings" aria-current="page"/u);
+  // Settings is a round icon button beside search, not a tab.
+  const settingsButton = new RegExp('<a class="shell-icon" href="/settings" aria-label="[^"]+" title="[^"]+"'
+    + ' aria-current="page">', 'u');
+  assert.match(page.body, settingsButton);
+  assert.doesNotMatch(page.body, /<div class="app-tabs">[^]*?href="\/settings"[^]*?<\/nav>/u);
   assert.equal([...page.body.matchAll(/<form method="post" action="\/settings\/feature"/gu)].length, 4);
   const tokens = [...page.body.matchAll(/name="csrf" value="([^"]+)"/gu)].map((match) => match[1]);
   assert.equal(tokens.length, 5);

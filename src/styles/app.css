@@ -19,9 +19,35 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .app-tabs { display: flex; gap: var(--space-2xs); padding: var(--space-xs); border-radius: var(--radius-full); background: var(--color-pill-bg); }
 .app-tabs a { display: flex; align-items: center; min-height: calc(var(--space-md) * 2); padding-inline: var(--space-md); border-radius: var(--radius-full); color: var(--color-text-2); font-size: var(--font-ui-size); font-weight: var(--font-ui-weight); text-decoration: none; }
 .app-tabs a[aria-current="page"] { background: var(--color-pill-indicator); color: var(--color-text); box-shadow: var(--shadow-indicator); }
-.theme-toggle { display: grid; place-items: center; width: calc(var(--space-xl) + var(--space-xs)); height: calc(var(--space-xl) + var(--space-xs)); padding: var(--space-10); border: 0; border-radius: var(--radius-full); background: var(--color-pill-bg); color: var(--color-text); cursor: pointer; }
-.theme-toggle svg { grid-area: 1 / 1; width: var(--space-lg); height: var(--space-lg); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.theme-toggle, .shell-icon {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-xl) + var(--space-xs));
+  height: calc(var(--space-xl) + var(--space-xs));
+  padding: var(--space-10);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-pill-bg);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.theme-toggle svg, .shell-icon svg {
+  grid-area: 1 / 1;
+  width: var(--space-lg);
+  height: var(--space-lg);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .theme-toggle .moon, [data-mode="dark"] .theme-toggle .sun { visibility: hidden; }
+.shell-icon { flex: none; color: var(--color-text-2); }
+.shell-icon[aria-current="page"] {
+  background: var(--color-pill-indicator);
+  color: var(--color-text);
+  box-shadow: var(--shadow-indicator);
+}
 [data-mode="dark"] .theme-toggle .moon { visibility: visible; }
 .page-frame { max-width: calc(var(--space-content-max) + var(--space-md) * 2); margin-inline: auto; padding: var(--space-lg) var(--space-md) calc(var(--space-xl) * 2); }
 .bento { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-md); align-items: stretch; }
@@ -37,6 +63,30 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .action-link { display: inline-flex; align-items: center; min-height: calc(var(--space-xl) + var(--space-xs)); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-full); background: var(--color-surface-inset); color: var(--color-text); font-size: var(--font-ui-size); font-weight: var(--font-ui-weight); text-decoration: none; }
 .pinned, .recent, .today, .project-box { grid-column: span 2; }
 .ongoing { grid-column: span 4; grid-row: span 2; }
+.agents-box { grid-column: span 2; display: flex; flex-direction: column; gap: var(--space-md); }
+.agents-box .action-link { align-self: flex-start; margin-top: auto; }
+.agents-counts { display: grid; gap: var(--space-sm); list-style: none; margin: 0; padding: 0; }
+.agents-counts li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.agents-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.agents-heading .action-link { gap: var(--space-xs); }
+.agents-setup { max-width: calc(var(--space-content-max) * 0.6); margin-top: var(--space-lg); }
+.agents-setup-code {
+  margin: var(--space-md) 0 0;
+  padding: var(--space-md);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--color-surface-inset);
+  font-family: var(--font-code-family);
+  font-size: var(--font-small-size);
+}
+.agents-empty { margin-top: var(--space-lg); padding: 0; }
 .summary-list { list-style: none; padding: 0; margin: var(--space-sm) 0 0; }
 .summary-list > li + li { border-top: var(--space-hairline) solid var(--color-line); }
 .summary-row { display: flex; align-items: start; justify-content: space-between; gap: var(--space-sm); padding-block: var(--space-14); font-family: var(--font-row-family); font-size: var(--font-row-size); line-height: var(--font-row-line-height); }
@@ -167,8 +217,8 @@ a, button { -webkit-tap-highlight-color: transparent; }
   border: 0;
 }
 /* Top bar search link (the ⌘K dialog opens from it once its script runs) and the /search page. */
+.shell-actions { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; margin-inline-start: auto; }
 .shell-search {
-  margin-inline-start: auto;
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
@@ -535,13 +585,18 @@ a, button { -webkit-tap-highlight-color: transparent; }
   font-family: var(--font-code-family);
   text-align: center;
 }
-.app-tabs a, .theme-toggle, .action-link, .row-title { transition: background-color var(--motion-duration-quick) var(--motion-ease-out), color var(--motion-duration-quick) var(--motion-ease-out); }
+.app-tabs a, .theme-toggle, .shell-icon, .action-link, .row-title {
+  transition: background-color var(--motion-duration-quick) var(--motion-ease-out),
+    color var(--motion-duration-quick) var(--motion-ease-out);
+}
 .shell-search, .search-filter, .search-submit, .search-row {
   transition: background-color var(--motion-duration-quick) var(--motion-ease-out),
     color var(--motion-duration-quick) var(--motion-ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
-  .app-tabs a:hover, .theme-toggle:hover, .action-link:hover { background-color: var(--color-surface-inset-2); }
+  .app-tabs a:hover, .theme-toggle:hover, .shell-icon:hover, .action-link:hover {
+    background-color: var(--color-surface-inset-2);
+  }
   .row-title:hover { color: var(--color-link); }
   .shell-search:hover, .search-filter:hover, .search-submit:hover { background-color: var(--color-surface-inset-2); }
   .search-row:hover { background-color: var(--color-surface-inset); }
@@ -571,7 +626,10 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 @media (max-width: 64rem) {
   .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hero, .project-featured { grid-column: span 2; }
-  .pinned, .recent, .today, .project-box:not(.project-featured), .ongoing { grid-column: span 1; grid-row: auto; }
+  .pinned, .recent, .today, .project-box:not(.project-featured), .ongoing, .agents-box {
+    grid-column: span 1;
+    grid-row: auto;
+  }
 }
 @media (max-width: 40rem) {
   .app-shell { padding-inline: var(--space-md); }

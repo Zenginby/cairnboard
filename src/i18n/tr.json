@@ -202,5 +202,16 @@
   "card.blockedTitle": "Kart dosyası onarım istiyor",
   "card.blocked":
 "Bu kartın dosyası buradan değiştirilemiyor: kimliği yineleniyor ya da üst bilgisi desteklenmiyor.",
-  "card.acceptanceItem": "Kabul maddesi {n}"
+  "card.acceptanceItem": "Kabul maddesi {n}",
+  "shell.agents": "Ajan panosu",
+  "agents.title": "Ajan panosu",
+  "agents.archiveTitle": "Ajan arşivi",
+  "agents.archive": "Arşiv",
+  "agents.back": "Ajan panosuna dön",
+  "agents.archiveEmpty": "Arşivde ajan işi yok.",
+  "agents.setupTitle": "Ajan projesi seçilmedi",
+  "agents.setupBody":
+"Ajan işlerini bir projede topla, kimliğini .cairn/config.json dosyasına yaz; kartları ana panoda görünmez.",
+  "home.agents": "Ajan işleri",
+  "home.agentsOpen": "Ajan panosunu aç"
 }
