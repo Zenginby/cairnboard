@@ -175,6 +175,35 @@ test('Card side panel limits open cards from the same project to eight', async (
   assert.ok(result.data.relatedCards.every((card) => !['c-000001', 'c-000003', 'c-000004'].includes(card.id)));
 });
 
+test('Project cover lists open owner cards with columns, counts done cards and links newest notes', async (t) => {
+  const { open, put } = documentFixture(t);
+  put('cards/urgent.md',
+    { id: 'c-000010', title: 'Urgent', column: 'planned', priority: 'urgent', project: 'p-000001' });
+  put('cards/other-project.md', { id: 'c-000011', title: 'Beta work', column: 'planned', project: 'p-000002' });
+  put('notes/beta.md', { id: 'n-000002', title: 'Beta note', project: 'p-000002' });
+  put('notes/newer.md', { id: 'n-000003', title: 'Newer', project: 'p-000001', updated: '2026-11-05T00:00:00Z' });
+  const reader = createRead({ open, render: () => ({ html: '<p>Safe body</p>' }) });
+  const { data, warnings } = await reader.project('p-000001');
+  assert.equal(data.content.title, 'Alpha');
+  assert.equal(data.content.html, '<p>Safe body</p>');
+  assert.equal(data.tone, 3);
+  assert.deepEqual(data.openCards.map((card) => card.id).sort(), ['c-000001', 'c-000002', 'c-000010']);
+  assert.equal(data.openCards.find((card) => card.id === 'c-000001').column.key, 'doing');
+  assert.equal(data.doneCount, 1);
+  assert.deepEqual(data.notes.map((note) => note.ref), ['n-000003', 'n-000001']);
+  assert.equal(data.notesTotal, 2);
+  assert.ok(Array.isArray(warnings));
+  const beta = await reader.project('p-000002');
+  assert.equal(beta.data.tone, 2);
+  assert.deepEqual(beta.data.openCards.map((card) => card.id), ['c-000011']);
+  assert.equal(beta.data.doneCount, 0);
+  for (const id of ['missing', 'c-000001', 'p-999999', undefined]) {
+    await assert.rejects(reader.project(id), { code: 'entity_not_found' });
+  }
+  const unavailable = createRead({ open: () => { throw new Error('unavailable'); } });
+  await assert.rejects(unavailable.project('p-000001'), { code: 'data_not_ready' });
+});
+
 test('Note backlinks resolve index titles and journal date ids, retaining unresolved paths', async (t) => {
   const { open, put } = documentFixture(t);
   put('notes/source.md', { id: 'n-000002', title: '<img src=x onerror=attack(1)>' }, '[[target]]');

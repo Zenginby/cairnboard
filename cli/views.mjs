@@ -1,3 +1,4 @@
+import { basename } from 'node:path';
 import * as entity from '../core/entity.mjs';
 import * as journal from '../core/journal.mjs';
 import * as index from '../core/index.mjs';
@@ -112,8 +113,14 @@ export function homeView(ctx, opts = {}, { scope } = {}) {
   const isAgentCard = (card) => agents !== null && agents.refs.has(card.data.project);
   const isAgentItem = (item) => agents !== null && (item.id === agents.id
     || (item.type === 'card' && agents.refs.has(item.data.project)));
-  const projects = all.filter((item) => item.type === 'project' && !isAgentItem(item)
+  const activeProjects = all.filter((item) => item.type === 'project' && !isAgentItem(item)
     && (item.data.status === undefined || item.data.status === 'active')).sort(titleOrder);
+  // Owner scope only: `home.hiddenProjects` leaves those projects off Home; every other one (new ones too) shows.
+  const hiddenList = scope === 'owner' && Array.isArray(ctx.config.home?.hiddenProjects)
+    ? ctx.config.home.hiddenProjects : [];
+  const hidden = new Set(hiddenList.map(normalizeId).filter((id) => id !== null));
+  const isShown = (item) => item.id === null || !hidden.has(item.id);
+  const projects = activeProjects.filter(isShown);
   const allCards = listCards(ctx, { includeDone: true }, all.filter((item) => item.type === 'card'));
   // Agent work has its own board: Home lists only the owner's open cards and counts agent cards per visible column.
   const cards = allCards.filter((card) => !isAgentCard(card) && effectiveColumn(ctx.config, card).role !== 'done');
@@ -129,6 +136,8 @@ export function homeView(ctx, opts = {}, { scope } = {}) {
     }
     // The agents project is not on the owner's Home, so it cannot be its featured project either.
     if (agents !== null && featuredProject === agents.id) featuredProject = null;
+    // Nor can a project the owner left off Home (the CLI and API Home keep the setting as before).
+    if (scope === 'owner' && hidden.has(featuredProject)) featuredProject = null;
   }
   if (featuredProject === null && projects.length) {
     const counts = new Map();
@@ -157,9 +166,42 @@ export function homeView(ctx, opts = {}, { scope } = {}) {
     // Additive: lets the Home page show the journal panel only when some journal entry exists.
     journalCount: all.filter((item) => item.type === 'journal').length,
     // Owner scope only: null when no agents project is configured; otherwise the visible columns holding agent cards.
-    ...(scope === 'owner' ? { agents: agentColumns,
-      projectCards: projectCardSummary(ctx, projects, allCards.filter((card) => !isAgentCard(card))) } : {}),
+    ...(scope === 'owner' ? { agents: agentColumns, calendar: monthCalendar(ctx, all),
+      projectCards: projectCardSummary(ctx, projects, allCards.filter((card) => !isAgentCard(card))),
+      // The Home project picker: every active project, and whether Home shows it.
+      projectChoices: activeProjects.map((item, order) => ({ id: item.id,
+        title: oneLine(stripHidden(item.title ?? '').text).slice(0, 200), tone: toneOf(item, order),
+        shown: isShown(item) })),
+      hiddenProjects: [...hidden] } : {}),
   }, warnings, journalEntity: today };
+}
+
+// Web Home only: today's month and its days that have a journal entry (`journal/YYYY-MM-DD.md`).
+function monthCalendar(ctx, all) {
+  const today = entity.localDate(ctx);
+  const month = today.slice(0, 7);
+  const days = all.filter((item) => item.type === 'journal')
+    .map((item) => String(item.data.date ?? basename(item.path, '.md')))
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/u.test(date) && date.startsWith(`${month}-`));
+  return { today, month, days: [...new Set(days)].sort() };
+}
+
+// A project's tone: its own `tone` (1–8) or one by its place in title order, as on Home.
+const toneOf = (item, order) => Number.isInteger(item.data.tone) && item.data.tone >= 1 && item.data.tone <= 8
+  ? item.data.tone : order % 8 + 1;
+
+// Web "My projects" only: every project but the agents project, in title order, with the same card summary as Home.
+export function projectsView(ctx, opts = {}) {
+  const all = entity.list(ctx);
+  const agents = agentProject(ctx);
+  const isAgentCard = (card) => agents !== null && agents.refs.has(card.data.project);
+  const projects = all.filter((item) => item.type === 'project' && (agents === null || item.id !== agents.id))
+    .sort(titleOrder);
+  const cards = listCards(ctx, { includeDone: true }, all.filter((item) => item.type === 'card'))
+    .filter((card) => !isAgentCard(card));
+  const shown = result(ctx, projects, opts);
+  return { data: { projects: shown.data.items, projectCards: projectCardSummary(ctx, projects, cards) },
+    warnings: shown.warnings };
 }
 
 // `scope` (web only; the CLI passes none and sees every column and card):

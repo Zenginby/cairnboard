@@ -7,6 +7,7 @@ export function selectAppPages(ctx, only = null) {
   const first = (type) => index.rows(ctx, type).filter((row) => row.id).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
   const card = first('card');
   const note = first('note');
+  const project = first('project');
   if (!card || !note) throw new Error('The data folder needs at least one card and one note with an id.');
   // A word that is certain to match: the first word of the first note's title.
   const word = String(note.title ?? '').trim().split(/\s+/u)[0];
@@ -27,6 +28,8 @@ export function selectAppPages(ctx, only = null) {
     { name: 'cards-new', path: '/cards/new' },
     { name: 'card-edit', path: `/cards/${encodeURIComponent(card.id)}/edit` },
     { name: 'agents', path: '/agents' },
+    { name: 'projects', path: '/projects' },
+    ...(project ? [{ name: 'project', path: `/projects/${encodeURIComponent(project.id)}` }] : []),
   ];
   if (only === null) return pages;
   const selected = pages.filter((page) => page.name === only);

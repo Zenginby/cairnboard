@@ -270,20 +270,22 @@ test('built Home uses injected in-process data, escapes titles and renders safe 
   assert.match(featured, /2\/5 ölçüt tamamlandı/u);
   assert.match(featured, /%40/u);
   assert.match(featured, /class="bar-fill" width="40"/u);
-  assert.match(featured, /href="\/board\?project=p-000002"/u);
+  assert.match(featured, /href="\/projects\/p-000002"/u);
   assert.match(featured, /href="\/cards\/c-000001"[^>]*>Lead next/u);
   assert.match(full.body,
     /<details class="[^"]*project-collapsible[^"]*" name="home-projects" aria-label="Project title"/u);
   const plainBox = projects.find((box) => box.includes('Project title'));
   assert.match(plainBox, /stroke-dasharray="75 100"/u);
-  assert.match(plainBox, /href="\/board\?project=p-000001"/u);
+  assert.match(plainBox, /href="\/projects\/p-000001"/u);
   assert.doesNotMatch(plainBox, /project-acceptance/u);
   // Its details open as a layer over the cover, with a close button.
   assert.match(plainBox, /class="project-details" role="group" aria-label="Project title ayrıntısı"/u);
   assert.match(plainBox, /data-project-close aria-label="Ayrıntıyı kapat"/u);
   assert.match(full.body, /Tamamlanmayı bekleyen bir işlem var/u);
   assert.match(full.body, /Bugünün günlüğü okunamadı/u);
-  assert.doesNotMatch(full.body, /href="\/(?:projects|journal|graph)\b/u);
+  // My projects and project pages exist; the Journal and Graph screens do not yet.
+  assert.match(full.body, /href="\/projects">Projeler</u);
+  assert.doesNotMatch(full.body, /href="\/(?:journal|graph)\b/u);
   // The top bar search is a plain link to /search until the dialog script takes it over.
   const searchLink = /<a class="shell-search" href="\/search" data-search-open[^>]*>[\s\S]*?<kbd[^>]*data-shortcut/u;
   assert.match(full.body, searchLink);
@@ -593,6 +595,134 @@ test('built Board, Card and Note routes use injected data, safe states and exter
       }
     }
   }
+});
+
+function projectFixture() {
+  const card = (id, title, priority, column) =>
+    ({ id, type: 'card', meta: priority ? { priority } : {}, content: { title }, column });
+  const planned = { key: 'planned', label: 'Planned column', role: 'planned' };
+  return { data: {
+    id: 'p-000001', type: 'project', tone: 4,
+    content: { title: 'Project title', body: 'Plain body', html: '<h2>Rendered body</h2>' },
+    meta: { status: 'active', updated: '2026-11-01T12:00:00Z' },
+    openCards: [card('c-000001', 'Other card', null, { key: 'doing', label: 'Working column', role: 'doing' }),
+      card('c-000002', 'Urgent card', 'urgent', planned), card(null, 'Card without id', 'important', planned)],
+    doneCount: 7,
+    notes: [{ ref: 'n-000001', title: 'Project note' }], notesTotal: 9,
+  }, warnings: [] };
+}
+
+test('built Project page shows the cover, grouped open cards, notes and safe states', async (t) => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+    return;
+  }
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const render = async (cairn, path = '/projects/p-000001') => {
+    const response = await inProcess(createApp({ root, guard, handler, locals: { cairn } }), path);
+    headers(response);
+    externalAssets(response.body);
+    return response;
+  };
+  const response = await render({ project: (id) => { assert.equal(id, 'p-000001'); return projectFixture(); } });
+  assert.equal(response.status, 200);
+  const body = response.body;
+  assert.match(body, /class="panel project-hero tone-4"/u);
+  assert.match(body, /<h1>Project title<\/h1>/u);
+  assert.match(body, /<h2>Rendered body<\/h2>/u);
+  assert.match(body, /href="\/board\?project=p-000001"/u);
+  assert.match(body, /3 açık · 7 bitti/u);
+  const at = (title) => body.indexOf(title);
+  assert.ok(at('Urgent card') < at('Card without id') && at('Card without id') < at('Other card'),
+    'urgent, important, then other');
+  assert.match(body, /href="\/cards\/c-000002"[^>]*>Urgent card/u);
+  assert.match(body, /status-doing[^>]*>Working column/u);
+  assert.doesNotMatch(body, /href="\/cards\/(?:null|undefined)?"/u);
+  assert.match(body, /href="\/notes\/n-000001"[^>]*>Project note/u);
+  assert.match(body, /Son 1 not gösteriliyor, toplam 9/u);
+  assert.match(body, /data-live="project card note board"/u);
+
+  const empty = await render({ project: () => {
+    const result = projectFixture();
+    Object.assign(result.data, { openCards: [], notes: [], notesTotal: 0, doneCount: 0 });
+    result.data.content.html = '';
+    return result;
+  } });
+  assert.match(empty.body, /Bu projede açık kart yok/u);
+  assert.match(empty.body, /Bu projeye bağlı not yok/u);
+  assert.doesNotMatch(empty.body, /project-description/u);
+
+  const malicious = '<img src=x onerror=attack(1)>';
+  const escaped = await render({ project: () => {
+    const result = projectFixture();
+    result.data.content.title = malicious;
+    result.data.openCards[0].content.title = malicious;
+    result.data.notes[0].title = malicious;
+    return result;
+  } });
+  assert.ok((escaped.body.match(/&lt;img src=x onerror=attack\(1\)&gt;/gu) ?? []).length >= 3);
+  assert.doesNotMatch(escaped.body, /<img\b/u);
+
+  const notReady = await render(createRead({ open: () => { throw new Error('/private/data missing'); } }));
+  assert.equal(notReady.status, 409);
+  const missing = await render({ project: () => {
+    throw Object.assign(new Error('/private/missing'), { code: 'entity_not_found' });
+  } });
+  assert.equal(missing.status, 404);
+  const failed = await render({ project: () => { throw new Error('/private/data\nsecret stack'); } });
+  assert.equal(failed.status, 500);
+  for (const result of [notReady, missing, failed]) assert.doesNotMatch(result.body, /private|secret|stack|Error:/u);
+});
+
+test('built My projects page groups every project by status with Home boxes and safe states', async (t) => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+    return;
+  }
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const render = async (cairn) => {
+    const response = await inProcess(createApp({ root, guard, handler, locals: { cairn } }), '/projects');
+    headers(response);
+    externalAssets(response.body);
+    return response;
+  };
+  const project = (id, title, status, path) => ({ type: 'project', id, path,
+    meta: status ? { status } : {}, content: { title, snippet: '' } });
+  const fixture = () => ({ data: { projects: [project('p-000001', 'Archived one', 'archived', 'projects/a.md'),
+    project('p-000002', 'Active one', undefined, 'projects/b.md'),
+    project('p-000003', 'Paused one', 'paused', 'projects/c.md'),
+    project(null, 'Loose one', 'active', 'projects/d.md')],
+  projectCards: { 'projects/b.md': { total: 4, done: 1, doing: 1, todo: 2, upcoming: [] } } }, warnings: [] });
+  const response = await render({ projects: fixture });
+  assert.equal(response.status, 200);
+  const body = response.body;
+  assert.match(body, /href="\/projects" aria-current="page">Projeler</u);
+  assert.match(body, /4 proje · 2 aktif/u);
+  const at = (text) => body.indexOf(text);
+  assert.ok(at('>Aktif') < at('>Beklemede') && at('>Beklemede') < at('>Arşiv'), 'active, paused, archive');
+  assert.ok(at('Active one') < at('Paused one') && at('Paused one') < at('Archived one'));
+  assert.match(body, /href="\/projects\/p-000002"/u);
+  assert.ok(body.includes('Loose one'), 'a project without an id still has a box');
+  assert.match(body, /class="project-percent">%25</u);
+  assert.equal((body.match(/class="panel project-box project-collapsible/gu) ?? []).length, 4);
+  assert.doesNotMatch(body, /project-featured/u);
+  const empty = await render({ projects: async () => ({ data: { projects: [], projectCards: {} }, warnings: [] }) });
+  assert.match(empty.body, /Projelerin eklendiğinde burada görünecek/u);
+  const escaped = await render({ projects: () => {
+    const result = fixture();
+    result.data.projects[1].content.title = '<img src=x onerror=attack(1)>';
+    return result;
+  } });
+  assert.match(escaped.body, /&lt;img src=x onerror=attack\(1\)&gt;/u);
+  // Inside a quoted attribute (the box's aria-label) a "<" is plain text; outside one it must never be markup.
+  assert.doesNotMatch(escaped.body.replace(/"[^"]*"/gu, '""'), /<img\b/u);
+  const notReady = await render(createRead({ open: () => { throw new Error('/private/data missing'); } }));
+  assert.equal(notReady.status, 409);
+  const failed = await render({ projects: () => { throw new Error('/private/data\nsecret stack'); } });
+  assert.equal(failed.status, 500);
+  for (const result of [notReady, failed]) assert.doesNotMatch(result.body, /private|secret|stack|Error:/u);
 });
 
 test('built Card and Note insert only sanitized Markdown from the reader', async (t) => {

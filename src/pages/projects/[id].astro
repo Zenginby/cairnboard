@@ -1,0 +1,89 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import PageState from '../../components/PageState.astro';
+import ReadWarnings from '../../components/ReadWarnings.astro';
+import EntityMeta from '../../components/EntityMeta.astro';
+import { t } from '../../i18n/index.mjs';
+
+let result, state;
+try {
+  result = await Astro.locals.cairn.project(Astro.params.id);
+} catch (error) {
+  state = error?.code === 'data_not_ready' ? 'notReady' : error?.code === 'entity_not_found' ? 'notFound' : 'server';
+  Astro.response.status = state === 'notReady' ? 409 : state === 'notFound' ? 404 : 500;
+  // Match the API: unexpected failures reach the server log, the page shows only a generic message.
+  if (state === 'server') console.error(error);
+}
+const item = result?.data;
+const tone = Number.isInteger(item?.tone) && item.tone >= 1 && item.tone <= 8 ? item.tone : 1;
+// Open cards grouped as on the prototype cover: urgent, important, then everything else in board order.
+const groups = item ? [['urgent', 'priority.urgent'], ['important', 'priority.important'], ['other', 'priority.other']]
+  .map(([key, label]) => ({ key, label, cards: item.openCards.filter((card) =>
+    key === 'other' ? !['urgent', 'important'].includes(card.meta.priority) : card.meta.priority === key) }))
+  .filter((group) => group.cards.length) : [];
+const boardHref = item?.id ? `/board?${new URLSearchParams({ project: item.id })}` : null;
+---
+<AppShell live="project card note board" title={item?.content.title || t('type.project')} surface>
+  {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`}
+    message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'}
+    status={Astro.response.status} /> : <>
+    <ReadWarnings codes={result.warnings} />
+    <div class="project-page">
+      <header class:list={['panel', 'project-hero', `tone-${tone}`]}>
+        <div class="project-cover">
+          <div class="project-heading">
+            <p class="eyebrow">{t('type.project')}</p>
+            <h1>{item.content.title || t('home.untitled')}</h1>
+            <EntityMeta item={item} updated />
+          </div>
+          {boardHref && <a class="project-go" href={boardHref}>{t('project.board')}</a>}
+        </div>
+        {item.content.html != null
+          ? item.content.html.trim() && <div class="document-body project-description" set:html={item.content.html} />
+          : (item.content.body || item.content.snippet)
+            && <p class="document-body plain-body project-description">{item.content.body || item.content.snippet}</p>}
+      </header>
+      <div class="project-columns">
+        <section class="panel project-open" aria-labelledby="project-open-title">
+          <header class="panel-header">
+            <h2 id="project-open-title">{t('project.open')}</h2>
+            <span class="panel-count">
+              {t('project.openSummary', { open: item.openCards.length, done: item.doneCount })}</span>
+          </header>
+          {groups.length ? groups.map((group) => <section class="project-group" aria-labelledby={`group-${group.key}`}>
+            <h3 id={`group-${group.key}`} class:list={['project-group-title', `priority-text-${group.key}`]}>
+              {t(group.label)}</h3>
+            <ul class="summary-list">{group.cards.map((card) => {
+              const role = ['doing', 'done'].includes(card.column?.role) ? card.column.role : 'planned';
+              return <li><div class="summary-row">
+                <div class="row-copy">
+                  {card.id
+                    ? <a class="row-title" href={`/cards/${encodeURIComponent(card.id)}`}>
+                      {card.content.title || t('home.untitled')}</a>
+                    : <span class="row-title">{card.content.title || t('home.untitled')}</span>}
+                </div>
+                <span class:list={['chip', `status-${role}`]}>{card.column.label}</span>
+              </div></li>;
+            })}</ul>
+          </section>) : <p class="empty-copy">{t('project.openEmpty')}</p>}
+        </section>
+        <section class="panel project-notes" aria-labelledby="project-notes-title">
+          <header class="panel-header">
+            <h2 id="project-notes-title">{t('project.notes')}</h2>
+            <span class="panel-count">{item.notesTotal}</span>
+          </header>
+          {item.notes.length ? <ul class="summary-list">{item.notes.map((note) => <li><div class="summary-row">
+            <div class="row-copy">
+              {note.ref
+                ? <a class="row-title" href={`/notes/${encodeURIComponent(note.ref)}`}>
+                  {note.title || t('home.untitled')}</a>
+                : <span class="row-title">{note.title || t('home.untitled')}</span>}
+            </div>
+          </div></li>)}</ul> : <p class="empty-copy">{t('project.notesEmpty')}</p>}
+          {item.notesTotal > item.notes.length && <p class="empty-copy">
+            {t('project.notesMore', { shown: item.notes.length, total: item.notesTotal })}</p>}
+        </section>
+      </div>
+    </div>
+  </>}
+</AppShell>

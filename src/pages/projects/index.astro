@@ -1,0 +1,43 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import PageState from '../../components/PageState.astro';
+import ReadWarnings from '../../components/ReadWarnings.astro';
+import ProjectBox from '../../components/ProjectBox.astro';
+import { t } from '../../i18n/index.mjs';
+
+let result, state;
+try {
+  result = await Astro.locals.cairn.projects();
+} catch (error) {
+  state = error?.code === 'data_not_ready' ? 'notReady' : 'error';
+  Astro.response.status = state === 'notReady' ? 409 : 500;
+  // Match the API: unexpected failures reach the server log, the page shows only a generic message.
+  if (state === 'error') console.error(error);
+}
+const projects = result?.data.projects ?? [];
+const statusOf = (project) => ['paused', 'archived'].includes(project.meta.status) ? project.meta.status : 'active';
+// Every project in three groups, as on the prototype: active, paused, archive. Empty groups are left out.
+const groups = [['active', 'projects.active'], ['paused', 'projects.paused'], ['archived', 'projects.archived']]
+  .map(([key, label]) => ({ key, label, items: projects.filter((project) => statusOf(project) === key) }))
+  .filter((group) => group.items.length);
+const active = groups.find((group) => group.key === 'active')?.items.length ?? 0;
+---
+<AppShell live="project card board" title={t('shell.projects')} current="/projects" surface>
+  {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'projects.errorTitle'}
+    message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'} /> : <>
+    <ReadWarnings codes={result.warnings} />
+    <header class="screen-heading projects-heading">
+      <h1>{t('shell.projects')}</h1>
+      <p class="panel-subtitle">{t('projects.count', { total: projects.length, active })}</p>
+    </header>
+    {groups.length ? groups.map((group) => <section class="projects-group" aria-labelledby={`projects-${group.key}`}>
+      <h2 id={`projects-${group.key}`} class="projects-group-title">{t(group.label)}
+        <span class="panel-count">{group.items.length}</span></h2>
+      <div class="bento projects-grid">{group.items.map((project, index) => <ProjectBox project={project}
+        index={index} stats={result.data.projectCards?.[project.path]} />)}</div>
+    </section>) : <section class="panel projects-empty">
+      <p class="empty-copy">{t('home.projectsEmpty')}</p>
+    </section>}
+  </>}
+  <script src="../../scripts/home-projects.js"></script>
+</AppShell>

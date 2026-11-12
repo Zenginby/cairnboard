@@ -2,7 +2,9 @@
 // body size, CSRF token) live in writes.mjs; a route here checks only its own fields.
 import { CairnError } from '../core/errors.mjs';
 import { features } from '../core/config.mjs';
-import { clearShadow, readSettings, setFeature } from '../core/settings.mjs';
+import { clearShadow, readSettings, setFeature, setHomeProjects } from '../core/settings.mjs';
+import { HOME_PROJECTS_MAX } from '../core/config.mjs';
+import { normalizeId } from '../core/ids.mjs';
 import { cookieName, csrfToken, readCookie } from './session.mjs';
 import { BODY_LIMIT, createWrites } from './writes.mjs';
 
@@ -10,6 +12,10 @@ export { BODY_LIMIT };
 export const FEATURES = Object.freeze(['changeTrail', 'changeContent', 'liveUpdates', 'mentions']);
 const REVISION = /^[0-9a-f]{16}$/u;
 const BACK = Object.freeze({ href: '/settings', label: 'settings.back' });
+const HOME = Object.freeze({ href: '/', label: 'error.home' });
+// The Home project picker sends `listed:<id>=1` for every project it offers and `project:<id>=on` for each ticked one
+// (the form layer refuses repeated names, so each project has its own field names).
+const PROJECT_FIELD = /^(listed|project):(.+)$/u;
 const BAD = Object.freeze({ status: 400, title: 'write.badRequestTitle', message: 'write.badRequest' });
 
 const only = (values, names) => Object.keys(values).every((name) => names.includes(name));
@@ -44,6 +50,22 @@ export function createSettings({ key, port, open, openWrite, now = Date.now, lim
           expectedRevision: values.revision, actor: 'web:owner' });
         return `/settings?saved=${values.name}`;
       } },
+    { path: '/settings/home-projects', form: 'home-projects', back: HOME, failure, bodyLimit: 16384,
+      run({ values }) {
+        const { revision, ...fields } = values;
+        const listed = [], shown = [];
+        for (const [field, value] of Object.entries(fields)) {
+          const match = PROJECT_FIELD.exec(field);
+          if (!match || normalizeId(match[2]) === null) return BAD;
+          if (match[1] === 'listed' && value === '1') listed.push(match[2]);
+          else if (match[1] === 'project' && value === 'on') shown.push(match[2]);
+          else return BAD;
+        }
+        if (typeof revision !== 'string' || !REVISION.test(revision) || listed.length > HOME_PROJECTS_MAX
+          || shown.some((id) => !listed.includes(id))) return BAD;
+        setHomeProjects(openWrite(), { listed, shown, expectedRevision: revision, actor: 'web:owner' });
+        return '/?saved=projects';
+      } },
     { path: '/settings/clear-shadow', form: 'settings', back: BACK, failure,
       run({ values }) {
         if (!only(values, ['confirm']) || values.confirm !== 'yes') {
@@ -76,10 +98,20 @@ export function createSettings({ key, port, open, openWrite, now = Date.now, lim
     return { state: 'ready', csrf, ...settings };
   }
 
+  /** What the Home project picker needs to post: the CSRF token for this cookie and the config revision, or null. */
+  function homeForm(cookieHeader) {
+    const session = readCookie(cookieHeader ?? undefined, name);
+    if (!session) return null;
+    try {
+      return { csrf: csrfToken(key, port, session, 'home-projects'),
+        revision: readSettings(open(), { stats: false }).revision };
+    } catch { return null; }
+  }
+
   /** Whether pages load the live-update script; unreadable settings keep the default (on). */
   function liveUpdates() {
     try { return features(open().config).liveUpdates; } catch { return true; }
   }
 
-  return { handle, routes, view, liveUpdates };
+  return { handle, routes, view, homeForm, liveUpdates };
 }

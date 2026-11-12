@@ -11,6 +11,7 @@ import { language, t } from '../i18n/index.mjs';
 const { title = t('shell.home'), current, surface = false, live = '', searchPage = false } = Astro.props;
 const tabs = [
   { href: '/', label: 'shell.home' },
+  { href: '/projects', label: 'shell.projects' },
   { href: '/board', label: 'shell.board' },
 ];
 // Settings > Live updates: when off the page carries no script, no status line and no live region; unknown means on.

@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import * as fs from './fsx.mjs';
-import { features, validate } from './config.mjs';
+import { features, validate, HOME_PROJECTS_MAX } from './config.mjs';
+import { normalizeId } from './ids.mjs';
+import { resolve as resolveEntity } from './entity.mjs';
 import { CairnError } from './errors.mjs';
 import { checkedPath, readChecked } from './paths.mjs';
 import { withLock } from './lock.mjs';
@@ -227,5 +229,56 @@ export function clearShadow(ctx, { actor = ctx.actor } = {}) {
         ...(manifestReset ? { manifestReset: true } : {}) });
       return { blobs, bytes };
     });
+  });
+}
+
+/**
+ * Records which listed projects the owner's web Home shows. `listed` are the projects the picker offered, `shown` the
+ * ticked ones (a subset); the rest of `listed` is hidden. Hidden ids the picker did not list (a paused or missing
+ * project) stay hidden, and projects never listed (new ones) show, so `home.hiddenProjects` is all that is stored.
+ * @param {*} ctx @param {{ listed: string[], shown: string[], expectedRevision: string, actor?: string }} options
+ */
+export function setHomeProjects(ctx, { listed, shown, expectedRevision, actor = ctx.actor }) {
+  const ids = (list) => Array.isArray(list) && list.length <= HOME_PROJECTS_MAX
+    && list.every((id) => normalizeId(id) !== null) ? [...new Set(list.map(normalizeId))] : null;
+  const offered = ids(listed), ticked = ids(shown);
+  if (!offered || !ticked || ticked.some((id) => !offered.includes(id))) {
+    throw new CairnError('validation', 'Invalid project list.');
+  }
+  return withLock(ctx, '_config', () => {
+    const disk = snapshot(ctx);
+    if (disk.rev !== expectedRevision) throw new CairnError('conflict', 'Configuration changed since it was read.');
+    ctx.config = disk.config;
+    const state = readState(ctx);
+    drift(ctx, disk, state, { ignoreTrailError: true });
+    const home = disk.config.home && typeof disk.config.home === 'object' && !Array.isArray(disk.config.home)
+      ? disk.config.home : {};
+    const before = home.hiddenProjects ?? [];
+    // Earlier hidden ids keep their order unless now ticked; newly hidden ones go last, so a resend is no change.
+    // Ids that are not valid ids or name no project any more (a deleted one) are dropped, so the list cannot fill up.
+    const exists = (id) => {
+      try { resolveEntity(ctx, 'project', id); return true; } catch { return false; }
+    };
+    const kept = before.map(normalizeId)
+      .filter((id) => id !== null && !ticked.includes(id) && (offered.includes(id) || exists(id)));
+    const keptIds = new Set(kept);
+    const hidden = [...new Set([...kept, ...offered.filter((id) => !ticked.includes(id) && !keptIds.has(id))])];
+    if (JSON.stringify(before) === JSON.stringify(hidden)) return { changed: false, revision: disk.rev };
+    if (hidden.length > HOME_PROJECTS_MAX) throw new CairnError('validation', 'Too many hidden projects.');
+    const config = validate({ ...disk.config, home: { ...home, hiddenProjects: hidden } });
+    const bytes = JSON.stringify(config, null, 2) + '\n';
+    fs.writeFileAtomic(checkedPath(ctx.root, configPath), bytes, () => {
+      if (!readChecked(ctx.root, configPath)?.equals(disk.bytes)) {
+        throw new CairnError('conflict', 'Configuration changed during the write.');
+      }
+    });
+    ctx.config = config;
+    const rev = revision(bytes);
+    // Not a feature change: the settings state only learns the new revision, so it is not seen as a hand edit.
+    // The event stays small: hidden ids are at most 200 of 64 characters, the earlier list only as a count.
+    event(ctx, 'config.home', { actor, hiddenBefore: before.length, hidden, rev });
+    state.rev = rev;
+    writeState(ctx, state);
+    return { changed: true, revision: rev };
   });
 }

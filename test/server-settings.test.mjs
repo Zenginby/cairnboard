@@ -10,6 +10,7 @@ import { createApp } from '../server/app.mjs';
 import { createApi } from '../server/api.mjs';
 import { createGuard, guard } from '../server/guard.mjs';
 import { createSettings } from '../server/settings.mjs';
+import { createWrites } from '../server/writes.mjs';
 import { cookieName, csrfToken, mintCookie, siteHost, verifyCsrf } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
 import { initDataDir } from '../core/roots.mjs';
@@ -44,7 +45,7 @@ async function call(app, { method = 'GET', path = '/', headers = {}, body, lengt
   return { status: res.statusCode, headers: res.getHeaders(), body: output.slice(output.indexOf('\r\n\r\n') + 4) };
 }
 
-function fixture(t, { handler } = {}) {
+function fixture(t, { handler, cairn } = {}) {
   const dataDir = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-08T12:00:00Z');
   initDataDir(dataDir, { home, env: {}, clock });
   const options = { dataDir, home, env: {}, clock };
@@ -52,11 +53,14 @@ function fixture(t, { handler } = {}) {
   const openWrite = () => openContext({ mode: 'write', ...options, actor: 'web:owner' });
   let time = 1_900_000_000_000;
   const settings = createSettings({ key, port, open, openWrite, now: () => time });
-  const app = createApp({ root: repo, guard: createGuard({ port, key, instance }), writes: settings.handle,
+  // The server's write table, as in server/start.mjs: the baseline guard alone knows only the feature paths.
+  const { writable } = createWrites({ key, port, routes: settings.routes });
+  const app = createApp({ root: repo, guard: createGuard({ port, key, instance, writable }), writes: settings.handle,
     handler: handler ?? ((req, res, next) => next()),
     api: createApi({ open, live: settings.liveUpdates,
       events: { handle(req, res) { res.writeHead(200); res.end('stream'); return true; } } }),
-    locals: { settings, cairn: { home: async () => ({ data: { pinned: [], recentNotes: [], openCards: [], projects: [],
+    locals: { settings, cairn: cairn ?? { home: async () => ({ data: { pinned: [], recentNotes: [], openCards: [],
+      projects: [],
       featuredProject: null, journal: null }, warnings: [] }) } } });
   const configFile = join(dataDir, '.cairn/config.json');
   const session = () => mintCookie(key, port);
@@ -342,4 +346,76 @@ test('web settings survive a corrupt shadow manifest and repair it on clear-shad
   assert.deepEqual(readdirSync(join(f.dataDir, '.cairn/shadow/blobs')), []);
   assert.deepEqual(JSON.parse(readFileSync(manifestPath, 'utf8')), { v: 1, initialized: false, entries: {} });
   assert.equal(readEvents(f.open()).at(-1).manifestReset, true);
+});
+
+test('the Home project picker write stores hidden ids and refuses malformed fields', async (t) => {
+  const f = fixture(t);
+  const cookie = f.session();
+  const send = (fields, token = csrfToken(key, port, cookie, 'home-projects')) => {
+    f.tick(1000); // stay under five writes per second
+    const body = new URLSearchParams({ csrf: token, revision: f.revision(), ...fields }).toString();
+    return call(f.app, { method: 'POST', path: '/settings/home-projects', body, headers: {
+      origin: `http://${site}`, 'sec-fetch-site': 'same-origin', 'content-type': 'application/x-www-form-urlencoded',
+      cookie: `${cookieName(port)}=${cookie}` } });
+  };
+  mkdirSync(join(f.dataDir, 'projects'), { recursive: true });
+  writeFileSync(join(f.dataDir, 'projects/third.md'), '---\nid: p-000003\ntitle: Third\n---\n');
+  const before = f.stored();
+  for (const fields of [{ 'listed:p-000001': '1', 'project:p-000001': 'yes' }, { 'listed:p-000001': 'on' },
+    { 'listed:bad id': '1' }, { 'project:p-000002': 'on' }, { project: 'on' }, { 'p-000001': 'on' }, { extra: '1' },
+    { revision: 'abc' }]) {
+    assert.equal((await send(fields)).status, 400, JSON.stringify(fields));
+  }
+  // A token for the settings form does not work here.
+  assert.equal((await send({ 'listed:p-000001': '1' }, csrfToken(key, port, cookie))).status, 403);
+  assert.equal(f.stored(), before);
+  const ok = await send({ 'listed:p-000001': '1', 'listed:P-OOOOO2': '1', 'listed:p-000003': '1',
+    'project:P-OOOOO2': 'on' });
+  assert.equal(ok.status, 303);
+  assert.equal(ok.headers.location, '/?saved=projects');
+  assert.deepEqual(loadConfig(f.dataDir).home.hiddenProjects, ['p-000001', 'p-000003']);
+  const [event] = readEvents(f.open());
+  assert.deepEqual([event.op, event.actor], ['config.home', 'web:owner']);
+  f.tick(1000);
+  const old = new URLSearchParams({ csrf: csrfToken(key, port, cookie, 'home-projects'), revision: 'a'.repeat(16) });
+  assert.equal((await call(f.app, { method: 'POST', path: '/settings/home-projects', body: old.toString(), headers: {
+    origin: `http://${site}`, 'sec-fetch-site': 'same-origin', 'content-type': 'application/x-www-form-urlencoded',
+    cookie: `${cookieName(port)}=${cookie}` } })).status, 409);
+  assert.equal((await send({ 'listed:p-000001': '1', 'project:p-000001': 'on' })).status, 303);
+  assert.deepEqual(loadConfig(f.dataDir).home.hiddenProjects, ['p-000003'], 'only the listed project changed');
+});
+
+test('the built Home shows the project picker with a home-projects token and the saved notice', async (t) => {
+  if (!built) return t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const project = (id, title, path) => ({ type: 'project', id, path, meta: {}, content: { title, snippet: '' } });
+  const homeData = { pinned: [], recentNotes: [], openCards: [], journal: null, featuredProject: null,
+    projects: [project('p-000002', 'Shown project', 'projects/shown.md')], projectCards: {},
+    projectChoices: [{ id: 'p-000001', title: '<b>Hidden</b>', tone: 2, shown: false },
+      { id: 'p-000002', title: 'Shown project', tone: 5, shown: true }], hiddenProjects: ['p-000001'] };
+  const f = fixture(t, { handler, cairn: { home: async () => ({ data: structuredClone(homeData), warnings: [] }) } });
+  const cookie = f.session();
+  const headers = { cookie: `${cookieName(port)}=${cookie}` };
+  const home = await call(f.app, { path: '/', headers });
+  assert.equal(home.status, 200);
+  assert.equal(home.headers['referrer-policy'], 'same-origin');
+  assert.match(home.body, /<form class="picker-form" method="post" action="\/settings\/home-projects">/u);
+  const token = home.body
+    .match(/action="\/settings\/home-projects">\s*<input type="hidden" name="csrf" value="([^"]+)"/u)[1];
+  assert.ok(verifyCsrf(key, port, cookie, token, 'home-projects'));
+  assert.ok(home.body.includes(`name="revision" value="${f.revision()}"`));
+  assert.match(home.body, /<input type="hidden" name="listed:p-000001" value="1">/u);
+  assert.match(home.body, /<input type="checkbox" name="project:p-000001">/u);
+  assert.match(home.body, /<input type="checkbox" name="project:p-000002" checked>/u);
+  assert.match(home.body, /&lt;b&gt;Hidden&lt;\/b&gt;/u);
+  assert.match(home.body, />1\/2</u);
+  assert.match(home.body, /href="\/projects">Tüm projeler/u);
+  assert.doesNotMatch(home.body, /picker-saved/u);
+  assert.match((await call(f.app, { path: '/?saved=projects', headers })).body,
+    /role="status">Ana sayfa projeleri kaydedildi/u);
+  homeData.projects = [];
+  homeData.hiddenProjects = ['p-000001', 'p-000002'];
+  assert.match((await call(f.app, { path: '/', headers })).body, /Ana sayfada gösterilecek proje seçmedin/u);
+  // Without a session the page is the sign-in page; the picker never renders a form with an empty token.
+  assert.equal((await call(f.app, { path: '/' })).status, 401);
 });

@@ -11,7 +11,7 @@ import { revision, write } from '../core/store.mjs';
 import { readShadow, recordShadow, shadowBytes } from '../core/shadow.mjs';
 import { changeDiff, listChanges, reconcileBeforeRun, reconcileExternal } from '../core/changes.mjs';
 import { mentions, linkMention } from '../core/mentions.mjs';
-import { checkConfigDrift, clearShadow, readSettings, setFeature } from '../core/settings.mjs';
+import { checkConfigDrift, clearShadow, readSettings, setFeature, setHomeProjects } from '../core/settings.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 import { lockName, withLock } from '../core/lock.mjs';
@@ -493,4 +493,85 @@ test('writes while changeTrail is off store no shadow blobs', async (t) => {
   assert.equal(added.code, 0, added.stdout + added.stderr);
   assert.deepEqual(blobs(), before);
   assert.equal(readShadow(ctx).entries.get(added.json.data.path.replace(/\\/gu, '/')).blob, false);
+});
+
+test('Home project writes store hidden ids, keep unlisted hidden ones, are conditional and audited', (t) => {
+  const { ctx, editConfig, put } = fixture(t);
+  // Hidden ids that name no project are dropped on a write, so the projects exist.
+  for (const id of ['p-000001', 'p-000003', 'p-000009']) {
+    put(`projects/${id}.md`, `---\nid: ${id}\ntitle: ${id}\n---\n`);
+  }
+  editConfig({ home: { featuredProject: 'p-000001', hiddenProjects: ['p-000009'] }, lint: { orphan: 'off' } });
+  const before = loadConfig(ctx.root), initial = readSettings(ctx);
+  const changed = setHomeProjects(ctx, { listed: ['P-OOOOO1', 'p-000002', 'p-000003'], shown: ['p-000002'],
+    expectedRevision: initial.revision });
+  assert.equal(changed.changed, true);
+  assert.deepEqual(loadConfig(ctx.root), { ...before, home: { featuredProject: 'p-000001',
+    hiddenProjects: ['p-000009', 'p-000001', 'p-000003'] } }, 'the unlisted p-000009 stays hidden');
+  const events = readEvents(ctx);
+  assert.equal(events.length, 1);
+  assert.deepEqual([events[0].op, events[0].hiddenBefore, events[0].hidden, events[0].rev, events[0].actor],
+    ['config.home', 1, ['p-000009', 'p-000001', 'p-000003'], changed.revision, ctx.actor]);
+  // The settings state learned the revision: reading settings records no external change.
+  assert.equal(readSettings(ctx).revision, changed.revision);
+  assert.equal(checkConfigDrift(ctx), false);
+  assert.equal(readEvents(ctx).length, 1);
+  assert.deepEqual(setHomeProjects(ctx, { listed: ['p-000001'], shown: [], expectedRevision: changed.revision }),
+    { changed: false, revision: changed.revision });
+  const shownAll = setHomeProjects(ctx, { listed: ['p-000001', 'p-000003', 'p-000009'],
+    shown: ['p-000001', 'p-000003', 'p-000009'], expectedRevision: changed.revision });
+  assert.deepEqual(loadConfig(ctx.root).home.hiddenProjects, []);
+  assert.throws(() => setHomeProjects(ctx, { listed: ['p-000001'], shown: [], expectedRevision: changed.revision }),
+    { code: 'conflict' });
+  const tooMany = Array.from({ length: 201 }, (_, i) => `p-${String(i).padStart(6, '0')}`);
+  for (const [listed, shown] of [[null, []], ['p-000001', []], [['bad id'], []], [[7], []], [tooMany, []],
+    [['p-000001'], ['p-000002']], [['p-000001'], null]]) {
+    assert.throws(() => setHomeProjects(ctx, { listed, shown, expectedRevision: shownAll.revision }),
+      { code: 'validation' });
+  }
+  assert.equal(readEvents(ctx).length, 2);
+});
+
+test('a Home project write drops hidden ids that are invalid or name a deleted project', (t) => {
+  const { ctx, editConfig, put } = fixture(t);
+  put('projects/paused.md', '---\nid: p-000007\ntitle: Paused\nstatus: paused\n---\n');
+  editConfig({ home: { hiddenProjects: ['not an id', 'p-000008', 'p-000007'] } });
+  setHomeProjects(ctx, { listed: ['p-000001'], shown: [], expectedRevision: readSettings(ctx).revision });
+  assert.deepEqual(loadConfig(ctx.root).home.hiddenProjects, ['p-000007', 'p-000001'],
+    'the paused project stays hidden; the invalid and deleted ids go');
+});
+
+test('home.hiddenProjects is checked only inside a home object; earlier hand-written home values still load', (t) => {
+  const { ctx, editConfig } = fixture(t);
+  for (const home of [{ hiddenProjects: 'p-000001' }, { hiddenProjects: [1] }, { hiddenProjects: ['x'.repeat(65)] },
+    { hiddenProjects: Array.from({ length: 201 }, () => 'p-000001') }]) {
+    editConfig({ home });
+    assert.throws(() => loadConfig(ctx.root), { code: 'validation' }, JSON.stringify(home).slice(0, 60));
+    fs.writeFileSync(join(ctx.root, '.cairn/config.json'), JSON.stringify(ctx.config));
+  }
+  for (const home of [null, 'x', [], { featuredProject: 7 }, { hiddenProjects: ['p-000001'] }]) {
+    editConfig({ home });
+    assert.deepEqual(loadConfig(ctx.root).home, home);
+  }
+  // A write over a non-object home replaces it with an object.
+  editConfig({ home: 'x' });
+  setHomeProjects(ctx, { listed: ['p-000001'], shown: [], expectedRevision: readSettings(ctx).revision });
+  assert.deepEqual(loadConfig(ctx.root).home, { hiddenProjects: ['p-000001'] });
+});
+
+test('Home project writes detect an external edit before atomic replacement', (t) => {
+  const { ctx, editConfig } = fixture(t);
+  const initial = readSettings(ctx);
+  t.after(() => fs.__setFsHooks());
+  fs.__setFsHooks({ openSync(path, ...args) {
+    if (String(path).includes('.tmp-')) {
+      fs.__setFsHooks();
+      editConfig({ language: 'tr' });
+    }
+    return openSync(path, ...args);
+  } });
+  assert.throws(() => setHomeProjects(ctx, { listed: ['p-000001'], shown: [], expectedRevision: initial.revision }),
+    { code: 'conflict' });
+  assert.equal(loadConfig(ctx.root).home, undefined);
+  assert.deepEqual(readEvents(ctx), []);
 });

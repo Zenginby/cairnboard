@@ -376,6 +376,100 @@ a, button { -webkit-tap-highlight-color: transparent; }
   --project-tone: var(--color-tone-7); }
 .tone-8 { --project-wash: var(--color-tone-8-bg); --project-ink: var(--color-tone-8-text);
   --project-tone: var(--color-tone-8); }
+/* Home calendar: today's month, days with a journal entry tinted, today ringed. */
+.calendar-box { grid-column: span 2; display: flex; flex-direction: column; gap: var(--space-sm); }
+.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2xs); margin-top: var(--space-xs); }
+.month-weekday { color: var(--color-text-3); font-size: var(--font-caption-size); text-align: center; }
+.month-day {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: var(--radius-full);
+  color: var(--color-text-2);
+  font-size: var(--font-small-size);
+  font-variant-numeric: tabular-nums;
+}
+.month-day.has-entry { background: var(--color-tone-1-bg); color: var(--color-tone-1-text); font-weight: var(--font-title-weight); }
+.month-day.is-today { box-shadow: inset 0 0 0 var(--space-hairline) var(--color-focus); color: var(--color-text); }
+/* Archived projects keep their box but lose the tone: a neutral wash and muted ink. */
+.project-archived {
+  --project-wash: var(--color-surface-inset);
+  --project-ink: var(--color-text-3);
+  --project-tone: var(--color-line-strong);
+}
+.project-archived h2 { color: var(--color-text-2); }
+/* Home project picker: a disclosure under the hero links; each project is a token in its own tone. */
+.hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.picker-saved { margin-top: var(--space-md); color: var(--color-done); font-size: var(--font-small-size); }
+.project-picker { margin-top: var(--space-md); }
+.picker-trigger { gap: var(--space-sm); cursor: pointer; list-style: none; }
+.picker-trigger::-webkit-details-marker { display: none; }
+.picker-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+.picker-form fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.picker-form legend { margin-bottom: var(--space-sm); color: var(--color-text-2); font-size: var(--font-small-size); }
+.picker-tokens { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.picker-token {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: calc(var(--space-xl) + var(--space-xs));
+  padding: var(--space-xs) var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-inset);
+  color: var(--color-text);
+  font-size: var(--font-small-size);
+  cursor: pointer;
+}
+.picker-token:has(input:checked) { background: var(--project-wash); color: var(--project-ink); }
+.picker-token input { accent-color: var(--project-tone); }
+.picker-save { background: var(--color-text); color: var(--color-surface); }
+/* My projects: three status groups, each a grid of the same boxes as Home. */
+.projects-group + .projects-group { margin-top: var(--space-xl); }
+.projects-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-block: var(--space-lg) var(--space-md);
+  font-family: var(--font-box-title-family);
+  font-size: var(--font-box-title-size);
+  font-weight: var(--font-box-title-weight);
+}
+/* Project page: the Home cover grown into the page header, then open work beside the project's notes. */
+.project-page { display: grid; gap: var(--space-lg); }
+.project-hero { display: flex; flex-direction: column; gap: var(--space-md); padding: var(--space-10); }
+.project-hero .project-cover { flex-direction: row; flex-wrap: wrap; align-items: end; }
+.project-hero h1 {
+  font-family: var(--font-page-title-family);
+  font-size: clamp(var(--font-display-size), 4.4vw, var(--font-page-title-size));
+  font-weight: var(--font-page-title-weight);
+  line-height: var(--font-page-title-line-height);
+  letter-spacing: var(--font-page-title-letter-spacing);
+  overflow-wrap: anywhere;
+}
+.project-description { padding: 0 var(--space-lg) var(--space-md); }
+.project-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+.project-group-title {
+  margin-top: var(--space-md);
+  color: var(--color-text-3);
+  font-size: var(--font-label-size);
+  font-weight: var(--font-label-weight);
+}
+.priority-text-urgent { color: var(--color-urgent); }
+.priority-text-important { color: var(--color-important); }
+@media (max-width: 50rem) {
+  .project-columns { grid-template-columns: minmax(0, 1fr); }
+}
 .today h3 { margin-top: var(--space-md); font-size: var(--font-ui-size); font-weight: var(--font-title-weight); }
 .journal-body { margin-top: var(--space-md); color: var(--color-text-2); font-size: var(--font-small-size); white-space: pre-wrap; }
 .journal-content { white-space: normal; overflow-x: auto; }

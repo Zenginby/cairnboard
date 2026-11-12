@@ -5,7 +5,7 @@ import { stripHidden } from '../core/text.mjs';
 import { CairnError } from '../core/errors.mjs';
 import { normalizeId, isNoteKey } from '../core/ids.mjs';
 import { effectiveColumn } from '../core/card.mjs';
-import { homeView, boardView, showView } from '../cli/views.mjs';
+import { homeView, boardView, showView, projectsView } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
 import { createRenderPool } from './render-pool.mjs';
 import { searchView } from './search.mjs';
@@ -74,6 +74,27 @@ export function projectMap(ctx) {
   return refs;
 }
 
+// Project cover extras: the project's open cards on the owner board (with their column), the count of done cards and
+// its newest notes. Hidden (archive) columns and the agents project's cards are left out, as on the owner board.
+const COVER_NOTES = 8;
+function projectCover(ctx, view, projects) {
+  const self = projects.get(`@${view.entity.path}`) ?? null;
+  const refs = new Set([...projects].filter(([, value]) => value === self).map(([ref]) => ref));
+  const board = boardView(ctx, {}, { scope: 'owner', project: refs });
+  view.warnings.push(...board.warnings);
+  view.data.tone = self?.tone ?? 1;
+  view.data.openCards = board.data.columns.filter((column) => column.role !== 'done').flatMap((column) => column.cards
+    .map((card) => ({ ...card, column: { key: column.key, label: column.label, role: column.role } })));
+  view.data.doneCount = board.data.columns.filter((column) => column.role === 'done')
+    .reduce((sum, column) => sum + column.total, 0);
+  const notes = index.rows(ctx, 'note').filter((row) => refs.has(row.data.project))
+    .sort((a, b) => (Date.parse(b.data.updated) || 0) - (Date.parse(a.data.updated) || 0)
+      || (a.path < b.path ? -1 : 1));
+  view.data.notes = notes.slice(0, COVER_NOTES)
+    .map((row) => ({ ref: row.id ?? row.ref, title: row.title, updated: row.data.updated ?? null }));
+  view.data.notesTotal = notes.length;
+}
+
 function joinProjects(view, projects) {
   for (const column of view.data.columns) {
     for (const card of column.cards) card.project = projects.get(card.content.project) ?? null;
@@ -97,6 +118,10 @@ export function createRead({ open, render = createRenderPool().render }) {
     }
     await renderView(ctx, view, render);
     const projects = projectMap(ctx);
+    if (type === 'project') {
+      projectCover(ctx, view, projects);
+      return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
+    }
     const project = projects.get(view.data.content.project) ?? null;
     view.data.project = project;
     if (type === 'card') {
@@ -138,6 +163,12 @@ export function createRead({ open, render = createRenderPool().render }) {
       return okEnvelope(searchView(ctx, { q, type, limit }, projectMap(ctx)), ctx.warnings);
     },
     note(id) { return document('note', id); },
+    project(id) { return document('project', id); },
+    async projects() {
+      const ctx = await openRead();
+      const view = projectsView(ctx);
+      return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
+    },
     async home() {
       let ctx;
       try { ctx = await open(); } catch (error) { throw new DataNotReadyError(error); }

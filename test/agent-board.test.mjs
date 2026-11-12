@@ -38,7 +38,7 @@ function fixture(t, agents = { project: 'p-000009' }) { // `null`: no agents set
     { id: 'c-000007', title: 'Agent pinned', column: 'doing', project: 'p-000009', pinned: true });
   put('notes/own-pinned.md', { id: 'n-000001', title: 'Own pinned', pinned: true });
   const open = () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock });
-  return { open, data };
+  return { open, data, put };
 }
 
 const ids = (view) => view.data.columns.flatMap((column) => column.cards.map((card) => card.id));
@@ -129,6 +129,40 @@ test('a configured featured project that is the agents project falls back on the
   writeFileSync(file, JSON.stringify({ ...config, home: { featuredProject: 'p-000009' } }));
   assert.equal(homeView(open(), {}, { scope: 'owner' }).data.featuredProject, 'p-000001');
   assert.equal(homeView(open()).data.featuredProject, 'p-000009', 'unscoped Home keeps the setting');
+});
+
+test('home.hiddenProjects leaves projects off only the owner Home; My projects lists all', async (t) => {
+  const { open, data, put } = fixture(t);
+  put('projects/second.md', { id: 'p-000002', title: 'Second' });
+  put('projects/paused.md', { id: 'p-000003', title: 'Paused', status: 'paused' });
+  put('cards/second.md', { id: 'c-000010', title: 'Second work', column: 'doing', project: 'p-000002' });
+  const file = join(data, '.cairn', 'config.json');
+  const config = JSON.parse(readFileSync(file, 'utf8'));
+  const unset = homeView(open(), {}, { scope: 'owner' }).data;
+  assert.deepEqual(unset.projects.map((project) => project.id), ['p-000001', 'p-000002']);
+  assert.deepEqual(unset.hiddenProjects, []);
+  assert.ok(unset.projectChoices.every((choice) => choice.shown));
+  writeFileSync(file, JSON.stringify({ ...config,
+    home: { featuredProject: 'p-000001', hiddenProjects: ['P-OOOOO1', 'p-999999'] } }));
+  const home = homeView(open(), {}, { scope: 'owner' }).data;
+  assert.deepEqual(home.projects.map((project) => project.id), ['p-000002']);
+  assert.equal(home.featuredProject, 'p-000002', 'a hidden featured project falls back to a shown one');
+  assert.deepEqual(Object.keys(home.projectCards), ['projects/second.md']);
+  assert.deepEqual(home.projectChoices.map(({ id, title, shown }) => [id, title, shown]),
+    [['p-000001', 'Own', false], ['p-000002', 'Second', true]]);
+  assert.ok(home.projectChoices.every((choice) => Number.isInteger(choice.tone)));
+  assert.deepEqual(home.hiddenProjects, ['p-000001', 'p-999999']);
+  const plain = homeView(open()).data;
+  assert.equal(plain.projects.length, 3, 'unscoped Home ignores the setting');
+  assert.equal(plain.featuredProject, 'p-000001', 'and keeps the configured featured project');
+  put('projects/new.md', { id: 'p-000004', title: 'Newer' });
+  assert.ok(homeView(open(), {}, { scope: 'owner' }).data.projects.some((project) => project.id === 'p-000004'),
+    'a project added after the choice shows on Home');
+  const all = (await createRead({ open, render: () => ({ html: '' }) }).projects()).data;
+  assert.deepEqual(all.projects.map((project) => project.id), ['p-000004', 'p-000001', 'p-000003', 'p-000002'],
+    'every project but the agents one, in title order');
+  assert.equal(all.projectCards['projects/own.md'].doing, 1);
+  assert.equal(all.projectCards['projects/agents.md'], undefined);
 });
 
 test('only the archive view lists every card of a hidden done column; other views keep the newest 50', (t) => {

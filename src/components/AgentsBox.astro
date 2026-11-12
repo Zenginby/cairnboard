@@ -1,0 +1,14 @@
+---
+import { t } from '../i18n/index.mjs';
+// Home: agent work counted per visible column; null when no agents project is configured (the box is left out).
+const { agents } = Astro.props;
+---
+{agents && <section class="panel agents-box" aria-labelledby="agents-title">
+  <header class="panel-header"><h2 id="agents-title">{t('home.agents')}</h2>
+    <span class="panel-count">{agents.reduce((total, column) => total + column.count, 0)}</span></header>
+  {agents.length > 0 && <ul class="agents-counts">{agents.map((column) => <li>
+    <span class:list={['chip', column.role !== 'todo' && `status-${column.role}`]}>{column.label}</span>
+    <span class="panel-count">{column.count}</span>
+  </li>)}</ul>}
+  <a class="action-link" href="/agents">{t('home.agentsOpen')}</a>
+</section>}

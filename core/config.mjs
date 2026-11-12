@@ -51,6 +51,9 @@ function validateRules(rules) {
   for (const [key, value] of Object.entries(rules)) if (!RULE_NAMES.includes(key) || !RULE_SEVERITIES.includes(value)) throw invalid();
 }
 
+export const HOME_PROJECTS_MAX = 200;
+const HOME_ID_MAX = 64;
+
 export function validate(config) {
   if (!config || Array.isArray(config) || !Number.isInteger(config.formatVersion) || config.formatVersion < 0) throw invalid();
   if (config.formatVersion > version) throw new CairnError('format_too_new', 'Configuration requires a newer format.');
@@ -70,6 +73,12 @@ export function validate(config) {
   const { agents } = config;
   if (agents !== undefined && (!agents || typeof agents !== 'object' || Array.isArray(agents)
     || (agents.project !== undefined && typeof agents.project !== 'string'))) throw invalid();
+  // `home.hiddenProjects`: the project ids the owner's web Home leaves out (new projects show by default). Only checked
+  // when `home` is an object: `home` was never validated before, so a hand-written value that loaded still loads.
+  const { home } = config;
+  if (home && typeof home === 'object' && !Array.isArray(home) && home.hiddenProjects !== undefined
+    && (!Array.isArray(home.hiddenProjects) || home.hiddenProjects.length > HOME_PROJECTS_MAX
+      || home.hiddenProjects.some((id) => typeof id !== 'string' || id.length > HOME_ID_MAX))) throw invalid();
   resolveSchema(config);
   validateLint(config.lint);
   validateRules(config.rules);
