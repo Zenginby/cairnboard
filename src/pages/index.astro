@@ -92,7 +92,8 @@ const showEmpty = Boolean(data) && !projects.length && !hasContent;
         <header class="panel-header"><h2 id="calendar-title">{t('home.calendar')}</h2>
           <span class="panel-count">{calendar.monthName}</span></header>
         <p class="panel-subtitle">{t('home.calendarDays', { count: calendar.days.size })}</p>
-        <div class="month-grid" role="group" aria-label={`${calendar.monthName}: ${t('home.calendarDays', { count: calendar.days.size })}`}>
+        <div class="month-grid" role="group"
+          aria-label={`${calendar.monthName}: ${t('home.calendarDays', { count: calendar.days.size })}`}>
           {calendar.weekdays.map((day) => <span class="month-weekday" aria-hidden="true">{day}</span>)}
           {calendar.cells.map((cell) => cell === null ? <span class="month-blank" aria-hidden="true"></span>
             : <span class:list={['month-day', { 'has-entry': cell.entry, 'is-today': cell.today }]}

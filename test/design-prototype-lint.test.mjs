@@ -9,6 +9,14 @@ import { tempDir } from './support/env.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const rules = (found) => found.map((item) => item.rule);
+// Only prototypes the repository holds: a local sketch that is not committed (for example an untracked folder under
+// design/prototypes) is not part of the checked design. Outside a git checkout every file counts.
+function tracked(found) {
+  const listed = spawnSync('git', ['ls-files', '-z', '--', 'design/prototypes'], { cwd: root, encoding: 'utf8' });
+  if (listed.status !== 0) return found;
+  const files = new Set(listed.stdout.split('\0').filter(Boolean));
+  return found.filter((item) => files.has(item.file));
+}
 const CSP = '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">';
 
 test('css: raw colours, durations and easings fail; tokens, comments and selectors do not', () => {
@@ -52,7 +60,7 @@ test('lintPrototypes walks design/prototypes and reports file and line', (t) => 
 });
 
 test('the current prototypes pass, and npm run design:lint reports a violation', (t) => {
-  assert.deepEqual(lintPrototypes(root), []);
+  assert.deepEqual(tracked(lintPrototypes(root)), []);
   const dir = tempDir(t);
   mkdirSync(join(dir, 'design/prototypes/x'), { recursive: true });
   writeFileSync(join(dir, 'design/prototypes/x/app.css'), '.a { color: #fff; }\n');

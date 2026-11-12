@@ -378,7 +378,9 @@ a, button { -webkit-tap-highlight-color: transparent; }
   --project-tone: var(--color-tone-8); }
 /* Home calendar: today's month, days with a journal entry tinted, today ringed. */
 .calendar-box { grid-column: span 2; display: flex; flex-direction: column; gap: var(--space-sm); }
-.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2xs); margin-top: var(--space-xs); }
+.month-grid {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2xs); margin-top: var(--space-xs);
+}
 .month-weekday { color: var(--color-text-3); font-size: var(--font-caption-size); text-align: center; }
 .month-day {
   display: grid;
@@ -389,7 +391,9 @@ a, button { -webkit-tap-highlight-color: transparent; }
   font-size: var(--font-small-size);
   font-variant-numeric: tabular-nums;
 }
-.month-day.has-entry { background: var(--color-tone-1-bg); color: var(--color-tone-1-text); font-weight: var(--font-title-weight); }
+.month-day.has-entry {
+  background: var(--color-tone-1-bg); color: var(--color-tone-1-text); font-weight: var(--font-title-weight);
+}
 .month-day.is-today { box-shadow: inset 0 0 0 var(--space-hairline) var(--color-focus); color: var(--color-text); }
 /* Archived projects keep their box but lose the tone: a neutral wash and muted ink. */
 .project-archived {

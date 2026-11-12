@@ -68,8 +68,8 @@ const acceptance = project.meta.acceptance?.total > 0 ? project.meta.acceptance 
   </div> : stats && <p class="empty-copy">{t('home.noCards')}</p>}
   {acceptance && <p class="project-acceptance">{acceptance.done}/{acceptance.total} {t('home.progress')}</p>}
 </section>
-  : <details class:list={['panel', 'project-box', 'project-collapsible', `tone-${tone}`, { 'project-archived': archived }]}
-  name="home-projects" aria-label={title}>
+  : <details class:list={['panel', 'project-box', 'project-collapsible', `tone-${tone}`,
+    { 'project-archived': archived }]} name="home-projects" aria-label={title}>
   <summary class="project-cover">
     <span class="eyebrow">{t('type.project')}</span>
     <h2>{title}</h2>

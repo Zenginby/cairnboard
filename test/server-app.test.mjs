@@ -597,6 +597,65 @@ test('built Board, Card and Note routes use injected data, safe states and exter
   }
 });
 
+test('built Home shows the journal month calendar and the agent box after the first project box', async (t) => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+    return;
+  }
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const render = async (home) => {
+    const response = await inProcess(createApp({ root, guard, handler, locals: { cairn: { home } } }), '/');
+    headers(response);
+    externalAssets(response.body);
+    return response;
+  };
+  const agents = [{ key: 'todo', label: 'Sırada', role: 'todo', count: 2 },
+    { key: 'doing', label: 'Yapılıyor', role: 'doing', count: 1 }];
+  const calendar = { today: '2026-11-06', month: '2026-11', days: ['2026-11-03', '2026-11-06'] };
+  const withExtras = (extra) => () => {
+    const result = homeFixture();
+    Object.assign(result.data, extra);
+    return result;
+  };
+
+  const full = await render(withExtras({ calendar, agents }));
+  assert.equal(full.status, 200);
+  const body = full.body;
+  // The calendar: November 2026 starts on a Sunday, so a Monday-first grid opens with six blanks and lists 30 days.
+  assert.match(body, /<section class="panel calendar-box" aria-labelledby="calendar-title">/u);
+  assert.match(body, /<h2 id="calendar-title">Günlük<\/h2>/u);
+  assert.match(body, /2 günde kayıt var/u);
+  const grid = body.match(/<div class="month-grid"[\s\S]*?<\/div>/u)?.[0] ?? '';
+  assert.match(grid, /role="group" aria-label="Kasım 2026: 2 günde kayıt var"/u);
+  assert.equal((grid.match(/class="month-weekday"/gu) ?? []).length, 7);
+  assert.equal((grid.match(/class="month-blank"/gu) ?? []).length, 6);
+  assert.equal((grid.match(/class="month-day\b/gu) ?? []).length, 30);
+  assert.equal((grid.match(/has-entry/gu) ?? []).length, 2);
+  assert.match(grid, /class="month-day has-entry" aria-label="3 Kasım, kayıt var"[^>]*>3</u);
+  assert.match(grid, /class="month-day has-entry is-today" aria-label="6 Kasım, kayıt var" aria-current="date">6</u);
+  assert.equal((grid.match(/aria-current="date"/gu) ?? []).length, 1, 'only today is current');
+  assert.match(grid, /class="month-day" aria-label="4 Kasım">4</u);
+
+  // The agent work box comes right after the first (featured) project box and before the second one.
+  const at = (pattern) => body.search(pattern);
+  const agentsAt = at(/class="panel agents-box"/u);
+  assert.ok(agentsAt > 0, 'the agent box is shown');
+  assert.ok(at(/aria-label="Featured title"/u) < agentsAt, 'after the first project box');
+  assert.ok(agentsAt < at(/aria-label="Project title"/u), 'before the second project box');
+  assert.ok(at(/class="panel calendar-box"/u) < at(/aria-label="Featured title"/u), 'the calendar comes first');
+  assert.equal((body.match(/class="panel agents-box"/gu) ?? []).length, 1);
+  assert.match(body, /<span class="panel-count">3<\/span>/u);
+  assert.match(body, /href="\/agents"/u);
+
+  // Without projects the agent box still shows once; without an agents project or a calendar neither box is shown.
+  const bare = await render(withExtras({ calendar, agents, projects: [], projectCards: {} }));
+  assert.equal((bare.body.match(/class="panel agents-box"/gu) ?? []).length, 1);
+  const none = await render(withExtras({ calendar: null, agents: null }));
+  assert.equal(none.status, 200);
+  assert.doesNotMatch(none.body, /calendar-box|agents-box/u);
+});
+
 function projectFixture() {
   const card = (id, title, priority, column) =>
     ({ id, type: 'card', meta: priority ? { priority } : {}, content: { title }, column });
