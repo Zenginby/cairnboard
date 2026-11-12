@@ -25,6 +25,8 @@ import { ingest, MAX_INPUT } from '../../core/ingest.mjs';
 import { lockName, withLock } from '../../core/lock.mjs';
 import { readShadow, recordShadow, shadowEntry } from '../../core/shadow.mjs';
 
+// Card status lines (one line each): what happens now, what comes next, what the owner is needed for.
+const CARD_LINES = ['now', 'next', 'needs'];
 const mutationOptions = (opts) => ({ ifRevision: opts['if-revision'], dryRun: opts['dry-run'] === true });
 const environment = (io) => ({ home: io.env.HOME ?? io.env.USERPROFILE, env: io.env,
   platform: platform(), clock: io.clock });
@@ -56,6 +58,15 @@ function patchFields(ctx, type, opts) {
     date: 'date', 'source-date': 'sourceDate', processed: 'processed',
   };
   for (const [option, field] of Object.entries(names)) if (opts[option] !== undefined) patch[field] = opts[option];
+  // A card's status lines: an empty or blank value removes the field (undefined deletes the frontmatter key).
+  if (type === 'card') {
+    for (const field of CARD_LINES) {
+      if (opts[field] === undefined) continue;
+      if (typeof opts[field] !== 'string') throw new CairnError('validation', `Invalid card ${field} line.`);
+      const value = opts[field].trim();
+      patch[field] = value === '' ? undefined : value;
+    }
+  }
   if (opts.unpin) patch.pinned = false;
   if (patch.tone !== undefined) {
     if (!/^[1-8]$/u.test(patch.tone)) throw new CairnError('validation', 'Invalid project tone.');
@@ -201,7 +212,10 @@ export function writeCommands({ string, boolean }) {
     const options = { title: string('Set the title.'), ...bodyOptions,
       ...(type === 'project' ? { status: string('Set active, paused or archived.'), tone: string('Set tone from 1 to 8.'),
         alias: multiple('Add an alias; repeat for multiple aliases.') } : { tag: multiple('Set tags; repeat for multiple tags.') }),
-      ...(type === 'card' ? { column: string('Set the column key.'), priority: string('Set urgent, important or low.') } : {}),
+      ...(type === 'card' ? { column: string('Set the column key.'), priority: string('Set urgent, important or low.'),
+        now: string('Set the one-line "now" status; an empty value removes it.'),
+        next: string('Set the one-line "next" status; an empty value removes it.'),
+        needs: string('Set what the owner is needed for, one line; an empty value removes it.') } : {}),
       ...(['note', 'research'].includes(type) ? { kind: string('Set the entity kind.'), source: string('Set the source.'),
         sources: multiple('Set sources; repeat for multiple sources.') } : {}),
       ...(type === 'note' ? { pin: boolean('Pin the note; cannot be combined with --unpin.'),

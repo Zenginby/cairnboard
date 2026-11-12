@@ -62,6 +62,13 @@ export function validate(type, fields) {
     if (fields.date !== undefined) validateDate(fields.date);
   }
   if (type === 'card' && fields.priority !== undefined) validatePriority(fields.priority);
+  if (type === 'card') {
+    for (const field of ['now', 'next', 'needs']) {
+      const value = fields[field];
+      if (value !== undefined && (typeof value !== 'string' || !value.trim() || /[\r\n]/u.test(value)
+        || value.length > 500)) throw invalid(`Card ${field} must be one line of at most 500 characters.`);
+    }
+  }
   for (const field of ['valid_from', 'valid_until']) {
     if (fields[field] !== undefined) validateDate(fields[field]);
   }

@@ -540,3 +540,53 @@ test('research validity fields survive add and update and are used by lint', asy
     }
   }
 });
+
+test('card now, next and needs are one-line fields; updates keep the body and an empty value removes the field',
+  async (t) => {
+    const f = fixture(t);
+    const body = '**Şimdi:** an old body paragraph\n\n## Acceptance\n\n- [ ] Ship it\n';
+    fs.writeFileSync(join(f.cwd, 'body.md'), body);
+    const added = await f.run(['card', 'add', '--title', 'Status', '--body-file', 'body.md',
+      '--now', '  Writing the parser ', '--next', 'Review']);
+    assert.equal(added.code, 0, added.stdout);
+    const { ref, path } = added.json.data;
+    const file = () => parseFile(fs.readFileSync(join(f.data, path), 'utf8'));
+    assert.equal(file().data.now, 'Writing the parser', 'the value is trimmed');
+    assert.equal(file().data.next, 'Review');
+    assert.equal(file().data.needs, undefined);
+    assert.equal(file().body, body);
+
+    const updated = await f.run(['card', 'update', ref, '--now', 'Testing', '--needs', 'Pick a name']);
+    assert.equal(updated.code, 0, updated.stdout);
+    assert.deepEqual([file().data.now, file().data.next, file().data.needs], ['Testing', 'Review', 'Pick a name']);
+    assert.equal(file().body, body, 'the body is untouched');
+
+    const shown = await f.run(['card', 'show', ref]);
+    assert.equal(shown.code, 0, shown.stdout);
+    assert.equal(shown.json.data.content.now, 'Testing');
+    assert.equal(shown.json.data.content.next, 'Review');
+    assert.equal(shown.json.data.content.needs, 'Pick a name');
+
+    for (const value of ['', '   ']) {
+      const cleared = await f.run(['card', 'update', ref, '--needs', value]);
+      assert.equal(cleared.code, 0, cleared.stdout);
+      assert.equal(Object.hasOwn(file().data, 'needs'), false, `${JSON.stringify(value)} removes the field`);
+    }
+    assert.deepEqual([file().data.now, file().data.next], ['Testing', 'Review'], 'other lines stay');
+    assert.equal(file().body, body);
+    assert.equal((await f.run(['card', 'show', ref])).json.data.content.needs, undefined);
+
+    const before = fs.readFileSync(join(f.data, path), 'utf8');
+    for (const value of ['two\nlines', 'carriage\rreturn', 'x'.repeat(501)]) {
+      const refused = await f.run(['card', 'update', ref, '--now', value]);
+      assert.notEqual(refused.code, 0, JSON.stringify(value));
+      assert.equal(refused.json.error.code, 'validation');
+    }
+    assert.equal((await f.run(['card', 'add', '--title', 'Bad', '--next', 'a\nb'])).json.error.code, 'validation');
+    assert.equal(fs.readFileSync(join(f.data, path), 'utf8'), before, 'a refused value writes nothing');
+
+    const schema = await f.run(['schema']);
+    for (const field of ['now', 'next', 'needs']) assert.ok(schema.json.data.fields.card.includes(field), field);
+    const help = await f.run(['card', 'update', '--help']);
+    for (const option of ['now', 'next', 'needs']) assert.equal(help.json.data.options[option].type, 'string', option);
+  });

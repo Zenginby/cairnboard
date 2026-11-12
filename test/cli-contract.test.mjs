@@ -74,6 +74,15 @@ test('schema needs no data and matches the public snapshot', async (t) => {
       summary: 'Delete stored shadow content blobs while keeping change-trail revisions.',
       args: [], options: common, mode: 'write', needsData: true, dangerous: false, actor: false,
       agentVisible: false });
+  // Additive: a card's one-line status fields (now, next, needs) and their add and update options.
+  expected.fields.card.push('now', 'next', 'needs');
+  for (const name of ['card add', 'card update']) {
+    Object.assign(expected.commands.find((item) => item.name === name).options, {
+      now: { type: 'string', summary: 'Set the one-line "now" status; an empty value removes it.' },
+      next: { type: 'string', summary: 'Set the one-line "next" status; an empty value removes it.' },
+      needs: { type: 'string', summary: 'Set what the owner is needed for, one line; an empty value removes it.' },
+    });
+  }
   assert.deepEqual(response.json.data, expected);
   assert.deepEqual(response.json.data.errors, Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })));
   const commands = response.json.data.commands;
