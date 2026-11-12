@@ -665,3 +665,21 @@ test('journal days written before project links read and extend unchanged', asyn
   assert.ok(after.startsWith(old), 'the old bytes stay as they were');
   assert.match(after.slice(old.length), /^\n?## New\n\n<!-- cairn:project p-[0-9a-z]+ -->\n\n- Linked\n$/u);
 });
+
+test('journal links are read the way they are written: fences and a leading rule do not confuse them', async (t) => {
+  const f = fixture(t);
+  const alpha = (await f.run(['project', 'add', '--title', 'Alpha'])).json.data.id;
+  const beta = (await f.run(['project', 'add', '--title', 'Beta'])).json.data.id;
+  // A fenced block first under the heading: no link is read, and linking writes one above the block.
+  f.put('journal/2026-10-21.md', `---\ndate: 2026-10-21\n---\n## Work\n\n\`\`\`text\n## not a job\n\`\`\`\n`
+    + `<!-- cairn:project ${alpha} -->\n\n- Item\n`);
+  const show = async (date) => (await f.run(['journal', 'show', date])).json.data.content.sections;
+  assert.deepEqual(await show('2026-10-21'), [{ title: 'Work', label: null, project: null }]);
+  assert.equal((await f.run(['journal', 'add', '--date', '2026-10-21', '--title', 'Work', '--project', beta,
+    '--item', 'More'])).code, 0);
+  assert.deepEqual(await show('2026-10-21'), [{ title: 'Work', label: null, project: beta }]);
+  // A body that starts with a thematic break still lists its jobs.
+  f.put('journal/2026-10-22.md',
+    `---\ndate: 2026-10-22\n---\n---\n\n## Work\n\n<!-- cairn:project ${alpha} -->\n\n- A\n`);
+  assert.deepEqual(await show('2026-10-22'), [{ title: 'Work', label: null, project: alpha }]);
+});

@@ -5,7 +5,6 @@ import { readCanonical, physicalPatch, destination, isRawPath } from './schema.m
 import { ensureFresh, journalEntries } from './index.mjs';
 import { write } from './store.mjs';
 import { localDate, validateDate, resolve, list as entityList } from './entity.mjs';
-import { visibleLines } from './links.mjs';
 
 const invalid = (message) => new CairnError('validation', message);
 const types = ['decision', 'discovery', 'pitfall', 'lesson'];
@@ -40,11 +39,26 @@ function splitHeading(heading) {
     : { title: heading, label: null };
 }
 
-/** Each `## ` job of a journal day, in file order, with its project id or null. */
-export function sections(text) {
+/**
+ * Each `## ` job of a journal day's body (the text after the frontmatter), in file order, with its project id or
+ * null. The link is read as it is written (markIn): only when it is the first non-blank line under the heading, so a
+ * fenced block there means no link, and headings inside fences are not jobs.
+ */
+export function sections(body) {
   const found = [];
   let current = null;
-  for (const { content } of visibleLines(text)) {
+  let fence = null;
+  for (const content of body.split(/\r?\n/u)) {
+    const marker = content.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
+    if (fence) {
+      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+      continue;
+    }
+    if (marker && (marker[1][0] === '~' || !marker[2].includes('`'))) {
+      fence = marker[1];
+      if (current) current.open = false;
+      continue;
+    }
     const heading = content.match(/^##[\t ]+(.*?)[\t ]*$/u);
     if (heading) {
       current = { ...splitHeading(heading[1]), project: null, open: true };
