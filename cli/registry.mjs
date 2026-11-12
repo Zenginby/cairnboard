@@ -54,7 +54,7 @@ const fields = {
     'claimed', 'lease', 'done', 'now', 'next', 'needs'],
   note: ['id', 'title', 'created', 'updated', 'kind', 'project', 'tags', 'pinned', 'source', 'superseded_by', 'valid_from', 'valid_until', 'code'],
   research: ['id', 'title', 'created', 'updated', 'project', 'kind', 'date', 'tags', 'source', 'raw', 'raw_sha256', 'input_sha256', 'sourceDate', 'processed', 'superseded_by', 'valid_from', 'valid_until'],
-  journal: ['date'],
+  journal: ['date', 'summary'],
 };
 
 // An explicit --project must resolve; a stale repository link only warns, so reads keep working.
@@ -246,8 +246,11 @@ read('journal list', 'List journal days or filtered entries.', [], {
   }
   return result(ctx, journal.list(ctx, { month: opts.month }), opts);
 });
+// A day's jobs with their project links (content.sections); the day summary is its `summary` field.
+const withSections = (item) => (typeof item.body === 'string'
+  ? { ...item, data: { ...item.data, sections: journal.sections(item.body) } } : item);
 read('journal show', 'Show a journal day or reference.', ['<date|ref>'], {}, (ctx, [ref], opts) => result(ctx,
-  [ref.startsWith('@') ? entity.resolve(ctx, 'journal', ref) : journal.show(ctx, ref)], opts, false));
+  [withSections(ref.startsWith('@') ? entity.resolve(ctx, 'journal', ref) : journal.show(ctx, ref))], opts, false));
 
 read('search', 'Search titles and bodies.', ['<q>'], {
   type: string('Filter by type; raw searches raw sources instead of pages.'),

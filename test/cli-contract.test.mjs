@@ -83,6 +83,10 @@ test('schema needs no data and matches the public snapshot', async (t) => {
       needs: { type: 'string', summary: 'Set what the owner is needed for, one line; an empty value removes it.' },
     });
   }
+  // Additive: a journal day's summary field and the option that writes it.
+  expected.fields.journal.push('summary');
+  expected.commands.find((item) => item.name === 'journal add').options.summary = { type: 'string',
+    summary: 'Set the day summary, one line; an empty value removes it. May be given without --title.' };
   assert.deepEqual(response.json.data, expected);
   assert.deepEqual(response.json.data.errors, Object.entries(ERRORS).map(([code, exit]) => ({ code, exit })));
   const commands = response.json.data.commands;

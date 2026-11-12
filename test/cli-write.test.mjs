@@ -590,3 +590,78 @@ test('card now, next and needs are one-line fields; updates keep the body and an
     const help = await f.run(['card', 'update', '--help']);
     for (const option of ['now', 'next', 'needs']) assert.equal(help.json.data.options[option].type, 'string', option);
   });
+
+test('journal jobs link to projects per section and the day keeps a one-line summary', async (t) => {
+  const f = fixture(t);
+  const alpha = (await f.run(['project', 'add', '--title', 'Alpha'])).json.data.id;
+  const beta = (await f.run(['project', 'add', '--title', 'Beta'])).json.data.id;
+  const day = 'journal/2026-11-07.md';
+  const text = () => fs.readFileSync(join(f.data, day), 'utf8');
+  const add = (...args) => f.run(['journal', 'add', '--date', '2026-11-07', ...args]);
+
+  // Two projects on one day, and a job without a link.
+  assert.equal((await add('--title', 'Alpha: parser', '--label', 'desk', '--project', alpha, '--item', 'One')).code, 0);
+  assert.equal((await add('--title', 'Beta: docs', '--project', 'Beta', '--item', 'Two')).code, 0);
+  assert.equal((await add('--title', 'Loose', '--item', 'Three')).code, 0);
+  assert.equal((await add('--title', 'Alpha: parser', '--label', 'desk', '--project', alpha, '--item', 'Four')).code, 0,
+    'the same project may add to its own job');
+  assert.match(text(), /^## Alpha: parser · desk\n\n<!-- cairn:project p-[0-9a-z]+ -->\n\n- One\n/mu,
+    'the heading line stays as it was; the link sits under it');
+  assert.match(text(), /^## Beta: docs\n\n<!-- cairn:project p-[0-9a-z]+ -->\n\n- Two\n/mu);
+  assert.match(text(), /^## Loose\n\n- Three\n/mu);
+
+  let shown = (await f.run(['journal', 'show', '2026-11-07'])).json.data;
+  assert.deepEqual(shown.content.sections, [
+    { title: 'Alpha: parser', label: 'desk', project: alpha },
+    { title: 'Beta: docs', label: null, project: beta },
+    { title: 'Loose', label: null, project: null }]);
+  assert.equal(shown.content.summary, undefined);
+
+  // An unknown project and another project's job are refused without writing.
+  const before = text();
+  const unknown = await add('--title', 'Loose', '--project', 'p-zzzzzz', '--item', 'X');
+  assert.equal(unknown.json.error.code, 'not_found');
+  const other = await add('--title', 'Beta: docs', '--project', alpha, '--item', 'X');
+  assert.equal(other.json.error.code, 'validation');
+  assert.equal(text(), before);
+
+  // Linking a job that had none puts the link under its heading and keeps its items.
+  assert.equal((await add('--title', 'Loose', '--project', beta, '--item', 'Five')).code, 0);
+  assert.match(text(), /^## Loose\n\n<!-- cairn:project p-[0-9a-z]+ -->\n\n- Three\n/mu);
+  assert.equal((await f.run(['journal', 'show', '2026-11-07'])).json.data.content.sections[2].project, beta);
+
+  // The summary: written alone, replaced, removed by an empty value; one line only.
+  assert.equal((await add('--summary', 'First summary')).code, 0);
+  assert.equal(parseFile(text()).data.summary, 'First summary');
+  assert.equal((await add('--summary', '  Second summary ')).code, 0);
+  assert.equal(parseFile(text()).data.summary, 'Second summary');
+  shown = (await f.run(['journal', 'show', '2026-11-07'])).json.data;
+  assert.equal(shown.content.summary, 'Second summary');
+  assert.equal(shown.content.sections.length, 3, 'a summary adds no job');
+  assert.equal((await add('--summary', 'a\nb')).json.error.code, 'validation');
+  assert.equal((await add('--summary', '')).code, 0);
+  assert.equal(Object.hasOwn(parseFile(text()).data, 'summary'), false);
+  assert.equal((await add('--project', alpha)).json.error.code, 'validation', 'a link needs a job title');
+
+  const schema = await f.run(['schema']);
+  assert.deepEqual(schema.json.data.fields.journal, ['date', 'summary']);
+});
+
+test('journal days written before project links read and extend unchanged', async (t) => {
+  const f = fixture(t);
+  const alpha = (await f.run(['project', 'add', '--title', 'Alpha'])).json.data.id;
+  const old = '---\ndate: 2026-10-20\n---\n## Alpha: old work · desk\n\n- Done a thing\n- **Karar:** kept\n\n'
+    + '## Other: notes · laptop\n\n- More\n';
+  f.put('journal/2026-10-20.md', old);
+  const shown = await f.run(['journal', 'show', '2026-10-20']);
+  assert.equal(shown.code, 0, shown.stdout);
+  assert.deepEqual(shown.json.data.content.sections, [
+    { title: 'Alpha: old work', label: 'desk', project: null },
+    { title: 'Other: notes', label: 'laptop', project: null }]);
+  assert.equal(shown.json.data.content.body, old.slice(old.indexOf('## ')));
+  assert.equal((await f.run(['journal', 'add', '--date', '2026-10-20', '--title', 'New', '--project', alpha,
+    '--item', 'Linked'])).code, 0);
+  const after = fs.readFileSync(join(f.data, 'journal/2026-10-20.md'), 'utf8');
+  assert.ok(after.startsWith(old), 'the old bytes stay as they were');
+  assert.match(after.slice(old.length), /^\n?## New\n\n<!-- cairn:project p-[0-9a-z]+ -->\n\n- Linked\n$/u);
+});

@@ -272,10 +272,13 @@ export function writeCommands({ string, boolean }) {
   });
   add('journal add', 'Append a journal job with ordered items.', [], {
     title: string('Set the job title.'), label: string('Set the job label.'), date: string('Use YYYY-MM-DD; defaults to today.'),
+    summary: string('Set the day summary, one line; an empty value removes it. May be given without --title.'),
     ...Object.fromEntries(['decision', 'discovery', 'pitfall', 'lesson', 'item'].map((type) => [type, multiple(`Append a ${type}; repeat as needed.`)])),
   }, (ctx, args, opts) => {
     const date = opts.date ?? entity.localDate(ctx);
-    const changed = journal.addEntry(ctx, { title: opts.title, label: opts.label, date, entries: opts.entries }, mutationOptions(opts));
+    // Only an explicit --project links the job; a repository's linked project is not applied here.
+    const changed = journal.addEntry(ctx, { title: opts.title, label: opts.label, date, entries: opts.entries,
+      project: opts.project, summary: opts.summary }, mutationOptions(opts));
     return mutation(ctx, changed, opts, { type: 'journal', path: changed.path,
       ref: `@${changed.path.slice(0, -3)}`, title: date, data: { date } });
   });
