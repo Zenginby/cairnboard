@@ -1,0 +1,122 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import PageState from '../../components/PageState.astro';
+import ReadWarnings from '../../components/ReadWarnings.astro';
+import JournalPreview from '../../components/JournalPreview.astro';
+import '../../styles/journal.css';
+import { language, t } from '../../i18n/index.mjs';
+
+const params = Astro.url.searchParams;
+const query = { month: params.get('month') ?? undefined, project: params.get('project') ?? undefined,
+  day: params.get('day') ?? undefined };
+let result, state;
+try {
+  result = await Astro.locals.cairn.journalMonth(query);
+} catch (error) {
+  state = error?.code === 'data_not_ready' ? 'notReady' : 'server';
+  Astro.response.status = state === 'notReady' ? 409 : 500;
+  // Match the API: unexpected failures reach the server log, the page shows only a generic message.
+  if (state === 'server') console.error(error);
+}
+const data = result?.data;
+// Month, project and day live in the URL; only the parts that are set are written.
+const href = ({ month = data?.month, project = data?.project, day } = {}) => {
+  const next = new URLSearchParams();
+  if (month) next.set('month', month);
+  if (project) next.set('project', project);
+  if (day) next.set('day', day);
+  return `/journal?${next}`;
+};
+const capital = (text) => text.charAt(0).toLocaleUpperCase(language) + text.slice(1);
+const utc = (date) => new Date(`${date}T00:00:00Z`);
+const grid = (() => {
+  if (!data) return null;
+  const [year, month] = data.month.split('-').map(Number);
+  const lead = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
+  const total = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const counts = new Map(data.days.map((day) => [day.date, day.count]));
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: total }, (_, index) => {
+    const date = `${data.month}-${String(index + 1).padStart(2, '0')}`;
+    return { day: index + 1, date, count: counts.get(date) ?? 0 };
+  })];
+  while (cells.length % 7) cells.push(null);
+  return Array.from({ length: cells.length / 7 }, (_, week) => cells.slice(week * 7, week * 7 + 7));
+})();
+const monthTitle = data && capital(new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric',
+  timeZone: 'UTC' }).format(utc(`${data.month}-01`)));
+const dayFormat = new Intl.DateTimeFormat(language, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  timeZone: 'UTC' });
+const dayName = new Intl.DateTimeFormat(language, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+const jobsText = (count) => t(count === 1 ? 'journal.jobsOne' : 'journal.jobs', { count });
+const selected = data?.selected;
+---
+<AppShell live="journal project" title={t('journal.title')} current="/journal" surface>
+  {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'error.serverTitle'}
+    message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'}
+    status={Astro.response.status} /> : <>
+    <ReadWarnings codes={result.warnings} />
+    <div class="journal-page">
+      <header class="screen-heading journal-heading">
+        <h1>{t('journal.title')}</h1>
+        <nav class="journal-months" aria-label={t('journal.calendar')}>
+          <a class="journal-arrow" href={href({ month: data.previousMonth })} rel="prev"
+            aria-label={t('journal.previousMonth')}><span aria-hidden="true">‹</span></a>
+          <h2 class="journal-month" id="journal-month" aria-live="polite">{monthTitle}</h2>
+          <a class="journal-arrow" href={href({ month: data.nextMonth })} rel="next"
+            aria-label={t('journal.nextMonth')}><span aria-hidden="true">›</span></a>
+        </nav>
+      </header>
+      {data.recorded === 0 && <section class="panel page-state journal-empty" aria-labelledby="journal-empty-title">
+        <h2 id="journal-empty-title">{t('journal.emptyTitle')}</h2>
+        <p>{t('journal.emptyBody')}</p>
+      </section>}
+      {data.projects.length > 0 && <form class="journal-filters" method="get" action="/journal">
+        <input type="hidden" name="month" value={data.month} />
+        <div class="journal-filter-group" role="group" aria-label={t('journal.filter')}>
+          <button type="submit" name="project" value="" class="journal-chip"
+            aria-pressed={String(data.project === '')}>{t('journal.all')}</button>
+          {data.projects.map((project) => <button type="submit" name="project" value={project.id}
+            class="journal-chip" aria-pressed={String(data.project === project.id)}>{project.title}</button>)}
+        </div>
+      </form>}
+      <div class="journal-layout">
+        <section class="panel journal-calendar" aria-labelledby="journal-month">
+          <form method="get" action="/journal#journal-preview">
+            <input type="hidden" name="month" value={data.month} />
+            {data.project && <input type="hidden" name="project" value={data.project} />}
+            <table class="journal-grid">
+              <thead><tr>{[1, 2, 3, 4, 5, 6, 7].map((weekday) =>
+                <th scope="col">{t(`journal.weekday.${weekday}`)}</th>)}</tr></thead>
+              <tbody>{grid.map((week) => <tr>{week.map((cell) => <td>{cell === null ? null : cell.count > 0
+                ? <button type="submit" name="day" value={cell.date} class="journal-day has-jobs"
+                  aria-pressed={String(selected?.date === cell.date)}>
+                  <span class="journal-day-number">{cell.day}</span>
+                  <span class="journal-day-count">{cell.count}<span class="sr-only"> {t(cell.count === 1
+                    ? 'journal.unitOne' : 'journal.unit')}</span></span></button>
+                : <span class="journal-day is-idle">
+                  <span class="journal-day-number">{cell.day}</span></span>}</td>)}</tr>)}
+              </tbody>
+            </table>
+          </form>
+          {data.days.length === 0 && data.recorded > 0 && <p class="empty-copy">{t('journal.monthEmpty')}</p>}
+        </section>
+        <section class="panel journal-list" aria-labelledby="journal-list-title">
+          <header class="panel-header">
+            <h2 id="journal-list-title">{t('journal.listTitle')}</h2>
+            <span class="panel-count">{t('journal.listCount', { count: data.list.length })}</span>
+          </header>
+          {data.list.length ? <ul class="summary-list">{data.list.map((day) => <li>
+            <a class="journal-list-row" href={`${href({ day: day.date })}#journal-preview`}
+              aria-current={selected?.date === day.date ? 'true' : undefined}>
+              <span class="row-title">{dayName.format(utc(day.date))}</span>
+              <span class="panel-count">{jobsText(day.count)}</span>
+            </a>
+          </li>)}</ul> : <p class="empty-copy">{t('journal.monthEmpty')}</p>}
+        </section>
+      </div>
+      {selected ? <JournalPreview day={selected} dayLabel={dayFormat.format(utc(selected.date))}
+        filtered={data.project !== ''} /> : data.days.length > 0
+        && <p class="empty-copy journal-prompt">{t('journal.previewPrompt')}</p>}
+    </div>
+  </>}
+</AppShell>

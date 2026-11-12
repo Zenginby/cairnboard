@@ -1,0 +1,22 @@
+---
+import { t } from '../i18n/index.mjs';
+// The day preview of the month view: the date as a link to the day page, the summary, each job with its label
+// badge, project and first items, and the link to the full log. `dayLabel` is the date as written for the reader.
+const { day, dayLabel, filtered } = Astro.props;
+const { date, summary, jobs } = day;
+---
+<section class="journal-preview" id="journal-preview" aria-labelledby="journal-preview-title">
+  <h2 id="journal-preview-title"><a href={`/journal/${date}`}>{dayLabel}</a></h2>
+  {summary && <p class="journal-summary">{summary}</p>}
+  {jobs.length ? <ul class="journal-jobs">{jobs.map((job) => <li class="journal-job">
+    <div class="journal-job-head">
+      <h3>{job.title || t('journal.untitledJob')}</h3>
+      {job.label && <span class="chip journal-label">{job.label}</span>}
+    </div>
+    {job.project && <p class="journal-job-project"><a class={`journal-project tone-${job.project.tone}`}
+      href={`/projects/${encodeURIComponent(job.project.id)}`}>{job.project.title}</a></p>}
+    {job.items.length > 0 && <ul class="journal-items">{job.items.map((item) => <li>{item}</li>)}</ul>}
+    {job.moreItems > 0 && <p class="journal-more">{t('journal.moreItems', { count: job.moreItems })}</p>}
+  </li>)}</ul> : <p class="empty-copy">{filtered ? t('journal.noJobsForProject') : t('journal.noJobs')}</p>}
+  <a class="action-link journal-full" href={`/journal/${date}`}>{t('journal.fullLog')}</a>
+</section>

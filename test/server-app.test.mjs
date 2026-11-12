@@ -176,7 +176,9 @@ test('real Astro output serves CSP-safe HTML, our 404 body and an external scrip
     return;
   }
   const { handler } = await import('../dist/app/server/entry.mjs');
-  const get = await serve(t, createApp({ root, guard, handler, locals: { cairn: { home: homeFixture } } }), true);
+  const get = await serve(t, createApp({ root, guard, handler, locals: { cairn: { home: () => ({ data: {
+    pinned: [], recentNotes: [], projects: [], featuredProject: null,
+  }, warnings: [] }) } } }), true);
   const home = await get('/');
   assert.equal(home.status, 200);
   const icon = /<link rel="icon"[^>]*href="([^"]+)"/u.exec(home.body)?.[1];
@@ -213,187 +215,6 @@ function externalAssets(html) {
     assert.equal(body.trim(), '');
   }
 }
-
-function homeFixture() {
-  const item = (type, id, title, meta = {}) => ({ type, id, meta, content: { title, snippet: '' } });
-  return { data: {
-    pinned: [item('note', 'n-000001', 'Pinned title')],
-    recentNotes: [item('note', 'n-000002', 'Recent title')],
-    openCards: [item('card', 'c-000001', 'Card title', { priority: 'important' })],
-    journal: { meta: {}, content: { title: 'Today title', body: 'Today body', html: '<p>Today body</p>' } },
-    projects: [{ ...item('project', 'p-000001', 'Project title', { tone: 2 }), path: 'projects/plain.md' },
-      { ...item('project', 'p-000002', 'Featured title', { acceptance: { done: 2, total: 5 } }),
-        path: 'projects/lead.md' }],
-    featuredProject: 'p-000002',
-    projectCards: {
-      'projects/plain.md': { total: 4, done: 3, doing: 0, todo: 1,
-        upcoming: [{ id: 'c-000002', title: 'Plain next', column: { key: 'todo', label: 'Sırada', role: 'todo' } }] },
-      'projects/lead.md': { total: 5, done: 2, doing: 1, todo: 2,
-        upcoming: [{ id: 'c-000001', title: 'Lead next',
-          column: { key: 'doing', label: 'Yapılıyor', role: 'doing' } }] },
-    },
-  }, warnings: ['pending_recovery', 'journal_unreadable'] };
-}
-
-test('built Home uses injected in-process data, escapes titles and renders safe failure states', async (t) => {
-  const root = fileURLToPath(new URL('../', import.meta.url));
-  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
-    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
-    return;
-  }
-  const { handler } = await import('../dist/app/server/entry.mjs');
-  const render = async (cairn) => {
-    const response = await inProcess(createApp({ root, guard, handler, locals: { cairn } }), '/');
-    headers(response);
-    externalAssets(response.body);
-    return response;
-  };
-  const full = await render({ home: homeFixture });
-  assert.equal(full.status, 200);
-  for (const title of ['Pinned title', 'Recent title', 'Card title', 'Today title', 'Today body', 'Project title', 'Featured title']) {
-    assert.ok(full.body.includes(title), title);
-  }
-  assert.match(full.body, /<html lang="tr"/u);
-  assert.match(full.body, /href="\/" aria-current="page"/u);
-  assert.match(full.body, /href="\/board"/u);
-  assert.match(full.body, /href="\/notes\/n-000001"/u);
-  assert.match(full.body, /href="\/notes\/n-000002"/u);
-  assert.match(full.body, /href="\/cards\/c-000001"/u);
-  assert.match(full.body, /priority-important[^>]*>Önemli/u);
-  assert.match(full.body, /project-featured[^>]*aria-label="Featured title"/u);
-  const boxPattern = /<(section|details) class="[^"]*\bproject-box\b[^"]*"[^>]*>([\s\S]*?)<\/\1>/gu;
-  const projects = [...full.body.matchAll(boxPattern)].map((match) => match[2]);
-  assert.equal(projects.length, 2);
-  for (const box of projects) assert.doesNotMatch(box, /project-description|açıklaması yok/u);
-  // The featured box is open with its link in view; the others open in place, one at a time.
-  const featured = projects.find((box) => box.includes('Featured title'));
-  assert.match(featured, /2\/5 ölçüt tamamlandı/u);
-  assert.match(featured, /%40/u);
-  assert.match(featured, /class="bar-fill" width="40"/u);
-  assert.match(featured, /href="\/projects\/p-000002"/u);
-  assert.match(featured, /href="\/cards\/c-000001"[^>]*>Lead next/u);
-  assert.match(full.body,
-    /<details class="[^"]*project-collapsible[^"]*" name="home-projects" aria-label="Project title"/u);
-  const plainBox = projects.find((box) => box.includes('Project title'));
-  assert.match(plainBox, /stroke-dasharray="75 100"/u);
-  assert.match(plainBox, /href="\/projects\/p-000001"/u);
-  assert.doesNotMatch(plainBox, /project-acceptance/u);
-  // Its details open as a layer over the cover, with a close button.
-  assert.match(plainBox, /class="project-details" role="group" aria-label="Project title ayrıntısı"/u);
-  assert.match(plainBox, /data-project-close aria-label="Ayrıntıyı kapat"/u);
-  assert.match(full.body, /Tamamlanmayı bekleyen bir işlem var/u);
-  assert.match(full.body, /Bugünün günlüğü okunamadı/u);
-  // My projects and project pages exist; the Journal and Graph screens do not yet.
-  assert.match(full.body, /href="\/projects">Projeler</u);
-  assert.doesNotMatch(full.body, /href="\/(?:journal|graph)\b/u);
-  // The top bar search is a plain link to /search until the dialog script takes it over.
-  const searchLink = /<a class="shell-search" href="\/search" data-search-open[^>]*>[\s\S]*?<kbd[^>]*data-shortcut/u;
-  assert.match(full.body, searchLink);
-  assert.doesNotMatch(full.body, /data-search-page/u);
-
-  const escaped = await render({ home: () => {
-    const result = homeFixture();
-    result.data.openCards[0].content.title = '<img src=x onerror=alert(1)>';
-    result.data.projects[0].content.title = '" onmouseover="attrAttack(1)';
-    return result;
-  } });
-  assert.equal(escaped.status, 200);
-  assert.match(escaped.body, /&lt;img src=x onerror=alert\(1\)&gt;/u);
-  assert.doesNotMatch(escaped.body, /<img\b/u);
-  assert.doesNotMatch(escaped.body, /"\s*onmouseover=/u);
-  assert.match(escaped.body, /&quot; onmouseover=&quot;attrAttack\(1\)|&#34; onmouseover=&#34;attrAttack\(1\)/u);
-
-  const fallback = await render({ home: () => {
-    const result = homeFixture();
-    result.data.journal.content = { title: 'Today title', body: '## Plain <script>journalAttack(1)</script>', html: null };
-    result.data.projects[1].meta.acceptance = { done: 0, total: 0 };
-    result.warnings.push('render_timeout');
-    return result;
-  } });
-  assert.equal(fallback.status, 200);
-  assert.match(fallback.body, /## Plain &lt;script&gt;journalAttack\(1\)&lt;\/script&gt;/u);
-  assert.match(fallback.body, /Günlüğün biçimlendirilmesi çok uzun sürdü/u);
-  assert.doesNotMatch(fallback.body, /project-acceptance|<script>journalAttack/u);
-
-  const empty = await render({ home: () => ({ data: {
-    pinned: [], recentNotes: [], openCards: [], projects: [], featuredProject: null, journal: null,
-  }, warnings: [] }) });
-  assert.equal(empty.status, 200);
-  assert.ok(empty.body.includes('Projelerin eklendiğinde'));
-  for (const message of ['Henüz sabitlenmiş', 'Notların eklendiğinde', 'Şu anda açık kartın yok', 'Bugün için henüz']) {
-    assert.ok(!empty.body.includes(message), message);
-  }
-  assert.doesNotMatch(empty.body, /class="panel (?:pinned|recent|ongoing|today)\b/u);
-
-  const note = (id, title) => ({ type: 'note', id, meta: {}, content: { title, snippet: '' } });
-  const present = (body) => ({
-    pinned: /class="panel pinned/u.test(body),
-    recent: /class="panel recent/u.test(body),
-    cards: /class="panel ongoing/u.test(body),
-    journal: /class="panel today/u.test(body),
-    projects: /project-box/u.test(body),
-    emptyState: /projects-empty/u.test(body),
-  });
-  const only = (...shown) => Object.fromEntries(['pinned', 'recent', 'cards', 'journal', 'projects', 'emptyState']
-    .map((key) => [key, shown.includes(key)]));
-  const bare = { pinned: [], recentNotes: [], openCards: [], projects: [], featuredProject: null, journal: null };
-
-  const plain = await render({ home: () => ({ warnings: [],
-    data: { ...bare, recentNotes: [note('n-000001', 'Plain note')], journalCount: 0 } }) });
-  assert.deepEqual(present(plain.body), only('recent'));
-  assert.ok(plain.body.includes('Plain note'));
-
-  const noJournal = await render({ home: () => {
-    const result = homeFixture();
-    result.data.journal = null;
-    result.data.journalCount = 0;
-    return result;
-  } });
-  assert.deepEqual(present(noJournal.body), only('pinned', 'recent', 'cards', 'projects'));
-
-  const everything = await render({ home: () => {
-    const result = homeFixture();
-    result.data.journalCount = 3;
-    return result;
-  } });
-  assert.deepEqual(present(everything.body), only('pinned', 'recent', 'cards', 'journal', 'projects'));
-
-  // Entries exist but none for today: the journal panel still shows its own message.
-  const pastJournal = await render({ home: () => ({ warnings: [], data: { ...bare, journalCount: 2 } }) });
-  assert.deepEqual(present(pastJournal.body), only('journal'));
-
-  const notReady = await render(createRead({ open: () => { throw new Error('/private/data missing'); } }));
-  assert.equal(notReady.status, 409);
-  assert.match(notReady.body, /Veri klasörün hazır değil/u);
-  assert.match(notReady.body, /npm run cairn -- init/u);
-  assert.doesNotMatch(notReady.body, /private|missing|Error:|stack/u);
-
-  const failed = await render({ home: () => { throw new Error('/private/data\nsecret stack text'); } });
-  assert.equal(failed.status, 500);
-  assert.match(failed.body, /Ana sayfa yüklenemedi/u);
-  assert.doesNotMatch(failed.body, /private|secret|stack|Error:/u);
-});
-
-test('built Home inserts only sanitized journal HTML from the in-process reader', async (t) => {
-  const root = fileURLToPath(new URL('../', import.meta.url));
-  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
-    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
-    return;
-  }
-  const { handler } = await import('../dist/app/server/entry.mjs');
-  const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
-  mkdirSync(join(data, 'journal'), { recursive: true });
-  writeFileSync(join(data, 'journal/2026-11-01.md'), '---\ndate: 2026-11-01\n---\n## Daily work\n\n**Finished** [[missing|A page]].\n\n<script>journalAttack(1)</script>');
-  const cairn = createRead({ open: () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock }) });
-  const response = await inProcess(createApp({ root, guard, handler, locals: { cairn } }), '/');
-  assert.equal(response.status, 200);
-  externalAssets(response.body);
-  assert.match(response.body, /<h2>Daily work<\/h2>/u);
-  assert.match(response.body, /<strong>Finished<\/strong>/u);
-  assert.match(response.body, /wikilink-ghost/u);
-  assert.doesNotMatch(response.body, /journalAttack|## Daily work|\[\[missing/u);
-});
 
 for (const [vault, loosePath] of [['plain', 'Ideas/Spark.md'], ['daily', 'Archive/Old.md'],
   ['tagged', 'Topics/Loose.md']]) {
@@ -597,65 +418,6 @@ test('built Board, Card and Note routes use injected data, safe states and exter
   }
 });
 
-test('built Home shows the journal month calendar and the agent box after the first project box', async (t) => {
-  const root = fileURLToPath(new URL('../', import.meta.url));
-  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) {
-    t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
-    return;
-  }
-  const { handler } = await import('../dist/app/server/entry.mjs');
-  const render = async (home) => {
-    const response = await inProcess(createApp({ root, guard, handler, locals: { cairn: { home } } }), '/');
-    headers(response);
-    externalAssets(response.body);
-    return response;
-  };
-  const agents = [{ key: 'todo', label: 'Sırada', role: 'todo', count: 2 },
-    { key: 'doing', label: 'Yapılıyor', role: 'doing', count: 1 }];
-  const calendar = { today: '2026-11-06', month: '2026-11', days: ['2026-11-03', '2026-11-06'] };
-  const withExtras = (extra) => () => {
-    const result = homeFixture();
-    Object.assign(result.data, extra);
-    return result;
-  };
-
-  const full = await render(withExtras({ calendar, agents }));
-  assert.equal(full.status, 200);
-  const body = full.body;
-  // The calendar: November 2026 starts on a Sunday, so a Monday-first grid opens with six blanks and lists 30 days.
-  assert.match(body, /<section class="panel calendar-box" aria-labelledby="calendar-title">/u);
-  assert.match(body, /<h2 id="calendar-title">Günlük<\/h2>/u);
-  assert.match(body, /2 günde kayıt var/u);
-  const grid = body.match(/<div class="month-grid"[\s\S]*?<\/div>/u)?.[0] ?? '';
-  assert.match(grid, /role="group" aria-label="Kasım 2026: 2 günde kayıt var"/u);
-  assert.equal((grid.match(/class="month-weekday"/gu) ?? []).length, 7);
-  assert.equal((grid.match(/class="month-blank"/gu) ?? []).length, 6);
-  assert.equal((grid.match(/class="month-day\b/gu) ?? []).length, 30);
-  assert.equal((grid.match(/has-entry/gu) ?? []).length, 2);
-  assert.match(grid, /class="month-day has-entry" aria-label="3 Kasım, kayıt var"[^>]*>3</u);
-  assert.match(grid, /class="month-day has-entry is-today" aria-label="6 Kasım, kayıt var" aria-current="date">6</u);
-  assert.equal((grid.match(/aria-current="date"/gu) ?? []).length, 1, 'only today is current');
-  assert.match(grid, /class="month-day" aria-label="4 Kasım">4</u);
-
-  // The agent work box comes right after the first (featured) project box and before the second one.
-  const at = (pattern) => body.search(pattern);
-  const agentsAt = at(/class="panel agents-box"/u);
-  assert.ok(agentsAt > 0, 'the agent box is shown');
-  assert.ok(at(/aria-label="Featured title"/u) < agentsAt, 'after the first project box');
-  assert.ok(agentsAt < at(/aria-label="Project title"/u), 'before the second project box');
-  assert.ok(at(/class="panel calendar-box"/u) < at(/aria-label="Featured title"/u), 'the calendar comes first');
-  assert.equal((body.match(/class="panel agents-box"/gu) ?? []).length, 1);
-  assert.match(body, /<span class="panel-count">3<\/span>/u);
-  assert.match(body, /href="\/agents"/u);
-
-  // Without projects the agent box still shows once; without an agents project or a calendar neither box is shown.
-  const bare = await render(withExtras({ calendar, agents, projects: [], projectCards: {} }));
-  assert.equal((bare.body.match(/class="panel agents-box"/gu) ?? []).length, 1);
-  const none = await render(withExtras({ calendar: null, agents: null }));
-  assert.equal(none.status, 200);
-  assert.doesNotMatch(none.body, /calendar-box|agents-box/u);
-});
-
 function projectFixture() {
   const card = (id, title, priority, column) =>
     ({ id, type: 'card', meta: priority ? { priority } : {}, content: { title }, column });
@@ -691,7 +453,7 @@ test('built Project page shows the cover, grouped open cards, notes and safe sta
   assert.match(body, /<h1>Project title<\/h1>/u);
   assert.match(body, /<h2>Rendered body<\/h2>/u);
   assert.match(body, /href="\/board\?project=p-000001"/u);
-  assert.match(body, /3 açık · 7 bitti/u);
+  assert.match(body, /3 açık · 7\/10 bitti/u);
   const at = (title) => body.indexOf(title);
   assert.ok(at('Urgent card') < at('Card without id') && at('Card without id') < at('Other card'),
     'urgent, important, then other');
@@ -764,8 +526,8 @@ test('built My projects page groups every project by status with Home boxes and 
   assert.ok(at('Active one') < at('Paused one') && at('Paused one') < at('Archived one'));
   assert.match(body, /href="\/projects\/p-000002"/u);
   assert.ok(body.includes('Loose one'), 'a project without an id still has a box');
-  assert.match(body, /class="project-percent">%25</u);
-  assert.equal((body.match(/class="panel project-box project-collapsible/gu) ?? []).length, 4);
+  assert.match(body, /1\/4 kart/u);
+  assert.equal((body.match(/class="panel project-box/gu) ?? []).length, 4);
   assert.doesNotMatch(body, /project-featured/u);
   const empty = await render({ projects: async () => ({ data: { projects: [], projectCards: {} }, warnings: [] }) });
   assert.match(empty.body, /Projelerin eklendiğinde burada görünecek/u);

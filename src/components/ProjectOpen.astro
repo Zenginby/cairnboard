@@ -1,0 +1,49 @@
+---
+import { t } from '../i18n/index.mjs';
+
+const { openCards = [], doneCount = 0, summaryTotal, boardHref = null } = Astro.props;
+const lowCount = openCards.filter((card) => card.meta?.priority === 'low').length;
+const visibleCards = openCards.filter((card) => card.meta?.priority !== 'low');
+const total = summaryTotal ?? (openCards.length + doneCount);
+// Open cards grouped as on the prototype cover: urgent, important, then everything else in board order.
+const groups = [['urgent', 'priority.urgent'], ['important', 'priority.important'], ['other', 'priority.other']]
+  .map(([key, label]) => ({ key, label, cards: visibleCards.filter((card) =>
+    key === 'other' ? !['urgent', 'important'].includes(card.meta?.priority) : card.meta?.priority === key) }))
+  .filter((group) => group.cards.length);
+const showGroupHeading = !(groups.length === 1 && groups[0].key === 'other');
+---
+<section class="panel project-open" aria-labelledby="project-open-title">
+  <header class="panel-header project-open-header">
+    <h2 id="project-open-title">{t('project.open')}</h2>
+    <span class="panel-count project-open-meta">
+      <span>{t('project.openSummary', { open: visibleCards.length, done: doneCount, total })}</span>
+      {lowCount > 0 && <span aria-hidden="true">·</span>}
+      {lowCount > 0 && <span>{t('project.lowHidden', { n: lowCount })}</span>}
+      {boardHref && <><span aria-hidden="true">·</span><a class="project-board-link" href={boardHref}>
+        {t('project.seeOnBoard')}</a></>}
+    </span>
+  </header>
+  {groups.length ? groups.map((group) => {
+    const list = <ul class="summary-list">{group.cards.map((card) => {
+      const role = ['doing', 'done'].includes(card.column?.role) ? card.column.role : 'planned';
+      const now = typeof card.content?.now === 'string' ? card.content.now.trim() : '';
+      return <li><div class="summary-row">
+        <div class="row-copy">
+          {card.id
+            ? <a class="row-title" href={`/cards/${encodeURIComponent(card.id)}`}>
+              {card.content.title || t('home.untitled')}</a>
+            : <span class="row-title">{card.content.title || t('home.untitled')}</span>}
+          {now && <p class="row-detail">{now}</p>}
+        </div>
+        <span class:list={['chip', `status-${role}`]}>{card.column.label}</span>
+      </div></li>;
+    })}</ul>;
+    return showGroupHeading
+      ? <section class="project-group" aria-labelledby={`group-${group.key}`}>
+        <h3 id={`group-${group.key}`} class:list={['project-group-title', `priority-text-${group.key}`]}>
+          {t(group.label)}</h3>
+        {list}
+      </section>
+      : list;
+  }) : <p class="empty-copy">{t('project.openEmpty')}</p>}
+</section>

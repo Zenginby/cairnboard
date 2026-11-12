@@ -13,6 +13,7 @@ const tabs = [
   { href: '/', label: 'shell.home' },
   { href: '/projects', label: 'shell.projects' },
   { href: '/board', label: 'shell.board' },
+  { href: '/journal', label: 'journal.title' },
 ];
 // Settings > Live updates: when off the page carries no script, no status line and no live region; unknown means on.
 const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;

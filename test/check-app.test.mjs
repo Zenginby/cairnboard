@@ -23,8 +23,10 @@ test('app pages are picked from the data, in a fixed order, and --only narrows t
   const pages = selectAppPages(sample(t));
   assert.deepEqual(pages.map((page) => page.name),
     ['home', 'board', 'card', 'note', 'search', 'search-empty', 'search-dialog', 'not-found', 'signed-out',
-      'settings', 'cards-new', 'card-edit', 'agents', 'projects', 'project']);
+      'settings', 'cards-new', 'card-edit', 'agents', 'projects', 'project', 'journal', 'journal-day']);
   assert.match(pages[14].path, /^\/projects\/p-[0-9a-z]+$/u);
+  assert.deepEqual(pages[15], { name: 'journal', path: '/journal' });
+  assert.deepEqual(pages[16], { name: 'journal-day', path: '/journal/2026-11-06' });
   assert.deepEqual(selectAppPages(sample(t), 'card-edit'),
     [{ name: 'card-edit', path: `${pages[2].path}/edit` }]);
   assert.deepEqual(selectAppPages(sample(t), 'cards-new'),

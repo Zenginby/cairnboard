@@ -1,0 +1,47 @@
+---
+import { t, language } from '../i18n/index.mjs';
+const { cards, columns, latest } = Astro.props;
+const total = columns.reduce((sum, column) => sum + column.total, 0);
+const dayLabel = latest && new Intl.DateTimeFormat(language, { dateStyle: 'full', timeZone: 'UTC' })
+  .format(new Date(`${latest.date}T12:00:00Z`));
+let offset = 0;
+const segments = columns.map((column) => {
+  const width = total ? column.total / total * 100 : 0;
+  const segment = { ...column, x: offset, width };
+  offset += width;
+  return segment;
+});
+---
+<section class="panel ongoing" aria-labelledby="ongoing-title">
+  <header class="panel-header"><h2 id="ongoing-title">{t('home.inProgress')}</h2>
+    <span class="panel-count">{cards.length}</span></header>
+  {cards.length ? <ul class="summary-list">{cards.map((card) => <li><div class="summary-row">
+    <div class="row-copy">
+      {card.id ? <a class="row-title" href={`/cards/${encodeURIComponent(card.id)}`}>{card.content.title}</a>
+        : <span class="row-title">{card.content.title}</span>}
+      {typeof card.content.now === 'string' && card.content.now.trim() && <p class="row-detail">{card.content.now}</p>}
+    </div>
+    {Array.isArray(card.content.tags) && typeof card.content.tags[0] === 'string' && card.content.tags[0]
+      && <span class="chip">{card.content.tags[0]}</span>}
+  </div></li>)}</ul> : <p class="empty-copy">{t('home.inProgressEmpty')}</p>}
+  <a class="action-link" href="/board">{t('home.seeBoard')}</a>
+</section>
+<section class="panel home-distribution" aria-labelledby="distribution-title">
+  <h2 id="distribution-title"><a href="/board">{t('home.distribution')}</a></h2>
+  <p class="panel-subtitle">{t('home.totalCards', { count: total })}</p>
+  <svg class="home-distribution-bar" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
+    {segments.map((segment, index) => <rect class={`tone-${index % 8 + 1}`}
+      x={segment.x} width={segment.width} height="1" />)}
+  </svg>
+  <dl class="home-column-counts">{columns.map((column) => <div>
+    <dt>{column.label}</dt><dd>{column.total}</dd>
+  </div>)}</dl>
+</section>
+<section class="panel latest-day" aria-labelledby="latest-day-title">
+  <h2 id="latest-day-title">{t('home.latestDay')}</h2>
+  {latest ? <>
+    <p class="panel-subtitle"><time datetime={latest.date}>{dayLabel}</time></p>
+    <ol class="home-day-jobs">{latest.jobs.map((title) => <li>{title}</li>)}</ol>
+    <a class="action-link" href={`/journal/${latest.date}`}>{t('home.openDay')}</a>
+  </> : <p class="empty-copy">{t('home.noJournal')} <a href="/journal">{t('home.calendar')}</a></p>}
+</section>

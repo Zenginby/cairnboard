@@ -1,10 +1,15 @@
 import { basename } from 'node:path';
 import { validateDate } from '../core/dates.mjs';
 import * as index from '../core/index.mjs';
-import { stripHidden } from '../core/text.mjs';
+import { stripHidden, oneLine } from '../core/text.mjs';
 import { CairnError } from '../core/errors.mjs';
 import { normalizeId, isNoteKey } from '../core/ids.mjs';
+import * as journal from '../core/journal.mjs';
+import * as entity from '../core/entity.mjs';
 import { effectiveColumn } from '../core/card.mjs';
+import { parseFile } from '../core/frontmatter.mjs';
+import { extractProjectLinks } from '../core/project-links.mjs';
+import { readFile } from '../core/store.mjs';
 import { homeView, boardView, showView, projectsView, projectSummary } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
 import { createRenderPool } from './render-pool.mjs';
@@ -94,6 +99,10 @@ function projectCover(ctx, view, projects) {
     .map((row) => ({ ref: row.id ?? row.ref, title: row.title, updated: row.data.updated ?? null }));
   view.data.notesTotal = notes.length;
   view.data.summary = projectSummary(ctx, { id: view.entity.id ?? null, path: view.entity.path });
+  const { jobs, jobsTotal } = projectJobs(ctx, refs);
+  view.data.jobs = jobs;
+  view.data.jobsTotal = jobsTotal;
+  view.data.links = extractProjectLinks(view.entity.body);
 }
 
 function joinProjects(view, projects) {
@@ -165,6 +174,8 @@ export function createRead({ open, render = createRenderPool().render }) {
     },
     note(id) { return document('note', id); },
     project(id) { return document('project', id); },
+    async journalMonth(query) { return journalMonthResult(await openRead(), query); },
+    async journalDay(date) { return journalDayResult(await openRead(), date, render); },
     async projects() {
       const ctx = await openRead();
       const view = projectsView(ctx);
@@ -177,7 +188,211 @@ export function createRead({ open, render = createRenderPool().render }) {
       if (view.journalEntity) {
         await renderView(ctx, { entity: view.journalEntity, data: view.data.journal, warnings: view.warnings }, render);
       }
+      Object.assign(view.data, homeOverview(ctx, view.journalEntity));
       return homeResult(ctx, view);
     },
   };
+}
+
+// Home uses the first visible doing/todo column's key, so review columns and translated labels never select cards.
+// `today` is the journal entity Home already read: when it is the newest day its body is reused, not read again.
+export function homeOverview(ctx, today = null) {
+  const board = boardView(ctx, {}, { scope: 'owner' }).data.columns;
+  const doingKey = board.find((column) => column.role === 'doing')?.key;
+  const nextKey = board.find((column) => column.role === 'todo')?.key;
+  const inProgress = board.find((column) => column.key === doingKey)?.cards ?? [];
+  const upNext = board.find((column) => column.key === nextKey)?.total ?? 0;
+  const days = index.rows(ctx, 'journal').map((row) => ({ row, date: journalDate(row) }))
+    .filter((day) => day.date !== null).sort((a, b) => b.date.localeCompare(a.date));
+  const latest = days[0];
+  const now = entity.localDate(ctx);
+  const month = (latest?.date ?? now).slice(0, 7);
+  const latestBody = !latest ? null : today && today.path === latest.row.path && typeof today.body === 'string'
+    ? today.body : journal.show(ctx, latest.date).body;
+  const latestDay = latest ? { date: latest.date,
+    jobs: journal.sections(latestBody).map((job) => stripHidden(job.title).text) } : null;
+  return { today: now, inProgress, upNext, latestDay,
+    journalCount: new Set(days.map((day) => day.date)).size,
+    calendar: { today: now, month, latest: latest?.date ?? null,
+      days: [...new Set(days.filter((day) => day.date.startsWith(`${month}-`)).map((day) => day.date))] },
+    distribution: board.map(({ key, label, role, total }) => ({ key, label, role, total })) };
+}
+
+// ---- Journal screens (/journal, /journal/<date>): read-only views over the journal days. ----
+
+const MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/u;
+const JOURNAL_ITEMS = 3;
+
+// Plain one-line text of a Markdown item, for the day preview.
+function plainItem(text) {
+  const clean = stripHidden(text).text
+    .replace(/\[\[([^\]|]*)\|([^\]]*)\]\]/gu, '$2').replace(/\[\[([^\]]*)\]\]/gu, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/gu, '$1').replace(/(\*\*|__|`|\*)/gu, '');
+  return oneLine(clean).slice(0, 200);
+}
+
+// The jobs' own lines, split like core `sections()` (headings inside fences are not jobs; a `# ` heading ends a job).
+function jobLines(body) {
+  const jobs = [];
+  let current = null;
+  let fence = null;
+  for (const content of body.split(/\r?\n/u)) {
+    const marker = content.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
+    if (fence) {
+      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+      current?.push(content);
+      continue;
+    }
+    if (marker && (marker[1][0] === '~' || !marker[2].includes('`'))) {
+      fence = marker[1];
+      current?.push(content);
+      continue;
+    }
+    if (/^##[\t ]+/u.test(content)) { current = []; jobs.push(current); continue; }
+    if (/^#[\t ]/u.test(content)) { current = null; continue; }
+    current?.push(content);
+  }
+  return jobs;
+}
+
+// Without the project mark line (a comment that renders as nothing); the first items as plain text.
+function jobParts(lines) {
+  const kept = [];
+  let marked = false;
+  for (const content of lines) {
+    if (!marked && content.trim()) {
+      marked = true;
+      if (/^<!--[\t ]*cairn:project[\t ]/u.test(content)) continue;
+    }
+    kept.push(content);
+  }
+  const items = [];
+  let fence = false;
+  for (const content of kept) {
+    if (/^ {0,3}(`{3,}|~{3,})/u.test(content)) { fence = !fence; continue; }
+    if (fence || !content.trim()) continue;
+    const bullet = content.match(/^[-*+][\t ]+(.*)$/u);
+    if (bullet) items.push(bullet[1]);
+    else if (/^\s/u.test(content) && items.length) items[items.length - 1] += ` ${content.trim()}`;
+    else items.push(content.trim());
+  }
+  return { markdown: kept.join('\n').trim(), items: items.map(plainItem).filter(Boolean) };
+}
+
+const isoDay = (value) => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return null;
+  try { validateDate(value); return value; } catch { return null; }
+};
+
+// Every recorded journal day, oldest first: its summary and its jobs (title, label, project, items).
+function journalDays(ctx, projects) {
+  const found = new Map();
+  const warnings = [];
+  for (const item of entity.list(ctx, 'journal')) {
+    const date = isoDay(String(item.data.date ?? basename(item.path, '.md')));
+    if (date === null || found.has(date)) continue;
+    const file = readFile(ctx, item.path);
+    const parsed = file ? parseFile(file.text) : { error: 'missing' };
+    if (parsed.error) { warnings.push('journal_unreadable'); continue; }
+    const lines = jobLines(parsed.body);
+    const sections = journal.sections(parsed.body);
+    const aligned = lines.length === sections.length;
+    const summary = typeof item.data.summary === 'string' ? oneLine(stripHidden(item.data.summary).text) : '';
+    const jobs = sections.map((section, order) => {
+      const parts = aligned ? jobParts(lines[order]) : { markdown: '', items: [] };
+      return { id: `job-${order + 1}`, title: oneLine(stripHidden(section.title).text),
+        label: section.label === null ? null : oneLine(stripHidden(section.label).text),
+        project: projects.get(section.project) ?? null, items: parts.items, markdown: parts.markdown };
+    });
+    found.set(date, { date, path: item.path, summary, jobs });
+  }
+  return { days: [...found.values()].sort((a, b) => (a.date < b.date ? -1 : 1)), warnings: [...new Set(warnings)] };
+}
+
+const shiftMonth = (month, offset) => {
+  const at = Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1 + offset;
+  return `${String(Math.floor(at / 12)).padStart(4, '0')}-${String(at % 12 + 1).padStart(2, '0')}`;
+};
+
+/**
+ * The month view: `month` (YYYY-MM), `project` (a project id) and `day` (YYYY-MM-DD) come from the URL and are
+ * ignored when they do not fit (an unknown project, a day outside the month or with nothing to show).
+ * @param {*} ctx @param {{ month?: string, project?: string, day?: string }} [query]
+ */
+export function journalMonthResult(ctx, { month, project, day } = {}) {
+  const projects = projectMap(ctx);
+  const { days, warnings } = journalDays(ctx, projects);
+  const chips = [];
+  for (const record of days) {
+    for (const { project: linked } of record.jobs) {
+      if (linked && !chips.some((chip) => chip.id === linked.id)) chips.push(linked);
+    }
+  }
+  chips.sort((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base', numeric: true }));
+  const active = chips.find((chip) => chip.id === project)?.id ?? '';
+  const shown = typeof month === 'string' && MONTH.test(month) ? month
+    : days.length ? days.at(-1).date.slice(0, 7) : entity.localDate(ctx).slice(0, 7);
+  const count = (record) => record.jobs.filter((job) => !active || job.project?.id === active).length;
+  const inMonth = days.filter((record) => record.date.startsWith(`${shown}-`));
+  const cells = inMonth.map((record) => ({ date: record.date, count: count(record) })).filter((cell) => cell.count > 0);
+  const chosen = isoDay(day) && inMonth.find((record) => record.date === day);
+  const jobsOf = (record) => record.jobs.filter((job) => !active || job.project?.id === active).map((job) => ({
+    id: job.id, title: job.title, label: job.label, project: job.project,
+    items: job.items.slice(0, JOURNAL_ITEMS), moreItems: Math.max(0, job.items.length - JOURNAL_ITEMS) }));
+  return okEnvelope({
+    month: shown, previousMonth: shiftMonth(shown, -1), nextMonth: shiftMonth(shown, 1),
+    projects: chips, project: active, recorded: days.length,
+    days: cells, list: [...cells].reverse(),
+    selected: chosen ? { date: chosen.date, summary: active ? '' : chosen.summary, jobs: jobsOf(chosen) } : null,
+  }, [...ctx.warnings, ...warnings]);
+}
+
+/**
+ * One day's full log: the summary, each job with its items rendered through the same sanitized Markdown worker as
+ * the other read pages, and the previous and next recorded days. A malformed or unrecorded date is not found.
+ * @param {*} ctx @param {string} date @param {*} render
+ */
+export async function journalDayResult(ctx, date, render) {
+  const projects = projectMap(ctx);
+  const { days, warnings } = journalDays(ctx, projects);
+  const at = isoDay(date) ? days.findIndex((record) => record.date === date) : -1;
+  if (at < 0) throw new EntityNotFoundError();
+  const record = days[at];
+  const own = [...warnings];
+  const jobs = [];
+  for (const job of record.jobs) {
+    let html = null;
+    if (job.markdown) {
+      const rendered = await renderBody(ctx, { path: record.path, body: job.markdown }, render);
+      html = rendered.html;
+      for (const [flag, code] of RENDER_WARNINGS) if (rendered[flag]) own.push(code);
+    }
+    jobs.push({ id: job.id, title: job.title, label: job.label, project: job.project, html, items: job.items });
+  }
+  return okEnvelope({ date, summary: record.summary, jobs, previous: days[at - 1]?.date ?? null,
+    next: days[at + 1]?.date ?? null }, [...ctx.warnings, ...new Set(own)]);
+}
+
+const COVER_JOBS = 8;
+const cleanLine = (value) => oneLine(stripHidden(typeof value === 'string' ? value : '').text).slice(0, 200);
+
+function projectJobs(ctx, refs) {
+  if (!refs.size) return { jobs: [], jobsTotal: 0 };
+  const days = index.rows(ctx, 'journal')
+    .map((row) => ({ row, date: journalDate(row) }))
+    .filter((item) => item.date !== null)
+    .sort((a, b) => b.date.localeCompare(a.date) || (a.row.path < b.row.path ? -1 : a.row.path > b.row.path ? 1 : 0));
+  const matched = [];
+  for (const { row, date } of days) {
+    const file = readFile(ctx, row.path);
+    if (!file) continue;
+    const parsed = parseFile(file.text);
+    if (parsed.error) continue;
+    for (const section of journal.sections(parsed.body).reverse()) {
+      if (!section.project || !refs.has(section.project)) continue;
+      const label = section.label === null ? null : cleanLine(section.label) || null;
+      matched.push({ title: cleanLine(section.title), label, date });
+    }
+  }
+  return { jobs: matched.slice(0, COVER_JOBS), jobsTotal: matched.length };
 }

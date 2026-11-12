@@ -2,6 +2,7 @@
 import AppShell from '../layouts/AppShell.astro';
 import HomeList from '../components/HomeList.astro';
 import ProjectBox from '../components/ProjectBox.astro';
+import HomeOverview from '../components/HomeOverview.astro';
 import AgentsBox from '../components/AgentsBox.astro';
 import PageState from '../components/PageState.astro';
 import { t, warningText, language } from '../i18n/index.mjs';
@@ -25,19 +26,21 @@ const choices = (data?.projectChoices ?? []).filter((choice) => choice.id);
 const homeForm = choices.length ? pickerForm : null;
 if (homeForm) Astro.response.headers.set('Referrer-Policy', 'same-origin');
 const saved = Astro.url.searchParams.get('saved') === 'projects';
+const todayLabel = data?.today && new Intl.DateTimeFormat(language, { dateStyle: 'full', timeZone: 'UTC' })
+  .format(new Date(`${data.today}T12:00:00Z`));
 const shownCount = choices.filter((choice) => choice.shown).length;
-// The month calendar: Monday-first grid of today's month, days with a journal entry marked.
+// Monday-first calendar of the newest recorded month's entries.
 const calendar = data?.calendar ? (() => {
   const [year, month] = data.calendar.month.split('-').map(Number);
   const first = new Date(Date.UTC(year, month - 1, 1));
   const count = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const days = new Set(data.calendar.days);
-  const long = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'long', timeZone: 'UTC' });
+  const long = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   const weekdays = Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(language, { weekday: 'short',
     timeZone: 'UTC' }).format(new Date(Date.UTC(2024, 0, 1 + index))));
   const cells = [...Array((first.getUTCDay() + 6) % 7).fill(null), ...Array.from({ length: count }, (_, index) => {
     const date = `${data.calendar.month}-${String(index + 1).padStart(2, '0')}`;
-    return { day: index + 1, entry: days.has(date), today: date === data.calendar.today,
+    return { day: index + 1, entry: days.has(date), latest: date === data.calendar.latest,
       label: long.format(new Date(Date.UTC(year, month - 1, index + 1))) };
   })];
   return { cells, weekdays, days, monthName: new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric',
@@ -47,11 +50,6 @@ const noneChosen = (data?.hiddenProjects?.length ?? 0) > 0 && !data.projects.len
 const warnings = [...new Set((result?.warnings ?? []).map(warningText))];
 const isFeatured = (project) => project.id !== null && project.id === data.featuredProject;
 const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) - Number(isFeatured(a))) : [];
-// A panel renders only when it has data; the empty guidance stays for a data folder with nothing at all.
-const hasJournal = (data?.journalCount ?? (data?.journal ? 1 : 0)) > 0 || Boolean(data?.journal);
-const hasContent = Boolean(data)
-  && (data.pinned.length || data.openCards.length || data.recentNotes.length || hasJournal);
-const showEmpty = Boolean(data) && !projects.length && !hasContent;
 ---
 <AppShell live="card project note journal board" current="/">
   {homeForm && <meta slot="head" name="referrer" content="same-origin" />}
@@ -61,10 +59,13 @@ const showEmpty = Boolean(data) && !projects.length && !hasContent;
     </aside>}
     <div class="bento">
       <section class="panel hero">
-        <p class="eyebrow">{t('shell.home')}</p>
+        <p class="eyebrow"><time datetime={data.today}>{todayLabel}</time></p>
         <h1>{t('home.title')}</h1>
-        <p class="hero-summary">{t('home.summary')}</p>
+        <p class="hero-summary">{t('home.activitySummary',
+          { doing: data.inProgress?.length ?? 0, next: data.upNext ?? 0 })}</p>
         <div class="hero-actions">
+          {data.latestDay && <a class="action-link" href={`/journal/${data.latestDay.date}`}>
+            {t('home.latestEntry')}</a>}
           <a class="action-link" href="/board">{t('home.board')}</a>
           <a class="action-link" href="/projects">{t('home.allProjects')}</a>
         </div>
@@ -89,44 +90,31 @@ const showEmpty = Boolean(data) && !projects.length && !hasContent;
         </details>}
       </section>
       {calendar && <section class="panel calendar-box" aria-labelledby="calendar-title">
-        <header class="panel-header"><h2 id="calendar-title">{t('home.calendar')}</h2>
+        <header class="panel-header"><h2 id="calendar-title"><a href="/journal">{t('home.calendar')}</a></h2>
           <span class="panel-count">{calendar.monthName}</span></header>
-        <p class="panel-subtitle">{t('home.calendarDays', { count: calendar.days.size })}</p>
+        <p class="panel-subtitle">{t('home.calendarDays', { count: data.journalCount ?? 0 })}</p>
         <div class="month-grid" role="group"
-          aria-label={`${calendar.monthName}: ${t('home.calendarDays', { count: calendar.days.size })}`}>
+          aria-label={`${calendar.monthName}: ${t('home.calendarDays', { count: data.journalCount ?? 0 })}`}>
           {calendar.weekdays.map((day) => <span class="month-weekday" aria-hidden="true">{day}</span>)}
           {calendar.cells.map((cell) => cell === null ? <span class="month-blank" aria-hidden="true"></span>
-            : <span class:list={['month-day', { 'has-entry': cell.entry, 'is-today': cell.today }]}
-              aria-label={`${cell.label}${cell.entry ? `, ${t('home.calendarEntry')}` : ''}`}
-              aria-current={cell.today ? 'date' : undefined}>{cell.day}</span>)}
+            : cell.entry ? <a class:list={['month-day', 'has-entry', { 'is-latest': cell.latest }]}
+              href={`/journal/${data.calendar.month}-${String(cell.day).padStart(2, '0')}`}
+              aria-label={[cell.label, t('home.calendarEntry'), cell.latest && t('home.latestEntry')]
+                .filter(Boolean).join(', ')}>{cell.day}</a>
+              : <span class="month-day" aria-label={cell.label}>{cell.day}</span>)}
         </div>
       </section>}
-      <HomeList items={data.pinned} title="home.pinned" subtitle="home.pinnedSubtitle" className="pinned" />
-      {/* The agent work box sits after the first project box, one row under the calendar. */}
-      {!projects.length && <AgentsBox agents={data.agents} />}
-      {projects.length ? projects.map((project, index) => <>
+      {projects.length ? projects.map((project, index) =>
         <ProjectBox project={project} index={index} featured={isFeatured(project)}
-          stats={data.projectCards?.[project.path]} />
-        {index === 0 && <AgentsBox agents={data.agents} />}
-      </>)
-      : noneChosen ? <section class="panel projects-empty">
-        <h2>{t('home.projects')}</h2><p class="empty-copy">{t('home.noneChosen')}</p>
-      </section>
-      : showEmpty && <section class="panel projects-empty">
-        <h2>{t('home.projects')}</h2><p class="empty-copy">{t('home.projectsEmpty')}</p>
-      </section>}
-      <HomeList items={data.openCards} title="home.cards" subtitle="home.cardsSubtitle" className="ongoing" cards />
+          stats={data.projectCards?.[project.path]} />)
+        : <section class="panel projects-empty">
+          <h2>{t('home.projects')}</h2>
+          <p class="empty-copy">{t(noneChosen ? 'home.noneChosen' : 'home.projectsEmpty')}</p>
+        </section>}
+      <HomeOverview cards={data.inProgress ?? []} columns={data.distribution ?? []} latest={data.latestDay} />
+      <AgentsBox agents={data.agents} />
+      <HomeList items={data.pinned} title="home.pinned" subtitle="home.pinnedSubtitle" className="pinned" />
       <HomeList items={data.recentNotes} title="home.notes" subtitle="home.notesSubtitle" className="recent" />
-      {hasJournal && <section class="panel today" aria-labelledby="journal-title">
-        <header class="panel-header"><h2 id="journal-title">{t('home.journal')}</h2></header>
-        {data.journal ? <>
-          {data.journal.content.title && <h3>{data.journal.content.title}</h3>}
-          {data.journal.content.html != null
-            ? <div class="journal-body journal-content" set:html={data.journal.content.html} />
-            : <p class="journal-body">{data.journal.content.body || data.journal.content.snippet || t('home.journalEmpty')}</p>}
-        </> : <p class="empty-copy">{t('home.journalEmpty')}</p>}
-      </section>}
     </div>
   </>}
-  <script src="../scripts/home-projects.js"></script>
 </AppShell>

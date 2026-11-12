@@ -1,0 +1,20 @@
+---
+import { t, language } from '../i18n/index.mjs';
+
+const { jobs = [], total = 0 } = Astro.props;
+const day = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+const dayLabel = (date) => day.format(new Date(`${date}T12:00:00Z`));
+---
+<section class="panel project-jobs" aria-labelledby="project-jobs-title">
+  <header class="panel-header">
+    <h2 id="project-jobs-title">{t('project.jobs')}</h2>
+    <span class="panel-count">{total}</span>
+  </header>
+  {jobs.length ? <ul class="summary-list">{jobs.map((job) => <li><div class="summary-row">
+    <div class="row-copy">
+      <a class="row-title" href={`/journal/${encodeURIComponent(job.date)}`}>{job.title || t('home.untitled')}</a>
+      <p class="row-meta"><time datetime={job.date}>{dayLabel(job.date)}</time></p>
+    </div>
+    {job.label && <span class="chip">{job.label}</span>}
+  </div></li>)}</ul> : <p class="empty-copy">{t('project.jobsEmpty')}</p>}
+</section>

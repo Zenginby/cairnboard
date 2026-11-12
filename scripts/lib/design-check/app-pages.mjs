@@ -1,3 +1,4 @@
+import { basename } from 'node:path';
 import * as index from '../../../core/index.mjs';
 
 export const MISSING_PATH = '/no-such-page';
@@ -8,12 +9,14 @@ export function selectAppPages(ctx, only = null) {
   const card = first('card');
   const note = first('note');
   const project = first('project');
+  const day = index.rows(ctx, 'journal').map((row) => String(row.data.date ?? basename(row.path, '.md')))
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/u.test(date)).sort().at(-1);
   if (!card || !note) throw new Error('The data folder needs at least one card and one note with an id.');
   // A word that is certain to match: the first word of the first note's title.
   const word = String(note.title ?? '').trim().split(/\s+/u)[0];
   if (!word) throw new Error('The first note needs a title to search for.');
   const pages = [
-    { name: 'home', path: '/' },
+    { name: 'home', path: '/', status: 200 },
     { name: 'board', path: '/board' },
     { name: 'card', path: `/cards/${encodeURIComponent(card.id)}` },
     { name: 'note', path: `/notes/${encodeURIComponent(note.id)}` },
@@ -30,6 +33,8 @@ export function selectAppPages(ctx, only = null) {
     { name: 'agents', path: '/agents' },
     { name: 'projects', path: '/projects' },
     ...(project ? [{ name: 'project', path: `/projects/${encodeURIComponent(project.id)}` }] : []),
+    { name: 'journal', path: '/journal' },
+    ...(day ? [{ name: 'journal-day', path: `/journal/${day}` }] : []),
   ];
   if (only === null) return pages;
   const selected = pages.filter((page) => page.name === only);

@@ -30,7 +30,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const engines = { chromium, webkit, firefox };
 const reportPath = new URL('../design/check-app-report.json', import.meta.url);
 const usage = 'Usage: npm run check:app -- [--browser chrome|brave|chromium|webkit|firefox]'
-  + ' [--only home|board|card|note|search|search-empty|search-dialog|settings|not-found|signed-out]'
+  + ' [--only home|board|card|note|search|search-empty|search-dialog|settings|not-found|signed-out|journal|journal-day]'
   + ' [--quick] [--workers 4]';
 
 // Same one-time-token to cookie exchange a browser does at /auth; the token and the key stay in this process.

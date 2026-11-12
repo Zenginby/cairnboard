@@ -7,7 +7,7 @@ import { openContext } from '../core/context.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
 import { homeView, boardView, showView } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
-import { createRead, DataNotReadyError, projectMap } from '../server/read.mjs';
+import { createRead, DataNotReadyError, projectMap, homeOverview } from '../server/read.mjs';
 import { searchView } from '../server/search.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
 import tr from '../src/i18n/tr.json' with { type: 'json' };
@@ -28,14 +28,15 @@ function fixture(t, body) {
   return { ctx, data };
 }
 
-test('in-process Home returns the CLI envelope and combines context and view warnings', async (t) => {
+test('in-process Home returns the CLI envelope plus the overview and combines warnings', async (t) => {
   const { ctx } = fixture(t);
   ctx.warnings.push('pending_recovery', 'pending_recovery');
   const view = homeView(ctx, {}, { scope: 'owner' });
   let opens = 0;
   const reader = createRead({ open: () => { opens++; return ctx; } });
   const result = await reader.home();
-  assert.deepEqual(result, okEnvelope(view.data, [...ctx.warnings, ...view.warnings]));
+  assert.deepEqual(result, okEnvelope({ ...view.data, ...homeOverview(ctx, view.journalEntity) },
+    [...ctx.warnings, ...view.warnings]));
   assert.equal(result.data.pinned[0].content.title, 'Pinned title');
   assert.equal(result.warnings.filter((code) => code === 'pending_recovery').length, 1);
   await reader.home();

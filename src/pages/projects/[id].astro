@@ -3,6 +3,9 @@ import AppShell from '../../layouts/AppShell.astro';
 import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
 import EntityMeta from '../../components/EntityMeta.astro';
+import ProjectOpen from '../../components/ProjectOpen.astro';
+import ProjectJobs from '../../components/ProjectJobs.astro';
+import ProjectLinks from '../../components/ProjectLinks.astro';
 import { t } from '../../i18n/index.mjs';
 
 let result, state;
@@ -16,11 +19,6 @@ try {
 }
 const item = result?.data;
 const tone = Number.isInteger(item?.tone) && item.tone >= 1 && item.tone <= 8 ? item.tone : 1;
-// Open cards grouped as on the prototype cover: urgent, important, then everything else in board order.
-const groups = item ? [['urgent', 'priority.urgent'], ['important', 'priority.important'], ['other', 'priority.other']]
-  .map(([key, label]) => ({ key, label, cards: item.openCards.filter((card) =>
-    key === 'other' ? !['urgent', 'important'].includes(card.meta.priority) : card.meta.priority === key) }))
-  .filter((group) => group.cards.length) : [];
 const boardHref = item?.id ? `/board?${new URLSearchParams({ project: item.id })}` : null;
 ---
 <AppShell live="project card note board" title={item?.content.title || t('type.project')} surface>
@@ -44,45 +42,30 @@ const boardHref = item?.id ? `/board?${new URLSearchParams({ project: item.id })
             && <p class="document-body plain-body project-description">{item.content.body || item.content.snippet}</p>}
       </header>
       <div class="project-columns">
-        <section class="panel project-open" aria-labelledby="project-open-title">
-          <header class="panel-header">
-            <h2 id="project-open-title">{t('project.open')}</h2>
-            <span class="panel-count">
-              {t('project.openSummary', { open: item.openCards.length, done: item.doneCount })}</span>
-          </header>
-          {groups.length ? groups.map((group) => <section class="project-group" aria-labelledby={`group-${group.key}`}>
-            <h3 id={`group-${group.key}`} class:list={['project-group-title', `priority-text-${group.key}`]}>
-              {t(group.label)}</h3>
-            <ul class="summary-list">{group.cards.map((card) => {
-              const role = ['doing', 'done'].includes(card.column?.role) ? card.column.role : 'planned';
-              return <li><div class="summary-row">
-                <div class="row-copy">
-                  {card.id
-                    ? <a class="row-title" href={`/cards/${encodeURIComponent(card.id)}`}>
-                      {card.content.title || t('home.untitled')}</a>
-                    : <span class="row-title">{card.content.title || t('home.untitled')}</span>}
-                </div>
-                <span class:list={['chip', `status-${role}`]}>{card.column.label}</span>
-              </div></li>;
-            })}</ul>
-          </section>) : <p class="empty-copy">{t('project.openEmpty')}</p>}
-        </section>
-        <section class="panel project-notes" aria-labelledby="project-notes-title">
-          <header class="panel-header">
-            <h2 id="project-notes-title">{t('project.notes')}</h2>
-            <span class="panel-count">{item.notesTotal}</span>
-          </header>
-          {item.notes.length ? <ul class="summary-list">{item.notes.map((note) => <li><div class="summary-row">
-            <div class="row-copy">
-              {note.ref
-                ? <a class="row-title" href={`/notes/${encodeURIComponent(note.ref)}`}>
-                  {note.title || t('home.untitled')}</a>
-                : <span class="row-title">{note.title || t('home.untitled')}</span>}
-            </div>
-          </div></li>)}</ul> : <p class="empty-copy">{t('project.notesEmpty')}</p>}
-          {item.notesTotal > item.notes.length && <p class="empty-copy">
-            {t('project.notesMore', { shown: item.notes.length, total: item.notesTotal })}</p>}
-        </section>
+        <div class="project-stack">
+          <ProjectOpen openCards={item.openCards} doneCount={item.doneCount}
+            summaryTotal={item.summary?.total} boardHref={boardHref} />
+          <ProjectJobs jobs={item.jobs ?? []} total={item.jobsTotal ?? 0} />
+        </div>
+        <div class="project-stack">
+          <section class="panel project-notes" aria-labelledby="project-notes-title">
+            <header class="panel-header">
+              <h2 id="project-notes-title">{t('project.notes')}</h2>
+              <span class="panel-count">{item.notesTotal}</span>
+            </header>
+            {item.notes.length ? <ul class="summary-list">{item.notes.map((note) => <li><div class="summary-row">
+              <div class="row-copy">
+                {note.ref
+                  ? <a class="row-title" href={`/notes/${encodeURIComponent(note.ref)}`}>
+                    {note.title || t('home.untitled')}</a>
+                  : <span class="row-title">{note.title || t('home.untitled')}</span>}
+              </div>
+            </div></li>)}</ul> : <p class="empty-copy">{t('project.notesEmpty')}</p>}
+            {item.notesTotal > item.notes.length && <p class="empty-copy">
+              {t('project.notesMore', { shown: item.notes.length, total: item.notesTotal })}</p>}
+          </section>
+          <ProjectLinks links={item.links ?? []} />
+        </div>
       </div>
     </div>
   </>}

@@ -1,0 +1,19 @@
+---
+import { isAllowedLinkScheme } from '../../core/project-links.mjs';
+import { t } from '../i18n/index.mjs';
+
+const { links = [] } = Astro.props;
+const safeLinks = links.filter((link) => link && isAllowedLinkScheme(link.href));
+---
+{safeLinks.length > 0 && <section class="panel project-links" aria-labelledby="project-links-title">
+  <header class="panel-header">
+    <h2 id="project-links-title">{t('project.links')}</h2>
+    <span class="panel-count">{safeLinks.length}</span>
+  </header>
+  <ul class="summary-list">{safeLinks.map((link) => <li><div class="summary-row">
+    <div class="row-copy">
+      <a class="row-title" href={link.href} rel={link.external ? 'noreferrer noopener' : undefined}>{link.label}</a>
+      {link.host && <p class="row-meta">{link.host}</p>}
+    </div>
+  </div></li>)}</ul>
+</section>}

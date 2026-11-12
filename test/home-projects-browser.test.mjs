@@ -96,7 +96,7 @@ test('Home calendar, agent box and My projects archive: 200, axe clean, console 
     assert.deepEqual(filterAllowed(found, APP_ALLOWLIST), [], `${path}: no axe findings`);
   };
 
-  // Home: the month calendar marks the sample journal days, today is current; the agent box follows the first project.
+  // Home marks the recorded journal days and the newest entry; agent work follows the projects.
   await visit('/');
   const calendar = page.locator('.calendar-box');
   assert.equal(await calendar.getByRole('heading', { name: 'Günlük' }).count(), 1);
@@ -105,12 +105,12 @@ test('Home calendar, agent box and My projects archive: 200, axe clean, console 
     .map((name) => String(Number(name.slice(8, 10)))).sort((a, b) => a - b);
   assert.ok(journalDays.length > 0, 'the sample data has journal days in November 2026');
   assert.deepEqual(await calendar.locator('.month-day.has-entry').allInnerTexts(), journalDays);
-  assert.equal(await calendar.locator('[aria-current="date"]').innerText(), '6');
+  assert.equal(await calendar.locator('.is-latest').innerText(), journalDays.at(-1));
   const order = await page.locator('.calendar-box, .agents-box, .project-box').evaluateAll((nodes) => nodes
     .map((node) => node.classList.contains('agents-box') ? 'agents'
       : node.classList.contains('calendar-box') ? 'calendar' : node.getAttribute('aria-label')));
-  assert.deepEqual(order,['calendar', 'Mutfak defteri', 'agents', 'Tez taslağı'],
-    'calendar, featured project, agent box, then the other project; the agents project is not a box');
+  assert.deepEqual(order,['calendar', 'Mutfak defteri', 'Tez taslağı', 'agents'],
+    'calendar, projects, then agent work; the agents project is not a box');
   assert.equal(await page.locator('.agents-box').getByRole('link', { name: 'Ajan panosunu aç' }).count(), 1);
 
   // Home project choice: leave "Tez taslağı" off Home and save.
