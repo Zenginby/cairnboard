@@ -5,10 +5,12 @@ import ReadWarnings from '../components/ReadWarnings.astro';
 import BoardColumns from '../components/BoardColumns.astro';
 import { t } from '../i18n/index.mjs';
 
+// `?project=<ref>` narrows the board to one project (the Home project boxes link here); an unknown ref shows it all.
+const projectRef = Array.from(Astro.url.searchParams.get('project') ?? '').slice(0, 200).join('') || undefined;
 let result, state;
 try {
   // The owner's board: hidden (archive) columns and the agents project's cards live on /agents.
-  result = await Astro.locals.cairn.board({ scope: 'owner' });
+  result = await Astro.locals.cairn.board({ scope: 'owner', project: projectRef });
 } catch (error) {
   state = error?.code === 'data_not_ready' ? 'notReady' : 'error';
   Astro.response.status = state === 'notReady' ? 409 : 500;
@@ -19,7 +21,13 @@ try {
 <AppShell live="card project board" title={t('shell.board')} current="/board" surface>
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'board.errorTitle'} message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'} /> : <>
     <ReadWarnings codes={result.warnings} />
-    <header class="screen-heading"><h1>{t('shell.board')}</h1></header>
+    {result.data.project ? <header class="screen-heading board-project-heading">
+      <div>
+        <p class="eyebrow">{t('shell.board')}</p>
+        <h1>{result.data.project.title || t('home.untitled')}</h1>
+      </div>
+      <a class="action-link" href="/board">{t('board.all')}</a>
+    </header> : <header class="screen-heading"><h1>{t('shell.board')}</h1></header>}
     <BoardColumns columns={result.data.columns} />
   </>}
   <script src="../scripts/board-focus.js"></script>

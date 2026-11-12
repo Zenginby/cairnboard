@@ -221,9 +221,17 @@ function homeFixture() {
     recentNotes: [item('note', 'n-000002', 'Recent title')],
     openCards: [item('card', 'c-000001', 'Card title', { priority: 'important' })],
     journal: { meta: {}, content: { title: 'Today title', body: 'Today body', html: '<p>Today body</p>' } },
-    projects: [item('project', 'p-000001', 'Project title', { tone: 2 }),
-      item('project', 'p-000002', 'Featured title', { acceptance: { done: 2, total: 5 } })],
+    projects: [{ ...item('project', 'p-000001', 'Project title', { tone: 2 }), path: 'projects/plain.md' },
+      { ...item('project', 'p-000002', 'Featured title', { acceptance: { done: 2, total: 5 } }),
+        path: 'projects/lead.md' }],
     featuredProject: 'p-000002',
+    projectCards: {
+      'projects/plain.md': { total: 4, done: 3, doing: 0, todo: 1,
+        upcoming: [{ id: 'c-000002', title: 'Plain next', column: { key: 'todo', label: 'Sırada', role: 'todo' } }] },
+      'projects/lead.md': { total: 5, done: 2, doing: 1, todo: 2,
+        upcoming: [{ id: 'c-000001', title: 'Lead next',
+          column: { key: 'doing', label: 'Yapılıyor', role: 'doing' } }] },
+    },
   }, warnings: ['pending_recovery', 'journal_unreadable'] };
 }
 
@@ -253,13 +261,26 @@ test('built Home uses injected in-process data, escapes titles and renders safe 
   assert.match(full.body, /href="\/cards\/c-000001"/u);
   assert.match(full.body, /priority-important[^>]*>Önemli/u);
   assert.match(full.body, /project-featured[^>]*aria-label="Featured title"/u);
-  const projects = [...full.body.matchAll(/<section class="[^"]*\bproject-box\b[^"]*"[^>]*>([\s\S]*?)<\/section>/gu)].map((match) => match[1]);
+  const boxPattern = /<(section|details) class="[^"]*\bproject-box\b[^"]*"[^>]*>([\s\S]*?)<\/\1>/gu;
+  const projects = [...full.body.matchAll(boxPattern)].map((match) => match[2]);
   assert.equal(projects.length, 2);
-  for (const box of projects) assert.doesNotMatch(box, /<a\b|project-description|açıklaması yok/u);
-  assert.doesNotMatch(projects.find((box) => box.includes('Project title')), /project-progress/u);
+  for (const box of projects) assert.doesNotMatch(box, /project-description|açıklaması yok/u);
+  // The featured box is open with its link in view; the others open in place, one at a time.
   const featured = projects.find((box) => box.includes('Featured title'));
   assert.match(featured, /2\/5 ölçüt tamamlandı/u);
-  assert.match(featured, /stroke-dasharray="40 100"/u);
+  assert.match(featured, /%40/u);
+  assert.match(featured, /class="bar-fill" width="40"/u);
+  assert.match(featured, /href="\/board\?project=p-000002"/u);
+  assert.match(featured, /href="\/cards\/c-000001"[^>]*>Lead next/u);
+  assert.match(full.body,
+    /<details class="[^"]*project-collapsible[^"]*" name="home-projects" aria-label="Project title"/u);
+  const plainBox = projects.find((box) => box.includes('Project title'));
+  assert.match(plainBox, /stroke-dasharray="75 100"/u);
+  assert.match(plainBox, /href="\/board\?project=p-000001"/u);
+  assert.doesNotMatch(plainBox, /project-acceptance/u);
+  // Its details open as a layer over the cover, with a close button.
+  assert.match(plainBox, /class="project-details" role="group" aria-label="Project title ayrıntısı"/u);
+  assert.match(plainBox, /data-project-close aria-label="Ayrıntıyı kapat"/u);
   assert.match(full.body, /Tamamlanmayı bekleyen bir işlem var/u);
   assert.match(full.body, /Bugünün günlüğü okunamadı/u);
   assert.doesNotMatch(full.body, /href="\/(?:projects|journal|graph)\b/u);
@@ -290,7 +311,7 @@ test('built Home uses injected in-process data, escapes titles and renders safe 
   assert.equal(fallback.status, 200);
   assert.match(fallback.body, /## Plain &lt;script&gt;journalAttack\(1\)&lt;\/script&gt;/u);
   assert.match(fallback.body, /Günlüğün biçimlendirilmesi çok uzun sürdü/u);
-  assert.doesNotMatch(fallback.body, /project-progress|<script>journalAttack/u);
+  assert.doesNotMatch(fallback.body, /project-acceptance|<script>journalAttack/u);
 
   const empty = await render({ home: () => ({ data: {
     pinned: [], recentNotes: [], openCards: [], projects: [], featuredProject: null, journal: null,

@@ -212,5 +212,19 @@
   "agents.setupBody":
 "Put agent work in one project and write its id to .cairn/config.json; its cards stay off the main board.",
   "home.agents": "Agent work",
-  "home.agentsOpen": "Open the agent board"
+  "home.agentsOpen": "Open the agent board",
+  "board.all": "Whole board",
+  "home.goProject": "Go to project",
+  "home.upcoming": "Up next",
+  "home.distribution": "Board breakdown",
+  "home.statDone": "Done",
+  "home.statDoing": "Doing",
+  "home.statTodo": "To do",
+  "home.cardsDone": "{done}/{total} cards done on the board",
+  "home.noCards": "This project has no cards yet.",
+  "home.nextCard": "Next",
+  "home.allDone": "No open cards left.",
+  "home.progressLabel": "{done} of {total} cards done",
+  "home.detailsOf": "{title} details",
+  "home.closeDetails": "Close details"
 }

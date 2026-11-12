@@ -119,11 +119,16 @@ export function createRead({ open, render = createRenderPool().render }) {
     return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
   };
   return {
-    /** @param {{ scope?: 'owner' | 'agents' | 'archive' }} [options] */
-    async board({ scope } = {}) {
+    /** @param {{ scope?: 'owner' | 'agents' | 'archive', project?: string }} [options] */
+    async board({ scope, project } = {}) {
       const ctx = await openRead();
-      const view = boardView(ctx, {}, { scope });
-      joinProjects(view, projectMap(ctx));
+      const projects = projectMap(ctx);
+      // An unknown project ref is not an error for the reader: the whole board is shown.
+      const chosen = typeof project === 'string' ? projects.get(project) ?? null : null;
+      const refs = chosen ? new Set([...projects].filter(([, value]) => value === chosen).map(([ref]) => ref)) : null;
+      const view = boardView(ctx, {}, { scope, project: refs });
+      joinProjects(view, projects);
+      if (chosen) view.data.project = chosen;
       return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
     },
     card(id) { return document('card', id); },

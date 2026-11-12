@@ -145,3 +145,27 @@ test('only the archive view lists every card of a hidden done column; other view
   assert.equal(archived(boardView(ctx)).cards.length, 50);
   assert.equal(archived(boardView(ctx)).total, 57, 'the owner\'s archived card counts too');
 });
+
+test('owner Home counts each project\'s visible cards and lists its open ones; the board narrows to one project',
+  async (t) => {
+    const { open, data } = fixture(t);
+    const put = (path, fields) => writeFileSync(join(data, path),
+      `---\n${Object.entries(fields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n')}\n---\n`);
+    put('cards/own-backlog.md', { id: 'c-000011', title: 'Own backlog', column: 'backlog', project: '@projects/own' });
+    put('cards/own-done.md', { id: 'c-000012', title: 'Own done', column: 'done', project: 'p-000001' });
+    const home = homeView(open(), {}, { scope: 'owner' }).data;
+    // The archived card is not counted; the doing card leads the open list; agent work is not on the owner's Home.
+    assert.deepEqual(home.projectCards, { 'projects/own.md': { total: 3, done: 1, doing: 1, todo: 1, upcoming: [
+      { id: 'c-000001', title: 'Own doing', column: { key: 'doing', label: 'Doing', role: 'doing' } },
+      { id: 'c-000011', title: 'Own backlog', column: { key: 'backlog', label: 'Backlog', role: 'todo' } },
+    ] } });
+    assert.ok(!Object.hasOwn(homeView(open()).data, 'projectCards'), 'CLI and API Home stay as before');
+
+    const read = createRead({ open, render: () => ({ html: '' }) });
+    const narrowed = await read.board({ scope: 'owner', project: 'p-000001' });
+    assert.deepEqual(ids(narrowed).sort(), ['c-000001', 'c-000011', 'c-000012']);
+    assert.equal(narrowed.data.project.title, 'Own');
+    const unknown = await read.board({ scope: 'owner', project: 'p-999999' });
+    assert.ok(!Object.hasOwn(unknown.data, 'project'));
+    assert.equal(ids(unknown).length, 3, 'an unknown project shows the whole owner board');
+  });

@@ -69,6 +69,41 @@ export function agentProject(ctx) {
   return { id: project.id, refs: new Set(refs) };
 }
 
+// Every ref a card may use for a project.
+const projectRefs = (project) => [project.id, `@${project.path.slice(0, -3)}`, `@${project.path}`]
+  .filter((ref) => ref !== null);
+
+// Web Home only: per project (keyed by path), the cards on the visible columns counted by role, plus the first open
+// cards, the doing ones first and then in board order. Hidden (archive) columns are not counted.
+const UPCOMING = 4;
+function projectCardSummary(ctx, projects, cards) {
+  const columns = ctx.config.columns.filter((column) => column.hidden !== true);
+  const order = new Map(columns.map((column, index) => [column.key, index]));
+  const summary = {};
+  const byRef = new Map();
+  for (const project of projects) {
+    const entry = { total: 0, done: 0, doing: 0, todo: 0, upcoming: [] };
+    summary[project.path] = entry;
+    for (const ref of projectRefs(project)) byRef.set(ref, entry);
+  }
+  const open = [];
+  for (const card of cards) {
+    const entry = byRef.get(card.data.project);
+    const column = columns[order.get(effectiveColumn(ctx.config, card).key)];
+    if (!entry || !column) continue;
+    entry.total += 1;
+    entry[column.role] += 1;
+    if (column.role !== 'done') open.push({ entry, card, column });
+  }
+  const rank = (item) => (item.column.role === 'doing' ? 0 : 1) * columns.length + order.get(item.column.key);
+  for (const { entry, card, column } of open.sort((a, b) => rank(a) - rank(b))) {
+    if (entry.upcoming.length >= UPCOMING) continue;
+    entry.upcoming.push({ id: card.id, title: oneLine(stripHidden(card.title ?? '').text).slice(0, 200),
+      column: { key: column.key, label: column.label, role: column.role } });
+  }
+  return summary;
+}
+
 // `scope: 'owner'` (web Home only): agent work and the agents project are left out and counted per column instead.
 // Without a scope the result is the same as before the setting existed (CLI `home`, `/api/home`).
 export function homeView(ctx, opts = {}, { scope } = {}) {
@@ -122,7 +157,8 @@ export function homeView(ctx, opts = {}, { scope } = {}) {
     // Additive: lets the Home page show the journal panel only when some journal entry exists.
     journalCount: all.filter((item) => item.type === 'journal').length,
     // Owner scope only: null when no agents project is configured; otherwise the visible columns holding agent cards.
-    ...(scope === 'owner' ? { agents: agentColumns } : {}),
+    ...(scope === 'owner' ? { agents: agentColumns,
+      projectCards: projectCardSummary(ctx, projects, allCards.filter((card) => !isAgentCard(card))) } : {}),
   }, warnings, journalEntity: today };
 }
 
@@ -130,10 +166,12 @@ export function homeView(ctx, opts = {}, { scope } = {}) {
 // - `owner`: visible columns, without agent cards;
 // - `agents`: visible columns with agent cards only, planning columns left out while empty;
 // - `archive`: hidden columns with agent cards only.
-export function boardView(ctx, opts = {}, { scope } = {}) {
+// `project` (web only): a set of project refs; only that project's cards are kept.
+export function boardView(ctx, opts = {}, { scope, project } = {}) {
   const agents = scope ? agentProject(ctx) : null;
   const isAgentCard = (card) => agents !== null && agents.refs.has(card.data.project);
-  const keep = scope === 'owner' ? (card) => !isAgentCard(card) : scope ? isAgentCard : () => true;
+  const inScope = scope === 'owner' ? (card) => !isAgentCard(card) : scope ? isAgentCard : () => true;
+  const keep = project ? (card) => inScope(card) && project.has(card.data.project) : inScope;
   const cards = listCards(ctx, { includeDone: true }).filter(keep);
   const warnings = [];
   const shownColumns = scope === undefined ? ctx.config.columns

@@ -2,7 +2,7 @@
 import AppShell from '../layouts/AppShell.astro';
 import HomeList from '../components/HomeList.astro';
 import PageState from '../components/PageState.astro';
-import { t, warningText } from '../i18n/index.mjs';
+import { t, warningText, language } from '../i18n/index.mjs';
 
 let result, state;
 try {
@@ -21,6 +21,7 @@ const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) 
 const hasJournal = (data?.journalCount ?? (data?.journal ? 1 : 0)) > 0 || Boolean(data?.journal);
 const hasContent = Boolean(data)
   && (data.pinned.length || data.openCards.length || data.recentNotes.length || hasJournal);
+const percent = new Intl.NumberFormat(language, { style: 'percent', maximumFractionDigits: 0 });
 const showEmpty = Boolean(data) && !projects.length && !hasContent;
 ---
 <AppShell live="card project note journal board" current="/">
@@ -46,21 +47,105 @@ const showEmpty = Boolean(data) && !projects.length && !hasContent;
       </section>}
       <HomeList items={data.pinned} title="home.pinned" subtitle="home.pinnedSubtitle" className="pinned" />
       {projects.length ? projects.map((project, index) => {
-        const featured = project.id !== null && project.id === data.featuredProject;
+        const featured = isFeatured(project);
         const tone = Number.isInteger(project.meta.tone) && project.meta.tone >= 1 && project.meta.tone <= 8 ? project.meta.tone : index % 8 + 1;
-        const classes = ['panel', 'project-box', `tone-${tone}`, { 'project-featured': featured }];
-        return <section class:list={classes}
-          aria-label={project.content.title || t('home.untitled')}>
-          <p class="eyebrow">{t(featured ? 'home.featured' : 'type.project')}</p>
-          <h2>{project.content.title || t('home.untitled')}</h2>
-          {project.meta.acceptance?.total > 0 && <div class="project-progress">
-            <svg class="progress-ring" viewBox="0 0 64 64" aria-hidden="true">
-              <circle class="ring-track" cx="32" cy="32" r="26" />
-              <circle class="ring-arc" cx="32" cy="32" r="26" pathLength="100" stroke-dasharray={`${project.meta.acceptance.done / project.meta.acceptance.total * 100} 100`} />
-            </svg>
-            <p>{project.meta.acceptance.done}/{project.meta.acceptance.total} {t('home.progress')}</p>
-          </div>}
+        const title = project.content.title || t('home.untitled');
+        const stats = data.projectCards?.[project.path];
+        const total = stats?.total ?? 0;
+        const ratio = total ? stats.done / total : 0;
+        const dash = Math.round(ratio * 100);
+        const next = stats?.upcoming[0];
+        const ref = project.ref ?? project.id;
+        const href = ref ? `/board?${new URLSearchParams({ project: ref })}` : null;
+        const share = (count) => (total ? count / total * 100 : 0);
+        const acceptance = project.meta.acceptance?.total > 0 ? project.meta.acceptance : null;
+        // CSP allows no inline styles, so bar lengths are SVG attributes.
+        const bar = total > 0
+          && <svg class="project-bar" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
+            <rect class="bar-track" width="100" height="1" />
+            <rect class="bar-fill" width={share(stats.done)} height="1" />
+          </svg>;
+        const percentText = total > 0 && <span class="project-percent">{percent.format(ratio)}</span>;
+        const goLink = href && <a class="project-go" href={href}>{t('home.goProject')}
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>;
+        const counts = stats && <dl class="project-counts">
+          <div><dt><span class="count-dot dot-done"></span>{t('home.statDone')}</dt><dd>{stats.done}</dd></div>
+          <div><dt><span class="count-dot dot-doing"></span>{t('home.statDoing')}</dt><dd>{stats.doing}</dd></div>
+          <div><dt><span class="count-dot dot-todo"></span>{t('home.statTodo')}</dt><dd>{stats.todo}</dd></div>
+        </dl>;
+        if (featured) return <section class:list={['panel', 'project-box', 'project-featured', `tone-${tone}`]}
+          aria-label={title}>
+          <div class="project-cover">
+            <p class="eyebrow">{t('home.featured')}</p>
+            <div class="project-cover-main">
+              <div class="project-heading">
+                <h2>{title}</h2>
+                {next && <p class="project-subtitle">{next.column.label}: {next.title}</p>}
+              </div>
+              <div class="project-cover-side">{percentText}{goLink}</div>
+            </div>
+            {bar}
+          </div>
+          {stats && total > 0 ? <div class="project-detail-grid">
+            <div class="project-upcoming">
+              <h3>{t('home.upcoming')}</h3>
+              {stats.upcoming.length ? <ul>{stats.upcoming.map((card) => <li>
+                <span class:list={['chip', card.column.role !== 'todo' && `status-${card.column.role}`]}>
+                  {card.column.label}</span>
+                {card.id ? <a class="row-title" href={`/cards/${card.id}`}>{card.title}</a>
+                  : <span class="row-title">{card.title}</span>}
+              </li>)}</ul> : <p class="empty-copy">{t('home.allDone')}</p>}
+            </div>
+            <div class="project-distribution">
+              <h3>{t('home.distribution')}</h3>
+              <svg class="project-split" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
+                <rect class="split-done" width={share(stats.done)} height="1" />
+                <rect class="split-doing" x={share(stats.done)} width={share(stats.doing)} height="1" />
+                <rect class="split-todo" x={share(stats.done) + share(stats.doing)} width={share(stats.todo)}
+                  height="1" />
+              </svg>
+              {counts}
+              <p class="project-stat-line">{t('home.cardsDone', { done: stats.done, total })}</p>
+            </div>
+          </div> : stats && <p class="empty-copy">{t('home.noCards')}</p>}
+          {acceptance && <p class="project-acceptance">{acceptance.done}/{acceptance.total} {t('home.progress')}</p>}
         </section>;
+        return <details class:list={['panel', 'project-box', 'project-collapsible', `tone-${tone}`]}
+          name="home-projects" aria-label={title}>
+          <summary class="project-cover">
+            <span class="eyebrow">{t('type.project')}</span>
+            <h2>{title}</h2>
+            {next && <span class="project-subtitle">{next.column.label}: {next.title}</span>}
+            {total > 0 && <span class="project-cover-progress">{bar}{percentText}</span>}
+          </summary>
+          {/* The details open as a layer over the cover: the box keeps its size, so its neighbours do not move. */}
+          <div class="project-details" role="group" aria-label={t('home.detailsOf', { title })}>
+            <div class="project-details-head">
+              <span class="project-details-title"><span class="project-dot" aria-hidden="true"></span>{title}</span>
+              <button class="project-close" type="button" data-project-close aria-label={t('home.closeDetails')}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
+            </div>
+            <div class="project-details-body">
+              <div class="project-details-copy">
+                {stats && (next
+                  ? <p class="project-next"><strong>{t('home.nextCard')}</strong><span>{next.title}</span></p>
+                  : <p class="empty-copy">{t(total ? 'home.allDone' : 'home.noCards')}</p>)}
+                {counts}
+                {acceptance && <p class="project-acceptance">
+                  {acceptance.done}/{acceptance.total} {t('home.progress')}</p>}
+              </div>
+              {total > 0 && <div class="project-ring-box">
+                <svg class="progress-ring" viewBox="0 0 64 64" role="img"
+                  aria-label={t('home.progressLabel', { done: stats.done, total })}>
+                  <circle class="ring-track" cx="32" cy="32" r="26" />
+                  <circle class="ring-arc" cx="32" cy="32" r="26" pathLength="100" stroke-dasharray={`${dash} 100`} />
+                </svg>
+                <span>{stats.done}/{total}</span>
+              </div>}
+            </div>
+            {goLink}
+          </div>
+        </details>;
       }) : showEmpty && <section class="panel projects-empty">
         <h2>{t('home.projects')}</h2><p class="empty-copy">{t('home.projectsEmpty')}</p>
       </section>}
@@ -77,4 +162,5 @@ const showEmpty = Boolean(data) && !projects.length && !hasContent;
       </section>}
     </div>
   </>}
+  <script src="../scripts/home-projects.js"></script>
 </AppShell>
