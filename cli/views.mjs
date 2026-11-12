@@ -5,6 +5,8 @@ import * as index from '../core/index.mjs';
 import { listCards, effectiveColumn } from '../core/card.mjs';
 import { normalizeId } from '../core/ids.mjs';
 import { toJson, compact, clean } from './output.mjs';
+import { readFile } from '../core/store.mjs';
+import { parseFile } from '../core/frontmatter.mjs';
 import { oneLine, stripHidden } from '../core/text.mjs';
 
 export function changesView({ changes }) {
@@ -74,16 +76,43 @@ export function agentProject(ctx) {
 const projectRefs = (project) => [project.id, `@${project.path.slice(0, -3)}`, `@${project.path}`]
   .filter((ref) => ref !== null);
 
-// Web Home only: per project (keyed by path), the cards on the visible columns counted by role, plus the first open
-// cards, the doing ones first and then in board order. Hidden (archive) columns are not counted.
+const line = (value) => oneLine(stripHidden(typeof value === 'string' ? value : '').text).slice(0, 200);
+
+// Each project's newest linked journal job (K5): the latest day, and on that day the last linked job in file order.
+function lastJobs(ctx, projects) {
+  const ids = new Map(projects.filter((project) => project.id !== null).map((project) => [project.id, project.path]));
+  const found = {};
+  if (!ids.size) return found;
+  const days = entity.list(ctx, 'journal').map((item) => ({ item, date: String(item.data.date
+    ?? basename(item.path, '.md')) })).filter(({ date }) => /^\d{4}-\d{2}-\d{2}$/u.test(date))
+    .sort((a, b) => b.date.localeCompare(a.date) || a.item.path.localeCompare(b.item.path));
+  for (const { item, date } of days) {
+    if (Object.keys(found).length === ids.size) break;
+    const file = readFile(ctx, item.path);
+    if (!file) continue;
+    const parsed = parseFile(file.text);
+    if (parsed.error) continue;
+    for (const section of journal.sections(parsed.body).reverse()) {
+      const path = ids.get(section.project);
+      if (path === undefined || found[path]) continue;
+      found[path] = { title: line(section.title), label: section.label === null ? null : line(section.label), date,
+        ref: `@${item.path.slice(0, -3)}` };
+    }
+  }
+  return found;
+}
+
+// Per project (keyed by path), the cards on the visible columns counted by role, the first open cards (the doing
+// ones first, then in board order), a status line and the newest linked journal job. Hidden (archive) columns are
+// not counted. The status line (K2): the first doing card's `now`; else the first open card's `now`, else its title.
 const UPCOMING = 4;
-function projectCardSummary(ctx, projects, cards) {
+export function projectCardSummary(ctx, projects, cards) {
   const columns = ctx.config.columns.filter((column) => column.hidden !== true);
   const order = new Map(columns.map((column, index) => [column.key, index]));
   const summary = {};
   const byRef = new Map();
   for (const project of projects) {
-    const entry = { total: 0, done: 0, doing: 0, todo: 0, upcoming: [] };
+    const entry = { total: 0, done: 0, doing: 0, todo: 0, upcoming: [], status: null, lastJob: null };
     summary[project.path] = entry;
     for (const ref of projectRefs(project)) byRef.set(ref, entry);
   }
@@ -97,7 +126,16 @@ function projectCardSummary(ctx, projects, cards) {
     if (column.role !== 'done') open.push({ entry, card, column });
   }
   const rank = (item) => (item.column.role === 'doing' ? 0 : 1) * columns.length + order.get(item.column.key);
-  for (const { entry, card, column } of open.sort((a, b) => rank(a) - rank(b))) {
+  const sorted = open.sort((a, b) => rank(a) - rank(b));
+  const status = (card, source) => ({ text: source === 'now' ? line(card.data.now) : line(card.title), source,
+    card: card.id });
+  // Doing cards sort first, so a project's first open card is its first doing card when it has one.
+  for (const { entry, card } of sorted) {
+    if (entry.status === null) entry.status = status(card, line(card.data.now) ? 'now' : 'title');
+  }
+  const jobs = lastJobs(ctx, projects);
+  for (const [path, job] of Object.entries(jobs)) summary[path].lastJob = job;
+  for (const { entry, card, column } of sorted) {
     if (entry.upcoming.length >= UPCOMING) continue;
     entry.upcoming.push({ id: card.id, title: oneLine(stripHidden(card.title ?? '').text).slice(0, 200),
       column: { key: column.key, label: column.label, role: column.role } });
@@ -189,6 +227,14 @@ function monthCalendar(ctx, all) {
 // A project's tone: its own `tone` (1–8) or one by its place in title order, as on Home.
 const toneOf = (item, order) => Number.isInteger(item.data.tone) && item.data.tone >= 1 && item.data.tone <= 8
   ? item.data.tone : order % 8 + 1;
+
+// Project cover: the same summary as Home and My projects for one project (agent cards left out).
+export function projectSummary(ctx, project) {
+  const agents = agentProject(ctx);
+  const cards = listCards(ctx, { includeDone: true })
+    .filter((card) => agents === null || !agents.refs.has(card.data.project));
+  return projectCardSummary(ctx, [project], cards)[project.path];
+}
 
 // Web "My projects" only: every project but the agents project, in title order, with the same card summary as Home.
 export function projectsView(ctx, opts = {}) {

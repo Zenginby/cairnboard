@@ -192,7 +192,7 @@ test('owner Home counts each project\'s visible cards and lists its open ones; t
     assert.deepEqual(home.projectCards, { 'projects/own.md': { total: 3, done: 1, doing: 1, todo: 1, upcoming: [
       { id: 'c-000001', title: 'Own doing', column: { key: 'doing', label: 'Doing', role: 'doing' } },
       { id: 'c-000011', title: 'Own backlog', column: { key: 'backlog', label: 'Backlog', role: 'todo' } },
-    ] } });
+    ], status: { text: 'Own doing', source: 'title', card: 'c-000001' }, lastJob: null } });
     assert.ok(!Object.hasOwn(homeView(open()).data, 'projectCards'), 'CLI and API Home stay as before');
 
     const read = createRead({ open, render: () => ({ html: '' }) });

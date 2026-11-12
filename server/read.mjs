@@ -5,7 +5,7 @@ import { stripHidden } from '../core/text.mjs';
 import { CairnError } from '../core/errors.mjs';
 import { normalizeId, isNoteKey } from '../core/ids.mjs';
 import { effectiveColumn } from '../core/card.mjs';
-import { homeView, boardView, showView, projectsView } from '../cli/views.mjs';
+import { homeView, boardView, showView, projectsView, projectSummary } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
 import { createRenderPool } from './render-pool.mjs';
 import { searchView } from './search.mjs';
@@ -93,6 +93,7 @@ function projectCover(ctx, view, projects) {
   view.data.notes = notes.slice(0, COVER_NOTES)
     .map((row) => ({ ref: row.id ?? row.ref, title: row.title, updated: row.data.updated ?? null }));
   view.data.notesTotal = notes.length;
+  view.data.summary = projectSummary(ctx, { id: view.entity.id ?? null, path: view.entity.path });
 }
 
 function joinProjects(view, projects) {
