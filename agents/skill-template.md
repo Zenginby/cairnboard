@@ -38,6 +38,18 @@ Find an unassigned task (or list with `--assignee <actor>`). Claim it before wor
 {{invocation}} journal add --title '<text>' --label '<text>' --date <date> --item '<text>' --actor {{actor}} --json
 ```
 
+When a plan is accepted, record it as an open card linked to its project, with a one-line `now` (and `next`
+if known); put long plan text in a note linked to the project and link it from the card. Log the day's work with
+`journal add --project <project-id>` so the job is linked to that project. At the end of a session that did not
+finish the card, update its status lines instead of rewriting the body; finishing the card is a separate step
+(`card done`).
+
+```sh
+{{invocation}} card add --title '<text>' --project <project-id> --now '<text>' --next '<text>' --actor {{actor}} --json
+{{invocation}} card update <card-id> --now '<text>' --next '<text>' --needs '<text>' --actor {{actor}} --json
+{{invocation}} journal add --title '<text>' --project <project-id> --item '<text>' --actor {{actor}} --json
+```
+
 Use `card check` to mark each acceptance item; never rewrite the whole body to change a checkbox. Read the latest revision after the last write, then pass it to done. Unchecked acceptance items produce warnings rather than blocking completion. Release a task when abandoning it. Another agent's claim cannot be released, moved, checked or completed until its lease expires; then claim it. `undo` reverts only your own latest operation.
 
 ## Wiki
