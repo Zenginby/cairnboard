@@ -35,8 +35,8 @@ test('in-process Home returns the CLI envelope plus the overview and combines wa
   let opens = 0;
   const reader = createRead({ open: () => { opens++; return ctx; } });
   const result = await reader.home();
-  assert.deepEqual(result, okEnvelope({ ...view.data, ...homeOverview(ctx, view.journalEntity) },
-    [...ctx.warnings, ...view.warnings]));
+  assert.deepEqual(result, okEnvelope({ ...view.data, ...homeOverview(ctx, view.journalEntity),
+    research: { total: 0, items: [] } }, [...ctx.warnings, ...view.warnings]));
   assert.equal(result.data.pinned[0].content.title, 'Pinned title');
   assert.equal(result.warnings.filter((code) => code === 'pending_recovery').length, 1);
   await reader.home();
@@ -280,4 +280,37 @@ test('in-process search returns the same envelope as the API and needs a ready d
   await assert.rejects(reader.search({ q: 'plan', type: 'project' }), { code: 'validation' });
   await assert.rejects(createRead({ open: () => { throw new Error('unavailable'); } }).search({ q: 'plan' }),
     (error) => error instanceof DataNotReadyError);
+});
+
+test('Home includes research total and newest 5 items with only box fields', async (t) => {
+  const { open, put } = documentFixture(t);
+  for (let i = 1; i <= 6; i++) {
+    put(`research/r-${i}.md`, {
+      id: `r-00000${i}`,
+      title: `Research ${i}`,
+      kind: i % 2 === 0 ? 'review' : 'analysis',
+      ...(i === 6 ? { category: 'Field Note' } : {}),
+      date: `2026-10-0${i}`,
+      ...(i >= 5 ? { project: '@projects/alpha.md' } : {}),
+      source: 'Internal archive',
+      tags: ['alpha', 'beta'],
+    }, '## Body\n\nDetailed notes that must not reach Home.');
+  }
+  put('research/undated.md', { id: 'r-000007', title: 'Undated record', kind: 'source' }, 'Undated body.');
+  const { data } = await createRead({ open, render: () => ({ html: '' }) }).home();
+  assert.equal(data.research.total, 7);
+  assert.deepEqual(data.research.items.map((item) => item.id),
+    ['r-000006', 'r-000005', 'r-000004', 'r-000003', 'r-000002']);
+  assert.deepEqual(Object.keys(data.research.items[0]).sort(),
+    ['category', 'date', 'id', 'kind', 'project', 'title']);
+  assert.deepEqual(data.research.items[0], {
+    id: 'r-000006',
+    title: 'Research 6',
+    date: '2026-10-06',
+    kind: 'review',
+    category: 'Field Note',
+    project: { title: 'Alpha', tone: 3 },
+  });
+  assert.equal(data.research.items[2].category, null);
+  assert.equal(data.research.items[2].project, null);
 });

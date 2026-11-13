@@ -1,0 +1,57 @@
+---
+import { language, t } from '../i18n/index.mjs';
+import { researchTypeLabel } from '../scripts/research-filter.js';
+
+const { research } = Astro.props;
+const items = Array.isArray(research?.items) ? research.items : [];
+const total = Number.isInteger(research?.total) ? research.total : items.length;
+
+const dateFormat = new Intl.DateTimeFormat(language, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+function formatDate(iso: string | null | undefined) {
+  if (typeof iso !== 'string' || !iso) return null;
+  const parsed = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
+  return Number.isNaN(parsed.getTime()) ? null : dateFormat.format(parsed);
+}
+
+const kindLabels = {
+  source: t('research.kind.source'),
+  review: t('research.kind.review'),
+  analysis: t('research.kind.analysis'),
+};
+const untypedLabel = t('research.kind.unknown');
+---
+{items.length > 0 && <section class="panel research-box" aria-labelledby="research-box-title">
+  <header class="panel-header">
+    <h2 id="research-box-title"><a href="/research">{t('research.title')}</a></h2>
+    <span class="panel-count">{total}</span>
+  </header>
+  <ul class="summary-list">
+    {items.map((item) => {
+      const title = item.title || t('home.untitled');
+      const typeLabel = researchTypeLabel(item, { kindLabels, untypedLabel });
+      const dateLabel = formatDate(item.date);
+      const tone = Number.isInteger(item.project?.tone) && item.project.tone >= 1 && item.project.tone <= 8
+        ? item.project.tone : 1;
+      return <li><div class="summary-row">
+        <div class="row-copy">
+          {item.id ? <a class="row-title" href={`/research/${encodeURIComponent(item.id)}`}>{title}</a>
+            : <span class="row-title">{title}</span>}
+          {(dateLabel || item.project) && <div class="row-meta research-box-meta">
+            {dateLabel && <time datetime={item.date}>{dateLabel}</time>}
+            {item.project && <span class={`chip project-chip tone-${tone}`}>
+              {item.project.title || t('home.untitled')}
+            </span>}
+          </div>}
+        </div>
+        {typeLabel && <span class="chip">{typeLabel}</span>}
+      </div></li>;
+    })}
+  </ul>
+  <a class="action-link" href="/research">{t('home.researchOpen')}</a>
+</section>}

@@ -195,7 +195,9 @@ export function createRead({ open, render = createRenderPool().render }) {
       if (view.journalEntity) {
         await renderView(ctx, { entity: view.journalEntity, data: view.data.journal, warnings: view.warnings }, render);
       }
-      Object.assign(view.data, homeOverview(ctx, view.journalEntity));
+      const research = homeResearch(ctx);
+      view.warnings.push(...research.warnings);
+      Object.assign(view.data, homeOverview(ctx, view.journalEntity), { research: research.research });
       return homeResult(ctx, view);
     },
   };
@@ -455,4 +457,24 @@ export function researchListResult(ctx) {
         || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
     });
   return okEnvelope({ items }, [...ctx.warnings, ...warnings]);
+}
+
+const HOME_RESEARCH = 5;
+
+function homeResearch(ctx) {
+  const { data, warnings } = researchListResult(ctx);
+  return {
+    research: {
+      total: data.items.length,
+      items: data.items.slice(0, HOME_RESEARCH).map((item) => ({
+        id: item.id ?? null,
+        title: item.content.title ?? '',
+        date: item.meta?.date ?? null,
+        kind: item.meta?.kind ?? null,
+        category: item.content.category ?? null,
+        project: item.project ? { title: item.project.title, tone: item.project.tone } : null,
+      })),
+    },
+    warnings,
+  };
 }

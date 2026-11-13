@@ -112,6 +112,16 @@ test('Home calendar, agent box and My projects archive: 200, axe clean, console 
   assert.deepEqual(order,['calendar', 'Mutfak defteri', 'Tez taslağı', 'agents'],
     'calendar, projects, then agent work; the agents project is not a box');
   assert.equal(await page.locator('.agents-box').getByRole('link', { name: 'Ajan panosunu aç' }).count(), 1);
+  const afterAgents = await page.locator('.agents-box, .research-box').evaluateAll((nodes) =>
+    nodes.map((node) => node.classList.contains('agents-box') ? 'agents' : 'research'));
+  assert.deepEqual(afterAgents, ['agents', 'research'], 'research box follows agents box');
+  const researchBox = page.locator('.research-box');
+  assert.equal(await researchBox.locator('.panel-count').innerText(), '3');
+  assert.equal(await researchBox.locator('a[href="/research/r-mrc001"]').count(), 1);
+  await page.setViewportSize({ width: 375, height: 812 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth),
+    false, 'Home has no horizontal overflow at 375px');
+  await page.setViewportSize({ width: 1280, height: 900 });
 
   // Home project choice: leave "Tez taslağı" off Home and save.
   await page.locator('.project-picker summary').click();

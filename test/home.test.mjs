@@ -133,3 +133,45 @@ test('Home escapes stored titles and omits missing project and card fields', asy
   const project = body.match(/<section class="panel project-box[\s\S]*?<\/section>/u)[0];
   assert.doesNotMatch(project, /project-status|project-last-job/u);
 });
+
+test('Home renders research box with total, newest 5 links, badges, dates and omits when empty', async (t) => {
+  const f = fixture(t);
+  const emptyRes = await render(f.reader());
+  assert.equal(emptyRes.status, 200);
+  assert.doesNotMatch(emptyRes.body, /class="panel research-box"/u);
+  assert.match(emptyRes.body, /data-live="[^"]*\bresearch\b[^"]*"/u);
+
+  const putResearch = (name, fields) => {
+    mkdirSync(join(f.data, 'research'), { recursive: true });
+    writeFileSync(join(f.data, 'research', name), `---\n${Object.entries(fields)
+      .map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}\n---\nBody.\n`);
+  };
+  putResearch('r1.md', { id: 'r-000001', title: 'Oldest survey', kind: 'source', date: '2026-11-01' });
+  putResearch('r2.md', { id: 'r-000002', title: 'Second analysis', kind: 'analysis', date: '2026-11-02' });
+  putResearch('r3.md', { id: 'r-000003', title: 'Third review', kind: 'review', date: '2026-11-03' });
+  putResearch('r4.md', { id: 'r-000004', title: 'Fourth source', kind: 'source', date: '2026-11-04',
+    project: 'p-000001' });
+  putResearch('r5.md', { id: 'r-000005', title: '<img src=x>', kind: 'review', category: 'Saha Notu',
+    date: '2026-11-05' });
+  putResearch('r6.md', { id: 'r-000006', title: 'Newest research', kind: 'analysis', date: '2026-11-06' });
+
+  const { status, body } = await render(f.reader());
+  assert.equal(status, 200);
+  const box = body.match(/<section class="panel research-box"[\s\S]*?<\/section>/u)?.[0];
+  assert.ok(box, 'research box is rendered');
+  assert.match(box, /<h2[^>]*><a href="\/research">Araştırmalar<\/a><\/h2>/u);
+  assert.match(box, /<span class="panel-count">6<\/span>/u);
+  assert.match(box, /class="action-link" href="\/research"/u);
+  for (const id of ['r-000006', 'r-000005', 'r-000004', 'r-000003', 'r-000002']) {
+    assert.match(box, new RegExp(`href="/research/${id}"`, 'u'));
+  }
+  assert.doesNotMatch(box, /r-000001|Oldest survey/u);
+  assert.ok(box.indexOf('r-000006') < box.indexOf('r-000005'));
+  assert.ok(box.indexOf('r-000005') < box.indexOf('r-000002'));
+  assert.match(box, /Saha Notu/u);
+  assert.match(box, /Analiz/u);
+  assert.match(box, /Field guide/u);
+  assert.match(box, /datetime="2026-11-06"/u);
+  assert.match(box, /&lt;img src=x&gt;/u);
+  assert.doesNotMatch(box, /<img\b/u);
+});

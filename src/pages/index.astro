@@ -4,6 +4,7 @@ import HomeList from '../components/HomeList.astro';
 import ProjectBox from '../components/ProjectBox.astro';
 import HomeOverview from '../components/HomeOverview.astro';
 import AgentsBox from '../components/AgentsBox.astro';
+import ResearchBox from '../components/ResearchBox.astro';
 import PageState from '../components/PageState.astro';
 import { t, warningText, language } from '../i18n/index.mjs';
 
@@ -51,7 +52,7 @@ const warnings = [...new Set((result?.warnings ?? []).map(warningText))];
 const isFeatured = (project) => project.id !== null && project.id === data.featuredProject;
 const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) - Number(isFeatured(a))) : [];
 ---
-<AppShell live="card project note journal board" current="/">
+<AppShell live="card project note journal board research" current="/">
   {homeForm && <meta slot="head" name="referrer" content="same-origin" />}
   {state ? <PageState title={`state.${state}Title`} message={`state.${state}Body`} init={state === 'notReady'} /> : <>
     {warnings.length > 0 && <aside class="warnings" aria-label={t('warnings.title')}>
@@ -113,6 +114,7 @@ const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) 
         </section>}
       <HomeOverview cards={data.inProgress ?? []} columns={data.distribution ?? []} latest={data.latestDay} />
       <AgentsBox agents={data.agents} />
+      <ResearchBox research={data.research} />
       <HomeList items={data.pinned} title="home.pinned" subtitle="home.pinnedSubtitle" className="pinned" />
       <HomeList items={data.recentNotes} title="home.notes" subtitle="home.notesSubtitle" className="recent" />
     </div>

@@ -220,6 +220,7 @@
 "Put agent work in one project and write its id to .cairn/config.json; its cards stay off the main board.",
   "home.agents": "Agent work",
   "home.agentsOpen": "Open the agent board",
+  "home.researchOpen": "Open research",
   "board.all": "Whole board",
   "home.goProject": "Go to project",
   "home.upcoming": "Up next",

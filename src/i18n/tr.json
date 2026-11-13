@@ -221,6 +221,7 @@
 "Ajan işlerini bir projede topla, kimliğini .cairn/config.json dosyasına yaz; kartları ana panoda görünmez.",
   "home.agents": "Ajan işleri",
   "home.agentsOpen": "Ajan panosunu aç",
+  "home.researchOpen": "Araştırmaları aç",
   "board.all": "Tüm pano",
   "home.goProject": "Projeye git",
   "home.upcoming": "Sıradakiler",
