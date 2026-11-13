@@ -84,6 +84,10 @@
   "warnings.document_render_failed": "İçerik biçimlendirilemedi; düz metin gösteriliyor.",
   "shell.settings": "Ayarlar",
   "settings.title": "Ayarlar",
+  "settings.features": "Özellikler",
+  "settings.close": "Kapat",
+  "settings.loadError": "Ayarlar yüklenemedi.",
+  "settings.openPage": "Ayarları aç",
   "settings.summary": "Açıp kapatabileceğin özellikler. Yalnız sen değiştirirsin; ajanlar ayarları okur, değiştiremez.",
   "settings.on": "Açık",
   "settings.off": "Kapalı",
@@ -99,7 +103,7 @@
   "settings.mentions": "Bağlantısız anmalar",
   "settings.mentions.about": "Başka sayfalarda geçen ama bağlanmamış adları bulur.",
   "settings.needsTrail": "Değişiklik izi açıkken çalışır.",
-  "settings.shadowTitle": "Gölgeyi temizle",
+  "settings.shadowTitle": "Değişiklik izi deposu",
   "settings.shadowAbout":
 "Saklanan içerik kopyalarını ve dış değişikliklerin önceki hâllerini siler. Kim, ne zaman, hangi dosya kayıtları kalır."
   ,

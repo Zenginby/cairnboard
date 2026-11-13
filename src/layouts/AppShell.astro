@@ -2,6 +2,7 @@
 import '../styles/tokens.css';
 import '../styles/fonts.css';
 import '../styles/app.css';
+import '../styles/settings.css';
 import favicon from '../assets/favicon.svg?url';
 import themeBoot from '../scripts/theme-boot.js?url';
 import liveScript from '../scripts/live-updates.js?url';
@@ -43,11 +44,28 @@ const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
           <kbd class="search-key" data-shortcut aria-hidden="true">⌘K</kbd>
         </a>
         {/* Settings and the agent board are round icon buttons beside search, not tabs. */}
-        <a class="shell-icon" href="/settings" aria-label={t('shell.settings')} title={t('shell.settings')}
+        <a class="shell-icon" href="/settings" data-settings-open
+          aria-label={t('shell.settings')} title={t('shell.settings')}
           aria-current={current === '/settings' ? 'page' : undefined}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7"/>
-            <path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9 7 7m10 10 2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>
+          <svg class="settings-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill-rule="evenodd" d="M21.408 13.320
+              A2.4 2.4 0 0 0 19.586 17.719
+              A9.5 9.5 0 0 1 17.719 19.586
+              A2.4 2.4 0 0 0 13.320 21.408
+              A9.5 9.5 0 0 1 10.680 21.408
+              A2.4 2.4 0 0 0 6.281 19.586
+              A9.5 9.5 0 0 1 4.414 17.719
+              A2.4 2.4 0 0 0 2.592 13.320
+              A9.5 9.5 0 0 1 2.592 10.680
+              A2.4 2.4 0 0 0 4.414 6.281
+              A9.5 9.5 0 0 1 6.281 4.414
+              A2.4 2.4 0 0 0 10.680 2.592
+              A9.5 9.5 0 0 1 13.320 2.592
+              A2.4 2.4 0 0 0 17.719 4.414
+              A9.5 9.5 0 0 1 19.586 6.281
+              A2.4 2.4 0 0 0 21.408 10.680
+              A9.5 9.5 0 0 1 21.408 13.320
+              Z M16 12 A4 4 0 1 0 8 12 A4 4 0 1 0 16 12 Z" />
           </svg>
         </a>
         <a class="shell-icon" href="/agents" aria-label={t('shell.agents')} title={t('shell.agents')}
@@ -114,8 +132,28 @@ const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
         </div>
       </div>
     </dialog>
+    <dialog class="settings-dialog" data-settings-dialog aria-labelledby="settings-dialog-title">
+      <header class="settings-dialog-header">
+        <h2 id="settings-dialog-title">{t('settings.title')}</h2>
+        <button type="button" class="action-link" data-settings-close aria-label={t('settings.close')} autofocus>
+          {t('settings.close')}
+        </button>
+      </header>
+      <div class="settings-dialog-body" data-settings-body>
+        <div class="settings-skeleton" data-settings-skeleton aria-hidden="true">
+          {[0, 1, 2, 3].map(() => <div class="settings-skeleton-row">
+            <span class="settings-skeleton-copy"><span /><span /></span><span class="settings-skeleton-switch" />
+          </div>)}
+        </div>
+        <p class="settings-dialog-error" role="status" data-settings-error hidden>
+          {t('settings.loadError')} <a href="/settings">{t('settings.openPage')}</a>
+        </p>
+        <div data-settings-content></div>
+      </div>
+    </dialog>
     <script src="../scripts/theme-toggle.js"></script>
     {liveUpdates && <script is:inline type="module" src={liveScript}></script>}
     <script src="../scripts/search-dialog.js"></script>
+    <script src="../scripts/settings-dialog.js"></script>
   </body>
 </html>

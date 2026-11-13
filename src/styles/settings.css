@@ -1,0 +1,161 @@
+.shell-icon .settings-icon { fill: currentColor; stroke: none; }
+.settings { display: grid; gap: var(--space-md); max-width: calc(var(--space-md) * 46); }
+.settings-list { margin: var(--space-sm) 0 0; padding: 0; list-style: none; }
+.settings-row + .settings-row { border-top: var(--space-hairline) solid var(--color-line); }
+.settings-row form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding-block: var(--space-md);
+}
+.settings-row:last-child form { padding-bottom: 0; }
+.settings-text { min-width: 0; }
+.settings-text h3 { font-size: var(--font-ui-size); font-weight: var(--font-title-weight); }
+.settings-state { color: var(--color-text-2); font-size: var(--font-ui-size); font-weight: var(--font-ui-weight); }
+.settings-saved { color: var(--color-text); }
+.settings-shadow form { display: flex; flex-wrap: wrap; gap: var(--space-md); margin-top: var(--space-md); }
+.settings-facts, .settings-last { color: var(--color-text-2); font-size: var(--font-small-size); }
+.settings-facts { margin-top: var(--space-sm); }
+.settings-confirm { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--font-ui-size); }
+.settings-confirm input { flex: none; }
+.settings-switch {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-xl) + var(--space-xs));
+  min-height: calc(var(--space-xl) + var(--space-xs));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  cursor: pointer;
+}
+.settings-switch-track {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--space-lg);
+  padding: var(--space-xs);
+  border-radius: var(--radius-full);
+  background: var(--color-pill-bg);
+}
+.settings-switch-track > span {
+  width: var(--space-md);
+  height: var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-indicator);
+  transition: transform var(--motion-duration-quick) var(--motion-ease-out);
+}
+.settings-switch[aria-checked="true"] .settings-switch-track { background: var(--color-focus); }
+.settings-switch[aria-checked="true"] .settings-switch-track > span {
+  transform: translateX(calc(var(--space-md) + var(--space-xs)));
+}
+@starting-style {
+  .settings-switch[data-settings-from="false"] .settings-switch-track > span { transform: none; }
+  .settings-switch[data-settings-from="true"] .settings-switch-track > span {
+    transform: translateX(calc(var(--space-md) + var(--space-xs)));
+  }
+}
+.settings-switch:disabled { cursor: not-allowed; }
+.settings-switch:disabled .settings-switch-track { background: var(--color-text-3); }
+.settings-dialog {
+  width: min(calc(var(--space-content-max) * 0.55), calc(100vw - var(--space-md) * 2));
+  max-width: none;
+  max-height: calc(100dvh - var(--space-md) * 2);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-canvas);
+  color: var(--color-text);
+  box-shadow: var(--shadow-box-raised);
+  opacity: 0;
+  transform: translateY(var(--motion-distance-base)) scale(var(--motion-scale-enter));
+  transition: opacity var(--motion-duration-quick) var(--motion-ease-out),
+    transform var(--motion-duration-quick) var(--motion-ease-out),
+    display var(--motion-duration-quick) allow-discrete, overlay var(--motion-duration-quick) allow-discrete;
+}
+.settings-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transform: none;
+  transition-duration: var(--motion-duration-fast);
+  transition-timing-function: var(--motion-ease-smooth-out);
+}
+.settings-dialog::backdrop {
+  background: var(--color-material);
+  opacity: 0;
+  transition: opacity var(--motion-duration-quick) var(--motion-ease-out),
+    display var(--motion-duration-quick) allow-discrete, overlay var(--motion-duration-quick) allow-discrete;
+}
+.settings-dialog[open]::backdrop {
+  opacity: 1;
+  transition-duration: var(--motion-duration-fast);
+  transition-timing-function: var(--motion-ease-smooth-out);
+}
+@starting-style {
+  .settings-dialog[open] {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-base)) scale(var(--motion-scale-enter));
+  }
+  .settings-dialog[open]::backdrop { opacity: 0; }
+}
+.settings-dialog-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: var(--space-hairline) solid var(--color-line);
+}
+.settings-dialog-header h2 { font-size: var(--font-title-size); line-height: var(--font-title-line-height); }
+.settings-dialog-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-lg); }
+.settings-dialog .panel { padding: var(--space-md); border-radius: var(--radius-md); }
+.settings-dialog [data-settings-panel] {
+  opacity: 1;
+  transition: opacity var(--motion-duration-quick) var(--motion-ease-out);
+}
+@starting-style {
+  .settings-dialog [data-settings-panel] { opacity: 0; }
+}
+.settings-skeleton { animation: settings-pulse var(--motion-duration-pulse) var(--motion-ease-in-out) infinite; }
+.settings-skeleton[hidden], .settings-dialog-error[hidden] { display: none; }
+.settings-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding-block: var(--space-lg);
+}
+.settings-skeleton-row + .settings-skeleton-row { border-top: var(--space-hairline) solid var(--color-line); }
+.settings-skeleton-copy { display: grid; flex: 1; gap: var(--space-sm); }
+.settings-skeleton-copy > span {
+  height: var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-pill-bg);
+}
+.settings-skeleton-copy > span:first-child { width: 55%; }
+.settings-skeleton-switch {
+  width: calc(var(--space-xl) + var(--space-xs));
+  height: var(--space-lg);
+  border-radius: var(--radius-full);
+  background: var(--color-pill-bg);
+}
+@keyframes settings-pulse { 50% { opacity: 0.5; } }
+@media (max-width: 40rem) {
+  .settings-dialog-header { padding-inline: var(--space-md); }
+  .settings-dialog-body { padding: var(--space-md); }
+  .settings-row form { grid-template-columns: minmax(0, 1fr) auto; }
+  .settings-state { grid-column: 1; }
+  .settings-switch { grid-column: 2; grid-row: 1 / 3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-dialog, .settings-dialog[open] { transform: none; }
+  .settings-switch-track > span { transition: none; }
+  .settings-skeleton { animation: none; }
+  @starting-style {
+    .settings-dialog[open] { transform: none; }
+  }
+}
