@@ -1,0 +1,35 @@
+---
+import { t } from '../i18n/index.mjs';
+// One form for adding and editing a project; the page decides the action and the starting values.
+const { view, action, submit, backHref } = Astro.props;
+const item = view.item;
+---
+<form class="card-form" method="post" action={action}>
+  <input type="hidden" name="csrf" value={view.csrf} />
+  {item && <input type="hidden" name="revision" value={item.revision} />}
+  <label class="card-field" for="project-title">{t('projectForm.title')}
+    <input id="project-title" name="title" type="text" required maxlength="200" value={item?.title ?? ''} />
+  </label>
+  <label class="card-field" for="project-body">{t('projectForm.body')}
+    <textarea id="project-body" name="body" rows="10">{`\n${item?.body ?? ''}`}</textarea>
+  </label>
+  <fieldset class="project-tones">
+    <legend>{t('projectForm.tone')}</legend>
+    {view.tones.map((n) => <label class={`project-tone tone-${n}`}>
+      <input type="radio" name="tone" value={String(n)} checked={view.tone === n}
+        aria-label={t('projectForm.toneLabel', { n })} />
+      <span></span>
+    </label>)}
+  </fieldset>
+  <label class="card-field" for="project-status">{t('projectForm.status')}
+    <select id="project-status" name="status">
+      {!view.statuses.includes(view.status) && <option value={view.status} selected>{view.status}</option>}
+      {view.statuses.map((value) => <option value={value} selected={view.status === value}>
+        {t(`projectForm.status.${value}`)}</option>)}
+    </select>
+  </label>
+  <div class="card-actions">
+    <button class="action-link" type="submit">{submit}</button>
+    <a href={backHref}>{t('projectForm.back')}</a>
+  </div>
+</form>

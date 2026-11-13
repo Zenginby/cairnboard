@@ -27,7 +27,10 @@ const active = groups.find((group) => group.key === 'active')?.items.length ?? 0
     message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'} /> : <>
     <ReadWarnings codes={result.warnings} />
     <header class="screen-heading projects-heading">
-      <h1>{t('shell.projects')}</h1>
+      <div class="projects-heading-actions">
+        <h1>{t('shell.projects')}</h1>
+        <a class="action-link" href="/projects/new">{t('projectForm.new')}</a>
+      </div>
       <p class="panel-subtitle">{t('projects.count', { total: projects.length, active })}</p>
     </header>
     {groups.length ? groups.map((group) => <section class="projects-group" aria-labelledby={`projects-${group.key}`}>

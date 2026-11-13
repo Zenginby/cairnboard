@@ -35,6 +35,8 @@ const boardHref = item?.id ? `/board?${new URLSearchParams({ project: item.id })
             <EntityMeta item={item} updated />
           </div>
           {boardHref && <a class="project-go" href={boardHref}>{t('project.board')}</a>}
+          {item.id && <a class="project-go" href={`/projects/${encodeURIComponent(item.id)}/edit`}>
+            {t('projectForm.edit')}</a>}
         </div>
         {item.content.html != null
           ? item.content.html.trim() && <div class="document-body project-description" set:html={item.content.html} />

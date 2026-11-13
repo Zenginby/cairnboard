@@ -918,3 +918,32 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 .board-project-heading { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
   gap: var(--space-md); }
 .board-project-heading .eyebrow { margin-bottom: var(--space-xs); }
+
+/* Project form: add and edit pages. */
+.project-tones { display: flex; flex-wrap: wrap; gap: var(--space-sm); border: 0; margin: 0; padding: 0; }
+.project-tones legend { padding: 0; margin-bottom: var(--space-xs); font-size: var(--font-ui-size); }
+.project-tone { position: relative; display: inline-flex; }
+.project-tone input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.project-tone span {
+  display: block;
+  width: calc(var(--space-xl) + var(--space-xs));
+  height: calc(var(--space-xl) + var(--space-xs));
+  border-radius: var(--radius-full);
+  background: var(--project-tone);
+  border: var(--space-hairline) solid var(--color-line-strong);
+}
+.project-tone input:checked + span {
+  outline: var(--space-xs) solid var(--color-text);
+  outline-offset: var(--space-hairline);
+}
+.project-tone input:focus-visible + span {
+  outline: var(--space-xs) solid var(--color-link);
+  outline-offset: var(--space-hairline);
+}
+.projects-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}

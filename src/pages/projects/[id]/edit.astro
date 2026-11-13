@@ -1,0 +1,27 @@
+---
+import AppShell from '../../../layouts/AppShell.astro';
+import PageState from '../../../components/PageState.astro';
+import ProjectForm from '../../../components/ProjectForm.astro';
+import { t } from '../../../i18n/index.mjs';
+
+let view;
+try {
+  view = await Astro.locals.projects.view(Astro.request.headers.get('cookie'), Astro.params.id);
+} catch (error) {
+  console.error(error);
+  Astro.response.status = 500;
+}
+Astro.response.headers.set('Referrer-Policy', 'same-origin');
+const ready = view?.state === 'ready';
+if (view && !ready) Astro.response.status = view.state === 'notFound' ? 404 : 409;
+---
+<AppShell title={t('projectForm.editTitle')} current="/projects" surface>
+  <meta slot="head" name="referrer" content="same-origin" />
+  {ready ? <><header class="screen-heading"><h1>{t('projectForm.editTitle')}</h1></header>
+    <ProjectForm view={view} action={`/projects/${view.item.id}`} submit={t('projectForm.save')}
+      backHref={`/projects/${view.item.id}`} /></>
+    : view?.state === 'notFound'
+      ? <PageState title="error.notFoundTitle" message="error.notFoundBody" status={404} />
+      : view ? <PageState title="state.notReadyTitle" message="state.notReadyBody" init />
+        : <PageState title="projectForm.errorTitle" message="projectForm.errorBody" />}
+</AppShell>
