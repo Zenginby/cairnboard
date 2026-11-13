@@ -153,3 +153,9 @@ button.journal-day:active { transform: scale(var(--motion-scale-enter)); }
 }
 @keyframes journal-fade { from { opacity: 0; } to { opacity: 1; } }
 [data-motion="less"] .journal-preview { animation-name: journal-fade; }
+
+/* Add-a-job form on the day page and the link to it on the month page. */
+.journal-form { margin-top: var(--space-lg); }
+.journal-form h2 { margin: 0; }
+.journal-form-hint { font-size: var(--font-ui-size); }
+.journal-add-today { justify-self: start; }
