@@ -254,7 +254,9 @@ and retain former values using dated strike-through or `valid_from` / `valid_unt
 
 `note add` and `note update` accept `--pin` or `--unpin` (mutually exclusive). Both note and
 research add/update accept `--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` and
-`--superseded-by <ref>` for validity and replacement metadata.
+`--superseded-by <ref>` for validity and replacement metadata. `research add` and `research update` also
+accept `--category '<text>'`, an optional free one-line type of at most 100 characters (an empty value on
+update removes it; the tr-wiki layout stores it as `kategori`).
 
 Once the summary and directly affected pages are saved, read the research record's latest revision
 with `research show <research-id>` and mark it processed. Replace the placeholders with that record's
@@ -598,7 +600,9 @@ ve `superseded_by` alanlarıyla saklayın.
 
 `note add` ve `note update`, birlikte kullanılamayan `--pin` ve `--unpin` seçeneklerini destekler.
 Not ve araştırma ekleme/güncelleme komutları geçerlilik ve yerine geçen kayıt için
-`--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` ve `--superseded-by <ref>` kabul eder.
+`--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` ve `--superseded-by <ref>` kabul eder. `research add` ve `research update` ayrıca isteğe bağlı,
+serbest, tek satırlık ve en çok 100 karakterlik `--category '<metin>'` seçeneğini kabul eder (güncellemede
+boş değer alanı siler; tr-wiki düzeni bunu `kategori` olarak saklar).
 
 Özet ve doğrudan etkilenen sayfalar kaydedilince `research show <research-id>` ile araştırmanın güncel
 revision değerini okuyup işlenmiş olarak işaretleyin. Yer tutucular yerine kaydın kimliğini (ya da yol

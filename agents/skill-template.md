@@ -20,7 +20,8 @@ the key and any external `id:` value; the key changes if the note moves. Other f
 selector such as `@cards/acme`.
 The command reference describes the available operations and their required arguments; inspect the schema for all optional flags and fields.
 Use `--pin` or `--unpin` on note add/update (never together). Note and research add/update accept
-`--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` and `--superseded-by <ref>`.
+`--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` and `--superseded-by <ref>`. Research add/update also
+accept `--category '<text>'`, a free one-line type of at most 100 characters; an empty value on update removes it.
 
 ## Workflow
 

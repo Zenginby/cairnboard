@@ -683,3 +683,74 @@ test('journal links are read the way they are written: fences and a leading rule
     `---\ndate: 2026-10-22\n---\n---\n\n## Work\n\n<!-- cairn:project ${alpha} -->\n\n- A\n`);
   assert.deepEqual(await show('2026-10-22'), [{ title: 'Work', label: null, project: alpha }]);
 });
+
+test('research category is a one-line optional field; updates keep the body and an empty value removes it', async (t) => {
+  const f = fixture(t);
+  const body = 'Source summary.\n\n## Notes\n\n- one\n';
+  fs.writeFileSync(join(f.cwd, 'body.md'), body);
+  const added = await f.run(['research', 'add', '--title', 'Sample source', '--body-file', 'body.md',
+    '--category', '  Review  ', '--tag', 'alpha']);
+  assert.equal(added.code, 0, added.stdout);
+  const { ref, path } = added.json.data;
+  const file = () => parseFile(fs.readFileSync(join(f.data, path), 'utf8'));
+  assert.equal(file().data.category, 'Review', 'the value is trimmed');
+  assert.equal(file().body, body);
+  const shown = await f.run(['research', 'show', ref]);
+  assert.equal(shown.json.data.content.category, 'Review');
+  const listed = await f.run(['research', 'list']);
+  assert.equal(listed.json.data.items.find((item) => item.ref === ref).content.category, 'Review');
+  const plain = await runCli(['research', 'show', ref, '--actor', 'acme'], f.opts);
+  assert.match(plain.stdout, /^category: Review$/mu);
+
+  const updated = await f.run(['research', 'update', ref, '--category', 'Query']);
+  assert.equal(updated.code, 0, updated.stdout);
+  assert.equal(file().data.category, 'Query');
+  assert.deepEqual(file().data.tags, ['alpha']);
+  assert.equal(file().body, body);
+  for (const value of ['', '   ']) {
+    await f.run(['research', 'update', ref, '--category', 'Again']);
+    const cleared = await f.run(['research', 'update', ref, '--category', value]);
+    assert.equal(cleared.code, 0, cleared.stdout);
+    assert.equal(Object.hasOwn(file().data, 'category'), false, `${JSON.stringify(value)} removes the field`);
+  }
+  assert.deepEqual(file().data.tags, ['alpha']);
+  assert.equal(file().body, body);
+
+  await f.run(['research', 'update', ref, '--category', 'Keep']);
+  const before = fs.readFileSync(join(f.data, path), 'utf8');
+  for (const value of ['x'.repeat(101), 'two\nlines', 'tab\there']) {
+    const refused = await f.run(['research', 'update', ref, '--category', value]);
+    assert.equal(refused.json.error.code, 'validation', JSON.stringify(value));
+  }
+  assert.equal((await f.run(['research', 'add', '--title', 'Long', '--category', 'x'.repeat(101)])).json.error.code, 'validation');
+  assert.equal((await f.run(['research', 'add', '--title', 'Blank', '--category', '   '])).json.error.code, 'validation');
+  assert.equal((await f.run(['research', 'add', '--title', 'Ok', '--category', 'x'.repeat(100)])).code, 0);
+  assert.equal(fs.readFileSync(join(f.data, path), 'utf8'), before, 'a refused value writes nothing');
+
+  for (const args of [['note', 'add', '--title', 'N'], ['card', 'add', '--title', 'C']]) {
+    const refused = await f.run([...args, '--category', 'Review']);
+    assert.notEqual(refused.code, 0, args[0]);
+  }
+  const schema = await f.run(['schema']);
+  assert.ok(schema.json.data.fields.research.includes('category'));
+});
+
+test('the tr-wiki layout stores a research category as kategori and reads it back', async (t) => {
+  const f = fixture(t, false);
+  assert.equal((await f.run(['init', '--preset', 'tr-wiki'])).code, 0);
+  const added = await f.run(['research', 'add', '--title', 'Örnek kaynak', '--category', 'Proje araştırması']);
+  assert.equal(added.code, 0, added.stdout);
+  const text = fs.readFileSync(join(f.data, added.json.data.path), 'utf8');
+  assert.match(text, /^kategori: /mu);
+  assert.doesNotMatch(text, /^category:/mu);
+  const shown = await f.run(['research', 'show', added.json.data.ref]);
+  assert.equal(shown.json.data.content.category, 'Proje araştırması');
+});
+
+test('a research record without a category reads unchanged', async (t) => {
+  const f = fixture(t);
+  const added = await f.run(['research', 'add', '--title', 'Plain']);
+  const shown = await f.run(['research', 'show', added.json.data.ref]);
+  assert.equal(Object.hasOwn(shown.json.data.content, 'category'), false);
+  assert.equal(Object.hasOwn(parseFile(fs.readFileSync(join(f.data, added.json.data.path), 'utf8')).data, 'category'), false);
+});

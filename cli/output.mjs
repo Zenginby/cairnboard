@@ -94,18 +94,20 @@ export function compact(entity, opts = {}) {
   const assignee = item.meta.assignee ?? (typeof item.content.assignee === 'string' ? item.content.assignee : '-');
   const fields = entity.type === 'card' ? [item.ref, opts.column ?? item.meta.column ?? '-', item.meta.priority ?? '-',
     assignee, `${item.meta.acceptance?.done ?? 0}/${item.meta.acceptance?.total ?? 0}`, item.content.title]
-    : [item.content.title || item.ref || item.content.snippet || ''];
+    : [item.content.title || item.ref || item.content.snippet || '',
+      ...(entity.type === 'research' && typeof item.content.category === 'string' ? [item.content.category] : [])];
   return fields.map((value) => oneLine(clean(String(value), opts))).join('\t');
 }
 
 export function human(data) {
   if (data && Array.isArray(data.items)) return data.items.map((item) => typeof item === 'string' ? item
-    : oneLine(item.content?.title || item.content?.text || item.ref || item.path || JSON.stringify(item))).join('\n');
+    : oneLine(item.content?.title || item.content?.text || item.ref || item.path || JSON.stringify(item))
+      + (item.type === 'research' && typeof item.content?.category === 'string' ? `\t${oneLine(item.content.category)}` : '')).join('\n');
   if (data?.content) {
     // A card's one-line status fields, each on its own labelled line, before the body.
-    const status = data.type === 'card' ? ['now', 'next', 'needs']
-      .filter((field) => typeof data.content[field] === 'string')
-      .map((field) => `${field}: ${oneLine(data.content[field])}`) : [];
+    const statusFields = data.type === 'card' ? ['now', 'next', 'needs'] : data.type === 'research' ? ['category'] : [];
+    const status = statusFields.filter((field) => typeof data.content[field] === 'string')
+      .map((field) => `${field}: ${oneLine(data.content[field])}`);
     return [oneLine(data.content.title ?? ''), JSON.stringify(data.meta), ...status,
       data.content.body ?? data.content.snippet ?? ''].join('\n');
   }

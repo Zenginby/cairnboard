@@ -67,6 +67,12 @@ function patchFields(ctx, type, opts) {
       patch[field] = value === '' ? undefined : value;
     }
   }
+  // A research category: one line chosen by the owner; an empty or blank value removes the field.
+  if (type === 'research' && opts.category !== undefined) {
+    if (typeof opts.category !== 'string') throw new CairnError('validation', 'Invalid research category.');
+    const value = opts.category.trim();
+    patch.category = value === '' ? undefined : value;
+  }
   if (opts.unpin) patch.pinned = false;
   if (patch.tone !== undefined) {
     if (!/^[1-8]$/u.test(patch.tone)) throw new CairnError('validation', 'Invalid project tone.');
@@ -224,11 +230,15 @@ export function writeCommands({ string, boolean }) {
         'valid-until': string('Set the last valid date.'), 'superseded-by': string('Set the replacement reference.') } : {}),
       ...(type === 'note' ? { code: multiple('Set code paths; repeat for multiple paths.') } : {}),
       ...(type === 'research' ? { date: string('Set the research date.'), 'source-date': string('Set the source date.'),
-        processed: boolean('Mark as processed.') } : {}),
+        processed: boolean('Mark as processed.'),
+        category: string('Set the one-line research category; an empty value removes it.') } : {}),
     };
     add(`${type} add`, `Create a ${type}.`, [], options, async (ctx, args, opts, io) => {
       const body = await readBody(opts, io);
       if (opts.project === undefined && opts.linkedProjectError) throw opts.linkedProjectError;
+      if (type === 'research' && typeof opts.category === 'string' && !opts.category.trim()) {
+        throw new CairnError('validation', 'Research category must be one line of at most 100 characters.');
+      }
       const fields = patchFields(ctx, type, { ...opts, project: opts.project ?? opts.linkedProject });
       const changed = type === 'card' ? card.addCard(ctx, fields, body ?? '', mutationOptions(opts))
         : entity.create(ctx, type, fields, body ?? '', mutationOptions(opts));

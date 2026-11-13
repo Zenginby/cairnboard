@@ -7,7 +7,7 @@ import { checkedPath, safeRelative } from './paths.mjs';
 import { parseFile, setFields, replaceBody } from './frontmatter.mjs';
 import { classify, readCanonical, physicalPatch, destination, isRawPath } from './schema.mjs';
 import { extract } from './extract.mjs';
-import { foldTr } from './text.mjs';
+import { foldTr, oneLine } from './text.mjs';
 import { dayOf, localDate, validateDate } from './dates.mjs';
 
 import { ensureFresh, rows, findById } from './index.mjs';
@@ -46,6 +46,11 @@ export function validatePriority(priority) {
   if (!['urgent', 'important', 'low'].includes(priority)) throw invalid('Invalid card priority.');
 }
 
+// Only a patch is checked here: a page of another type may already carry its own `category` key.
+function rejectForeignCategory(type, patch) {
+  if (type !== 'research' && patch.category !== undefined) throw invalid('Only a research record has a category.');
+}
+
 export function validate(type, fields) {
   if (typeof fields.title !== 'string' || !fields.title.trim()) throw invalid('Title is required.');
   if (type === 'project') {
@@ -60,6 +65,9 @@ export function validate(type, fields) {
   if (type === 'research') {
     if (!['source', 'review', 'analysis'].includes(fields.kind)) throw invalid('Invalid research kind.');
     if (fields.date !== undefined) validateDate(fields.date);
+    const category = fields.category;
+    if (category !== undefined && (typeof category !== 'string' || !category.trim() || oneLine(category) !== category
+      || category.length > 100)) throw invalid('Research category must be one line of at most 100 characters.');
   }
   if (type === 'card' && fields.priority !== undefined) validatePriority(fields.priority);
   if (type === 'card') {
@@ -194,6 +202,7 @@ export function createFolder(ctx, type, fields) {
 export function draft(ctx, type, fields, body = '') {
   if (!Object.hasOwn(prefixes, type)) throw invalid('Unsupported entity type.');
   if (typeof body !== 'string') throw invalid('Body must be text.');
+  rejectForeignCategory(type, fields);
   const kind = fields.kind ?? (type === 'note' ? 'note' : type === 'research' ? 'source' : null);
   const slug = slugify(fields.title);
   const initial = destination(ctx.schema, type, kind, slug);
@@ -238,6 +247,7 @@ function checkRawRef(ctx, ref) {
 
 export function update(ctx, type, ref, patch, opts = {}) {
   if (Object.hasOwn(patch, 'id') || Object.hasOwn(patch, 'created')) throw invalid('Id and creation time are fixed.');
+  rejectForeignCategory(type, patch);
   checkRawRef(ctx, ref);
   const entity = resolve(ctx, type, ref);
   writable(ctx, entity);

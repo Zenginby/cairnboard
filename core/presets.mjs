@@ -36,7 +36,7 @@ export const PRESETS = {
     },
     quickNotes: '',
     fields: {
-      kind: 'tur', tags: 'etiketler', updated: 'guncelleme', sources: 'kaynaklar', raw: 'ham', sourceDate: 'kaynak_tarihi',
+      kind: 'tur', tags: 'etiketler', updated: 'guncelleme', sources: 'kaynaklar', raw: 'ham', sourceDate: 'kaynak_tarihi', category: 'kategori',
     },
     values: {
       kind: {

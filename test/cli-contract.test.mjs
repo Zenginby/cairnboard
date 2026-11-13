@@ -83,6 +83,12 @@ test('schema needs no data and matches the public snapshot', async (t) => {
       needs: { type: 'string', summary: 'Set what the owner is needed for, one line; an empty value removes it.' },
     });
   }
+  // Additive: a research record's one-line category and its add and update options.
+  expected.fields.research.push('category');
+  for (const name of ['research add', 'research update']) {
+    expected.commands.find((item) => item.name === name).options.category = { type: 'string',
+      summary: 'Set the one-line research category; an empty value removes it.' };
+  }
   // Additive: a journal day's summary field and the option that writes it.
   expected.fields.journal.push('summary');
   expected.commands.find((item) => item.name === 'journal add').options.summary = { type: 'string',
