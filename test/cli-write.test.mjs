@@ -684,7 +684,7 @@ test('journal links are read the way they are written: fences and a leading rule
   assert.deepEqual(await show('2026-10-22'), [{ title: 'Work', label: null, project: alpha }]);
 });
 
-test('research category is a one-line optional field; updates keep the body and an empty value removes it', async (t) => {
+test('research category is a one-line optional field; an empty value on update removes it', async (t) => {
   const f = fixture(t);
   const body = 'Source summary.\n\n## Notes\n\n- one\n';
   fs.writeFileSync(join(f.cwd, 'body.md'), body);
@@ -722,8 +722,10 @@ test('research category is a one-line optional field; updates keep the body and 
     const refused = await f.run(['research', 'update', ref, '--category', value]);
     assert.equal(refused.json.error.code, 'validation', JSON.stringify(value));
   }
-  assert.equal((await f.run(['research', 'add', '--title', 'Long', '--category', 'x'.repeat(101)])).json.error.code, 'validation');
-  assert.equal((await f.run(['research', 'add', '--title', 'Blank', '--category', '   '])).json.error.code, 'validation');
+  assert.equal((await f.run(['research', 'add', '--title', 'Long', '--category', 'x'.repeat(101)])).json.error.code,
+    'validation');
+  assert.equal((await f.run(['research', 'add', '--title', 'Blank', '--category', '   '])).json.error.code,
+    'validation');
   assert.equal((await f.run(['research', 'add', '--title', 'Ok', '--category', 'x'.repeat(100)])).code, 0);
   assert.equal(fs.readFileSync(join(f.data, path), 'utf8'), before, 'a refused value writes nothing');
 
@@ -752,5 +754,6 @@ test('a research record without a category reads unchanged', async (t) => {
   const added = await f.run(['research', 'add', '--title', 'Plain']);
   const shown = await f.run(['research', 'show', added.json.data.ref]);
   assert.equal(Object.hasOwn(shown.json.data.content, 'category'), false);
-  assert.equal(Object.hasOwn(parseFile(fs.readFileSync(join(f.data, added.json.data.path), 'utf8')).data, 'category'), false);
+  assert.equal(Object.hasOwn(parseFile(fs.readFileSync(join(f.data, added.json.data.path), 'utf8')).data, 'category'),
+    false);
 });

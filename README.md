@@ -600,7 +600,8 @@ ve `superseded_by` alanlarıyla saklayın.
 
 `note add` ve `note update`, birlikte kullanılamayan `--pin` ve `--unpin` seçeneklerini destekler.
 Not ve araştırma ekleme/güncelleme komutları geçerlilik ve yerine geçen kayıt için
-`--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` ve `--superseded-by <ref>` kabul eder. `research add` ve `research update` ayrıca isteğe bağlı,
+`--valid-from YYYY-MM-DD`, `--valid-until YYYY-MM-DD` ve `--superseded-by <ref>` kabul eder.
+`research add` ve `research update` ayrıca isteğe bağlı,
 serbest, tek satırlık ve en çok 100 karakterlik `--category '<metin>'` seçeneğini kabul eder (güncellemede
 boş değer alanı siler; tr-wiki düzeni bunu `kategori` olarak saklar).
 

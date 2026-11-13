@@ -102,7 +102,8 @@ export function compact(entity, opts = {}) {
 export function human(data) {
   if (data && Array.isArray(data.items)) return data.items.map((item) => typeof item === 'string' ? item
     : oneLine(item.content?.title || item.content?.text || item.ref || item.path || JSON.stringify(item))
-      + (item.type === 'research' && typeof item.content?.category === 'string' ? `\t${oneLine(item.content.category)}` : '')).join('\n');
+      + (item.type === 'research' && typeof item.content?.category === 'string'
+        ? `\t${oneLine(item.content.category)}` : '')).join('\n');
   if (data?.content) {
     // A card's one-line status fields, each on its own labelled line, before the body.
     const statusFields = data.type === 'card' ? ['now', 'next', 'needs'] : data.type === 'research' ? ['category'] : [];
