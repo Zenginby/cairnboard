@@ -10,8 +10,8 @@ const RECENT_KEY = 'cairn.recent-searches.v1';
 const RECENT_LIMIT = 8;
 const DELAY_MS = 120;
 const MAX_QUERY = 200;
-const TYPES = ['card', 'note'];
-const PATHS = { card: 'cards', note: 'notes' };
+const TYPES = ['card', 'note', 'research'];
+const PATHS = { card: 'cards', note: 'notes', research: 'research' };
 
 const isMac = /mac|iphone|ipad/iu.test(navigator.userAgentData?.platform || navigator.platform || '');
 const fill = (template, values) => template.replace(/\{(\w+)\}/gu,
@@ -143,6 +143,8 @@ function refresh(container, texts, choose, onEmpty, action, q) {
 }
 
 const texts = dialog ? { ...dialog.dataset } : {};
+const labels = { card: texts.cards, note: texts.notes, research: texts.research };
+const kinds = { card: texts.kindCard, note: texts.kindNote, research: texts.kindResearch };
 
 // The /search page: ⌘K, `/` and the top bar link focus the page's own field; the dialog never opens there.
 if (searchPage) {
@@ -265,7 +267,7 @@ if (searchPage) {
     const item = option(id, `/${PATHS[row.type]}/${encodeURIComponent(row.ref)}`, 'search-row');
     const top = span('search-row-top');
     top.append(span('search-row-title', row.title || texts.untitled),
-      span(`chip search-row-kind search-row-kind--${row.type}`, row.type === 'card' ? texts.kindCard : texts.kindNote));
+      span(`chip search-row-kind search-row-kind--${row.type}`, kinds[row.type]));
     const enter = span('search-row-enter', '↵');
     enter.setAttribute('aria-hidden', 'true');
     top.append(enter);
@@ -314,7 +316,7 @@ if (searchPage) {
       section.className = 'search-section';
       section.setAttribute('role', 'group');
       section.setAttribute('aria-labelledby', `search-dialog-group-${group.type}`);
-      const heading = span('search-group', group.type === 'card' ? texts.cards : texts.notes);
+      const heading = span('search-group', labels[group.type]);
       heading.id = `search-dialog-group-${group.type}`;
       heading.setAttribute('role', 'presentation');
       const list = document.createElement('ul');
@@ -322,7 +324,7 @@ if (searchPage) {
       list.setAttribute('role', 'presentation');
       group.rows.forEach((row, i) => list.append(rowOption(row, `search-dialog-${group.type}-${i}`)));
       if (group.more) {
-        const label = (group.type === 'card' ? texts.cards : texts.notes).toLocaleLowerCase(texts.lang);
+        const label = labels[group.type].toLocaleLowerCase(texts.lang);
         const more = option(`search-dialog-${group.type}-more`, searchHref(q, group.type), 'search-more-option');
         more.append(span('search-more-label', fill(texts.more, { type: label, n: group.count })));
         list.append(more);

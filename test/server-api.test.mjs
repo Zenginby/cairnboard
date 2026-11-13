@@ -554,7 +554,9 @@ test('search endpoint returns grouped results and validates type', async (t) => 
   assert.match(ok.json.data.results.note[0].snippetHtml, /<mark>plan<\/mark> &lt;script&gt;/u);
   const empty = await request(f.app, '/api/search?q=');
   assert.equal(empty.status, 200);
-  assert.deepEqual([empty.json.data.results, empty.json.data.counts], [{ card: [], note: [] }, { card: 0, note: 0 }]);
+  assert.deepEqual([empty.json.data.results, empty.json.data.counts], [
+    { card: [], note: [], research: [] }, { card: 0, note: 0, research: 0 },
+  ]);
   for (let n = 2; n <= 8; n++) f.put(`cards/plan-${n}.md`, { id: `c-00000${n}`, title: `Plan ${n}`, column: 'doing' });
   assert.equal((await request(f.app, '/api/search?q=plan&type=card&limit=3')).json.data.results.card.length, 3);
   assert.equal((await request(f.app, '/api/search?q=plan&type=card&limit=x')).json.data.results.card.length, 5);

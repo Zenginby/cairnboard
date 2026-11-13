@@ -96,6 +96,7 @@ const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
     {/* The ⌘K search dialog: drawn here with every text, search-dialog.js only adds behaviour. */}
     <dialog class="search-dialog" data-search-dialog aria-labelledby="search-dialog-label"
       data-cards={t('search.cards')} data-notes={t('search.notes')} data-kind-card={t('type.card')}
+      data-research={t('research.title')} data-kind-research={t('type.research')}
       data-kind-note={t('type.note')} data-untitled={t('home.untitled')} data-count={t('search.count')}
       data-more={t('search.moreOfType')} data-no-results={t('search.noResults')} data-failed={t('search.failed')}
       data-not-ready={t('state.notReadyTitle')} data-empty-hint={t('search.emptyHint')} data-star={t('search.star')}

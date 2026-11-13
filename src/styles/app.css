@@ -632,6 +632,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
   overflow-wrap: anywhere;
 }
 .search-row-kind--card { background: var(--color-planned-bg); color: var(--color-planned); }
+.search-row-kind--research { background: var(--color-tone-3-bg); color: var(--color-tone-3-text); }
 .search-row-kind--note { background: var(--color-doing-bg); color: var(--color-doing); }
 .search-row-snippet {
   color: var(--color-text-2);

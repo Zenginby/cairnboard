@@ -29,8 +29,8 @@ try {
 }
 const data = result?.data;
 const query = data?.query ?? q.trim();
-const types = ['card', 'note'];
-const labels = { '': 'search.all', card: 'search.cards', note: 'search.notes' };
+const types = ['card', 'note', 'research'];
+const labels = { '': 'search.all', card: 'search.cards', note: 'search.notes', research: 'research.title' };
 // Counts may read "1000+" at the ceiling; a sum with a capped part stays capped.
 const total = data ? (types.some((kind) => typeof data.counts[kind] === 'string')
   ? `${types.reduce((sum, kind) => sum + Number.parseInt(String(data.counts[kind]), 10), 0)}+`
@@ -43,7 +43,7 @@ const shown = groups.reduce((sum, group) => sum + group.rows.length, 0);
 const shownCount = type ? countOf(type) : total;
 const title = query ? t('search.titleWithQuery', { q: query }) : t('search.title');
 ---
-<AppShell live="card note project" title={title} searchPage surface>
+<AppShell live="card note research project" title={title} searchPage surface>
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`}
     message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'}
     status={Astro.response.status} /> : <div class="search-page">

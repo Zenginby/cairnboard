@@ -588,14 +588,16 @@ test('built Search page lists grouped rows, inserts only the snippet HTML and ke
     project: { id: 'p-1', name: '<b>Proj</b>', tone: 3 }, column: type === 'card' ? 'Doing' : null, updated: null });
   const search = ({ q, type, limit }) => {
     calls.push({ q, type, limit });
-    if (type !== undefined && !['card', 'note'].includes(type)) {
+    if (type !== undefined && !['card', 'note', 'research'].includes(type)) {
       throw Object.assign(new Error('bad'), { code: 'validation' });
     }
     const results = { card: [row('card', 'c-1', '<img src=x onerror=attack(1)>')],
-      note: [row('note', 'notlar/şu not', 'Not')] };
-    if (type) for (const kind of ['card', 'note']) if (kind !== type) results[kind] = [];
-    return { ok: true, data: { query: q.trim(), type: type ?? null, results, counts: { card: 1, note: '1000+' },
-      more: { card: false, note: !type } }, warnings: [] };
+      note: [row('note', 'notlar/şu not', 'Not')],
+      research: [row('research', 'r-000001', 'Study')] };
+    if (type) for (const kind of ['card', 'note', 'research']) if (kind !== type) results[kind] = [];
+    return { ok: true, data: { query: q.trim(), type: type ?? null, results,
+      counts: { card: 1, note: '1000+', research: 2 },
+      more: { card: false, note: !type, research: !type } }, warnings: [] };
   };
 
   const all = await render('/search?q=plan', { search });
@@ -605,16 +607,26 @@ test('built Search page lists grouped rows, inserts only the snippet HTML and ke
   assert.match(all.body, /<body[^>]*data-search-page/u);
   assert.match(all.body, /<input class="search-input" id="search-query" name="q"[^>]*value="plan"/u);
   const groups = [...all.body.matchAll(/<h2 class="search-group"[^>]*>([^<]*)<\/h2>/gu)].map((match) => match[1]);
-  assert.deepEqual(groups, ['Kartlar', 'Notlar']);
+  assert.deepEqual(groups, ['Kartlar', 'Notlar', 'Araştırmalar']);
   assert.match(all.body, /class="search-row" href="\/cards\/c-1"/u);
   assert.match(all.body, /class="search-row" href="\/notes\/notlar%2F%C5%9Fu%20not"/u);
   assert.match(all.body, /a <mark>plan<\/mark> b/u);
   assert.match(all.body, /&lt;img src=x onerror=attack\(1\)&gt;/u);
   assert.match(all.body, /&lt;b&gt;Proj&lt;\/b&gt;/u);
   assert.doesNotMatch(all.body, /<img\b|<b>Proj/u);
-  assert.match(all.body, /1001\+ sonuç/u);
+  assert.match(all.body, /1003\+ sonuç/u);
   assert.match(all.body, /href="\/search\?q=plan&amp;type=note"[^>]*>Tüm notlar \(1000\+\)/u);
   assert.match(all.body, /class="search-filter" href="\/search\?q=plan" aria-current="true"/u);
+
+  assert.match(all.body, /class="search-row" href="\/research\/r-000001"/u);
+  assert.match(all.body, /href="\/search\?q=plan&amp;type=research"[^>]*>Tüm araştırmalar \(2\)/u);
+  assert.match(all.body, /data-research="Araştırmalar"/u);
+  assert.match(all.body, /data-kind-research="Araştırma"/u);
+  const research = await render('/search?q=plan&type=research', { search });
+  assert.deepEqual(calls.at(-1), { q: 'plan', type: 'research', limit: 50 });
+  assert.match(research.body, /class="search-row" href="\/research\/r-000001"/u);
+  assert.doesNotMatch(research.body, /class="search-group"|class="search-row" href="\/(?:cards|notes)\//u);
+  assert.match(research.body, /href="\/search\?q=plan&amp;type=research" aria-current="true"/u);
 
   const filtered = await render('/search?q=plan&type=card', { search });
   assert.deepEqual(calls.at(-1), { q: 'plan', type: 'card', limit: 50 });
@@ -628,8 +640,8 @@ test('built Search page lists grouped rows, inserts only the snippet HTML and ke
   assert.doesNotMatch(unknown.body, /name="type"/u);
 
   const none = await render('/search?q=zzz&type=note', { search: ({ q, type }) => ({ ok: true, warnings: [], data: {
-    query: q, type, results: { card: [], note: [] }, counts: { card: 2, note: 0 },
-    more: { card: false, note: false } } }) });
+    query: q, type, results: { card: [], note: [], research: [] }, counts: { card: 2, note: 0, research: 0 },
+    more: { card: false, note: false, research: false } } }) });
   assert.match(none.body, /Sonuç yok/u);
   assert.match(none.body, /href="\/search\?q=zzz"[^>]*>Süzgeci kaldır/u);
   assert.match(none.body, /href="\/search"[^>]*>Temizle/u);

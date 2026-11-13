@@ -1,7 +1,7 @@
 ---
 import { language, t } from '../i18n/index.mjs';
 // Result rows for the /search page. `groups` is [{ type, rows, more, count }]; `headings` shows the group
-// titles ("All" lists both types). Only `snippetHtml` is HTML (the server lets through nothing but <mark>);
+// titles ("All" lists every type). Only `snippetHtml` is HTML (the server lets through nothing but <mark>);
 // every other field is printed as text.
 const { groups, query, headings = true } = Astro.props;
 const groupLabel = { card: 'search.cards', note: 'search.notes', research: 'research.title' };

@@ -35,7 +35,7 @@ function fixture(t) {
 }
 
 test('WEB_SEARCH_TYPES lists the searchable web types and is frozen', () => {
-  assert.deepEqual(WEB_SEARCH_TYPES, ['card', 'note']);
+  assert.deepEqual(WEB_SEARCH_TYPES, ['card', 'note', 'research']);
   assert.ok(Object.isFrozen(WEB_SEARCH_TYPES));
 });
 
@@ -86,7 +86,7 @@ test('searchView splits types, caps limit and q, counts with a ceiling', (t) => 
   assert.equal(cards.type, 'card');
   assert.deepEqual(cards.results.note, []);
   assert.equal(cards.more.note, false);
-  assert.deepEqual(cards.counts, { card: 7, note: 2 }, 'filter pills keep counts for every type');
+  assert.deepEqual(cards.counts, { card: 7, note: 2, research: 0 }, 'filter pills keep counts for every type');
 });
 
 test('symbol-only and empty queries return empty results', (t) => {
@@ -94,7 +94,7 @@ test('symbol-only and empty queries return empty results', (t) => {
   for (const q of ['', '   ', '%%', '++', '"', '()*']) {
     const view = searchView(ctx, { q }, projects);
     assert.deepEqual([view.results.card, view.results.note], [[], []]);
-    assert.deepEqual(view.counts, { card: 0, note: 0 });
+    assert.deepEqual(view.counts, { card: 0, note: 0, research: 0 });
   }
   // FTS syntax never reaches SQLite raw
   assert.doesNotThrow(() => searchView(ctx, { q: 'c++ "a" OR NEAR(' }, projects));
@@ -337,4 +337,41 @@ test('rowsByPath returns only the requested rows, with the index and without it'
   blocker.exec('ROLLBACK');
   blocker.close();
   assert.ok(fallback.warnings.includes('index_unavailable'));
+});
+
+test('research search counts eligible records, carries projects and filters before the limit', (t) => {
+  const { put, reopen } = fixture(t);
+  put('research/a-idless.md', { title: 'Needle' }, 'Needle');
+  put('research/b-legacy.md', { id: 'legacy-42', title: 'Needle' }, 'Needle');
+  put('research/c-noncanonical.md', { id: 'R-OOOOIO', title: 'Needle' }, 'Needle');
+  put('research/z-eligible.md', { id: 'r-000010', title: 'Eligible <b>research</b>',
+    project: 'p-000001' }, `Needle ${'padding '.repeat(40)}`);
+  put('research/z-other.md', { id: 'r-000011', title: 'Other' }, 'Needle');
+  put('notes/needle.md', { id: 'n-000010', title: 'Needle' });
+  const { ctx, projects } = reopen();
+  const check = (context) => {
+    const view = searchView(context, { q: 'needle', type: 'research', limit: 1 }, projects);
+    assert.equal(view.type, 'research');
+    assert.equal(view.counts.research, 2);
+    assert.equal(view.counts.note, 1);
+    assert.equal(view.more.research, true);
+    assert.deepEqual(view.results.card, []);
+    assert.deepEqual(view.results.note, []);
+    const all = searchView(context, { q: 'needle', limit: 50 }, projects);
+    assert.deepEqual(all.results.research.map((row) => row.ref).sort(), ['r-000010', 'r-000011']);
+    const row = all.results.research.find((item) => item.ref === 'r-000010');
+    assert.equal(row.type, 'research');
+    assert.equal(row.title, 'Eligible <b>research</b>');
+    assert.equal(row.column, null);
+    assert.deepEqual(row.project, { id: 'p-000001', name: 'Alpha', tone: 3 });
+    assert.match(row.snippetHtml, /<mark>Needle<\/mark>/u);
+    assert.equal(all.more.research, false);
+  };
+  check(ctx);
+  const blocker = new DatabaseSync(ctx.indexPath);
+  t.after(() => { if (blocker.isOpen) blocker.close(); });
+  blocker.exec('BEGIN IMMEDIATE');
+  check({ ...ctx, warnings: [], indexTimeoutMs: 10 });
+  blocker.exec('ROLLBACK');
+  blocker.close();
 });

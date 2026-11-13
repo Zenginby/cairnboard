@@ -4,7 +4,7 @@ import { CairnError } from '../core/errors.mjs';
 import { effectiveColumn } from '../core/card.mjs';
 
 // Types with a web detail page; adding a type here adds it to `/api/search`, `/search` and the dialog.
-export const WEB_SEARCH_TYPES = Object.freeze(['card', 'note']);
+export const WEB_SEARCH_TYPES = Object.freeze(['card', 'note', 'research']);
 
 // Private-use marks that SQLite places around snippet hits; only these become <mark> after escaping.
 const OPEN = '\uE000', CLOSE = '\uE001';
@@ -111,7 +111,7 @@ export function searchView(ctx, { q, type, limit }, projects) {
   const view = { query, type: type ?? null, results: {}, counts: {}, more: {} };
   for (const kind of WEB_SEARCH_TYPES) {
     // Count without snippets; eligibility precedes the limit in both the count and the displayed results.
-    const options = { type: kind, validIdsOnly: kind === 'card' };
+    const options = { type: kind, validIdsOnly: kind === 'card' || kind === 'research' };
     const count = terms.length ? index.searchCount(ctx, query, { ...options, limit: COUNT_CEILING + 1 }) : 0;
     view.counts[kind] = count > COUNT_CEILING ? `${COUNT_CEILING}+` : count;
     view.results[kind] = [];
