@@ -7,13 +7,15 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { linkTarget } from './links.mjs';
 import { normalizeId, isNoteKey } from './ids.mjs';
-import { slugify, stripHidden } from './text.mjs';
+import { oneLine, slugify, stripHidden } from './text.mjs';
 import { acceptanceItems } from './frontmatter.mjs';
 
 export const RENDER_POLICY = '3';
 const MAX_INPUT = 5 * 1024 * 1024;
 const MAX_ENTRIES = 200;
 const MAX_HTML = 20 * 1024 * 1024;
+const MAX_HEADINGS = 500;
+const MAX_HEADING_TEXT = 200;
 const cache = new Map();
 let cachedBytes = 0;
 
@@ -153,8 +155,36 @@ function safeLinks() {
   };
 }
 
+// Gives each h2 and h3 an id and lists them, when the caller asks for the list. It runs on the sanitized tree, so an
+// id is a property of an element node; the HTML text is never rewritten. The `sec-` prefix keeps a heading from
+// taking an id the page shell already uses.
+function headingAnchors() {
+  return (tree, file) => {
+    const toc = file.data.toc;
+    if (!toc) return;
+    const counts = new Map();
+    function walk(node) {
+      if (toc.length >= MAX_HEADINGS) return;
+      if (node.type === 'element' && (node.tagName === 'h2' || node.tagName === 'h3')) {
+        const text = oneLine(textOf(node)).trim().slice(0, MAX_HEADING_TEXT).trimEnd();
+        if (!text) return;
+        const base = slugify(text);
+        const seen = counts.get(base) ?? 0;
+        counts.set(base, seen + 1);
+        const id = `sec-${seen ? `${base}-${seen + 1}` : base}`;
+        node.properties = { ...node.properties, id };
+        toc.push({ id, level: Number(node.tagName[1]), text });
+        return;
+      }
+      for (const child of node.children ?? []) walk(child);
+    }
+    walk(tree);
+  };
+}
+
 const processor = unified().use(remarkParse).use(remarkGfm).use(wikiLinks)
-  .use(remarkRehype).use(imageLinks).use(taskLabels).use(rehypeSanitize, schema).use(safeLinks).use(rehypeStringify).freeze();
+  .use(remarkRehype).use(imageLinks).use(taskLabels).use(rehypeSanitize, schema).use(safeLinks).use(headingAnchors)
+  .use(rehypeStringify).freeze();
 
 // Very deep nesting overflows the parser's stack; such a page is shown without its rendered body.
 export function renderMarkdown(markdown, options = {}) {
@@ -166,8 +196,11 @@ export function renderMarkdown(markdown, options = {}) {
   }
 }
 
-/** @param {string} markdown @param {{ resolveLink?: (target: *) => * }} [options] */
-function render(markdown, { resolveLink = () => null } = {}) {
+/**
+ * With `headings`, each h2 and h3 gets an id and the result carries `toc`, a list of `{ id, level, text }`.
+ * @param {string} markdown @param {{ resolveLink?: (target: *) => *, headings?: boolean }} [options]
+ */
+function render(markdown, { resolveLink = () => null, headings = false } = {}) {
   if (Buffer.byteLength(markdown, 'utf8') > MAX_INPUT) return { html: null, tooLarge: true };
   const cleaned = stripHidden(markdown).text;
   const tree = processor.parse(cleaned);
@@ -185,17 +218,20 @@ function render(markdown, { resolveLink = () => null } = {}) {
   const acceptance = new Map(acceptanceItems(markdown).map((item, index) => [item.line, index + 1]));
   const digest = createHash('sha256').update(cleaned).update('\0').update(RENDER_POLICY)
     .update('\0').update(JSON.stringify([...resolutions])).update('\0').update(JSON.stringify([...acceptance]))
-    .digest('hex');
+    .update('\0').update(headings ? 'headings' : '').digest('hex');
+  const answer = ({ html, toc }) => (headings ? { html, toc: toc.map((entry) => ({ ...entry })) } : { html });
   const hit = cache.get(digest);
   if (hit) {
     cache.delete(digest);
     cache.set(digest, hit);
-    return { html: hit.html };
+    return answer(hit);
   }
-  const html = processor.stringify(processor.runSync(tree, { data: { resolutions, acceptance } }));
+  const toc = [];
+  const data = { resolutions, acceptance, ...(headings ? { toc } : {}) };
+  const html = processor.stringify(processor.runSync(tree, { data }));
   const bytes = Buffer.byteLength(html, 'utf8');
   if (bytes <= MAX_HTML) {
-    cache.set(digest, { html, bytes });
+    cache.set(digest, { html, bytes, toc });
     cachedBytes += bytes;
     while (cache.size > MAX_ENTRIES || cachedBytes > MAX_HTML) {
       const oldest = cache.keys().next().value;
@@ -203,5 +239,5 @@ function render(markdown, { resolveLink = () => null } = {}) {
       cache.delete(oldest);
     }
   }
-  return { html };
+  return answer({ html, toc });
 }

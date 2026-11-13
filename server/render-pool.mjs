@@ -15,6 +15,7 @@ const MAX_SLOW = 256;
  * machine can take longer than the limit itself, so the page's clock starts when the worker says it is ready.
  * Starting has its own, larger limit; a worker that never becomes ready fails the page without marking it slow.
  * `links` are `[key, { type, id } | null]` pairs keyed by JSON `[targetName, heading ?? '']`.
+ * With `{ headings: true }` each h2 and h3 gets an id and `toc` lists them; otherwise `toc` is empty.
  */
 export function createRenderPool({ timeoutMs = 5000, startTimeoutMs = 30_000, maxQueue = 64, workerUrl = WORKER,
   heapMb = 256 } = {}) {
@@ -57,7 +58,8 @@ export function createRenderPool({ timeoutMs = 5000, startTimeoutMs = 30_000, ma
         return;
       }
       if (!active || message.id !== active.id) return;
-      finish({ html: message.html, tooLarge: message.tooLarge, failed: message.failed, timedOut: false });
+      finish({ html: message.html, toc: Array.isArray(message.toc) ? message.toc : [], tooLarge: message.tooLarge,
+        failed: message.failed, timedOut: false });
     });
     const lost = () => {
       stop();
@@ -102,7 +104,7 @@ export function createRenderPool({ timeoutMs = 5000, startTimeoutMs = 30_000, ma
         }
         // A page in progress keeps the process alive until its answer or its time limit, whichever comes first.
         worker.ref();
-        worker.postMessage({ id: job.id, markdown: job.markdown, links: job.links });
+        worker.postMessage({ id: job.id, markdown: job.markdown, links: job.links, headings: job.headings });
       } catch {
         // A worker that cannot start must fail this page, never leave the queue waiting forever.
         stop();
@@ -112,12 +114,13 @@ export function createRenderPool({ timeoutMs = 5000, startTimeoutMs = 30_000, ma
   }
 
   return {
-    render(markdown, links = []) {
+    render(markdown, links = [], { headings = false } = {}) {
       if (queue.length >= maxQueue) return Promise.resolve(FAILED);
-      const key = createHash('sha256').update(markdown).update('\0').update(JSON.stringify(links)).digest('hex');
+      const key = createHash('sha256').update(markdown).update('\0').update(JSON.stringify(links))
+        .update('\0').update(headings ? 'headings' : '').digest('hex');
       if (slow.has(key)) return Promise.resolve(TIMED_OUT);
       return new Promise((resolve) => {
-        queue.push({ id: nextId++, key, markdown, links, resolve });
+        queue.push({ id: nextId++, key, markdown, links, headings: headings === true, resolve });
         pump();
       });
     },

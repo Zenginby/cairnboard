@@ -100,7 +100,7 @@ function fixture(t, { empty = false, hiddenTitle = false } = {}) {
       '### Sub Finding',
       'Deep observation.',
       '## Third Finding',
-      'Final notes.',
+      'Final notes, with a [reference](https://example.com "<h2>x<img src=x onerror=alert(1)></h2>").',
       '',
     ].join('\n'));
     writeFileSync(join(data, `research/${REC_MID}.md`), [
@@ -161,9 +161,14 @@ test('server read layer: researchList sorts newest-first without body, and resea
   const single = await read.research(REC_NEW);
   assert.equal(single.ok, true);
   assert.equal(single.data.project.id, ALPHA);
-  assert.equal(single.data.toc.length, 4);
-  assert.deepEqual(single.data.toc.map((entry) => entry.level), [2, 2, 3, 2]);
+  assert.deepEqual(single.data.toc.map((entry) => [entry.level, entry.id, entry.text]), [
+    [2, 'sec-first-finding', 'First Finding'], [2, 'sec-second-finding', 'Second Finding'],
+    [3, 'sec-sub-finding', 'Sub Finding'], [2, 'sec-third-finding', 'Third Finding'],
+  ]);
   assert.match(single.data.content.html, /<h2 id="sec-first-finding">First Finding<\/h2>/u);
+  // A heading written inside a link title is attribute text: it must stay inside the attribute and out of the list.
+  assert.match(single.data.content.html, /title="<h2>x<img src=x onerror=alert\(1\)><\/h2>"/u);
+  assert.doesNotMatch(single.data.content.html, /sec-x/u);
   assert.match(
     single.data.content.html,
     /href="obsidian:\/\/open\?vault=FieldVault(?:&amp;|&#x26;|&#38;)file=Notes%2FSurvey"/u,
@@ -204,6 +209,7 @@ test('HTTP smoke: /research list, /research/<id> detail, TOC threshold, obsidian
   assert.match(detail.body, /fourth-tag/u, 'detail metadata renders all tags');
   assert.match(detail.body, /class="research-toc"/u, 'TOC shown when 3 or more headings');
   assert.match(detail.body, /href="#sec-first-finding"/u);
+  assert.doesNotMatch(detail.body, /sec-x/u, 'a heading inside a link title never becomes markup');
   assert.match(
     detail.body,
     /href="obsidian:\/\/open\?vault=FieldVault(?:&amp;|&#x26;|&#38;)file=Notes%2FSurvey"/u,

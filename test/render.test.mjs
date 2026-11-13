@@ -167,3 +167,30 @@ test('cached output is identical and changed or missing link resolutions invalid
   assert.match(html(markdown), /wikilink-ghost/u);
   assert.match(html(markdown, () => ({ type: 'card', id: 'c-000001' })), /\/cards\/c-000001/u);
 });
+
+test('heading ids and the heading list come from the tree, only when asked for', () => {
+  const markdown = [
+    '# Title', '## Küçük *Başlık* & `code`', 'Text.', '### Same', '## Same', '#### Deep', '## <b>raw</b>', '##',
+    '[t](https://example.com "<h2>x<img src=x onerror=alert(1)></h2>")',
+  ].join('\n\n');
+  const plain = renderMarkdown(markdown);
+  assert.doesNotMatch(plain.html, /\bid=/u, 'no ids unless asked for');
+  assert.equal(plain.toc, undefined);
+
+  const { html: rendered, toc } = renderMarkdown(markdown, { headings: true });
+  assert.deepEqual(toc, [
+    { id: 'sec-kucuk-baslik-code', level: 2, text: 'Küçük Başlık & code' },
+    { id: 'sec-same', level: 3, text: 'Same' },
+    { id: 'sec-same-2', level: 2, text: 'Same' },
+    { id: 'sec-raw', level: 2, text: 'raw' },
+  ]);
+  assert.match(rendered, /<h2 id="sec-kucuk-baslik-code">Küçük <em>Başlık<\/em> &#x26; <code>code<\/code><\/h2>/u);
+  assert.match(rendered, /<h1>Title<\/h1>/u);
+  assert.match(rendered, /<h4>Deep<\/h4>/u);
+  assert.equal(rendered.match(/\bid="/gu).length, 4, 'only listed headings carry an id');
+  // Attribute text that looks like a heading stays attribute text.
+  assert.match(rendered, /title="<h2>x<img src=x onerror=alert\(1\)><\/h2>"/u);
+  // The two forms are cached apart.
+  assert.deepEqual(renderMarkdown(markdown, { headings: true }), { html: rendered, toc });
+  assert.equal(renderMarkdown(markdown).html, plain.html);
+});

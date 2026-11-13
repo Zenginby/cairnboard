@@ -1,7 +1,7 @@
 import { basename } from 'node:path';
 import { validateDate } from '../core/dates.mjs';
 import * as index from '../core/index.mjs';
-import { stripHidden, oneLine, slugify } from '../core/text.mjs';
+import { stripHidden, oneLine } from '../core/text.mjs';
 import { CairnError } from '../core/errors.mjs';
 import { normalizeId, isNoteKey } from '../core/ids.mjs';
 import * as journal from '../core/journal.mjs';
@@ -22,7 +22,7 @@ function journalDate(row) {
   return null;
 }
 
-function renderBody(ctx, { path, body }, render) {
+function renderBody(ctx, { path, body }, render, options) {
   // Use the same full body that supplied the response's revision and bounded content.
   if (Buffer.byteLength(body) > 5 * 1024 * 1024) return { html: null, tooLarge: true };
   const rows = new Map(index.rows(ctx).map((row) => [row.path, row]));
@@ -36,16 +36,17 @@ function renderBody(ctx, { path, body }, render) {
     if (links.has(key) && JSON.stringify(links.get(key)) !== JSON.stringify(resolved)) links.set(key, null);
     else if (!links.has(key)) links.set(key, resolved);
   }
-  return render(body, [...links]);
+  return render(body, [...links], options);
 }
 
 // Rendering runs in a worker with a time limit, so one slow page never holds up other requests.
 const RENDER_WARNINGS = [['tooLarge', 'too_large'], ['timedOut', 'render_timeout'], ['failed', 'render_failed']];
 
-export async function renderView(ctx, view, render) {
-  const rendered = await renderBody(ctx, view.entity, render);
+export async function renderView(ctx, view, render, options) {
+  const rendered = await renderBody(ctx, view.entity, render, options);
   view.data.content.html = rendered.html;
   for (const [flag, warning] of RENDER_WARNINGS) if (rendered[flag]) view.warnings.push(warning);
+  return rendered;
 }
 
 export class EntityNotFoundError extends Error {
@@ -126,7 +127,7 @@ export function createRead({ open, render = createRenderPool().render }) {
       if (error instanceof CairnError && error.code === 'not_found') throw missing();
       throw error;
     }
-    await renderView(ctx, view, render);
+    const rendered = await renderView(ctx, view, render, type === 'research' ? { headings: true } : undefined);
     const projects = projectMap(ctx);
     if (type === 'project') {
       projectCover(ctx, view, projects);
@@ -151,10 +152,9 @@ export function createRead({ open, render = createRenderPool().render }) {
           ...(row.type === 'note' ? { ref: row.ref } : {}) } : link;
       });
     } else if (type === 'research') {
-      const { html, toc } = extractResearchToc(view.data.content.html);
-      view.data.content.html = html;
       view.data.content.tags = normalizeTags(view.data.content.tags);
-      view.data.toc = toc;
+      // Heading ids and the list come from the render pipeline; sanitized HTML is never rewritten here.
+      view.data.toc = Array.isArray(rendered.toc) ? rendered.toc : [];
     }
     return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
   };
@@ -405,36 +405,6 @@ function projectJobs(ctx, refs) {
 }
 
 // ---- Research screens (/research, /research/<id>): read-only views over research records. ----
-
-const ENTITIES = new Map([['amp', '&'], ['lt', '<'], ['gt', '>'], ['quot', '"'], ['apos', "'"]]);
-function decodeEntities(text) {
-  return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/giu, (match, code) => {
-    if (code[0] === '#') {
-      const cp = code[1]?.toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
-      return Number.isInteger(cp) && cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : match;
-    }
-    return ENTITIES.get(code.toLowerCase()) ?? match;
-  });
-}
-
-function extractResearchToc(html) {
-  if (typeof html !== 'string' || !html) return { html, toc: [] };
-  const toc = [];
-  const counts = new Map();
-  const updated = html.replace(/<h([23])([^>]*)>([\s\S]*?)<\/h\1>/giu, (full, level, attrs, inner) => {
-    const text = oneLine(decodeEntities(inner.replace(/<[^>]*>/gu, '')));
-    if (!text) return full;
-    const base = slugify(text);
-    const seen = counts.get(base) ?? 0;
-    counts.set(base, seen + 1);
-    // Prefixed so a heading can never take an id the page shell already uses (such as `main`).
-    const id = `sec-${seen ? `${base}-${seen + 1}` : base}`;
-    toc.push({ id, level: Number(level), text });
-    const cleanAttrs = attrs.replace(/\s+id=(?:"[^"]*"|'[^']*'|[^\s>]+)/giu, '');
-    return `<h${level}${cleanAttrs} id="${id}">${inner}</h${level}>`;
-  });
-  return { html: updated, toc };
-}
 
 function normalizeTags(value) {
   const list = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];

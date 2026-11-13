@@ -16,6 +16,17 @@ test('renders in a worker and resolves wiki links from the given pairs', async (
   assert.equal(result.timedOut, false);
 });
 
+test('the worker returns the heading list only when asked for', async (t) => {
+  const pool = createRenderPool();
+  t.after(() => pool.close());
+  const asked = await pool.render('## One\n\n## Two', [], { headings: true });
+  assert.equal(asked.html, '<h2 id="sec-one">One</h2>\n<h2 id="sec-two">Two</h2>');
+  assert.deepEqual(asked.toc, [{ id: 'sec-one', level: 2, text: 'One' }, { id: 'sec-two', level: 2, text: 'Two' }]);
+  const plain = await pool.render('## One\n\n## Two');
+  assert.equal(plain.html, '<h2>One</h2>\n<h2>Two</h2>');
+  assert.deepEqual(plain.toc, []);
+});
+
 test('a page over the time limit is given up and the next page still renders', async (t) => {
   const pool = createRenderPool({ timeoutMs: 300 });
   t.after(() => pool.close());
