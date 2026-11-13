@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Fix the theme reveal circle finishing in under a millisecond in built pages (the minified duration token was
+  read as milliseconds); project boxes lift on hover.
+- Project cover and card page show a card's Next and Needs lines beside Now; the card page lists all three
+  under the heading.
 - Agent board: an optional `agents.project` setting moves that project's cards from the main board and Home to
   `/agents`; Home counts them per column. Columns may carry `hidden: true` (an archive) and are then left off both
   boards, with an Archive view on `/agents`. The CLI and the read API are unchanged.

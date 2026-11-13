@@ -1,3 +1,5 @@
+import { cssTimeMs } from './css-time.js';
+
 const root = document.documentElement;
 const button = document.querySelector('[data-theme-toggle]');
 const system = matchMedia('(prefers-color-scheme: dark)');
@@ -36,7 +38,7 @@ button.addEventListener('click', async () => {
     if (reduced.matches || transition !== active) return;
     const tokens = getComputedStyle(root);
     root.animate({ clipPath: [`circle(0px at ${cx}px ${cy}px)`, `circle(${radius}px at ${cx}px ${cy}px)`] }, {
-      duration: parseFloat(tokens.getPropertyValue('--motion-duration-theme-reveal')),
+      duration: cssTimeMs(tokens.getPropertyValue('--motion-duration-theme-reveal')),
       easing: tokens.getPropertyValue('--motion-ease-out-quart').trim(),
       pseudoElement: '::view-transition-new(root)',
     });

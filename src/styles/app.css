@@ -93,6 +93,25 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .row-copy { min-width: 0; }
 .row-title { color: var(--color-text); font-weight: var(--font-title-weight); text-decoration-thickness: var(--space-hairline); text-decoration-color: var(--color-line-strong); text-underline-offset: var(--space-xs); overflow-wrap: anywhere; }
 .row-detail { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: var(--space-xs); color: var(--color-text-2); font-size: var(--font-small-size); }
+.status-lines {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2xs) var(--space-sm);
+  margin: var(--space-xs) 0 0;
+  color: var(--color-text-2);
+  font-size: var(--font-small-size);
+}
+.status-line { display: contents; }
+.status-line > dt { color: var(--color-text-3); }
+.status-line > dd { margin: 0; overflow-wrap: anywhere; }
+.status-line-needs > dt { color: var(--color-important); font-weight: var(--font-title-weight); }
+.row-copy .status-line-next > dd {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.document-heading > .status-lines { margin-top: var(--space-md); font-size: var(--font-body-size); }
 .chip { flex: none; max-width: 45%; padding: var(--space-2xs) var(--space-10); border-radius: var(--radius-full); background: var(--color-planned-bg); color: var(--color-planned); font-size: var(--font-caption-size); font-weight: var(--font-caption-weight); overflow-wrap: anywhere; }
 .priority-urgent { background: var(--color-urgent-bg); color: var(--color-urgent); }
 .priority-important { background: var(--color-important-bg); color: var(--color-important); }
@@ -152,6 +171,17 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .project-featured { grid-column: span 4; }
 .project-box { position: relative; padding: var(--space-lg); background: var(--project-wash); }
 .project-cover-link { color: inherit; text-decoration: none; }
+/* A box that opens its project lifts under the pointer; reduced motion sets the lift distance to 0. */
+.project-box:has(.project-cover-link) {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out),
+    box-shadow var(--motion-duration-fast) var(--motion-ease-default);
+}
+@media (hover: hover) and (pointer: fine) {
+  .project-box:has(.project-cover-link):hover {
+    transform: translateY(calc(var(--motion-distance-lift) * -1));
+    box-shadow: var(--shadow-box-raised);
+  }
+}
 .project-cover-link::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-lg); }
 .project-last-job a { position: relative; }
 .project-cover-link:focus-visible::after {
@@ -186,7 +216,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .home-column-counts dd { margin: 0; font-variant-numeric: tabular-nums; }
 .home-day-jobs { padding-left: var(--space-lg); margin-block: var(--space-md); overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) {
-  .project-go { transition: none; }
+  .project-go, .project-box:has(.project-cover-link) { transition: none; }
 }
 .progress-ring { flex: none; width: calc(var(--space-xl) + var(--space-lg)); height: calc(var(--space-xl) + var(--space-lg)); }
 .ring-track, .ring-arc { fill: none; stroke-width: calc(var(--space-6) + var(--space-hairline)); }

@@ -1,0 +1,11 @@
+---
+import { t } from '../i18n/index.mjs';
+
+// A card's one-line status fields as labelled rows. Empty fields are left out; no field, no list.
+const { content = {}, fields = ['now', 'next', 'needs'] } = Astro.props;
+const lines = fields
+  .map((field) => [field, typeof content?.[field] === 'string' ? content[field].trim() : ''])
+  .filter(([, value]) => value);
+---
+{lines.length > 0 && <dl class="status-lines">{lines.map(([field, value]) =>
+  <div class:list={['status-line', `status-line-${field}`]}><dt>{t(`card.${field}`)}</dt><dd>{value}</dd></div>)}</dl>}

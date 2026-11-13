@@ -1,4 +1,5 @@
 ---
+import CardStatus from './CardStatus.astro';
 import { t } from '../i18n/index.mjs';
 
 const { openCards = [], doneCount = 0, summaryTotal, boardHref = null } = Astro.props;
@@ -34,6 +35,7 @@ const showGroupHeading = !(groups.length === 1 && groups[0].key === 'other');
               {card.content.title || t('home.untitled')}</a>
             : <span class="row-title">{card.content.title || t('home.untitled')}</span>}
           {now && <p class="row-detail">{now}</p>}
+          <CardStatus content={card.content} fields={['next', 'needs']} />
         </div>
         <span class:list={['chip', `status-${role}`]}>{card.column.label}</span>
       </div></li>;

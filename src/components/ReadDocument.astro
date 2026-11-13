@@ -1,4 +1,5 @@
 ---
+import CardStatus from './CardStatus.astro';
 import EntityMeta from './EntityMeta.astro';
 import { t } from '../i18n/index.mjs';
 const { item } = Astro.props;
@@ -11,6 +12,7 @@ const backlinks = item.meta.backlinks ?? [];
       <p class="eyebrow">{t(card ? 'type.card' : 'type.note')}</p>
       <h1>{item.content.title || t('home.untitled')}</h1>
       <EntityMeta item={item} updated />
+      {card && <CardStatus content={item.content} />}
       <slot name="actions" />
     </header>
     {item.content.html != null

@@ -67,7 +67,8 @@ test('built Project cover renders open work details, recent jobs and safe body l
   put('projects/plain.md', { id: 'p-000002', title: 'Plain project', tone: 5 }, 'No external links or jobs.');
 
   put('cards/a-urgent.md', { id: 'c-000001', title: 'Fix index lock', column: 'doing', priority: 'urgent',
-    project: 'p-000001', now: 'Verifying retry behavior under load' });
+    project: 'p-000001', now: 'Verifying retry behavior under load', next: 'Ship the retry fix',
+    needs: 'Approve the <b>rollout</b> window' });
   put('cards/b-other.md', { id: 'c-000002', title: 'Document CLI flags', column: 'planned',
     project: 'p-000001', now: '' });
   put('cards/c-low.md', { id: 'c-000003', title: 'Tidy old fixture', column: 'planned', priority: 'low',
@@ -101,6 +102,11 @@ test('built Project cover renders open work details, recent jobs and safe body l
   assert.match(html, /1 düşük öncelikli gizli/u);
   assert.match(html, /href="\/board\?project=p-000001"[^>]*>Panoda gör<\/a>/u);
   assert.match(html, /class="row-detail">Verifying retry behavior under load<\/p>/u);
+  // Next and Needs follow the Now line as labelled rows; a card without them gets no list.
+  assert.match(html, /<dt>Sonra<\/dt><dd>Ship the retry fix<\/dd>/u);
+  assert.match(html, /<dt>Senden<\/dt><dd>Approve the &lt;b&gt;rollout&lt;\/b&gt; window<\/dd>/u);
+  assert.doesNotMatch(html, /<dt>Şimdi<\/dt>/u);
+  assert.equal((html.match(/class="status-lines"/gu) ?? []).length, 1);
   assert.doesNotMatch(html, /Tidy old fixture/u);
   assert.doesNotMatch(html, /Should be hidden/u);
   // Both Urgent and Other exist, so headings are shown.
@@ -133,6 +139,20 @@ test('built Project cover renders open work details, recent jobs and safe body l
   assert.ok(linksSection.indexOf('Local health') < linksSection.indexOf('Vault note'));
   // javascript: and data: links must never appear as anchors anywhere on the page.
   assert.doesNotMatch(html, /href\s*=\s*["']\s*(?:javascript|data):/iu);
+
+  // Card page: all three status lines under the heading, in Now, Next, Needs order.
+  const card = await inProcess(app, '/cards/c-000001');
+  assert.equal(card.status, 200);
+  const heading = card.body.slice(card.body.indexOf('class="document-heading"'),
+    card.body.indexOf('class="document-body'));
+  assert.match(heading, /<dt>Şimdi<\/dt><dd>Verifying retry behavior under load<\/dd>/u);
+  assert.match(heading, /<dt>Sonra<\/dt><dd>Ship the retry fix<\/dd>/u);
+  assert.match(heading, /<dt>Senden<\/dt><dd>Approve the &lt;b&gt;rollout&lt;\/b&gt; window<\/dd>/u);
+  assert.ok(heading.indexOf('<dt>Şimdi') < heading.indexOf('<dt>Sonra'));
+  assert.ok(heading.indexOf('<dt>Sonra') < heading.indexOf('<dt>Senden'));
+  const bare = await inProcess(app, '/cards/c-000004');
+  assert.equal(bare.status, 200);
+  assert.doesNotMatch(bare.body, /class="status-lines"/u);
 
   // Second project: only Other has cards -> heading hidden; 0 low -> count omitted;
   // no jobs -> empty state; no links -> panel hidden.
