@@ -12,6 +12,7 @@ import { createEvents } from './events.mjs';
 import { createSettings } from './settings.mjs';
 import { createCards } from './cards.mjs';
 import { createProjects } from './projects.mjs';
+import { createJournal } from './journal.mjs';
 import { createWrites } from './writes.mjs';
 import { createLiveWatcher } from './live.mjs';
 import { installShutdown } from './shutdown.mjs';
@@ -56,12 +57,15 @@ async function start() {
     openWrite: () => openContext({ mode: 'write', actor: 'web:owner' }) });
   const projects = createProjects({ key, port, open: openRead,
     openWrite: () => openContext({ mode: 'write', actor: 'web:owner' }) });
+  const journal = createJournal({ key, port, open: openRead,
+    openWrite: () => openContext({ mode: 'write', actor: 'web:owner' }) });
   // One table for every write, so the guard, the rate limit and the checks are the same for all of them.
-  const writes = createWrites({ key, port, routes: [...settings.routes, ...cards.routes, ...projects.routes] });
+  const writes = createWrites({ key, port, routes: [...settings.routes, ...cards.routes, ...projects.routes,
+    ...journal.routes] });
   const app = createApp({ root, handler, guard: createGuard({ port, key, instance, writable: writes.writable }),
     writes: writes.handle,
     api: createApi({ open: openRead, render, events, live: settings.liveUpdates }),
-    locals: { cairn: createRead({ open: openRead, render }), settings, cards, projects } });
+    locals: { cairn: createRead({ open: openRead, render }), settings, cards, projects, journal } });
   for (const server of servers) server.on('request', app);
   const server = serverGroup(servers);
   const shutdown = installShutdown(server, { close: async () => { events.close(); await watcher.close(); } });

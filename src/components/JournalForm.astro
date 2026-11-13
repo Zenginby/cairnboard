@@ -1,0 +1,29 @@
+---
+import { t } from '../i18n/index.mjs';
+// Adds one job to a day's journal; the page decides the day and supplies the token and the projects.
+const { view, date } = Astro.props;
+---
+<form class="card-form journal-form panel" id="journal-add" method="post" action={`/journal/${date}`}
+  aria-labelledby="journal-add-title">
+  <h2 id="journal-add-title">{t('journalForm.heading')}</h2>
+  <input type="hidden" name="csrf" value={view.csrf} />
+  <label class="card-field" for="journal-title">{t('journalForm.title')}
+    <input id="journal-title" name="title" type="text" required maxlength="200" />
+  </label>
+  <label class="card-field" for="journal-items">{t('journalForm.items')}
+    <textarea id="journal-items" name="items" rows="5" aria-describedby="journal-items-hint"></textarea>
+    <span class="journal-form-hint" id="journal-items-hint">{t('journalForm.itemsHint')}</span>
+  </label>
+  <label class="card-field" for="journal-label">{t('journalForm.label')}
+    <input id="journal-label" name="label" type="text" maxlength="100" />
+  </label>
+  {view.projects.length > 0 && <label class="card-field" for="journal-project">{t('journalForm.project')}
+    <select id="journal-project" name="project">
+      <option value="">{t('journalForm.noProject')}</option>
+      {view.projects.map((item) => <option value={item.id}>{item.title}</option>)}
+    </select>
+  </label>}
+  <div class="card-actions">
+    <button class="action-link" type="submit">{t('journalForm.add')}</button>
+  </div>
+</form>

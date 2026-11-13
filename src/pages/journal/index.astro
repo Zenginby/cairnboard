@@ -18,6 +18,11 @@ try {
   // Match the API: unexpected failures reach the server log, the page shows only a generic message.
   if (state === 'server') console.error(error);
 }
+let today;
+try {
+  const view = Astro.locals.journal.view(Astro.request.headers.get('cookie'));
+  if (view.state === 'ready') today = view.today;
+} catch (error) { console.error(error); }
 const data = result?.data;
 // Month, project and day live in the URL; only the parts that are set are written.
 const href = ({ month = data?.month, project = data?.project, day } = {}) => {
@@ -58,6 +63,8 @@ const selected = data?.selected;
     <div class="journal-page">
       <header class="screen-heading journal-heading">
         <h1>{t('journal.title')}</h1>
+        {today && <a class="action-link journal-add-today"
+          href={`/journal/${today}#journal-add`}>{t('journalForm.addToday')}</a>}
         <nav class="journal-months" aria-label={t('journal.calendar')}>
           <a class="journal-arrow" href={href({ month: data.previousMonth })} rel="prev"
             aria-label={t('journal.previousMonth')}><span aria-hidden="true">‹</span></a>

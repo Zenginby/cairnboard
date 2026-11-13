@@ -2,6 +2,7 @@
 import AppShell from '../../layouts/AppShell.astro';
 import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
+import JournalForm from '../../components/JournalForm.astro';
 import '../../styles/journal.css';
 import { language, t } from '../../i18n/index.mjs';
 
@@ -14,6 +15,17 @@ try {
   // Match the API: unexpected failures reach the server log, the page shows only a generic message.
   if (state === 'server') console.error(error);
 }
+// The add form: the same session-bound token as the card and project forms. A day with no record yet is shown as
+// an empty day, with the form, only when it is today; any other unrecorded date stays not found.
+let form;
+try { form = Astro.locals.journal.view(Astro.request.headers.get('cookie')); } catch (error) { console.error(error); }
+Astro.response.headers.set('Referrer-Policy', 'same-origin');
+const date = Astro.params.date;
+if (state === 'notFound' && form?.state === 'ready' && form.today === date) {
+  state = undefined;
+  Astro.response.status = 200;
+  result = { data: { date, summary: null, jobs: [], previous: null, next: null }, warnings: [] };
+}
 const data = result?.data;
 const utc = (date) => new Date(`${date}T00:00:00Z`);
 const format = (options) => new Intl.DateTimeFormat(language, { timeZone: 'UTC', ...options });
@@ -22,6 +34,7 @@ const heading = data && format({ weekday: 'long', day: 'numeric', month: 'long',
 const short = (date) => format({ day: 'numeric', month: 'long', year: 'numeric' }).format(utc(date));
 ---
 <AppShell live="journal project" title={data ? heading : t('journal.title')} current="/journal" surface>
+  <meta slot="head" name="referrer" content="same-origin" />
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`}
     message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'}
     status={Astro.response.status} /> : <>
@@ -57,6 +70,7 @@ const short = (date) => format({ day: 'numeric', month: 'long', year: 'numeric' 
           </article>) : <p class="empty-copy">{t('journal.noJobs')}</p>}
         </div>
       </div>
+      {form?.state === 'ready' && <JournalForm view={form} date={data.date} />}
       <nav class="journal-pager" aria-label={t('journal.dayNavigation')}>
         {data.previous ? <a class="action-link" href={`/journal/${data.previous}`} rel="prev">
           <span class="journal-pager-label">{t('journal.previousDay')}</span>{short(data.previous)}</a> : <span></span>}
