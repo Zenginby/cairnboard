@@ -272,11 +272,21 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.equal(page.headers['referrer-policy'], 'same-origin');
   assert.match(page.body, /<meta name="referrer" content="same-origin"/u);
   // Settings is a round icon button beside search, not a tab.
-  const settingsButton = new RegExp('<a class="shell-icon" href="/settings" aria-label="[^"]+" title="[^"]+"'
+  const settingsButton = new RegExp('<a class="shell-icon" href="/settings" data-settings-open'
+    + ' aria-label="[^"]+" title="[^"]+"'
     + ' aria-current="page">', 'u');
   assert.match(page.body, settingsButton);
   assert.doesNotMatch(page.body, /<div class="app-tabs">[^]*?href="\/settings"[^]*?<\/nav>/u);
   assert.equal([...page.body.matchAll(/<form method="post" action="\/settings\/feature"/gu)].length, 4);
+  assert.match(page.body, /<div class="settings" data-settings-panel>/u);
+  assert.match(page.body, /<h2 id="settings-features-title">Özellikler<\/h2>/u);
+  assert.match(page.body, /<h2 id="settings-shadow-title">Değişiklik izi deposu<\/h2>/u);
+  assert.equal([...page.body.matchAll(/<li class="settings-row">/gu)].length, 4);
+  assert.equal([...page.body.matchAll(/role="switch" aria-checked="true"/gu)].length, 4);
+  assert.doesNotMatch(page.body, /class="panel settings-row"/u);
+  assert.match(home.body, /<dialog class="settings-dialog" data-settings-dialog/u);
+  assert.match(home.body, /<svg class="settings-icon"[^]*?<path fill-rule="evenodd"/u);
+  assert.doesNotMatch(page.body, /<style\b|\sstyle=/u, 'no inline styles: the CSP stays as it is');
   const tokens = [...page.body.matchAll(/name="csrf" value="([^"]+)"/gu)].map((match) => match[1]);
   assert.equal(tokens.length, 5);
   assert.ok(tokens.every((token) => verifyCsrf(key, port, cookie, token)));
@@ -298,6 +308,7 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   const content = off.body.match(/<button[^>]*aria-label="Ne değişti: Kapat"[^>]*>/u)[0];
   assert.match(content, /\bdisabled\b/u);
   assert.match(off.body, /data-state="off"/u);
+  assert.equal([...off.body.matchAll(/role="switch" aria-checked="false"/gu)].length, 2);
   assert.doesNotMatch(off.body, /live-updates|data-live-status|data-live=/u);
   const homeOff = await call(f.app, { path: '/', headers });
   assert.equal(homeOff.status, 200);
@@ -310,7 +321,15 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.equal(invalid.status, 200);
   assert.match(invalid.body, /Invalid configuration: features\.mentions/u);
   assert.match(invalid.body, /features/u);
+  assert.match(invalid.body, /data-settings-panel/u);
   assert.doesNotMatch(invalid.body, /<form/u);
+  for (const [state, status] of [['notReady', 409], ['busy', 503], ['error', 500]]) {
+    f.settings.view = () => ({ state });
+    const response = await call(f.app, { path: '/settings', headers });
+    assert.equal(response.status, status, state);
+    assert.match(response.body, /data-settings-panel/u, `${state} stays in the shared panel`);
+    assert.doesNotMatch(response.body, /<form/u);
+  }
 });
 
 test('the Settings page without a session is the sign-in page', async (t) => {

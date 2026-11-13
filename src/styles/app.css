@@ -862,16 +862,6 @@ a, button { -webkit-tap-highlight-color: transparent; }
     background-color: var(--color-surface-inset-2);
   }
 }
-.settings { display: grid; gap: var(--space-md); max-width: calc(var(--space-md) * 46); }
-.settings-list { display: grid; gap: var(--space-md); margin: 0; padding: 0; list-style: none; }
-.settings-row form, .settings-shadow form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
-.settings-text { display: grid; flex: 1 1 var(--space-search-width); gap: var(--space-xs); }
-.settings-state { color: var(--color-text-2); font-size: var(--font-ui-size); font-weight: var(--font-ui-weight); }
-.settings-saved { color: var(--color-text); }
-.settings-shadow form { margin-top: var(--space-md); }
-.settings-facts, .settings-last { color: var(--color-text-2); font-size: var(--font-small-size); }
-.settings-facts { margin-top: var(--space-sm); }
-.settings-confirm { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--font-ui-size); }
 button.action-link { border: 0; cursor: pointer; }
 button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }

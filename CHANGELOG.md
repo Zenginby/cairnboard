@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Open Settings in a centred dialog with a solid gear icon, feature switches and a shared no-script page.
+
 - Fix the theme reveal circle finishing in under a millisecond in built pages (the minified duration token was
   read as milliseconds); project boxes lift on hover.
 - Project cover and card page show a card's Next and Needs lines beside Now; the card page lists all three
