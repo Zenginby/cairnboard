@@ -1,29 +1,52 @@
 ---
+import CardStatus from './CardStatus.astro';
 import EntityMeta from './EntityMeta.astro';
 import { t } from '../i18n/index.mjs';
-// `add`: each column links to the new-card form; `updated`: cards show when they last changed (agent work).
-const { columns, add = true, updated = false } = Astro.props;
+// `add`: each column links to the new-card form; `updated`: cards show when they last changed (agent work);
+// `status`: cards show `now` and `needs` under their title; `filterable`: exposes filter data attributes.
+const { columns, add = true, updated = false, status = false, filterable = false, projectKeys = null } = Astro.props;
+const PRIORITIES = new Set(['urgent', 'important', 'low']);
+const cardProjectKey = (card) => (card.project
+  ? (projectKeys?.get(card.project.id || card.project) ?? card.project.id ?? '') : '');
+const cardPriority = (card) => (PRIORITIES.has(card.meta?.priority) ? card.meta.priority : '');
 ---
 <div class="board" role="region" aria-label={t('board.columns')} tabindex="0">
-  {columns.map((column, index) => <section class="board-column" aria-labelledby={`column-${index}`}>
+  {columns.map((column, index) => <section
+    class="board-column"
+    aria-labelledby={`column-${index}`}
+    data-board-column={filterable ? '' : undefined}
+    data-column-key={filterable ? column.key : undefined}
+    data-column-total={filterable ? column.total : undefined}>
     <header class="column-heading">
-      <h2 id={`column-${index}`}>{column.label}</h2><span class="panel-count">{column.total}</span>
+      <h2 id={`column-${index}`}>{column.label}</h2>
+      <span class="panel-count" data-column-count={filterable ? '' : undefined}>{column.total}</span>
       {column.role === 'done' && column.total > column.cards.length
-        && <span class="panel-count">{t('board.recent')}</span>}
+        && <span class="panel-count" data-column-recent={filterable ? '' : undefined}>{t('board.recent')}</span>}
     </header>
     {add && <a class="action-link column-add" href={`/cards/new?column=${encodeURIComponent(column.key)}`}
       aria-label={`${t('card.add')}: ${column.label}`}>
       {t('card.add')}
     </a>}
-    {column.cards.length ? <ul class="board-cards">{column.cards.map((card) => <li
-      id={card.id ? `card-${card.id}` : undefined}>
+    {column.cards.length > 0 && <ul class="board-cards"
+      data-column-list={filterable ? '' : undefined}>{column.cards.map((card) => <li
+      id={card.id ? `card-${card.id}` : undefined}
+      data-board-card={filterable ? '' : undefined}
+      data-card-project={filterable ? cardProjectKey(card) : undefined}
+      data-card-priority={filterable ? cardPriority(card) : undefined}>
       {card.id ? <a class="board-card" href={`/cards/${encodeURIComponent(card.id)}`}>
         <h3>{card.content.title || t('home.untitled')}</h3>
+        {status && <CardStatus content={card.content} fields={['now', 'needs']} />}
         <EntityMeta item={card} updated={updated} />
       </a> : <div class="board-card">
         <h3>{card.content.title || t('home.untitled')}</h3>
+        {status && <CardStatus content={card.content} fields={['now', 'needs']} />}
         <EntityMeta item={card} updated={updated} />
       </div>}
-    </li>)}</ul> : <p class="column-empty">{t('board.empty')}</p>}
+    </li>)}</ul>}
+    {(filterable || column.cards.length === 0) && (
+      <p class="column-empty" data-column-empty={filterable ? '' : undefined} hidden={column.cards.length > 0}>
+        {t('board.empty')}
+      </p>
+    )}
   </section>)}
 </div>

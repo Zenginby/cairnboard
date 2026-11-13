@@ -308,5 +308,9 @@
   "project.seeOnBoard": "See on board",
   "project.jobs": "Recent jobs",
   "project.jobsEmpty": "No journal jobs are linked to this project.",
-  "project.links": "Links"
+  "project.links": "Links",
+  "board.filterProject": "Filter by project",
+  "board.filterPriority": "Filter by priority",
+  "board.filterAll": "All",
+  "board.summary": "{n} cards · {m} columns"
 }

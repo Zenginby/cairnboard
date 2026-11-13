@@ -17,9 +17,37 @@ try {
   // Match the API: unexpected failures reach the server log, the page shows only a generic message.
   if (state === 'error') console.error(error);
 }
+const PRIORITY_ORDER = ['urgent', 'important', 'low'];
+const columns = result?.data.columns ?? [];
+const projectEntries = new Map();
+const presentPriorities = new Set();
+for (const column of columns) {
+  for (const card of column.cards) {
+    if (card.project) {
+      const ref = card.project.id || card.project;
+      if (!projectEntries.has(ref)) {
+        const tone = Number.isInteger(card.project.tone) && card.project.tone >= 1 && card.project.tone <= 8
+          ? card.project.tone : 7;
+        projectEntries.set(ref, {
+          key: card.project.id || `project-${projectEntries.size + 1}`,
+          title: card.project.title || t('home.untitled'),
+          tone,
+        });
+      }
+    }
+    if (PRIORITY_ORDER.includes(card.meta?.priority)) presentPriorities.add(card.meta.priority);
+  }
+}
+const collator = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+const projects = result?.data.project ? []
+  : [...projectEntries.values()].sort((a, b) => collator.compare(a.title, b.title));
+const priorities = PRIORITY_ORDER.filter((priority) => presentPriorities.has(priority));
+const projectKeys = new Map([...projectEntries].map(([ref, entry]) => [ref, entry.key]));
+const totalCards = columns.reduce((sum, column) => sum + column.total, 0);
 ---
 <AppShell live="card project board" title={t('shell.board')} current="/board" surface>
-  {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'board.errorTitle'} message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'} /> : <>
+  {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'board.errorTitle'}
+    message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'} /> : <>
     <ReadWarnings codes={result.warnings} />
     {result.data.project ? <header class="screen-heading board-project-heading">
       <div>
@@ -28,7 +56,41 @@ try {
       </div>
       <a class="action-link" href="/board">{t('board.all')}</a>
     </header> : <header class="screen-heading"><h1>{t('shell.board')}</h1></header>}
-    <BoardColumns columns={result.data.columns} />
+    <div class="board-toolbar" data-board-toolbar>
+      {(projects.length > 0 || priorities.length > 0) && (
+        <div class="board-filters">
+          {projects.length > 0 && (
+            <div class="board-filter-group" role="group" aria-label={t('board.filterProject')}>
+              <button type="button" class="board-filter-pill" data-filter-project="" aria-pressed="true">
+                {t('board.filterAll')}
+              </button>
+              {projects.map((project) => (
+                <button type="button" class="board-filter-pill" data-filter-project={project.key}
+                  aria-pressed="false">
+                  <span class:list={['board-filter-dot', `tone-${project.tone}`]} aria-hidden="true"></span>
+                  {project.title}
+                </button>
+              ))}
+            </div>
+          )}
+          {priorities.length > 0 && (
+            <div class="board-filter-group" role="group" aria-label={t('board.filterPriority')}>
+              {priorities.map((priority) => (
+                <button type="button" class="board-filter-pill" data-filter-priority={priority} aria-pressed="false">
+                  {t(`priority.${priority}`)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <p class="board-summary" aria-live="polite" data-board-summary data-template={t('board.summary')}
+        data-total-cards={totalCards} data-column-count={columns.length}>
+        {t('board.summary', { n: totalCards, m: columns.length })}
+      </p>
+    </div>
+    <BoardColumns columns={columns} status filterable projectKeys={projectKeys} />
   </>}
   <script src="../scripts/board-focus.js"></script>
+  <script src="../scripts/board-filter.js"></script>
 </AppShell>

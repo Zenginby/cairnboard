@@ -309,5 +309,9 @@
   "project.seeOnBoard": "Panoda gör",
   "project.jobs": "Son işler",
   "project.jobsEmpty": "Bu projeye bağlı günlük işi yok.",
-  "project.links": "Bağlantılar"
+  "project.links": "Bağlantılar",
+  "board.filterProject": "Projeye göre süz",
+  "board.filterPriority": "Önceliğe göre süz",
+  "board.filterAll": "Tümü",
+  "board.summary": "{n} kart · {m} sütun"
 }
