@@ -1,0 +1,99 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import PageState from '../../components/PageState.astro';
+import ReadWarnings from '../../components/ReadWarnings.astro';
+import ResearchMeta from '../../components/ResearchMeta.astro';
+import { language, t } from '../../i18n/index.mjs';
+import { researchTypeLabel } from '../../scripts/research-filter.js';
+import '../../styles/research.css';
+
+let result = null;
+let state = null;
+try {
+  result = await Astro.locals.cairn.research(Astro.params.id ?? '');
+} catch (error) {
+  const code = (error as { code?: string })?.code;
+  state = code === 'data_not_ready' ? 'notReady' : code === 'entity_not_found' ? 'notFound' : 'server';
+  Astro.response.status = state === 'notReady' ? 409 : state === 'notFound' ? 404 : 500;
+  if (state === 'server') console.error(error);
+}
+const doc = result?.data ?? null;
+
+const dateFormat = new Intl.DateTimeFormat(language, {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+function formatDate(iso: string | null | undefined) {
+  if (typeof iso !== 'string' || !iso) return null;
+  const parsed = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
+  return Number.isNaN(parsed.getTime()) ? null : dateFormat.format(parsed);
+}
+
+const kindLabels = {
+  source: t('research.kind.source'),
+  review: t('research.kind.review'),
+  analysis: t('research.kind.analysis'),
+};
+
+const typeLabel = doc ? researchTypeLabel(doc, { kindLabels, untypedLabel: '' }) || null : null;
+const dateIso = doc?.meta?.date ?? null;
+const dateLabel = formatDate(dateIso);
+const source = typeof doc?.content?.source === 'string' && doc.content.source ? doc.content.source : null;
+const tags = Array.isArray(doc?.content?.tags) ? doc.content.tags : [];
+const toc = Array.isArray(doc?.toc) && doc.toc.length >= 3 ? doc.toc : [];
+const body = doc?.content?.body ?? '';
+---
+
+<AppShell live="research project" title={doc?.content.title || t('research.title')} current="/research" surface>
+  {state ? (
+    <PageState
+      title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`}
+      message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`}
+      init={state === 'notReady'}
+      status={Astro.response.status}
+    />
+  ) : (
+    <>
+      <ReadWarnings codes={result?.warnings} />
+      <div class="document-layout">
+      <article class="document">
+        <a class="research-back" href="/research">&larr; {t('research.back')}</a>
+        <h1 class="document-heading">{doc.content.title || t('home.untitled')}</h1>
+
+        <ResearchMeta
+          typeLabel={typeLabel}
+          dateLabel={dateLabel}
+          dateIso={dateIso}
+          project={doc.project ?? null}
+          source={source}
+          tags={tags}
+        />
+
+        {toc.length >= 3 && (
+          <nav class="research-toc" aria-label={t('research.toc')}>
+            <h2 class="research-toc-title">{t('research.toc')}</h2>
+            <ul class="research-toc-list">
+              {toc.map((entry) => (
+                <li class="research-toc-item" data-level={String(entry.level)}>
+                  <a class="research-toc-link" href={`#${entry.id}`}>{entry.text}</a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+
+        {doc.content.html !== null ? (
+          <div class="document-body" set:html={doc.content.html} />
+        ) : body.trim() ? (
+          <pre class="plain-body">{body}</pre>
+        ) : (
+          <p class="empty-copy">{t('document.empty')}</p>
+        )}
+      </article>
+      </div>
+    </>
+  )}
+</AppShell>

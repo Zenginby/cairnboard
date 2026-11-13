@@ -15,6 +15,7 @@ const tabs = [
   { href: '/projects', label: 'shell.projects' },
   { href: '/board', label: 'shell.board' },
   { href: '/journal', label: 'journal.title' },
+  { href: '/research', label: 'research.title' },
 ];
 // Settings > Live updates: when off the page carries no script, no status line and no live region; unknown means on.
 const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
@@ -152,6 +153,7 @@ const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
       </div>
     </dialog>
     <script src="../scripts/theme-toggle.js"></script>
+    <script src="../scripts/shell-tabs.js"></script>
     {liveUpdates && <script is:inline type="module" src={liveScript}></script>}
     <script src="../scripts/search-dialog.js"></script>
     <script src="../scripts/settings-dialog.js"></script>

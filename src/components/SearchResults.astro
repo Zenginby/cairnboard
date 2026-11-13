@@ -4,8 +4,8 @@ import { language, t } from '../i18n/index.mjs';
 // titles ("All" lists both types). Only `snippetHtml` is HTML (the server lets through nothing but <mark>);
 // every other field is printed as text.
 const { groups, query, headings = true } = Astro.props;
-const groupLabel = { card: 'search.cards', note: 'search.notes' };
-const path = { card: 'cards', note: 'notes' };
+const groupLabel = { card: 'search.cards', note: 'search.notes', research: 'research.title' };
+const path = { card: 'cards', note: 'notes', research: 'research' };
 const toneOf = (project) => {
   const tone = project?.tone;
   return Number.isInteger(tone) && tone >= 1 && tone <= 8 ? tone : 7;

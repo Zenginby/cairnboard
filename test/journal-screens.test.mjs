@@ -110,10 +110,10 @@ test('the month view marks exactly the recorded days with the right counts and a
   if (!get) return;
   // No month in the URL: the month of the newest recorded day.
   const open = await get('/journal');
-  // Top tabs: Home, Projects, Board, Journal, in that order, with Journal current here.
+  // Top tabs: Home, Projects, Board, Journal, Research, in that order, with Journal current here.
   const tabBar = open.body.match(/<div class="app-tabs">[\s\S]*?<\/div>/u)[0];
   const tabs = [...tabBar.matchAll(/<a href="([^"]+)"([^>]*)>/gu)];
-  assert.deepEqual(tabs.map(([, href]) => href), ['/', '/projects', '/board', '/journal']);
+  assert.deepEqual(tabs.map(([, href]) => href), ['/', '/projects', '/board', '/journal', '/research']);
   assert.match(tabs[3][2], /aria-current="page"/u);
   assert.equal(open.status, 200);
   assert.match(open.body, /Kasım 2026/u);

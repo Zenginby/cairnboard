@@ -1,0 +1,188 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import PageState from '../../components/PageState.astro';
+import ReadWarnings from '../../components/ReadWarnings.astro';
+import { language, t } from '../../i18n/index.mjs';
+import { deriveResearchTypes, researchTypeLabel } from '../../scripts/research-filter.js';
+import '../../styles/research.css';
+
+let result = null;
+let state = null;
+try {
+  result = await Astro.locals.cairn.researchList();
+} catch (error) {
+  state = (error as { code?: string })?.code === 'data_not_ready' ? 'notReady' : 'server';
+  Astro.response.status = state === 'notReady' ? 409 : 500;
+  if (state === 'server') console.error(error);
+}
+const items = result?.data.items ?? [];
+
+const dateFormat = new Intl.DateTimeFormat(language, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+function formatDate(iso: string | null | undefined) {
+  if (typeof iso !== 'string' || !iso) return null;
+  const parsed = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
+  return Number.isNaN(parsed.getTime()) ? null : dateFormat.format(parsed);
+}
+
+const kindLabels = {
+  source: t('research.kind.source'),
+  review: t('research.kind.review'),
+  analysis: t('research.kind.analysis'),
+};
+const untypedLabel = t('research.kind.unknown');
+
+const rows = items.map((item) => {
+  const title = item.content?.title || t('home.untitled');
+  const typeLabel = researchTypeLabel(item, { kindLabels, untypedLabel });
+  const dateIso = item.meta?.date ?? null;
+  const dateLabel = formatDate(dateIso);
+  const tags = Array.isArray(item.content?.tags) ? item.content.tags.slice(0, 3) : [];
+  return {
+    id: item.id ?? null,
+    title,
+    typeLabel,
+    dateIso,
+    dateLabel,
+    project: item.project ?? null,
+    tags,
+  };
+});
+
+const collator = new Intl.Collator(language, { sensitivity: 'base', numeric: true });
+const projectMap = new Map<string, { id: string; title: string; tone: number }>();
+for (const row of rows) {
+  if (row.project?.id && !projectMap.has(row.project.id)) {
+    projectMap.set(row.project.id, row.project);
+  }
+}
+const projects = [...projectMap.values()].sort((a, b) => collator.compare(a.title, b.title));
+const typeGroups = deriveResearchTypes(items, { kindLabels, untypedLabel, locale: language });
+const initialSummary = rows.length === 1
+  ? t('research.countSingle')
+  : t('research.count').replace('{n}', String(rows.length));
+---
+
+<AppShell live="research project" title={t('research.title')} current="/research" surface>
+  {state ? (
+    <PageState
+      title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`}
+      message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`}
+      init={state === 'notReady'}
+      status={Astro.response.status}
+    />
+  ) : (
+    <>
+      <ReadWarnings codes={result?.warnings} />
+      <div class="research-page" data-research-page data-locale={language}>
+      <header class="research-header">
+        <h1 class="page-heading">{t('research.title')}</h1>
+      </header>
+
+      {rows.length === 0 ? (
+        <section class="empty-state">
+          <p class="empty-title">{t('research.emptyTitle')}</p>
+          <p class="empty-copy">{t('research.emptyBody')}</p>
+        </section>
+      ) : (
+        <>
+          <div class="research-toolbar" data-research-toolbar>
+            <div class="research-controls">
+              <div class="research-field research-field-search">
+                <label class="sr-only" for="research-search">{t('research.searchLabel')}</label>
+                <input
+                  id="research-search"
+                  class="research-input"
+                  type="search"
+                  placeholder={t('research.searchPlaceholder')}
+                  data-research-search
+                />
+              </div>
+              <div class="research-field research-field-project">
+                <label class="sr-only" for="research-project">{t('research.filterProject')}</label>
+                <select id="research-project" class="research-select" data-research-project>
+                  <option value="">{t('research.allProjects')}</option>
+                  {projects.map((project) => (
+                    <option value={project.id}>{project.title}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div class="research-types" role="group" aria-label={t('research.filterType')}>
+              <button
+                type="button"
+                class="research-type-btn"
+                data-filter-type=""
+                aria-pressed="true"
+              >
+                {t('research.allTypes')}
+                <span class="research-type-count" data-type-count>{rows.length}</span>
+              </button>
+              {typeGroups.map((group) => (
+                <button
+                  type="button"
+                  class="research-type-btn"
+                  data-filter-type={group.value}
+                  aria-pressed="false"
+                >
+                  {group.label}
+                  <span class="research-type-count" data-type-count>{group.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p
+            class="research-summary"
+            aria-live="polite"
+            data-research-summary
+            data-template={t('research.count')}
+            data-template-single={t('research.countSingle')}
+          >
+            {initialSummary}
+          </p>
+
+          <ul class="research-list" data-research-list>
+            {rows.map((row) => (
+              <li
+                class="research-row"
+                data-research-row
+                data-title={row.title}
+                data-project={row.project?.id ?? ''}
+                data-type={row.typeLabel}
+              >
+                <div class="research-row-title">
+                  {row.id ? (
+                    <a class="row-title" href={`/research/${encodeURIComponent(row.id)}`}>{row.title}</a>
+                  ) : (
+                    <span class="row-title">{row.title}</span>
+                  )}
+                </div>
+                <div class="research-row-meta">
+                  {row.typeLabel && <span class="chip">{row.typeLabel}</span>}
+                  {row.dateLabel && (
+                    <time class="research-date" datetime={row.dateIso ?? undefined}>{row.dateLabel}</time>
+                  )}
+                  {row.project && (
+                    <span class={`chip project-chip tone-${row.project.tone ?? 1}`}>{row.project.title}</span>
+                  )}
+                  {row.tags.map((tag) => <span class="research-tag">{tag}</span>)}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <p class="empty-copy hidden" data-research-empty-filtered>{t('research.noMatches')}</p>
+        </>
+      )}
+      </div>
+    </>
+  )}
+  <script src="../../scripts/research-filter.js"></script>
+</AppShell>

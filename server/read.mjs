@@ -1,7 +1,7 @@
 import { basename } from 'node:path';
 import { validateDate } from '../core/dates.mjs';
 import * as index from '../core/index.mjs';
-import { stripHidden, oneLine } from '../core/text.mjs';
+import { stripHidden, oneLine, slugify } from '../core/text.mjs';
 import { CairnError } from '../core/errors.mjs';
 import { normalizeId, isNoteKey } from '../core/ids.mjs';
 import * as journal from '../core/journal.mjs';
@@ -10,7 +10,7 @@ import { effectiveColumn } from '../core/card.mjs';
 import { parseFile } from '../core/frontmatter.mjs';
 import { extractProjectLinks } from '../core/project-links.mjs';
 import { readFile } from '../core/store.mjs';
-import { homeView, boardView, showView, projectsView, projectSummary } from '../cli/views.mjs';
+import { homeView, boardView, showView, projectsView, projectSummary, result } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
 import { createRenderPool } from './render-pool.mjs';
 import { searchView } from './search.mjs';
@@ -142,7 +142,7 @@ export function createRead({ open, render = createRenderPool().render }) {
       view.data.relatedCards = project ? board.data.columns.filter((column) => column.role !== 'done')
         .flatMap((column) => column.cards).filter((card) => card.id && card.id !== view.data.id
           && projects.get(card.content.project) === project).slice(0, 8) : [];
-    } else {
+    } else if (type === 'note') {
       const rows = new Map(index.rows(ctx).map((row) => [row.path, row]));
       view.data.meta.backlinks = view.data.meta.backlinks.map((link) => {
         const row = rows.get(link.src_path);
@@ -150,6 +150,11 @@ export function createRead({ open, render = createRenderPool().render }) {
           id: row.type === 'journal' ? journalDate(row) : row.id, title: row.title,
           ...(row.type === 'note' ? { ref: row.ref } : {}) } : link;
       });
+    } else if (type === 'research') {
+      const { html, toc } = extractResearchToc(view.data.content.html);
+      view.data.content.html = html;
+      view.data.content.tags = normalizeTags(view.data.content.tags);
+      view.data.toc = toc;
     }
     return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
   };
@@ -174,6 +179,8 @@ export function createRead({ open, render = createRenderPool().render }) {
     },
     note(id) { return document('note', id); },
     project(id) { return document('project', id); },
+    research(id) { return document('research', id); },
+    async researchList() { return researchListResult(await openRead()); },
     async journalMonth(query) { return journalMonthResult(await openRead(), query); },
     async journalDay(date) { return journalDayResult(await openRead(), date, render); },
     async projects() {
@@ -395,4 +402,87 @@ function projectJobs(ctx, refs) {
     }
   }
   return { jobs: matched.slice(0, COVER_JOBS), jobsTotal: matched.length };
+}
+
+// ---- Research screens (/research, /research/<id>): read-only views over research records. ----
+
+const ENTITIES = new Map([['amp', '&'], ['lt', '<'], ['gt', '>'], ['quot', '"'], ['apos', "'"]]);
+function decodeEntities(text) {
+  return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/giu, (match, code) => {
+    if (code[0] === '#') {
+      const cp = code[1]?.toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+      return Number.isInteger(cp) && cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : match;
+    }
+    return ENTITIES.get(code.toLowerCase()) ?? match;
+  });
+}
+
+function extractResearchToc(html) {
+  if (typeof html !== 'string' || !html) return { html, toc: [] };
+  const toc = [];
+  const counts = new Map();
+  const updated = html.replace(/<h([23])([^>]*)>([\s\S]*?)<\/h\1>/giu, (full, level, attrs, inner) => {
+    const text = oneLine(decodeEntities(inner.replace(/<[^>]*>/gu, '')));
+    if (!text) return full;
+    const base = slugify(text);
+    const seen = counts.get(base) ?? 0;
+    counts.set(base, seen + 1);
+    // Prefixed so a heading can never take an id the page shell already uses (such as `main`).
+    const id = `sec-${seen ? `${base}-${seen + 1}` : base}`;
+    toc.push({ id, level: Number(level), text });
+    const cleanAttrs = attrs.replace(/\s+id=(?:"[^"]*"|'[^']*'|[^\s>]+)/giu, '');
+    return `<h${level}${cleanAttrs} id="${id}">${inner}</h${level}>`;
+  });
+  return { html: updated, toc };
+}
+
+function normalizeTags(value) {
+  const list = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
+  return list.map((tag) => cleanLine(tag)).filter(Boolean);
+}
+
+function researchSortTime(item) {
+  const iso = item.meta?.date;
+  if (typeof iso !== 'string') return null;
+  const parsed = Date.parse(iso);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * All research records sorted newest-to-oldest by `date` (undated last), joined with project tone metadata and
+ * never carrying record bodies.
+ * @param {*} ctx
+ */
+export function researchListResult(ctx) {
+  const titles = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+  const projects = projectMap(ctx);
+  const { data, warnings } = result(ctx, entity.list(ctx, 'research'), {}, true);
+  const items = data.items
+    .map((item) => {
+      const category = typeof item.content.category === 'string' ? cleanLine(item.content.category) : '';
+      const source = typeof item.content.source === 'string' ? cleanLine(item.content.source) : '';
+      return {
+        id: item.id,
+        ref: item.ref,
+        path: item.path,
+        meta: item.meta,
+        content: {
+          title: item.content.title ?? '',
+          category: category || null,
+          project: typeof item.content.project === 'string' ? item.content.project : null,
+          source: source || null,
+          tags: normalizeTags(item.content.tags),
+        },
+        project: projects.get(item.content.project) ?? null,
+      };
+    })
+    .sort((a, b) => {
+      const ta = researchSortTime(a);
+      const tb = researchSortTime(b);
+      if (ta !== null && tb !== null && ta !== tb) return tb - ta;
+      if ((ta !== null) !== (tb !== null)) return tb !== null ? 1 : -1;
+      return titles.compare(a.content.title, b.content.title)
+        || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+    });
+  return okEnvelope({ items }, [...ctx.warnings, ...warnings]);
 }

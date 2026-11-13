@@ -1,0 +1,77 @@
+---
+import { t } from '../i18n/index.mjs';
+
+interface Project {
+  id: string | null;
+  title: string;
+  tone?: number;
+}
+
+interface Props {
+  typeLabel?: string | null;
+  dateLabel?: string | null;
+  dateIso?: string | null;
+  project?: Project | null;
+  source?: string | null;
+  tags?: string[];
+}
+
+const {
+  typeLabel = null,
+  dateLabel = null,
+  dateIso = null,
+  project = null,
+  source = null,
+  tags = [],
+} = Astro.props as Props;
+
+const hasAny = Boolean(typeLabel || dateLabel || project || source || tags.length > 0);
+---
+
+{hasAny && (
+  <dl class="research-meta" aria-label={t('research.meta')}>
+    {typeLabel && (
+      <>
+        <dt>{t('research.type')}</dt>
+        <dd><span class="chip">{typeLabel}</span></dd>
+      </>
+    )}
+    {dateLabel && (
+      <>
+        <dt>{t('research.date')}</dt>
+        <dd><time datetime={dateIso ?? undefined}>{dateLabel}</time></dd>
+      </>
+    )}
+    {project && (
+      <>
+        <dt>{t('research.project')}</dt>
+        <dd>
+          {project.id ? (
+            <a
+              class={`chip project-chip tone-${project.tone ?? 1}`}
+              href={`/projects/${encodeURIComponent(project.id)}`}
+            >
+              {project.title}
+            </a>
+          ) : (
+            <span class={`chip project-chip tone-${project.tone ?? 1}`}>{project.title}</span>
+          )}
+        </dd>
+      </>
+    )}
+    {source && (
+      <>
+        <dt>{t('research.source')}</dt>
+        <dd>{source}</dd>
+      </>
+    )}
+    {tags.length > 0 && (
+      <>
+        <dt>{t('research.tags')}</dt>
+        <dd class="research-meta-tags">
+          {tags.map((tag) => <span class="research-tag">{tag}</span>)}
+        </dd>
+      </>
+    )}
+  </dl>
+)}

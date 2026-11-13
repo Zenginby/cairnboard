@@ -1011,3 +1011,12 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 }
 [data-motion="less"] .board-filter-pill { transition: none; }
 [data-motion="less"] .board-filter-pill:active { transform: none; }
+
+/* Keep five top tabs scrollable inside the pill track on 375px screens without horizontal page overflow. */
+.app-tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.app-tabs::-webkit-scrollbar { display: none; }
+.app-tabs a { flex: 0 0 auto; white-space: nowrap; }
+/* Five centred tabs leave less room beside them: the search field narrows so the two never overlap. */
+@media (min-width: 80rem) {
+  .shell-search { width: calc(var(--space-search-width) * 2 / 3); }
+}
