@@ -340,5 +340,9 @@
   "projectForm.conflict":
     "Proje sen açtıktan sonra değişti. Düzenleme sayfasını yeniden açıp değişikliğini tekrarla.",
   "projectForm.blockedTitle": "Proje dosyası onarım istiyor",
-  "projectForm.blocked": "Proje dosyası olduğu gibi yeniden yazılamaz. Önce onar."
+  "projectForm.blocked": "Proje dosyası olduğu gibi yeniden yazılamaz. Önce onar.",
+  "board.filterProject": "Projeye göre süz",
+  "board.filterPriority": "Önceliğe göre süz",
+  "board.filterAll": "Tümü",
+  "board.summary": "{n} kart · {m} sütun"
 }

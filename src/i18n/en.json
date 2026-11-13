@@ -339,5 +339,9 @@
   "projectForm.conflict":
     "This project was changed after you opened it. Open the edit page again and repeat your change.",
   "projectForm.blockedTitle": "The project file needs repair",
-  "projectForm.blocked": "The project file cannot be rewritten as it is. Repair it first."
+  "projectForm.blocked": "The project file cannot be rewritten as it is. Repair it first.",
+  "board.filterProject": "Filter by project",
+  "board.filterPriority": "Filter by priority",
+  "board.filterAll": "All",
+  "board.summary": "{n} cards · {m} columns"
 }
