@@ -42,7 +42,7 @@ ilerlemesini yazar ve yaptığını günlüğe kaydeder. Cairnboard ajan başlat
 flowchart LR
     you["Siz<br/>web arayüzü"]
     data[("Markdown klasörü<br/>kartlar · notlar · günlük")]
-    agent["Ajanınız, kendi terminalinde<br/><code>cairn card claim · check · done</code><br/><code>cairn journal add</code>"]
+    agent["Ajanınız, terminalinde<br/><code>cairn card claim · check · done</code><br/><code>cairn journal add</code>"]
     you -->|planlar| data
     data -.->|canlı| you
     agent -->|çalışır| data
