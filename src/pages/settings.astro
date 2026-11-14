@@ -15,6 +15,15 @@ Astro.response.headers.set('Referrer-Policy', 'same-origin');
     <h1>{t('settings.title')}</h1>
     <p class="panel-subtitle">{t('settings.summary')}</p>
   </header>
-  <GlassChoice />
-  <SettingsPanel view={view} requested={Astro.url.searchParams.get('saved')} />
+  <div class="settings-layout">
+    {view.state === 'ready' && <nav class="settings-nav" aria-label={t('settings.sections')}>
+      <a href="#settings-look">{t('settings.look')}</a>
+      <a href="#settings-features">{t('settings.features')}</a>
+      <a href="#settings-shadow">{t('settings.shadowTitle')}</a>
+    </nav>}
+    <div class="settings-content">
+      <div id="settings-look"><GlassChoice /></div>
+      <SettingsPanel view={view} requested={Astro.url.searchParams.get('saved')} />
+    </div>
+  </div>
 </AppShell>

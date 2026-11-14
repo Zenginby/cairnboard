@@ -93,6 +93,7 @@
   "warnings.document_render_failed": "The content could not be formatted; plain text is shown.",
   "shell.settings": "Settings",
   "settings.title": "Settings",
+  "settings.sections": "Settings sections",
   "settings.features": "Features",
   "settings.close": "Close",
   "settings.look": "Appearance",

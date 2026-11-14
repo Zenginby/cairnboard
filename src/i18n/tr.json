@@ -93,6 +93,7 @@
   "warnings.document_render_failed": "İçerik biçimlendirilemedi; düz metin gösteriliyor.",
   "shell.settings": "Ayarlar",
   "settings.title": "Ayarlar",
+  "settings.sections": "Ayarlar bölümleri",
   "settings.features": "Özellikler",
   "settings.close": "Kapat",
   "settings.look": "Görünüm",

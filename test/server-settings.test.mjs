@@ -279,6 +279,25 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.doesNotMatch(page.body, /<div class="app-tabs">[^]*?href="\/settings"[^]*?<\/nav>/u);
   assert.equal([...page.body.matchAll(/<form method="post" action="\/settings\/feature"/gu)].length, 4);
   assert.match(page.body, /<div class="settings" data-settings-panel>/u);
+  const navigation = page.body.match(/<nav class="settings-nav" aria-label="Ayarlar bölümleri">([^]*?)<\/nav>/u);
+  assert.ok(navigation, 'the page has labelled section navigation');
+  assert.deepEqual([...navigation[1].matchAll(/href="#([^"]+)"/gu)].map((match) => match[1]),
+    ['settings-look', 'settings-features', 'settings-shadow']);
+  for (const id of ['settings-look', 'settings-features', 'settings-shadow']) {
+    assert.equal([...page.body.matchAll(new RegExp(`id="${id}"`, 'gu'))].length, 1, 'unique anchor target');
+  }
+  assert.match(page.body, /id="settings-look"><section[^>]*data-glass-choice hidden/u);
+  // The dialog imports only this subtree; page navigation and layout must stay outside it.
+  const panel = page.body.match(
+    /<div class="settings" data-settings-panel>[^]*?<p class="settings-last">[^]*?<\/p>\s*<\/div>/u);
+  assert.ok(panel);
+  assert.doesNotMatch(panel[0], /settings-layout|settings-content|settings-nav|data-glass-choice/u);
+  const forms = [...panel[0].matchAll(/<form method="post" action="([^"]+)">([^]*?)<\/form>/gu)];
+  assert.equal(forms.length, 5, 'the dialog keeps the four feature forms and the clear form');
+  assert.deepEqual(forms.slice(0, 4).map((form) => form[2].match(/name="name" value="([^"]+)"/u)[1]),
+    ['changeTrail', 'changeContent', 'liveUpdates', 'mentions']);
+  assert.equal(forms[4][1], '/settings/clear-shadow');
+  assert.match(forms[4][2], /<button type="submit" class="action-link">/u, 'clear remains secondary');
   assert.match(page.body, /<h2 id="settings-features-title">Özellikler<\/h2>/u);
   assert.match(page.body, /<h2 id="settings-shadow-title">Değişiklik izi deposu<\/h2>/u);
   assert.equal([...page.body.matchAll(/<li class="settings-row">/gu)].length, 4);
@@ -322,12 +341,14 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.match(invalid.body, /Invalid configuration: features\.mentions/u);
   assert.match(invalid.body, /features/u);
   assert.match(invalid.body, /data-settings-panel/u);
+  assert.doesNotMatch(invalid.body, /class="settings-nav"/u, 'no links to unavailable sections');
   assert.doesNotMatch(invalid.body, /<form/u);
   for (const [state, status] of [['notReady', 409], ['busy', 503], ['error', 500]]) {
     f.settings.view = () => ({ state });
     const response = await call(f.app, { path: '/settings', headers });
     assert.equal(response.status, status, state);
     assert.match(response.body, /data-settings-panel/u, `${state} stays in the shared panel`);
+    assert.doesNotMatch(response.body, /class="settings-nav"/u);
     assert.doesNotMatch(response.body, /<form/u);
   }
 });

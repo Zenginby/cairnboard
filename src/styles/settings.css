@@ -1,4 +1,56 @@
 .shell-icon .settings-icon { fill: currentColor; stroke: none; }
+.settings-layout { display: grid; gap: var(--space-lg); align-items: start; margin-top: var(--space-lg); }
+.settings-nav {
+  display: flex;
+  gap: var(--space-xs);
+  min-width: 0;
+  overflow-x: auto;
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.settings-nav a {
+  flex: none;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-full);
+  color: var(--color-text-2);
+  font-size: var(--font-ui-size);
+  font-weight: var(--font-ui-weight);
+  text-decoration: none;
+}
+.settings-nav a:hover { background: var(--color-surface-inset); }
+.settings-layout:has(#settings-look:target) a[href="#settings-look"],
+.settings-layout:has(#settings-features:target) a[href="#settings-features"],
+.settings-layout:has(#settings-shadow:target) a[href="#settings-shadow"] {
+  background: var(--color-focus-bg);
+  color: var(--color-text);
+}
+.settings-layout:has(.glass-choice[hidden]) a[href="#settings-look"],
+.settings-content > #settings-look:has(> [hidden]) { display: none; }
+.settings-content {
+  display: grid;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: calc(var(--space-md) * 46);
+  min-width: 0;
+}
+.settings-content :is(#settings-look, section) { scroll-margin-top: var(--space-lg); }
+.settings-content .settings-shadow { border: var(--space-hairline) solid var(--color-line-strong); }
+.settings-content .settings-last {
+  padding-top: var(--space-md);
+  border-top: var(--space-hairline) solid var(--color-line);
+}
+@media (min-width: 56rem) {
+  .settings-layout:has(> .settings-nav) {
+    grid-template-columns: calc(var(--space-xl) * 5) minmax(0, 1fr);
+  }
+  .settings-nav {
+    position: sticky;
+    top: var(--space-lg);
+    flex-direction: column;
+  }
+  .settings-nav a { border-radius: var(--radius-sm); }
+}
 .settings { display: grid; gap: var(--space-md); max-width: calc(var(--space-md) * 46); }
 .settings-list { margin: var(--space-sm) 0 0; padding: 0; list-style: none; }
 .settings-row + .settings-row { border-top: var(--space-hairline) solid var(--color-line); }
