@@ -2,9 +2,9 @@
 .settings-layout { display: grid; gap: var(--space-lg); align-items: start; margin-top: var(--space-lg); }
 .settings-nav {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-xs);
   min-width: 0;
-  overflow-x: auto;
   padding: var(--space-xs);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
