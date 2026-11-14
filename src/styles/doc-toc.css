@@ -134,3 +134,12 @@
 [data-motion='less'] .doc-toc-link {
   transition: none;
 }
+
+/* On the page (not in a dialog) the wide rail is a box of its own, so it reads on any background. */
+@media (min-width: 64rem) {
+  .page-frame .doc-toc {
+    padding: var(--space-md) var(--space-sm);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+}

@@ -113,7 +113,10 @@
   box-shadow: var(--shadow-box);
 }
 
+/* The contents rail and the settings menu sit on the scene; they need the same surface as the boxes. */
 [data-theme="cam"] .document-sidebar,
+[data-theme="cam"] .page-frame .doc-toc,
+[data-theme="cam"] .settings-nav,
 [data-theme="cam"] .warnings {
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -168,6 +171,8 @@
   [data-theme="cam"][data-glass="on"] .search-page,
   [data-theme="cam"][data-glass="on"] .document,
   [data-theme="cam"][data-glass="on"] .document-sidebar,
+  [data-theme="cam"][data-glass="on"] .page-frame .doc-toc,
+  [data-theme="cam"][data-glass="on"] .settings-nav,
   [data-theme="cam"][data-glass="on"] .page-frame > .card-form,
   [data-theme="cam"][data-glass="on"] .page-frame > .card-panel:not(.card-read-panel),
   [data-theme="cam"][data-glass="on"] .warnings,
