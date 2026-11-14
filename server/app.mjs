@@ -28,8 +28,8 @@ function requestPath(url) {
 
 const lookupErrors = ['ENOENT', 'ENOTDIR', 'ENAMETOOLONG', 'EINVAL', 'EACCES', 'EPERM'];
 
-async function clientFile(root, path) {
-  const parts = ['dist', 'app', 'client', ...path.split('/').filter(Boolean)];
+async function clientFile(root, appDir, path) {
+  const parts = [...appDir.split('/').filter(Boolean), 'client', ...path.split('/').filter(Boolean)];
   let file = root;
   for (const [i, part] of parts.entries()) {
     file = join(file, part);
@@ -54,13 +54,14 @@ async function clientFile(root, path) {
   }
 }
 
-export function createApp({ root, handler, guard, api, writes, locals = {} }) {
+// appDir is the Astro output folder under root; tests and checks build to their own so a running server keeps its files.
+export function createApp({ root, appDir = 'dist/app', handler, guard, api, writes, locals = {} }) {
   // Fail closed: a server without its access check must not start.
   if (typeof guard !== 'function') throw new TypeError('createApp needs a guard.');
   root = resolve(root);
   async function errorPage(req, res, status) {
     // Prerendered Astro error pages also work when middleware calls next() without a body.
-    const body = await clientFile(root, `/${status}.html`)
+    const body = await clientFile(root, appDir, `/${status}.html`)
       || Buffer.from(`<!doctype html><html lang="en"><title>${status}</title><h1>${status === 404 ? 'Page not found' : 'Something went wrong'}</h1></html>`);
     res.statusCode = status;
     res.removeHeader('Cache-Control');
@@ -84,7 +85,7 @@ export function createApp({ root, handler, guard, api, writes, locals = {} }) {
         return await errorPage(req, res, 404);
       }
       if (path === null) return await errorPage(req, res, 404);
-      const body = await clientFile(root, path);
+      const body = await clientFile(root, appDir, path);
       // The guard lets /_astro/ through without a cookie, so a missing asset must never reach page routes.
       if (body === false || (body === null && path.startsWith('/_astro/'))) return await errorPage(req, res, 404);
       if (body !== null) {

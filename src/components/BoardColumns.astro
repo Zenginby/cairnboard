@@ -1,48 +1,100 @@
 ---
 import CardStatus from './CardStatus.astro';
-import EntityMeta from './EntityMeta.astro';
-import { t } from '../i18n/index.mjs';
-// `add`: each column links to the new-card form; `updated`: cards show when they last changed (agent work);
-// `status`: cards show `now` and `needs` under their title; `filterable`: exposes filter data attributes.
-const { columns, add = true, updated = false, status = false, filterable = false, projectKeys = null } = Astro.props;
+import { relativeTime } from './relative-time.mjs';
+import { language, t } from '../i18n/index.mjs';
+// `add`: each column links to the new-card form; `status`: cards show `now` and `needs` under their title;
+// `filterable`: exposes filter data attributes. A lane from several columns (board-lanes.mjs) tags each card with
+// its column and adds new cards to its first column. Every card ends with its project, priority and how long ago it
+// changed; the column's role (todo, doing, done) colours the heading dot and that time.
+// `cardAction` ({ csrf, kind }): `archive` puts an Archive button on done cards, `restore` a Restore button on every
+// card (the archive view). The form sits next to the card link, since a form cannot live inside a link.
+const { columns, add = true, status = false, filterable = false, projectKeys = null, lanes = false,
+  cardAction = null, draggable = false, csrf = '' } = Astro.props;
 const PRIORITIES = new Set(['urgent', 'important', 'low']);
+const ROLES = new Set(['todo', 'doing', 'done']);
+const now = Date.now();
 const cardProjectKey = (card) => (card.project
   ? (projectKeys?.get(card.project.id || card.project) ?? card.project.id ?? '') : '');
 const cardPriority = (card) => (PRIORITIES.has(card.meta?.priority) ? card.meta.priority : '');
+const roleOf = (column) => (ROLES.has(column.role) ? column.role : 'todo');
+const toneOf = (project) => (Number.isInteger(project?.tone) && project.tone >= 1 && project.tone <= 8
+  ? project.tone : 7);
+const assigneeOf = (card) => card.meta?.assignee
+  ?? (typeof card.content?.assignee === 'string' ? card.content.assignee : null);
 ---
-<div class="board" role="region" aria-label={t('board.columns')} tabindex="0">
+{draggable && <p id="board-move-hint" class="sr-only">{t('board.moveHint')}</p>}
+<div class:list={['board', { 'board-lanes': lanes }]} role="region" aria-label={t('board.columns')} tabindex="0"
+  data-board-draggable={draggable ? '' : undefined} data-csrf={draggable && csrf ? csrf : undefined}
+  aria-describedby={draggable ? 'board-move-hint' : undefined}
+  data-claimed-title={draggable ? t('card.claimedTitle') : undefined}
+  data-move-failed={draggable ? t('board.moveFailed') : undefined}
+  data-move-claimed={draggable ? t('board.moveClaimed') : undefined}
+  data-move-announcement={draggable ? t('board.moveAnnouncement') : undefined}>
   {columns.map((column, index) => <section
-    class="board-column"
+    class:list={['board-column', `role-${roleOf(column)}`]}
     aria-labelledby={`column-${index}`}
     data-board-column={filterable ? '' : undefined}
     data-column-key={filterable ? column.key : undefined}
+    data-move-column={draggable ? column.addKey ?? column.key : undefined}
     data-column-total={filterable ? column.total : undefined}>
     <header class="column-heading">
+      <span class="role-dot" aria-hidden="true"></span>
       <h2 id={`column-${index}`}>{column.label}</h2>
       <span class="panel-count" data-column-count={filterable ? '' : undefined}>{column.total}</span>
       {column.role === 'done' && column.total > column.cards.length
         && <span class="panel-count" data-column-recent={filterable ? '' : undefined}>{t('board.recent')}</span>}
     </header>
-    {add && <a class="action-link column-add" href={`/cards/new?column=${encodeURIComponent(column.key)}`}
+    {add && <a class="action-link column-add"
+      href={`/cards/new?column=${encodeURIComponent(column.addKey ?? column.key)}`}
       aria-label={`${t('card.add')}: ${column.label}`}>
       {t('card.add')}
     </a>}
-    {column.cards.length > 0 && <ul class="board-cards"
-      data-column-list={filterable ? '' : undefined}>{column.cards.map((card) => <li
-      id={card.id ? `card-${card.id}` : undefined}
-      data-board-card={filterable ? '' : undefined}
-      data-card-project={filterable ? cardProjectKey(card) : undefined}
-      data-card-priority={filterable ? cardPriority(card) : undefined}>
-      {card.id ? <a class="board-card" href={`/cards/${encodeURIComponent(card.id)}`}>
-        <h3>{card.content.title || t('home.untitled')}</h3>
-        {status && <CardStatus content={card.content} fields={['now', 'needs']} />}
-        <EntityMeta item={card} updated={updated} />
-      </a> : <div class="board-card">
-        <h3>{card.content.title || t('home.untitled')}</h3>
-        {status && <CardStatus content={card.content} fields={['now', 'needs']} />}
-        <EntityMeta item={card} updated={updated} />
-      </div>}
-    </li>)}</ul>}
+    {(draggable || column.cards.length > 0) && <ul class="board-cards"
+      data-column-list={filterable ? '' : undefined}>{column.cards.map((card) => {
+      const priority = cardPriority(card);
+      const assignee = assigneeOf(card);
+      const changed = relativeTime(card.meta?.updated, { now, locale: language });
+      const acceptance = card.meta?.acceptance;
+      const Face = card.id ? 'a' : 'div';
+      const quick = cardAction && card.id && (cardAction.kind === 'restore' || column.role === 'done')
+        ? cardAction.kind : null;
+      const title = card.content.title || t('home.untitled');
+      return <li
+        id={card.id ? `card-${card.id}` : undefined}
+        data-card-id={draggable ? card.id : undefined}
+        data-card-column={draggable ? card.meta?.column : undefined}
+        data-board-card={filterable ? '' : undefined}
+        data-card-project={filterable ? cardProjectKey(card) : undefined}
+        data-card-priority={filterable ? priority : undefined}
+        data-card-tags={filterable && Array.isArray(card.content?.tags)
+          ? card.content.tags.filter((tag) => typeof tag === 'string').join(' ') || undefined : undefined}
+        class:list={{ 'has-card-quick': quick }}>
+        <Face class="board-card" aria-describedby={draggable ? 'board-move-hint' : undefined}
+          href={card.id ? `/cards/${encodeURIComponent(card.id)}` : undefined}>
+          <h3>{title}</h3>
+          {status && <CardStatus content={card.content} fields={['now', 'needs']} />}
+          <div class="card-foot">
+            {card.columnLabel && <span class="chip column-chip">{card.columnLabel}</span>}
+            {card.project && <span class:list={['chip', 'project-chip', `tone-${toneOf(card.project)}`]}>
+              {card.project.title || t('home.untitled')}</span>}
+            {priority && <span class:list={['chip', `priority-${priority}`]}>{t(`priority.${priority}`)}</span>}
+            {assignee && <span class="card-assignee">
+              <span class="sr-only">{t('document.assignee')}: </span>{assignee}</span>}
+            {acceptance?.total > 0 && <span class="acceptance-count">
+              {acceptance.done}/{acceptance.total} {t('home.progress')}</span>}
+            {changed && <span class="card-time">
+              <span class="sr-only">{t('document.updated')}: </span>
+              <time datetime={changed.iso} title={`${t('document.updated')}: ${changed.full}`}>{changed.text}</time>
+            </span>}
+          </div>
+        </Face>
+        {quick && <form class="card-quick" method="post" action={`/cards/${encodeURIComponent(card.id)}/${quick}`}>
+          <input type="hidden" name="csrf" value={cardAction.csrf} />
+          <button class="card-quick-button" type="submit" aria-label={`${t(`board.${quick}Card`)}: ${title}`}>
+            {t(`board.${quick}Card`)}</button>
+        </form>}
+      </li>;
+    })}</ul>}
     {(filterable || column.cards.length === 0) && (
       <p class="column-empty" data-column-empty={filterable ? '' : undefined} hidden={column.cards.length > 0}>
         {t('board.empty')}

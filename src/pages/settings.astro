@@ -11,10 +11,12 @@ Astro.response.headers.set('Referrer-Policy', 'same-origin');
 ---
 <AppShell title={t('settings.title')} current="/settings" surface>
   <meta slot="head" name="referrer" content="same-origin" />
-  <header class="screen-heading">
-    <h1>{t('settings.title')}</h1>
-    <p class="panel-subtitle">{t('settings.summary')}</p>
-  </header>
-  <GlassChoice />
-  <SettingsPanel view={view} requested={Astro.url.searchParams.get('saved')} />
+  <div class="settings-page">
+    <header class="screen-heading">
+      <h1>{t('settings.title')}</h1>
+      <p class="panel-subtitle">{t('settings.summary')}</p>
+    </header>
+    <GlassChoice />
+    <SettingsPanel view={view} requested={Astro.url.searchParams.get('saved')} />
+  </div>
 </AppShell>

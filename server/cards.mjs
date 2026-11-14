@@ -1,6 +1,6 @@
 // Card forms use the same write checks as Settings; only card fields are validated here.
 import { createHash } from 'node:crypto';
-import { addCard, moveCard, checkCard, commentCard } from '../core/card.mjs';
+import { addCard, moveCard, checkCard, commentCard, archiveColumn } from '../core/card.mjs';
 import * as entity from '../core/entity.mjs';
 import { acceptanceItems } from '../core/frontmatter.mjs';
 import * as project from '../core/project.mjs';
@@ -9,6 +9,8 @@ import { stripHidden } from '../core/text.mjs';
 import { createWrites } from './writes.mjs';
 
 const PRIORITIES = ['', 'urgent', 'important', 'low'];
+const STATUS_LINES = ['now', 'next', 'needs'];
+const statusLine = (value) => value.replace(/[\r\n\u0085]+/gu, ' ').trim();
 /** A front matter value as a form field carries it; a missing one is the empty choice. */
 const stored = (value) => (value === undefined || value === null ? '' : String(value));
 /** Names an Acceptance item by its text, so a check request can say which item the owner clicked. */
@@ -70,7 +72,7 @@ export function createCards({ key, port, open, openWrite }) {
   // Each action checks its fields, then plans against the card as it is now: `plan` returns a refusal page,
   // nothing when the card is already as asked, or the write to run with a write context.
   const actions = [
-    { suffix: '', fields: ['title', 'priority', 'project', 'body', 'revision'],
+    { suffix: '', fields: ['title', 'priority', 'project', 'now', 'next', 'needs', 'body', 'revision'],
       // A URL-encoded form spends three bytes on most non-ASCII bytes and six on a line break.
       bodyLimit: 4 * MAX_BODY + 4096,
       validate(values) {
@@ -78,6 +80,10 @@ export function createCards({ key, port, open, openWrite }) {
         if (!title || title.length > 200 || /[\t\r\n\u0085]/u.test(values.title)
           || stripHidden(values.title).removed > 0) return bad('card.invalidTitle');
         if (!/^[0-9a-f]{16}$/iu.test(values.revision)) return bad('card.invalidRevision');
+        // The status lines are one line each, as the core requires: line breaks typed into the wrapping field are
+        // saved as spaces. An empty value removes the line.
+        if (STATUS_LINES.some((name) => statusLine(values[name]).length > 500
+          || stripHidden(statusLine(values[name])).removed > 0)) return bad('card.invalidStatusLine');
         if (Buffer.byteLength(lines(values.body)) > MAX_BODY) return bad('card.invalidBody');
       },
       // Only what the owner changed is written: an untouched title stays in the heading or file name it came
@@ -104,15 +110,49 @@ export function createCards({ key, port, open, openWrite }) {
             }
           }
         }
+        for (const name of STATUS_LINES) {
+          const value = statusLine(values[name]);
+          if (value !== stored(current.data[name]).trim()) patch[name] = value || undefined;
+        }
         const text = lines(values.body);
         const same = text === lines(current.body);
         if (same && !Object.keys(patch).length) return null;
         const body = same ? {} : { body: current.body.includes('\r\n') ? text.replace(/\n/gu, '\r\n') : text };
         return (write) => entity.update(write, 'card', current.id, patch, { ...body, ifRevision: values.revision });
       } },
-    { suffix: '/move', fields: ['column'], plan(ctx, current, values) {
+    { suffix: '/move', fields(values) {
+      return ['column', ...(Object.hasOwn(values, 'before') ? ['before']
+        : Object.hasOwn(values, 'after') ? ['after'] : [])];
+    }, plan(ctx, current, values) {
       if (!ctx.config.columns.some(({ key }) => key === values.column)) return bad('card.invalidColumn');
-      return (write) => moveCard(write, current.id, { column: values.column });
+      const position = Object.hasOwn(values, 'before') ? 'before' : Object.hasOwn(values, 'after') ? 'after' : null;
+      if (position) {
+        if (!new RegExp(`^${ID}$`, 'u').test(values[position])) return bad('card.invalidColumn');
+        try {
+          const anchor = entity.resolve(ctx, 'card', values[position]);
+          if (anchor.id === current.id || anchor.data.column !== values.column) return bad('card.invalidColumn');
+        } catch (error) {
+          if (error instanceof CairnError && error.code === 'not_found') return bad('card.invalidColumn');
+          throw error;
+        }
+      }
+      return (write) => moveCard(write, current.id, { column: values.column,
+        ...(position ? { [position]: values[position] } : {}) });
+    } },
+    // Board buttons: a done card goes to the archive column, an archived one back to the first visible done column.
+    // Both return to the board they were pressed on.
+    { suffix: '/archive', fields: [], next: () => '/board', plan(ctx, current) {
+      const target = archiveColumn(ctx.config);
+      const column = ctx.config.columns.find(({ key }) => key === current.data.column);
+      if (!target || column?.role !== 'done') return bad('card.invalidColumn');
+      if (column.key === target.key) return null;
+      return (write) => moveCard(write, current.id, { column: target.key });
+    } },
+    { suffix: '/restore', fields: [], next: () => '/board?archive', plan(ctx, current) {
+      const column = ctx.config.columns.find(({ key }) => key === current.data.column);
+      const target = ctx.config.columns.find((item) => item.role === 'done' && item.hidden !== true);
+      if (!target || column?.hidden !== true) return bad('card.invalidColumn');
+      return (write) => moveCard(write, current.id, { column: target.key });
     } },
     { suffix: '/check', fields: ['n', 'checked', 'mark'], validate(values) {
       if (!/^[1-9][0-9]{0,5}$/u.test(values.n)) return bad('card.invalidItem');
@@ -138,8 +178,9 @@ export function createCards({ key, port, open, openWrite }) {
     path: new RegExp(`^/cards/(?<id>${ID})${action.suffix}$`, 'u'), form: 'card', back, failure,
     ...(action.bodyLimit ? { bodyLimit: action.bodyLimit } : {}),
     run({ values, params: { id } }) {
-      if (Object.keys(values).length !== action.fields.length
-        || action.fields.some((name) => !Object.hasOwn(values, name))) return bad('card.invalidFields');
+      const fields = typeof action.fields === 'function' ? action.fields(values) : action.fields;
+      if (Object.keys(values).length !== fields.length
+        || fields.some((name) => !Object.hasOwn(values, name))) return bad('card.invalidFields');
       const invalid = action.validate?.(values);
       if (invalid) return invalid;
       let ctx;
@@ -151,6 +192,7 @@ export function createCards({ key, port, open, openWrite }) {
       const plan = action.plan(ctx, entity.resolve(ctx, 'card', id), values);
       if (plan && typeof plan !== 'function') return plan;
       if (plan) plan(openWrite());
+      if (action.next) return action.next(id);
       return `/cards/${id}${action.suffix === '/comment' ? '#comments' : ''}`;
     },
   });
@@ -181,7 +223,8 @@ export function createCards({ key, port, open, openWrite }) {
     const items = card ? acceptanceItems(card.body).map((item, index) => ({ n: index + 1, text: item.text,
       checked: item.checked, mark: mark(item.text) })) : [];
     return { state: 'ready', csrf, columns: ctx.config.columns, projects, card, items,
-      project: chosen, priority: stored(card?.data.priority) };
+      project: chosen, priority: stored(card?.data.priority),
+      status: Object.fromEntries(STATUS_LINES.map((name) => [name, stored(card?.data[name])])) };
   }
 
   return { routes, view };

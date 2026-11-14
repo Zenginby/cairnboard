@@ -1,0 +1,42 @@
+---
+import JournalForm from './JournalForm.astro';
+import { t } from '../i18n/index.mjs';
+// The month page's dialogs: one reads a day (filled by journal-dialog.js from the day page's panel), one holds the
+// add form for today. Both stay closed without scripts; the calendar and "Add to today" then work as plain links.
+// journal-dialog.js moves the [data-journal-portal] parts out of <main> so live updates do not replace them; their
+// title bars are plain divs because a <header> outside <main> would be a second banner landmark.
+const { view } = Astro.props;
+---
+<dialog class="settings-dialog journal-dialog" data-journal-portal data-journal-day-dialog
+  aria-labelledby="journal-dialog-title">
+  <div class="settings-dialog-header journal-dialog-header">
+    <h2 id="journal-dialog-title" data-journal-dialog-title>{t('journal.title')}</h2>
+    <div class="journal-dialog-tools">
+      <button type="button" class="action-link journal-dialog-step" data-journal-dialog-step="previous"
+        disabled>{t('journal.previousDay')}</button>
+      <button type="button" class="action-link journal-dialog-step" data-journal-dialog-step="next"
+        disabled>{t('journal.nextDay')}</button>
+      <a class="action-link" href="/journal" data-journal-dialog-full>{t('journal.openFullPage')}</a>
+      <button type="button" class="action-link" data-journal-dialog-close>{t('journal.dialogClose')}</button>
+    </div>
+  </div>
+  <div class="settings-dialog-body journal-dialog-body" data-journal-dialog-body aria-busy="false">
+    <p class="journal-dialog-status" role="status" aria-live="polite" data-journal-dialog-status
+      data-loading={t('journal.dialogLoading')} data-error={t('journal.dialogError')}></p>
+    <div data-journal-dialog-content></div>
+  </div>
+</dialog>
+{view && <dialog class="settings-dialog journal-add-dialog" data-journal-portal data-journal-add-dialog
+  aria-labelledby="journal-add-dialog-title">
+  <div class="settings-dialog-header">
+    <h2 id="journal-add-dialog-title">{t('journalForm.addToday')}</h2>
+    <button type="button" class="action-link" data-journal-add-close>{t('journal.dialogClose')}</button>
+  </div>
+  <div class="settings-dialog-body" data-journal-add-body aria-busy="false">
+    <p class="journal-dialog-status" role="alert" data-journal-add-status
+      data-save-error={t('journalForm.dialogSaveError')} data-discard={t('journalForm.dialogDiscard')}></p>
+    <JournalForm view={view} date={view.today} />
+  </div>
+</dialog>}
+<p class="journal-note" role="status" aria-live="polite" data-journal-portal data-journal-note
+  data-added={t('journalForm.dialogAdded')}></p>

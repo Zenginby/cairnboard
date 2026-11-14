@@ -6,14 +6,14 @@ import { setImmediate } from 'node:timers/promises';
 
 function fixture(visibility = 'visible', { notReady = false } = {}) {
   const documentEvents = {}, windowEvents = {}, requests = [], sources = [], timers = new Map();
-  let now = 100_000, timerId = 0, html = 'new content', replacements = 0, probeStatus = 200;
+  let now = 100_000, timerId = 0, html = 'new content', replacements = 0, probeStatus = 200, pageText;
   const status = { textContent: '', dataset: { paused: 'Live updates paused', updated: 'Updated' } };
   const focused = { id: 'card-link', isConnected: true, getAttribute: () => '/cards/c-000001',
     focus(options) { this.restored = options.preventScroll; } };
   const region = { dataset: { live: 'card project board' }, innerHTML: 'old content', contains: () => true,
     querySelectorAll: () => [], querySelector: (selector) => selector === '[data-not-ready]' && notReady ? {} : null,
     replaceChildren: (...nodes) => { replacements++; region.innerHTML = nodes.join(''); } };
-  const document = { visibilityState: visibility, activeElement: focused,
+  const document = { documentElement: { dataset: {} }, visibilityState: visibility, activeElement: focused,
     querySelector: (selector) => selector === '[data-live]' ? region : status,
     getElementById: () => focused, addEventListener: (type, handler) => { documentEvents[type] = handler; } };
   const window = { scrollX: 10, scrollY: 120, scrollTo(options) { this.restored = options; },
@@ -30,7 +30,7 @@ function fixture(visibility = 'visible', { notReady = false } = {}) {
   const fetch = async (url, options) => {
     requests.push({ url, options });
     if (options?.method === 'HEAD') return { status: probeStatus };
-    return { ok: true, text: async () => html };
+    return { ok: true, text: async () => pageText ? pageText() : html };
   };
   runInNewContext(readFileSync(new URL('../src/scripts/live-updates.js', import.meta.url), 'utf8'), {
     document, window, location: { href: 'http://example.test/board' }, EventSource, DOMParser, fetch,
@@ -57,7 +57,8 @@ function fixture(visibility = 'visible', { notReady = false } = {}) {
   };
   const visible = async (state) => { document.visibilityState = state; documentEvents.visibilitychange(); await setImmediate(); };
   return { status, requests, document, window, focused, emit, advance, visible, sources, region,
-    setHTML: (text) => { html = text; }, setProbe: (status) => { probeStatus = status; },
+    setPageText: (read) => { pageText = read; }, setHTML: (text) => { html = text; },
+    setProbe: (status) => { probeStatus = status; },
     documentEvents, windowEvents, replacements: () => replacements };
 }
 
@@ -193,4 +194,37 @@ test('a failed probe or a non-404 answer keeps retrying with the usual backoff',
   await f.emit('error');
   await f.advance(5000);
   assert.equal(f.sources.length, 3);
+});
+
+test('paused live updates coalesce into one refresh after a move resumes', async () => {
+  const f = fixture();
+  f.document.documentElement.dataset.livePaused = 'true';
+  await f.emit('change', { kinds: ['card'] });
+  await f.emit('change', { kinds: ['board'] });
+  assert.equal(f.requests.length, 0);
+  assert.equal(f.replacements(), 0);
+  delete f.document.documentElement.dataset.livePaused;
+  f.documentEvents['live:resume']();
+  await setImmediate();
+  assert.equal(f.requests.length, 1);
+  assert.equal(f.replacements(), 1);
+});
+
+test('a page fetch already in flight cannot replace the board after a drag pauses it', async () => {
+  const f = fixture();
+  let release;
+  f.setPageText(() => new Promise((done) => { release = done; }));
+  await f.emit('change', { kinds: ['card'] });
+  assert.equal(f.requests.length, 1);
+  f.document.documentElement.dataset.livePaused = 'true';
+  release('stale page');
+  await setImmediate();
+  assert.equal(f.replacements(), 0);
+  f.setPageText(null);
+  f.setHTML('fresh page');
+  delete f.document.documentElement.dataset.livePaused;
+  f.documentEvents['live:resume']();
+  await setImmediate();
+  assert.equal(f.requests.length, 2);
+  assert.equal(f.region.innerHTML, 'fresh page');
 });

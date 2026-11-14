@@ -16,19 +16,26 @@ if (region && status) {
     if (temporary) statusTimer = setTimeout(() => { status.textContent = ''; }, 3000);
   };
 
+  const paused = () => document.documentElement?.dataset.livePaused === 'true';
+  // An update that arrives while a board move holds the page waits; resuming runs it once, and only then.
+  let held = false;
+
   async function update() {
     if (document.visibilityState !== 'visible') return;
     pending = true;
+    if (paused()) { held = true; return; }
     if (refreshing) return;
     refreshing = true;
     try {
       while (pending) {
+        if (paused()) { held = true; break; }
         pending = false;
         const connection = source;
         const response = await fetch(location.href, { credentials: 'same-origin' });
         if (!response.ok && response.status !== 404) continue;
         const page = new DOMParser().parseFromString(await response.text(), 'text/html');
         const next = page.querySelector('[data-live]');
+        if (paused()) { held = true; break; }
         if (!next || document.visibilityState !== 'visible' || source !== connection) continue;
         document.title = page.title;
         if (region.innerHTML === next.innerHTML) continue;
@@ -151,6 +158,11 @@ if (region && status) {
     clearTimeout(retryTimer);
     clearTimeout(statusTimer);
   }
+  document.addEventListener('live:resume', () => {
+    if (!held) return;
+    held = false;
+    void update();
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') suspend();
     else { connect(resume); resume = false; }

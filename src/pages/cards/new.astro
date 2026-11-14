@@ -19,32 +19,38 @@ const column = ready ? view.columns.find(({ key }) => key === requested)?.key ??
 <AppShell title={t('card.newTitle')} current="/board" surface>
   <meta slot="head" name="referrer" content="same-origin" />
   {ready ? <><header class="screen-heading"><h1>{t('card.newTitle')}</h1></header>
-  <form class="card-form" method="post" action="/cards">
-    <input type="hidden" name="csrf" value={view.csrf} />
-    <label class="card-field" for="card-title">{t('card.title')}
-      <input id="card-title" name="title" type="text" required maxlength="200" />
-    </label>
-    <label class="card-field" for="card-column">{t('card.column')}
-      <select id="card-column" name="column" required>
-        {view.columns.map((item) => <option value={item.key} selected={item.key === column}>{item.label}</option>)}
-      </select>
-    </label>
-    <label class="card-field" for="card-project">{t('card.project')}
-      <select id="card-project" name="project">
-        <option value="">{t('card.noProject')}</option>
-        {view.projects.map((item) => <option value={item.id ?? item.ref}>{item.title}</option>)}
-      </select>
-    </label>
-    <label class="card-field" for="card-priority">{t('card.priority')}
-      <select id="card-priority" name="priority">
-        <option value="">{t('card.noPriority')}</option>
-        {['urgent', 'important', 'low'].map((value) => <option value={value}>{t(`priority.${value}`)}</option>)}
-      </select>
-    </label>
-    <div class="card-actions">
-      <button class="action-link" type="submit">{t('card.add')}</button>
-      <a href="/board">{t('card.back')}</a>
-    </div>
-  </form></> : view ? <PageState title="state.notReadyTitle" message="state.notReadyBody" init />
+  {/* The board's card dialog imports this panel; the page itself is the no-script fallback. */}
+  <div class="card-panel" data-card-panel data-card-panel-kind="new" data-card-panel-title={t('card.newTitle')}>
+    <form class="card-form card-edit-form" method="post" action="/cards">
+      <input type="hidden" name="csrf" value={view.csrf} />
+      <label class="sr-only" for="card-title">{t('card.title')}</label>
+      <input id="card-title" class="card-title-input" name="title" type="text" required maxlength="200"
+        placeholder={t('card.title')} autocomplete="off" autofocus />
+      <div class="card-field-row">
+        <label class="card-field" for="card-column">{t('card.column')}
+          <select id="card-column" name="column" required>
+            {view.columns.filter((item) => item.hidden !== true).map((item) => <option value={item.key}
+              selected={item.key === column}>{item.label}</option>)}
+          </select>
+        </label>
+        <label class="card-field" for="card-project">{t('card.project')}
+          <select id="card-project" name="project">
+            <option value="">{t('card.noProject')}</option>
+            {view.projects.map((item) => <option value={item.id ?? item.ref}>{item.title}</option>)}
+          </select>
+        </label>
+        <label class="card-field" for="card-priority">{t('card.priority')}
+          <select id="card-priority" name="priority">
+            <option value="">{t('card.noPriority')}</option>
+            {['urgent', 'important', 'low'].map((value) => <option value={value}>{t(`priority.${value}`)}</option>)}
+          </select>
+        </label>
+      </div>
+      <div class="card-actions card-panel-actions">
+        <button class="action-link action-primary" type="submit">{t('card.add')}</button>
+        <a class="action-link" href="/board" data-card-panel-cancel>{t('card.cancel')}</a>
+      </div>
+    </form>
+  </div></> : view ? <PageState title="state.notReadyTitle" message="state.notReadyBody" init />
     : <PageState title="card.errorTitle" message="card.errorBody" />}
 </AppShell>

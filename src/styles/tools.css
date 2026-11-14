@@ -10,9 +10,75 @@
   font-variant-numeric: tabular-nums;
 }
 .tools-page .research-toolbar { flex-wrap: wrap; }
-.tools-description {
-  margin: var(--space-2xs) 0 0;
-  color: var(--color-text-2);
-  font-size: var(--font-small-size);
-  overflow-wrap: anywhere;
+.tools-page .research-input,
+.tools-page .research-type-btn {
+  min-height: calc(var(--space-xl) + var(--space-xs));
 }
+.tools-page { min-width: 0; max-width: 100%; }
+.tools-page .tools-table-wrap {
+  position: relative; /* contains the absolutely placed sr-only text so it cannot widen the page */
+  min-width: 0;
+  max-width: 100%;
+  overflow: auto;
+  max-height: 80vh;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-box);
+}
+.tools-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--font-small-size);
+}
+.tools-table th,
+.tools-table td {
+  padding: var(--space-sm) var(--space-12);
+  border-bottom: var(--space-hairline) solid var(--color-line);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.tools-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface);
+  color: var(--color-text-2);
+  font-size: var(--font-label-size);
+  font-weight: 600;
+  border-bottom-color: var(--color-line-strong);
+}
+.tools-table .tools-col-machine,
+.tools-table .tools-cell-machine { text-align: center; }
+.tools-table .tools-col-num { text-align: right; font-variant-numeric: tabular-nums; }
+.tools-group-row th {
+  background: var(--color-surface-inset);
+  color: var(--color-text-2);
+  font-size: var(--font-label-size);
+  font-weight: 600;
+}
+.tools-group-count {
+  margin-inline-start: var(--space-xs);
+  color: var(--color-text-3);
+  font-variant-numeric: tabular-nums;
+}
+.tools-row {
+  scroll-margin-top: calc(var(--space-header-height) + var(--space-md));
+  min-height: var(--space-xl);
+}
+.tools-row:hover > * { background: var(--color-surface-inset); }
+.tools-row:target > * { background: var(--color-focus-bg); }
+.tools-cell-name { min-width: 14rem; max-width: 28rem; font-weight: 400; }
+.tools-name-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); }
+.tools-description {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: var(--space-2xs);
+  color: var(--color-text-2);
+}
+.tools-cell-machine.is-installed { color: var(--color-done); font-weight: 600; }
+.tools-cell-machine.is-absent,
+.tools-muted { color: var(--color-text-3); }

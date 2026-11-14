@@ -1,13 +1,11 @@
-// Tools screen filters: name search, one kind at a time, "no description" and "unused". Rows stay in the HTML, so
-// the page works without script; this only hides rows and keeps the counts and summary in step.
+// Tools screen filters: search across name, description, project and kind, one kind at a time, "no description" and
+// "unused". Rows stay in the HTML, so the page works without script; this hides rows and updates counts.
 
-function normalizeSearch(value, locale) {
-  if (typeof value !== 'string') return '';
-  return value.trim().replace(/İ/gu, 'i').toLocaleLowerCase(locale).replace(/̇/gu, '');
-}
+import { normalizeSearch } from './search-text.js';
 
 /**
- * @param {Array<{ name?: string, kind?: string, described?: boolean, used?: boolean | null }>} items
+ * @param {Array<{ name?: string, description?: string, project?: string, kind?: string,
+ *   described?: boolean, used?: boolean | null }>} items
  * @param {{ query?: string, kind?: string, undescribed?: boolean, unused?: boolean, locale?: string }} [selection]
  * @param {string[]} [kindKeys]
  */
@@ -15,19 +13,29 @@ export function filterTools(items, selection = {}, kindKeys = []) {
   const locale = selection.locale || 'tr';
   const query = normalizeSearch(selection.query, locale);
   const kindCounts = Object.fromEntries(kindKeys.map((key) => [key, 0]));
+  const flagCounts = { undescribed: 0, unused: 0 };
   const visible = [];
   let allCount = 0;
   for (const item of items) {
-    if (query && !normalizeSearch(item.name || '', locale).includes(query)) continue;
+    const haystack = normalizeSearch(
+      [item.name, item.description, item.project, item.kind].filter(Boolean).join(' '),
+      locale,
+    );
+    if (query && !haystack.includes(query)) continue;
+    const kind = item.kind || '';
+    // Count each flag as if only the other filters were active so the badge shows how many rows it would keep.
+    if (!selection.kind || kind === selection.kind) {
+      if (!item.described && (!selection.unused || item.used === false)) flagCounts.undescribed += 1;
+      if (item.used === false && (!selection.undescribed || !item.described)) flagCounts.unused += 1;
+    }
     if (selection.undescribed && item.described) continue;
     if (selection.unused && item.used !== false) continue;
     allCount += 1;
-    const kind = item.kind || '';
     if (kind) kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
     if (selection.kind && kind !== selection.kind) continue;
     visible.push(item);
   }
-  return { visible, total: visible.length, allCount, kindCounts };
+  return { visible, total: visible.length, allCount, kindCounts, flagCounts };
 }
 
 function initToolsFilter() {
@@ -43,6 +51,8 @@ function initToolsFilter() {
     const items = rows.map((el) => ({
       el,
       name: el.dataset.name || '',
+      description: el.dataset.description || '',
+      project: el.dataset.project || '',
       kind: el.dataset.kind || '',
       described: el.dataset.described === '1',
       used: el.dataset.used === '' || el.dataset.used === undefined ? null : el.dataset.used === '1',
@@ -58,7 +68,14 @@ function initToolsFilter() {
       if (badge) badge.textContent = String(key ? (result.kindCounts[key] ?? 0) : result.allCount);
     }
     for (const btn of page.querySelectorAll('[data-filter-flag]')) {
-      btn.setAttribute('aria-pressed', String(Boolean(state[btn.dataset.filterFlag])));
+      const key = btn.dataset.filterFlag;
+      btn.setAttribute('aria-pressed', String(Boolean(state[key])));
+      const badge = btn.querySelector('[data-flag-count]');
+      if (badge && key) badge.textContent = String(result.flagCounts[key] ?? 0);
+    }
+    // A kind group with no visible row hides its heading too.
+    for (const group of list.querySelectorAll('[data-tool-group]')) {
+      group.classList.toggle('hidden', !group.querySelector('[data-tool-row]:not(.hidden)'));
     }
     page.querySelector('[data-tools-empty-filtered]')?.classList.toggle('hidden', result.total > 0);
     const summary = page.querySelector('[data-tools-summary]');

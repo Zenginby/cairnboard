@@ -201,6 +201,22 @@ test('previous and next on the day page skip unrecorded days; it lists and links
   assert.match(day.body, /<li>second item with <span class="wikilink[^"]*">a link<\/span><\/li>/u,
     'items go through the safe renderer');
   assert.match(day.body, /Summary of 2026-11-12/u);
+  // The contents sit in a DocToc grouped by project (first appearance order), the unlinked jobs last; the day
+  // itself is wrapped in the panel the month page's dialog imports.
+  assert.doesNotMatch(day.body, /journal-contents/u);
+  assert.match(day.body, /<div class="journal-day-panel" data-journal-day-panel data-journal-day-date="2026-11-12"/u);
+  assert.match(day.body, /data-journal-day-previous="2026-11-11"[^>]*data-journal-day-next="2026-11-13"/su);
+  const toc = day.body.match(/<nav class="doc-toc"[\s\S]*?<\/nav>/u)[0];
+  const groups = [...toc.matchAll(/<p class="doc-toc-group-label([^"]*)"[^>]*>\s*([^<]+?)\s*<\/p>/gu)]
+    .map((m) => [m[2], m[1].trim()]);
+  assert.deepEqual(groups, [['Alpha project', 'has-tone tone-2'], ['Beta project', 'has-tone tone-5'],
+    ['Projesiz', '']]);
+  assert.match(toc, /href="#job-3"[^>]*>Loose work 2026-11-12</u);
+  // The month page sends a same-origin referrer so the add dialog's POST carries its origin.
+  const month = await get('/journal?month=2026-11');
+  assert.match(month.body, /<meta name="referrer" content="same-origin">/u);
+  assert.match(month.body, /data-journal-day="2026-11-12"/u);
+  assert.match(month.body, /<dialog[^>]*data-journal-day-dialog[^>]*aria-labelledby="journal-dialog-title"/u);
 });
 
 test('an empty journal shows the current month and an empty state', async (t) => {

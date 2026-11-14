@@ -60,6 +60,30 @@ test('filterBoardCards returns matching cards and per-column counts', () => {
   assert.deepEqual(empty.counts, { todo: 0, doing: 0, review: 0, done: 0 });
 });
 
+test('filterBoardCards searches card text (Turkish-aware) and counts priorities under the other filters', () => {
+  const cards = [
+    { id: 'c-1', column: 'todo', project: 'p-north', priority: 'urgent', text: 'Harita İzleri North Route' },
+    { id: 'c-2', column: 'todo', project: 'p-garden', priority: '', text: 'Sera sulama Garden' },
+    { id: 'c-3', column: 'doing', project: 'p-north', priority: 'important', text: 'Kontur çizgileri North Route' },
+    { id: 'c-4', column: 'review', project: '', priority: 'urgent', text: 'Defter' },
+  ];
+  const byQuery = filterBoardCards(cards, { query: '  izler ' }, SAMPLE_COLUMNS);
+  assert.deepEqual(byQuery.visible.map((c) => c.id), ['c-1']);
+  assert.deepEqual(byQuery.counts, { todo: 1, doing: 0, review: 0, done: 0 });
+
+  const byProjectName = filterBoardCards(cards, { query: 'north' }, SAMPLE_COLUMNS);
+  assert.deepEqual(byProjectName.visible.map((c) => c.id), ['c-1', 'c-3']);
+  assert.deepEqual(byProjectName.priorityCounts, { '': 2, urgent: 1, important: 1, low: 0 });
+
+  const narrowed = filterBoardCards(cards, { query: 'north', priority: 'urgent' }, SAMPLE_COLUMNS);
+  assert.deepEqual(narrowed.visible.map((c) => c.id), ['c-1']);
+  assert.deepEqual(narrowed.priorityCounts, { '': 2, urgent: 1, important: 1, low: 0 },
+    'priority counts ignore the priority choice itself');
+
+  assert.deepEqual(filterBoardCards(cards, { query: 'yok' }, SAMPLE_COLUMNS).visible, []);
+  assert.equal(filterBoardCards(cards, { query: '   ' }, SAMPLE_COLUMNS).total, 4, 'a blank query hides nothing');
+});
+
 function fixture(t) {
   const dataDir = tempDir(t);
   const home = tempDir(t);
@@ -104,6 +128,7 @@ function fixture(t) {
     id: 'c-gen003',
     title: 'Defter sayfalarını numarala',
     column: 'backlog',
+    tags: ['bekliyor'],
   });
   writeMd('cards/ajan-karti.md', {
     id: 'c-agn004',
@@ -133,7 +158,8 @@ async function inProcess(app, path) {
   return { status: res.statusCode, body: output.slice(output.indexOf('\r\n\r\n') + 4) };
 }
 
-test('/board smoke: 200, filter pills and counter in HTML, now/needs visible and next omitted', async (t) => {
+test('/board smoke: 200, search, project choice, priority pills and counter in HTML, now/needs and no next',
+  async (t) => {
   if (!existsSync(join(repo, 'dist/app/server/entry.mjs'))) {
     t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
     return;
@@ -147,14 +173,28 @@ test('/board smoke: 200, filter pills and counter in HTML, now/needs visible and
   const board = await inProcess(app, '/board');
   assert.equal(board.status, 200);
   assert.match(board.body, /data-board-toolbar/u);
-  assert.match(board.body, /<button[^>]*data-filter-project=""[^>]*aria-pressed="true"[^>]*>[\s\S]*?Tümü/u);
-  assert.match(board.body, /<button[^>]*data-filter-project="p-kuzey1"[^>]*aria-pressed="false"/u);
-  assert.match(board.body, /<button[^>]*data-filter-project="p-bahce2"[^>]*aria-pressed="false"/u);
-  assert.doesNotMatch(board.body, /Boş Proje/u, 'a project with no cards on the board gets no pill');
+  assert.match(board.body,
+    /<input[^>]*id="board-search"[^>]*type="search"[^>]*data-board-search[^>]*data-slash-search/u);
+  assert.match(board.body,
+    /<select[^>]*id="board-project"[^>]*data-board-project[^>]*>\s*<option value="">Tüm projeler/u);
+  assert.match(board.body, /<option value="p-bahce2">Kış Bahçesi<\/option>\s*<option value="p-kuzey1">Kuzey Rotası/u);
+  assert.doesNotMatch(board.body, /Boş Proje/u, 'a project with no cards on the board is not offered');
+  assert.match(board.body, /<button[^>]*data-filter-priority=""[^>]*aria-pressed="true"[^>]*>\s*Tümü\s*<span[^>]*>3</u);
+  assert.match(board.body, /<button[^>]*data-board-clear[^>]*hidden/u);
   assert.match(board.body, /<button[^>]*data-filter-priority="urgent"[^>]*aria-pressed="false"/u);
   assert.match(board.body, /<button[^>]*data-filter-priority="important"[^>]*aria-pressed="false"/u);
   assert.doesNotMatch(board.body, /data-filter-priority="low"/u, 'unused priority gets no pill');
-  assert.match(board.body, /aria-live="polite"[^>]*data-board-summary[^>]*>\s*3 kart · 4 sütun\s*</u);
+  assert.match(board.body, /aria-live="polite"[^>]*data-board-summary[^>]*>\s*3 kart · 3 sütun\s*</u);
+
+  // Columns that share a role (doing, review) become one lane; the link shows every column again.
+  assert.match(board.body,
+    /<section class="board-column role-doing"[^>]*data-column-key="doing"[\s\S]*?<h2[^>]*>Sürüyor</u);
+  assert.match(board.body, /<span class="chip column-chip">Doing<\/span>/u);
+  assert.match(board.body, /<a class="action-link board-columns-toggle" href="\/board\?columns=all">4 sütunu göster/u);
+  const all = await inProcess(app, '/board?columns=all');
+  assert.match(all.body, /data-board-summary[^>]*>\s*3 kart · 4 sütun\s*</u);
+  assert.doesNotMatch(all.body, /column-chip/u);
+  assert.match(all.body, /href="\/board\?columns=lanes">Sütunları grupla/u);
 
   assert.match(board.body, /class="status-lines"/u);
   assert.match(board.body, /Kontur çizgileri yeniden ölçekleniyor/u);
@@ -167,7 +207,7 @@ test('/board smoke: 200, filter pills and counter in HTML, now/needs visible and
   assert.doesNotMatch(agents.body, /Ajan tarafında sürdürülüyor/u);
 });
 
-test('/board interactive browser smoke: pill clicks, keyboard, empty state, live counter and axe', async (t) => {
+test('/board interactive browser smoke: search, project choice, pills, keyboard, empty state and axe', async (t) => {
   const cleanup = liveCleanup(t);
   if (!existsSync(join(repo, 'dist/app/server/entry.mjs'))) {
     return liveUnavailable(t, 'Astro output missing; run npm run build:app to enable integration coverage.');
@@ -243,46 +283,71 @@ test('/board interactive browser smoke: pill clicks, keyboard, empty state, live
   assert.deepEqual(filterAllowed(found, APP_ALLOWLIST), [], '/board: no axe findings');
 
   const summary = page.locator('[data-board-summary]');
-  assert.equal((await summary.innerText()).trim(), '3 kart · 4 sütun');
+  assert.equal((await summary.innerText()).trim(), '3 kart · 3 sütun');
   const clamp = await page.locator('#card-c-kuz001 .status-line-now dd')
     .evaluate((el) => getComputedStyle(el).webkitLineClamp);
   assert.equal(clamp, '2');
 
-  // Filter by Kuzey Rotası: only c-kuz001 in doing remains visible; backlog becomes empty and shows board.empty.
-  const kuzeyPill = page.getByRole('button', { name: 'Kuzey Rotası' });
-  await kuzeyPill.click();
-  assert.equal(await kuzeyPill.getAttribute('aria-pressed'), 'true');
-  assert.equal(await page.getByRole('button', { name: 'Tümü' }).getAttribute('aria-pressed'), 'false');
-  assert.equal((await summary.innerText()).trim(), '1 kart · 4 sütun');
+  // `/` focuses the board's own search (not the global dialog).
+  // A query matches titles, status values and project names.
+  const search = page.locator('#board-search');
+  await page.locator('h1').click();
+  await page.keyboard.press('/');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'board-search');
+  assert.equal(await page.locator('dialog[open]').count(), 0);
+  await page.keyboard.type('KONTUR');
+  assert.equal((await summary.innerText()).trim(), '1 kart · 3 sütun');
+  assert.equal(await page.locator('#card-c-kuz001').isVisible(), true);
+  assert.equal(await page.locator('#card-c-bah002').isVisible(), false);
+  const clear = page.getByRole('button', { name: 'Süzgeçleri temizle' });
+  assert.equal(await clear.isVisible(), true);
+  await page.keyboard.press('Escape');
+  assert.equal(await search.inputValue(), '');
+  assert.equal((await summary.innerText()).trim(), '3 kart · 3 sütun');
+  assert.equal(await clear.isVisible(), false);
+  await search.fill('kış bahçesi');
+  assert.equal((await summary.innerText()).trim(), '1 kart · 3 sütun', 'the project name is searched');
+  assert.equal(await page.locator('#card-c-bah002').isVisible(), true);
+  await search.fill('şimdi');
+  assert.equal((await summary.innerText()).trim(), '0 kart · 3 sütun', 'status labels are not searched');
+  await search.fill('BEKLİYOR');
+  assert.equal((await summary.innerText()).trim(), '1 kart · 3 sütun', 'tags are searched, though not shown');
+  assert.equal(await page.locator('#card-c-gen003').isVisible(), true);
+  await search.fill('');
+
+  // Choose Kuzey Rotası: only c-kuz001 in doing remains visible; backlog becomes empty and shows board.empty.
+  await page.locator('#board-project').selectOption('p-kuzey1');
+  assert.equal((await summary.innerText()).trim(), '1 kart · 3 sütun');
   assert.equal(await page.locator('#card-c-kuz001').isVisible(), true);
   assert.equal(await page.locator('#card-c-bah002').isVisible(), false);
   assert.equal(await page.locator('#card-c-gen003').isVisible(), false);
   const backlogCol = page.locator('[data-column-key="backlog"]');
   assert.equal((await backlogCol.locator('[data-column-count]').innerText()).trim(), '0');
   assert.equal(await backlogCol.locator('[data-column-empty]').isVisible(), true);
+  const importantPill = page.locator('[data-filter-priority="important"]');
+  assert.equal((await importantPill.locator('[data-priority-count]').innerText()).trim(), '0',
+    'priority counts follow the project choice');
 
   // Combine with Önemli: 0 matching cards across the whole board.
-  const importantPill = page.getByRole('button', { name: 'Önemli' });
   await importantPill.focus();
   await page.keyboard.press('Space');
   assert.equal(await importantPill.getAttribute('aria-pressed'), 'true');
-  assert.equal((await summary.innerText()).trim(), '0 kart · 4 sütun');
+  assert.equal((await summary.innerText()).trim(), '0 kart · 3 sütun');
 
-  // Toggle Önemli back off with keyboard Enter, then reset project filter via Tümü.
+  // Toggle Önemli back off with keyboard Enter, then reset everything with the clear button.
   await page.keyboard.press('Enter');
   assert.equal(await importantPill.getAttribute('aria-pressed'), 'false');
-  assert.equal((await summary.innerText()).trim(), '1 kart · 4 sütun');
+  assert.equal((await summary.innerText()).trim(), '1 kart · 3 sütun');
 
-  const allPill = page.getByRole('button', { name: 'Tümü' });
-  await allPill.focus();
-  await page.keyboard.press('Enter');
-  assert.equal(await allPill.getAttribute('aria-pressed'), 'true');
-  assert.equal((await summary.innerText()).trim(), '3 kart · 4 sütun');
+  await clear.click();
+  assert.equal(await page.locator('#board-project').inputValue(), '');
+  assert.equal(await page.locator('[data-filter-priority=""]').getAttribute('aria-pressed'), 'true');
+  assert.equal((await summary.innerText()).trim(), '3 kart · 3 sütun');
   assert.equal((await backlogCol.locator('[data-column-count]').innerText()).trim(), '2');
   assert.equal(await backlogCol.locator('[data-column-empty]').isVisible(), false);
   assert.equal(await page.locator('#card-c-bah002').isVisible(), true);
 
-  // At 375px a group with many projects stays one row that scrolls sideways; the page itself never scrolls sideways.
+  // At 375px the pill group stays one row that scrolls sideways; the page itself never scrolls sideways.
   await page.setViewportSize({ width: 375, height: 800 });
   const narrow = await page.evaluate(() => {
     const group = document.querySelector('.board-filter-group');
@@ -302,7 +367,7 @@ test('/board interactive browser smoke: pill clicks, keyboard, empty state, live
   await noJsPage.goto(loginUrl(port, key, instance));
   await noJsPage.waitForURL(`${origin}/`, { timeout: 10_000 });
   await noJsPage.goto(`${origin}/board`);
-  await noJsPage.getByRole('button', { name: 'Kuzey Rotası' }).click();
+  await noJsPage.locator('[data-filter-priority="urgent"]').click();
   assert.equal(await noJsPage.locator('#card-c-bah002').isVisible(), true);
   assert.equal(await noJsPage.locator('#card-c-gen003').isVisible(), true);
 

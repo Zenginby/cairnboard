@@ -216,46 +216,38 @@
   gap: var(--space-6);
 }
 
-.research-toc {
-  margin: var(--space-md) 0;
-  padding: var(--space-12) var(--space-md);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-inset);
+/* Single record: the article uses the whole page frame; a sticky "On this page" column sits on its right. */
+.research-doc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
 }
 
-.research-toc-title {
-  margin: 0 0 var(--space-sm);
-  color: var(--color-text-2);
-  font-size: var(--font-label-size);
-  font-weight: var(--font-label-weight);
+.research-doc-layout > .research-document {
+  max-width: none;
+  margin-inline: 0;
 }
 
-.research-toc-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+/* Generous but bounded measure: about 90 characters, never the narrow 68ch prose column. */
+.research-document > .document-body {
+  max-width: 90ch;
 }
 
-.research-toc-item[data-level='3'] {
-  padding-inline-start: var(--space-md);
-}
+@media (min-width: 64rem) {
+  .research-doc-layout.has-toc {
+    grid-template-columns: minmax(0, 1fr) var(--space-search-width);
+    gap: var(--space-xl);
+  }
 
-.research-toc-link {
-  color: var(--color-link);
-  font-size: var(--font-small-size);
-  text-decoration: none;
-  overflow-wrap: anywhere;
-}
+  .research-doc-layout.has-toc > .research-toc {
+    grid-column: 2;
+    grid-row: 1;
+  }
 
-.research-toc-link:hover {
-  text-decoration: underline;
-}
-
-.document-body :is(h2, h3) {
-  scroll-margin-top: var(--space-md);
+  .research-doc-layout.has-toc > .research-document {
+    grid-column: 1;
+    grid-row: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

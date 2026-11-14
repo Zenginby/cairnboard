@@ -35,21 +35,27 @@ if (writable) Astro.response.headers.set('Referrer-Policy', 'same-origin');
 const id = result?.data.id;
 const items = writable ? view.items : [];
 const columns = writable ? view.columns.filter((column) => column.key !== result.data.column.key) : [];
+// The card dialog shows "Go to project" beside Close when the card belongs to a known project.
+const projectId = result?.data.project?.id;
+const projectHref = projectId ? `/projects/${encodeURIComponent(projectId)}` : undefined;
 ---
 <AppShell live="card project board" title={result?.data.content.title || t('type.card')} current="/board" surface>
   {writable && <meta slot="head" name="referrer" content="same-origin" />}
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`} message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'} status={Astro.response.status} /> : <>
     <ReadWarnings codes={result.warnings} />
+    {/* The board's card dialog imports this panel as its reading view; Edit there switches to the edit panel. */}
+    <div class="card-panel card-read-panel" data-card-panel data-card-panel-kind="read"
+      data-card-panel-title={t('type.card')} data-card-project-href={projectHref}>
     <ReadDocument item={result.data}>
-      {writable && <div slot="actions" class="card-actions">
-        <a href={`/cards/${id}/edit`}>{t('card.edit')}</a>
-        {columns.length > 0 && <form class="card-actions" method="post" action={`/cards/${id}/move`}>
+      {/* The board moves cards by dragging; this select is the keyboard and no-script way to move one. */}
+      {writable && <div slot="actions" class="card-actions card-page-actions">
+        <a class="action-link action-primary" href={`/cards/${id}/edit`} data-card-panel-edit>{t('card.edit')}</a>
+        {columns.length > 0 && <form class="card-move" method="post" action={`/cards/${id}/move`}>
           <input type="hidden" name="csrf" value={view.csrf} />
-          <label class="card-field" for="card-column">{t('card.column')}
-            <select id="card-column" name="column" required>
-              {columns.map((column) => <option value={column.key}>{column.label}</option>)}
-            </select>
-          </label>
+          <label class="sr-only" for="card-column">{t('card.column')}</label>
+          <select id="card-column" name="column" required>
+            {columns.map((column) => <option value={column.key}>{column.label}</option>)}
+          </select>
           <button class="action-link" type="submit">{t('card.move')}</button>
         </form>}
       </div>}
@@ -74,5 +80,6 @@ const columns = writable ? view.columns.filter((column) => column.key !== result
         </form>
       </div>}
     </ReadDocument>
+    </div>
   </>}
 </AppShell>

@@ -67,7 +67,7 @@ export function validate(config) {
       || (column.hidden !== undefined && typeof column.hidden !== 'boolean')) throw invalid();
     keys.add(column.key);
   }
-  // `hidden`: the web board leaves the column out (an archive); the CLI and card moves still use it.
+  // `hidden`: the web board leaves the column out (an archive, shown at /board?archive); the CLI and moves use it.
   if (config.columns.every((column) => column.hidden === true)) throw invalid();
   // `agents.project`: the project whose cards form the agent board instead of the owner's board.
   const { agents } = config;

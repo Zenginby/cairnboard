@@ -22,40 +22,61 @@ const priorities = ['urgent', 'important', 'low'];
 // A card may name its project by id or by reference.
 const chosen = (item) => item.id === project || item.ref === project;
 const knownProject = view?.projects?.some(chosen);
+const column = ready ? view.columns.find(({ key }) => key === card.data.column) : null;
+// The status lines a board card shows under its title; an empty field removes the line.
+const statusLines = [['now', 'card.now'], ['next', 'card.next'], ['needs', 'card.needs']];
 ---
 <AppShell title={t('card.edit')} current="/board" surface>
   <meta slot="head" name="referrer" content="same-origin" />
   {ready ? <><header class="screen-heading"><h1>{t('card.edit')}</h1></header>
-    <form class="card-form" method="post" action={`/cards/${card.id}`}>
-      <input type="hidden" name="csrf" value={view.csrf} />
-      <input type="hidden" name="revision" value={card.revision} />
-      <label class="card-field" for="card-title">{t('card.title')}
-        <input id="card-title" name="title" type="text" required maxlength="200" value={card.title} />
-      </label>
-      <label class="card-field" for="card-project">{t('card.project')}
-        <select id="card-project" name="project">
-          <option value="" selected={!project}>{t('card.noProject')}</option>
-          {project && !knownProject && <option value={project} selected>{project}</option>}
-          {view.projects.map((item) => <option value={chosen(item) ? project : item.id ?? item.ref}
-            selected={chosen(item)}>{item.title}</option>)}
-        </select>
-      </label>
-      <label class="card-field" for="card-priority">{t('card.priority')}
-        <select id="card-priority" name="priority">
-          <option value="" selected={!priority}>{t('card.noPriority')}</option>
-          {priority && !priorities.includes(priority) && <option value={priority} selected>{priority}</option>}
-          {priorities.map((value) => <option value={value}
-            selected={priority === value}>{t(`priority.${value}`)}</option>)}
-        </select>
-      </label>
-      <label class="card-field" for="card-body">{t('card.body')}
-        <textarea id="card-body" name="body" rows="20">{`\n${card.body}`}</textarea>
-      </label>
-      <div class="card-actions">
-        <button class="action-link" type="submit">{t('card.save')}</button>
-        <a href={`/cards/${card.id}`}>{t('card.backToCard')}</a>
-      </div>
-    </form></> : view?.state === 'notFound'
+    {/* The board's card dialog imports this panel; the page itself is the no-script fallback. */}
+    <div class="card-panel" data-card-panel data-card-panel-kind="edit" data-card-panel-title={t('card.edit')}>
+      <form class="card-form card-edit-form" method="post" action={`/cards/${card.id}`}>
+        <input type="hidden" name="csrf" value={view.csrf} />
+        <input type="hidden" name="revision" value={card.revision} />
+        <label class="sr-only" for="card-title">{t('card.title')}</label>
+        <input id="card-title" class="card-title-input" name="title" type="text" required maxlength="200"
+          value={card.title} placeholder={t('card.title')} autocomplete="off" />
+        {column && <p class="card-panel-meta">{t('card.column')}: <strong>{column.label}</strong></p>}
+        <div class="card-status-fields">
+          {statusLines.map(([name, label]) => <label class={`card-field card-status-field status-${name}`}
+            for={`card-${name}`}>
+            <span>{t(label)}</span>
+            {/* One line each, but long text wraps so it stays readable; line breaks are saved as spaces. */}
+            <textarea id={`card-${name}`} class="card-status-input" name={name} rows="1" maxlength="500"
+              placeholder={t(`card.${name}Placeholder`)}>{view.status[name]}</textarea>
+          </label>)}
+        </div>
+        <div class="card-field-row">
+          <label class="card-field" for="card-project">{t('card.project')}
+            <select id="card-project" name="project">
+              <option value="" selected={!project}>{t('card.noProject')}</option>
+              {project && !knownProject && <option value={project} selected>{project}</option>}
+              {view.projects.map((item) => <option value={chosen(item) ? project : item.id ?? item.ref}
+                selected={chosen(item)}>{item.title}</option>)}
+            </select>
+          </label>
+          <label class="card-field" for="card-priority">{t('card.priority')}
+            <select id="card-priority" name="priority">
+              <option value="" selected={!priority}>{t('card.noPriority')}</option>
+              {priority && !priorities.includes(priority) && <option value={priority} selected>{priority}</option>}
+              {priorities.map((value) => <option value={value}
+                selected={priority === value}>{t(`priority.${value}`)}</option>)}
+            </select>
+          </label>
+        </div>
+        <label class="card-field" for="card-body">{t('card.body')}
+          {/* The leading line break keeps a body that starts with a blank line: browsers drop the first one. */}
+          <textarea id="card-body" name="body" rows="10"
+            placeholder={t('card.bodyPlaceholder')}>{`\n${card.body}`}</textarea>
+          <span class="card-field-hint">{t('card.bodyHint')}</span>
+        </label>
+        <div class="card-actions card-panel-actions">
+          <button class="action-link action-primary" type="submit">{t('card.save')}</button>
+          <a class="action-link" href={`/cards/${card.id}`} data-card-panel-cancel>{t('card.backToCard')}</a>
+        </div>
+      </form>
+    </div></> : view?.state === 'notFound'
       ? <PageState title="error.notFoundTitle" message="error.notFoundBody" status={404} />
       : view ? <PageState title="state.notReadyTitle" message="state.notReadyBody" init />
         : <PageState title="card.errorTitle" message="card.errorBody" />}

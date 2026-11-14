@@ -105,14 +105,17 @@
 [data-theme="cam"] .research-page > .empty-copy,
 [data-theme="cam"] .search-page,
 [data-theme="cam"] .document,
-[data-theme="cam"] .page-frame > .card-form {
+[data-theme="cam"] .page-frame > .card-form,
+[data-theme="cam"] .page-frame > .card-panel:not(.card-read-panel) {
   padding: var(--space-lg);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-box);
 }
 
+/* The contents rail and the settings menu sit on the scene; they need the same surface as the boxes. */
 [data-theme="cam"] .document-sidebar,
+[data-theme="cam"] .page-frame .doc-toc,
 [data-theme="cam"] .warnings {
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -167,7 +170,9 @@
   [data-theme="cam"][data-glass="on"] .search-page,
   [data-theme="cam"][data-glass="on"] .document,
   [data-theme="cam"][data-glass="on"] .document-sidebar,
+  [data-theme="cam"][data-glass="on"] .page-frame .doc-toc,
   [data-theme="cam"][data-glass="on"] .page-frame > .card-form,
+  [data-theme="cam"][data-glass="on"] .page-frame > .card-panel:not(.card-read-panel),
   [data-theme="cam"][data-glass="on"] .warnings,
   [data-theme="cam"][data-glass="on"] .live-status:not(:empty) {
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -192,6 +197,15 @@
     background: var(--color-glass-card);
     border: var(--space-hairline) solid var(--color-glass-rim);
     box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box);
+  }
+
+  [data-theme="cam"][data-glass="on"] .board-drag-ghost {
+    background: var(--color-surface);
+    box-shadow: var(--shadow-box-raised);
+  }
+
+  [data-theme="cam"][data-glass="on"] .board-card-moved > .board-card {
+    background: var(--color-focus-bg);
   }
 
   [data-theme="cam"][data-glass="on"] .project-box {
@@ -274,6 +288,23 @@
   padding-inline-end: var(--space-md);
 }
 
+/* In the card dialog the reading view sits on the dialog itself, not on a second glass box. */
+[data-theme="cam"] .card-dialog .document {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* The drag copy follows the pointer from the viewport corner: the card rules above must neither make it relative
+   nor ease its transform, which would leave it trailing behind the pointer. */
+[data-theme="cam"] a.board-card.board-drag-ghost { position: fixed; transition: none; }
+
+/* A card with an Archive / Restore pill keeps its corner for that pill: no chevron, room after the title. */
+[data-theme="cam"] .has-card-quick a.board-card h3 { padding-inline-end: calc(var(--space-xl) * 2); }
+[data-theme="cam"] .has-card-quick a.board-card::after { display: none; }
+
 [data-theme="cam"] a.board-card::after {
   content: "";
   position: absolute;
@@ -291,8 +322,15 @@
     opacity var(--motion-duration-quick) var(--motion-ease-out);
 }
 
+/* The archive / restore pill sits on the card, so it lifts with it, and hovering the pill keeps the card lifted. */
+[data-theme="cam"] .card-quick {
+  transition: transform var(--motion-duration-quick) var(--motion-ease-out);
+}
+
 @media (hover: hover) and (pointer: fine) {
-  [data-theme="cam"] a.board-card:hover {
+  [data-theme="cam"] a.board-card:hover,
+  [data-theme="cam"] .has-card-quick:hover > a.board-card,
+  [data-theme="cam"] .has-card-quick:hover > .card-quick {
     transform: translateY(calc(var(--motion-distance-lift-card) * -1));
   }
 
@@ -564,7 +602,9 @@
     transition: none;
   }
 
-  [data-theme="cam"] a.board-card:hover {
+  [data-theme="cam"] a.board-card:hover,
+  [data-theme="cam"] .has-card-quick:hover > a.board-card,
+  [data-theme="cam"] .has-card-quick:hover > .card-quick {
     transform: none;
   }
 
@@ -593,7 +633,9 @@
   transition: none;
 }
 
-[data-theme="cam"][data-motion="less"] a.board-card:hover {
+[data-theme="cam"][data-motion="less"] a.board-card:hover,
+[data-theme="cam"][data-motion="less"] .has-card-quick:hover > a.board-card,
+[data-theme="cam"][data-motion="less"] .has-card-quick:hover > .card-quick {
   transform: none;
 }
 

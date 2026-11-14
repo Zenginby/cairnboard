@@ -164,6 +164,14 @@ function rebuild(ctx, path) {
   return connect(path, ctx);
 }
 
+// `PRAGMA quick_check` reads the whole database (about 0.2 s for a few MB), and a web request opens the index
+// several times. Each index file is checked once per process: a rebuilt index is a new file (rename) and is checked
+// again; `cairn doctor` still runs the full check on demand.
+const checkedFiles = new Set();
+const fileKey = (path) => {
+  try { const { dev, ino } = fs.statSync(path); return `${path}\0${dev}:${ino}`; } catch { return null; }
+};
+
 export function openIndex(ctx) {
   const path = indexLocation(ctx);
   const existed = fs.existsSync(path);
@@ -176,8 +184,12 @@ export function openIndex(ctx) {
       createSchema(index.db, ctx.schema);
       fs.chmodSync(path, 0o600);
     } else {
-      const check = index.db.prepare('PRAGMA quick_check').all();
-      replace = check.some((row) => row.quick_check !== 'ok');
+      const key = fileKey(path);
+      if (!key || !checkedFiles.has(key)) {
+        const check = index.db.prepare('PRAGMA quick_check').all();
+        replace = check.some((row) => row.quick_check !== 'ok');
+        if (!replace && key) checkedFiles.add(key);
+      }
       if (!replace) {
         const meta = index.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get();
         const values = meta ? Object.fromEntries(index.db.prepare('SELECT key, value FROM meta').all().map((row) => [row.key, row.value])) : {};
