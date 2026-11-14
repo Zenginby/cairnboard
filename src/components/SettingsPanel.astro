@@ -20,6 +20,7 @@ const lastState = lastAfter.every(Boolean) ? t('settings.on') : t('settings.off'
     </p>}
     <section id="settings-features" class="panel settings-features" aria-labelledby="settings-features-title">
       <h2 id="settings-features-title">{t('settings.features')}</h2>
+      <p class="panel-subtitle">{t('settings.features.about')}</p>
       <ul class="settings-list">
         {names.map((name) => {
           const on = view.features[name];
@@ -34,13 +35,15 @@ const lastState = lastAfter.every(Boolean) ? t('settings.on') : t('settings.off'
               <div class="settings-text">
                 <h3>{label(name)}</h3>
                 <p class="panel-subtitle">{t(`settings.${name}.about`)}</p>
-                {passive && <p class="panel-subtitle">{t('settings.needsTrail')}</p>}
+                {passive && <p class="settings-hint">{t('settings.needsTrail')}</p>}
               </div>
-              <p class="settings-state" data-state={on ? 'on' : 'off'}>{on ? t('settings.on') : t('settings.off')}</p>
-              <button type="submit" class="settings-switch" role="switch" aria-checked={String(on)}
-                disabled={passive} aria-label={`${label(name)}: ${action}`}>
-                <span class="settings-switch-track" aria-hidden="true"><span /></span>
-              </button>
+              <div class="settings-control">
+                <p class="settings-state" data-state={on ? 'on' : 'off'}>{on ? t('settings.on') : t('settings.off')}</p>
+                <button type="submit" class="settings-switch" role="switch" aria-checked={String(on)}
+                  disabled={passive} aria-label={`${label(name)}: ${action}`}>
+                  <span class="settings-switch-track" aria-hidden="true"><span /></span>
+                </button>
+              </div>
             </form>
           </li>;
         })}
@@ -48,17 +51,36 @@ const lastState = lastAfter.every(Boolean) ? t('settings.on') : t('settings.off'
     </section>
     <section id="settings-shadow" class="panel settings-shadow" aria-labelledby="settings-shadow-title">
       <h2 id="settings-shadow-title">{t('settings.shadowTitle')}</h2>
-      <p class="panel-subtitle">{t('settings.shadowAbout')}</p>
-      <p class="settings-facts">
-        {t('settings.shadowBlobs')}: {view.shadow.blobs} · {t('settings.shadowSize')}: {kib(view.shadow.bytes)}
-      </p>
-      <form method="post" action="/settings/clear-shadow">
-        <input type="hidden" name="csrf" value={view.csrf} />
-        <label class="settings-confirm">
-          <input type="checkbox" name="confirm" value="yes" /> {t('settings.shadowConfirm')}
-        </label>
-        <button type="submit" class="action-link">{t('settings.shadowClear')}</button>
-      </form>
+      <p class="panel-subtitle">{t('settings.shadowStoreAbout')}</p>
+      <ul class="settings-list">
+        <li class="settings-item settings-info">
+          <p class="settings-facts">
+            {t('settings.shadowBlobs')}: {view.shadow.blobs} · {t('settings.shadowSize')}: {kib(view.shadow.bytes)}
+          </p>
+        </li>
+      </ul>
+    </section>
+    <section id="settings-danger" class="panel settings-danger" aria-labelledby="settings-danger-title">
+      <h2 id="settings-danger-title">{t('settings.dangerTitle')}</h2>
+      <p class="panel-subtitle">{t('settings.dangerAbout')}</p>
+      <ul class="settings-list">
+        <li class="settings-item">
+          <form method="post" action="/settings/clear-shadow">
+            <input type="hidden" name="csrf" value={view.csrf} />
+            <div class="settings-text">
+              <h3>{t('settings.shadowClearTitle')}</h3>
+              <p class="panel-subtitle">{t('settings.shadowAbout')}</p>
+            </div>
+            <div class="settings-danger-actions">
+              <label class="settings-confirm">
+                <input type="checkbox" name="confirm" value="yes" />
+                <span>{t('settings.shadowConfirm')}</span>
+              </label>
+              <button type="submit" class="action-link">{t('settings.shadowClear')}</button>
+            </div>
+          </form>
+        </li>
+      </ul>
     </section>
     <p class="settings-last">{last
       ? <>{t('settings.lastChange')}: {lastFeatures} → {lastState} · {last.actor ?? t('settings.unknownActor')} ·

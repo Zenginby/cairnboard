@@ -279,19 +279,16 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.doesNotMatch(page.body, /<div class="app-tabs">[^]*?href="\/settings"[^]*?<\/nav>/u);
   assert.equal([...page.body.matchAll(/<form method="post" action="\/settings\/feature"/gu)].length, 4);
   assert.match(page.body, /<div class="settings" data-settings-panel>/u);
-  const navigation = page.body.match(/<nav class="settings-nav" aria-label="Ayarlar bölümleri">([^]*?)<\/nav>/u);
-  assert.ok(navigation, 'the page has labelled section navigation');
-  assert.deepEqual([...navigation[1].matchAll(/href="#([^"]+)"/gu)].map((match) => match[1]),
-    ['settings-look', 'settings-features', 'settings-shadow']);
-  for (const id of ['settings-look', 'settings-features', 'settings-shadow']) {
-    assert.equal([...page.body.matchAll(new RegExp(`id="${id}"`, 'gu'))].length, 1, 'unique anchor target');
+  assert.doesNotMatch(page.body, /settings-nav/u, 'the single-column layout has no side navigation');
+  for (const id of ['settings-look', 'settings-features', 'settings-shadow', 'settings-danger']) {
+    assert.equal([...page.body.matchAll(new RegExp(`id="${id}"`, 'gu'))].length, 1, 'unique section id');
   }
-  assert.match(page.body, /id="settings-look"><section[^>]*data-glass-choice hidden/u);
-  // The dialog imports only this subtree; page navigation and layout must stay outside it.
+  assert.match(page.body, /<section[^>]*id="settings-look"[^>]*data-glass-choice hidden/u);
+  // The dialog imports only this subtree; page layout and the dialog's own glass choice stay outside it.
   const panel = page.body.match(
     /<div class="settings" data-settings-panel>[^]*?<p class="settings-last">[^]*?<\/p>\s*<\/div>/u);
   assert.ok(panel);
-  assert.doesNotMatch(panel[0], /settings-layout|settings-content|settings-nav|data-glass-choice/u);
+  assert.doesNotMatch(panel[0], /settings-page|settings-nav|data-glass-choice/u);
   const forms = [...panel[0].matchAll(/<form method="post" action="([^"]+)">([^]*?)<\/form>/gu)];
   assert.equal(forms.length, 5, 'the dialog keeps the four feature forms and the clear form');
   assert.deepEqual(forms.slice(0, 4).map((form) => form[2].match(/name="name" value="([^"]+)"/u)[1]),
@@ -300,6 +297,7 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.match(forms[4][2], /<button type="submit" class="action-link">/u, 'clear remains secondary');
   assert.match(page.body, /<h2 id="settings-features-title">Özellikler<\/h2>/u);
   assert.match(page.body, /<h2 id="settings-shadow-title">Değişiklik izi deposu<\/h2>/u);
+  assert.match(page.body, /<h2 id="settings-danger-title">Tehlikeli işlemler<\/h2>/u);
   assert.equal([...page.body.matchAll(/<li class="settings-row">/gu)].length, 4);
   assert.equal([...page.body.matchAll(/role="switch" aria-checked="true"/gu)].length, 4);
   assert.doesNotMatch(page.body, /class="panel settings-row"/u);
