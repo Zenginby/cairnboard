@@ -37,7 +37,8 @@ test('server keeps process and socket use in its entry points', () => {
   const violations = [];
   for (const file of sources(join(repo, 'server'))) {
     const name = relative(repo, file).replaceAll('\\', '/');
-    const processAllowed = name === 'server/open-browser.mjs';
+    // start.mjs is the entry point: it runs the app build (`npm start` passes --build) before serving.
+    const processAllowed = ['server/open-browser.mjs', 'server/start.mjs'].includes(name);
     const socketsAllowed = ['server/listen.mjs', 'server/port.mjs'].includes(name);
     readFileSync(file, 'utf8').split(/\r?\n/u).forEach((line, i) => {
       const checked = socketsAllowed ? line.replace(/(['"`])(?:node:)?(?:http|net)\1/gu, "''") : line;
