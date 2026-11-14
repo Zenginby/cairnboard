@@ -27,8 +27,8 @@ may still change. The interface speaks the data folder's language, English or Tu
 
 - **Plain files.** Cards, notes and journal days are Markdown with frontmatter. Read them in any editor or Obsidian,
   back them up with Git.
-- **Built for agents.** A stable `--json` CLI with revisions, leases and exit codes, so an agent can claim a card,
-  tick its acceptance checks and close it without stepping on your edits.
+- **Built for agents.** A versioned `--json` envelope with revisions, leases and exit codes, so an agent can claim a
+  card, tick its acceptance checks and close it without stepping on your edits.
 - **One place for many projects.** A board, a wiki with backlinks, a journal and a separate agent board.
 - **Local only.** The server listens on loopback and every page needs a sign-in cookie; your data stays on your machine.
 
@@ -59,7 +59,8 @@ npm start
 only and opens your browser with a one-time sign-in link. Later, `node dist/cairn.mjs open` reopens a running
 instance (or `cairn open` after `npm link`).
 
-Already have an Obsidian vault? `cairn init --detect "./vault" --dry-run` previews how its folders would map,
+Already have an Obsidian vault? `node dist/cairn.mjs init --detect "./vault" --dry-run --actor owner`
+previews how its folders would map,
 without touching your notes. See [CLI](docs/cli.md).
 
 ## Use it with your agent
@@ -95,7 +96,7 @@ agent board, so agent work stays apart from yours.
 | --- | --- |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/home-dark.png"><img src="docs/images/home-light.png" alt="Home: workspace summary, journal calendar and project progress"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/card-dark.png"><img src="docs/images/card-light.png" alt="A card open in a dialog with its Now and Next lines"></picture> |
 | Home | Card |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/note-dark.png"><img src="docs/images/note-light.png" alt="A wiki note with a link to another note and its backlinks"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/journal-dark.png"><img src="docs/images/journal-light.png" alt="A journal day with two jobs, a decision and a discovery"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/note-dark.png"><img src="docs/images/note-light.png" alt="A wiki note with its project link and a backlink from another note"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/journal-dark.png"><img src="docs/images/journal-light.png" alt="A journal day with two jobs, a decision and a discovery"></picture> |
 | Wiki note | Journal |
 
 Screenshots use fictional data and are generated with `npm run screenshots`.

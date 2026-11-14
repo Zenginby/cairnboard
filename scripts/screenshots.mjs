@@ -32,6 +32,7 @@ const outDir = join(root, 'docs', 'images');
 const appDir = 'dist/app-shots';
 const scaleAt = process.argv.indexOf('--scale');
 const scale = scaleAt > 0 ? Number(process.argv[scaleAt + 1]) : 1;
+if (!(scale > 0)) throw new Error('Usage: npm run screenshots [-- --scale <number above 0>]');
 
 function signIn(port, key, instance) {
   const host = `${siteHost(key)}:${port}`;
@@ -101,7 +102,7 @@ async function main() {
       { name: 'card', path: '/board', click: 'Move secrets to the vault' },
       { name: 'agents', path: '/agents' },
       { name: 'home', path: '/' },
-      { name: 'note', path: `/notes/${byTitle('note', 'API error format')}` },
+      { name: 'note', path: `/notes/${byTitle('note', 'Release checklist')}` },
       { name: 'journal', path: `/journal/${demo.today}` },
     ];
 

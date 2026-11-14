@@ -109,7 +109,9 @@ test('only context-open failures become data-not-ready errors', async () => {
 
 test('Home dictionaries share keys and the language is chosen in one place', () => {
   assert.deepEqual(Object.keys(tr).sort(), Object.keys(en).sort());
-  assert.equal(uiLanguage(), 'tr');
+  const before = process.env.CAIRN_LANGUAGE;
+  delete process.env.CAIRN_LANGUAGE;
+  try { assert.equal(uiLanguage(), 'tr'); } finally { if (before !== undefined) process.env.CAIRN_LANGUAGE = before; }
   assert.equal(translate('shell.home'), tr['shell.home']);
   for (const value of [...Object.values(tr), ...Object.values(en)]) assert.ok(value.trim());
 });

@@ -28,7 +28,7 @@ ilerlemesini yazar ve yaptığını günlüğe kaydeder. Cairnboard ajan başlat
 
 - **Düz dosyalar.** Kartlar, notlar ve günlük günleri ön bilgili (frontmatter) Markdown dosyalarıdır. Her
   düzenleyicide ya da Obsidian'da açılır, Git ile yedeklenir.
-- **Ajanlar için yapıldı.** Sürüm numarası, kira süresi ve çıkış kodlarıyla kararlı bir `--json` komut satırı; ajan
+- **Ajanlar için yapıldı.** Sürüm numarası, kira süresi ve çıkış kodlarıyla sürümlü bir `--json` çıktısı; ajan
   kartı alır, kabul ölçütlerini işaretler ve sizin düzenlemelerinizi ezmeden kapatır.
 - **Birçok proje tek yerde.** Pano, geri bağlantılı wiki, günlük ve ayrı bir ajan panosu.
 - **Yalnız yerel.** Sunucu yalnız bu bilgisayardan erişilir, her sayfa oturum çerezi ister; verileriniz
@@ -61,7 +61,8 @@ npm start
 tarayıcınızı tek kullanımlık bir giriş bağlantısıyla açar. Sonra çalışan sunucuyu `node dist/cairn.mjs open` ile
 yeniden açarsınız (`npm link` yaptıysanız `cairn open`).
 
-Var olan bir Obsidian kasanız mı var? `cairn init --detect "./kasa" --dry-run` klasörlerin nasıl eşleneceğini
+Var olan bir Obsidian kasanız mı var? `node dist/cairn.mjs init --detect "./kasa" --dry-run --actor owner`
+klasörlerin nasıl eşleneceğini
 notlarınıza dokunmadan gösterir. Bkz. [CLI](docs/tr/cli.md).
 
 ## Ajanınızla kullanın
@@ -97,7 +98,7 @@ ayrı bir ajan panosuna taşınır; ajan işi sizinkinden ayrı durur.
 | --- | --- |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/home-dark.png"><img src="docs/images/home-light.png" alt="Ana sayfa: çalışma alanı özeti, günlük takvimi ve proje ilerlemesi"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/card-dark.png"><img src="docs/images/card-light.png" alt="Pencerede açılmış bir kart, Şimdi ve Sonra satırlarıyla"></picture> |
 | Ana sayfa | Kart |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/note-dark.png"><img src="docs/images/note-light.png" alt="Başka bir nota bağlantı veren wiki notu ve geri bağlantıları"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/journal-dark.png"><img src="docs/images/journal-light.png" alt="İki işin, bir kararın ve bir bulgunun yazılı olduğu günlük günü"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/note-dark.png"><img src="docs/images/note-light.png" alt="Proje bağlantısı ve başka bir nottan gelen geri bağlantısıyla bir wiki notu"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/journal-dark.png"><img src="docs/images/journal-light.png" alt="İki işin, bir kararın ve bir bulgunun yazılı olduğu günlük günü"></picture> |
 | Wiki notu | Günlük |
 
 Görseller kurgusal veriyle `npm run screenshots` komutuyla üretilir.

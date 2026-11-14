@@ -61,7 +61,8 @@ export function buildDemoData(dataDir, home) {
   run(['note', 'add', '--title', 'Release checklist', '--project', lumen, '--body', '-'], 'owner',
     'Steps before a release of [[Lumen site]].\n\n1. Run the link check.\n2. Build the docs.\n3. Tag and push.\n');
   run(['note', 'add', '--title', 'API error format', '--project', atlas, '--body', '-'], 'owner',
-    'Every error returns `{ "error": { "code", "message" } }`. See [[Release checklist]] for the release steps.\n');
+    'Every error returns `{ "error": { "code", "message" } }`.'
+    + ' See [[release-checklist|Release checklist]] for the release steps.\n');
 
   // One date source for entries and the caller's journal page, so a run near midnight cannot split them.
   const day = (back) => new Date(Date.now() - back * 86400000).toISOString().slice(0, 10);

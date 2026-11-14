@@ -27,7 +27,7 @@ export function relativeTime(iso, { now = Date.now(), locale = 'tr' } = {}) {
       break;
     }
   }
-  const full = new Date(time).toLocaleString(locale === 'tr' ? 'tr-TR' : 'en-GB',
+  const full = new Date(time).toLocaleString(locale === 'tr' ? 'tr-TR' : 'en-US',
     { dateStyle: 'long', timeStyle: 'short' });
   return { iso, text, full };
 }

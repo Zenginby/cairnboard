@@ -6,6 +6,8 @@
 - Run `npm run check:style` to check changed lines against the Git base (override with `-- --base <ref>`).
 - Tests: `npm test` (Node built-in test runner, no dependencies).
 - Prototype acceptance: `npm run design:check` (requires a browser; see [Checking the prototypes](design/README.md#checking-the-prototypes)).
+- README screenshots: `npm run screenshots` rewrites `docs/images/` from fictional data (dates change, so run it only
+  when the UI changed). It needs Playwright's Chromium: `npx playwright-core install chromium`, or `CAIRN_BROWSER_PATH`.
 - Never put personal data (names, e-mail addresses, home paths, machine names) into files, commit messages,
   branch names or pull request descriptions. Use `example.com` and invented names in tests.
 
