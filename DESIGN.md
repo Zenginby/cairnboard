@@ -410,4 +410,7 @@ front matter so their contrast is checked in every theme.
 - Do keep focus rings visible: 2px ring, 2px offset, at least 3:1 against the surface.
 - Don't animate layout properties (width, height, top, left) or start anything from `scale(0)`.
 - Don't put a box inside a box on document pages.
-- Don't add theme-specific shapes or motion; a theme is colors and shadows only.
+- Don't add theme-specific shapes or motion; a theme is colors and shadows only. The one exception is Cam's
+  `src/styles/glass.css`: the scene layer, backdrop blur and edge light, glass bands that keep text off the scene,
+  and its chevron links. It switches glass on only with `data-glass="on"` (set by `theme-boot.js` unless the reader
+  asks for reduced transparency or more contrast) and where backdrop blur is supported.

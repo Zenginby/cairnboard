@@ -44,7 +44,7 @@
   image-rendering: pixelated;
 }
 
-/* Outside the glass conditions below, all surfaces stay opaque (fallback tokens). */
+/* Without data-glass="on" (set by theme-boot.js) or backdrop blur, surfaces keep the opaque fallback tokens. */
 [data-theme="cam"] .app-shell,
 [data-theme="cam"] .surface-page .app-shell {
   background: var(--color-material);
@@ -120,131 +120,129 @@
 }
 
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  @media (prefers-reduced-transparency: no-preference) and (not (prefers-contrast: more)) {
-    [data-theme="cam"] {
-      --color-surface: var(--color-glass-surface);
-      --color-surface-inset: var(--color-glass-surface-inset);
-      --color-surface-inset-2: var(--color-glass-surface-inset-2);
-      --color-material: var(--color-glass-material);
-      --color-pill-bg: var(--color-glass-pill-bg);
-      --color-pill-indicator: var(--color-glass-pill-indicator);
-    }
+  :root[data-theme="cam"][data-glass="on"] {
+    --color-surface: var(--color-glass-surface);
+    --color-surface-inset: var(--color-glass-surface-inset);
+    --color-surface-inset-2: var(--color-glass-surface-inset-2);
+    --color-material: var(--color-glass-material);
+    --color-pill-bg: var(--color-glass-pill-bg);
+    --color-pill-indicator: var(--color-glass-pill-indicator);
+  }
 
-    [data-theme="cam"] .app-shell,
-    [data-theme="cam"] .surface-page .app-shell {
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-      border-bottom: var(--space-hairline) solid var(--color-glass-rim);
-      box-shadow:
-        inset 0 var(--space-hairline) 0 var(--color-glass-highlight),
-        0 var(--space-hairline) 0 var(--color-line);
-    }
+  [data-theme="cam"][data-glass="on"] .app-shell,
+  [data-theme="cam"][data-glass="on"] .surface-page .app-shell {
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border-bottom: var(--space-hairline) solid var(--color-glass-rim);
+    box-shadow:
+      inset 0 var(--space-hairline) 0 var(--color-glass-highlight),
+      0 var(--space-hairline) 0 var(--color-line);
+  }
 
-    [data-theme="cam"] .app-tabs,
-    [data-theme="cam"] .shell-search,
-    [data-theme="cam"] .shell-icon,
-    [data-theme="cam"] .theme-toggle {
-      border: var(--space-hairline) solid var(--color-line);
-      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight);
-    }
+  [data-theme="cam"][data-glass="on"] .app-tabs,
+  [data-theme="cam"][data-glass="on"] .shell-search,
+  [data-theme="cam"][data-glass="on"] .shell-icon,
+  [data-theme="cam"][data-glass="on"] .theme-toggle {
+    border: var(--space-hairline) solid var(--color-line);
+    box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight);
+  }
 
-    [data-theme="cam"] .panel,
-    [data-theme="cam"] .board-column,
-    [data-theme="cam"] .screen-heading,
-    [data-theme="cam"] .board-toolbar,
-    [data-theme="cam"] .projects-group-title,
-    [data-theme="cam"] .agents-empty,
-    [data-theme="cam"] .journal-filters,
-    [data-theme="cam"] .journal-preview,
-    [data-theme="cam"] .journal-prompt,
-    [data-theme="cam"] .journal-day-layout .empty-copy,
-    [data-theme="cam"] .research-header,
-    [data-theme="cam"] .research-toolbar,
-    [data-theme="cam"] .research-summary,
-    [data-theme="cam"] .research-list,
-    [data-theme="cam"] .research-page .empty-state,
-    [data-theme="cam"] .research-page > .empty-copy,
-    [data-theme="cam"] .settings-last,
-    [data-theme="cam"] .search-page,
-    [data-theme="cam"] .document,
-    [data-theme="cam"] .document-sidebar,
-    [data-theme="cam"] .page-frame > .card-form,
-    [data-theme="cam"] .warnings,
-    [data-theme="cam"] .live-status:not(:empty) {
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-      border: var(--space-hairline) solid var(--color-glass-rim);
-      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box);
-    }
+  [data-theme="cam"][data-glass="on"] .panel,
+  [data-theme="cam"][data-glass="on"] .board-column,
+  [data-theme="cam"][data-glass="on"] .screen-heading,
+  [data-theme="cam"][data-glass="on"] .board-toolbar,
+  [data-theme="cam"][data-glass="on"] .projects-group-title,
+  [data-theme="cam"][data-glass="on"] .agents-empty,
+  [data-theme="cam"][data-glass="on"] .journal-filters,
+  [data-theme="cam"][data-glass="on"] .journal-preview,
+  [data-theme="cam"][data-glass="on"] .journal-prompt,
+  [data-theme="cam"][data-glass="on"] .journal-day-layout .empty-copy,
+  [data-theme="cam"][data-glass="on"] .research-header,
+  [data-theme="cam"][data-glass="on"] .research-toolbar,
+  [data-theme="cam"][data-glass="on"] .research-summary,
+  [data-theme="cam"][data-glass="on"] .research-list,
+  [data-theme="cam"][data-glass="on"] .research-page .empty-state,
+  [data-theme="cam"][data-glass="on"] .research-page > .empty-copy,
+  [data-theme="cam"][data-glass="on"] .settings-last,
+  [data-theme="cam"][data-glass="on"] .search-page,
+  [data-theme="cam"][data-glass="on"] .document,
+  [data-theme="cam"][data-glass="on"] .document-sidebar,
+  [data-theme="cam"][data-glass="on"] .page-frame > .card-form,
+  [data-theme="cam"][data-glass="on"] .warnings,
+  [data-theme="cam"][data-glass="on"] .live-status:not(:empty) {
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: var(--space-hairline) solid var(--color-glass-rim);
+    box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box);
+  }
 
-    [data-theme="cam"] .search-dialog {
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-      border: var(--space-hairline) solid var(--color-glass-rim);
-      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box-raised);
-    }
+  [data-theme="cam"][data-glass="on"] .search-dialog {
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: var(--space-hairline) solid var(--color-glass-rim);
+    box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box-raised);
+  }
 
-    [data-theme="cam"] .board-column {
-      background: var(--color-glass-column);
-    }
+  [data-theme="cam"][data-glass="on"] .board-column {
+    background: var(--color-glass-column);
+  }
 
-    /* Board cards sit on the blurred column with no backdrop-filter of their own. */
-    [data-theme="cam"] .board-card {
-      background: var(--color-glass-card);
-      border: var(--space-hairline) solid var(--color-glass-rim);
-      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box);
-    }
+  /* Board cards sit on the blurred column with no backdrop-filter of their own. */
+  [data-theme="cam"][data-glass="on"] .board-card {
+    background: var(--color-glass-card);
+    border: var(--space-hairline) solid var(--color-glass-rim);
+    box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box);
+  }
 
-    [data-theme="cam"] .project-box {
-      background:
-        linear-gradient(
-          180deg,
-          color-mix(in srgb, var(--project-tone) var(--project-wash-strength), transparent),
-          transparent calc(var(--space-lg) * 4)
-        ),
-        var(--color-surface);
-    }
-
-    [data-theme="cam"] .project-cover {
-      background: linear-gradient(
+  [data-theme="cam"][data-glass="on"] .project-box {
+    background:
+      linear-gradient(
+        180deg,
         color-mix(in srgb, var(--project-tone) var(--project-wash-strength), transparent),
-        color-mix(in srgb, var(--project-tone) var(--project-wash-strength), transparent) 35%,
-        var(--color-surface-inset)
-      );
-    }
+        transparent calc(var(--space-lg) * 4)
+      ),
+      var(--color-surface);
+  }
 
-    /* Keep foreground labels opaque on dark/ink controls when --color-surface is translucent. */
-    [data-theme="cam"] .project-go,
-    [data-theme="cam"] .picker-save,
-    [data-theme="cam"] .board-filter-pill[aria-pressed="true"],
-    [data-theme="cam"] .journal-chip[aria-pressed="true"],
-    [data-theme="cam"] button.journal-day[aria-pressed="true"] {
-      color: var(--color-on-accent);
-    }
+  [data-theme="cam"][data-glass="on"] .project-cover {
+    background: linear-gradient(
+      color-mix(in srgb, var(--project-tone) var(--project-wash-strength), transparent),
+      color-mix(in srgb, var(--project-tone) var(--project-wash-strength), transparent) 35%,
+      var(--color-surface-inset)
+    );
+  }
 
-    [data-theme="cam"] .settings-switch-track > span {
-      background: var(--color-on-accent);
-    }
+  /* Keep foreground labels opaque on dark/ink controls when --color-surface is translucent. */
+  [data-theme="cam"][data-glass="on"] .project-go,
+  [data-theme="cam"][data-glass="on"] .picker-save,
+  [data-theme="cam"][data-glass="on"] .board-filter-pill[aria-pressed="true"],
+  [data-theme="cam"][data-glass="on"] .journal-chip[aria-pressed="true"],
+  [data-theme="cam"][data-glass="on"] button.journal-day[aria-pressed="true"] {
+    color: var(--color-on-accent);
+  }
 
-    [data-theme="cam"] .action-link,
-    [data-theme="cam"] .board-filter-pill,
-    [data-theme="cam"] .journal-chip,
-    [data-theme="cam"] .research-type-btn {
-      border: var(--space-hairline) solid var(--color-line);
-      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight);
-    }
+  [data-theme="cam"][data-glass="on"] .settings-switch-track > span {
+    background: var(--color-on-accent);
+  }
 
-    [data-theme="cam"] .board-filter-pill[aria-pressed="true"],
-    [data-theme="cam"] .journal-chip[aria-pressed="true"] {
-      border-color: transparent;
-      box-shadow: var(--shadow-indicator);
-    }
+  [data-theme="cam"][data-glass="on"] .action-link,
+  [data-theme="cam"][data-glass="on"] .board-filter-pill,
+  [data-theme="cam"][data-glass="on"] .journal-chip,
+  [data-theme="cam"][data-glass="on"] .research-type-btn {
+    border: var(--space-hairline) solid var(--color-line);
+    box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight);
+  }
 
-    @media (hover: hover) and (pointer: fine) {
-      [data-theme="cam"] .project-box:has(.project-cover-link):hover,
-      [data-theme="cam"] a.board-card:hover {
-        box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box-raised);
-      }
+  [data-theme="cam"][data-glass="on"] .board-filter-pill[aria-pressed="true"],
+  [data-theme="cam"][data-glass="on"] .journal-chip[aria-pressed="true"] {
+    border-color: transparent;
+    box-shadow: var(--shadow-indicator);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    [data-theme="cam"][data-glass="on"] .project-box:has(.project-cover-link):hover,
+    [data-theme="cam"][data-glass="on"] a.board-card:hover {
+      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box-raised);
     }
   }
 }
@@ -535,7 +533,6 @@
 [data-theme="cam"] .panel h2 > a:focus-visible {
   outline: var(--space-2xs) solid var(--color-focus);
   outline-offset: var(--space-2xs);
-  border-radius: var(--radius-xs);
 }
 
 [data-theme="cam"] .action-link:focus-visible,
