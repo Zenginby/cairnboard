@@ -18,7 +18,7 @@ const lastState = lastAfter.every(Boolean) ? t('settings.on') : t('settings.off'
     {saved && <p class="settings-saved panel" role="status">
       {t('settings.saved')}: {saved === 'shadow' ? t('settings.shadowTitle') : label(saved)}
     </p>}
-    <section class="panel settings-features" aria-labelledby="settings-features-title">
+    <section id="settings-features" class="panel settings-features" aria-labelledby="settings-features-title">
       <h2 id="settings-features-title">{t('settings.features')}</h2>
       <ul class="settings-list">
         {names.map((name) => {
@@ -46,7 +46,7 @@ const lastState = lastAfter.every(Boolean) ? t('settings.on') : t('settings.off'
         })}
       </ul>
     </section>
-    <section class="panel settings-shadow" aria-labelledby="settings-shadow-title">
+    <section id="settings-shadow" class="panel settings-shadow" aria-labelledby="settings-shadow-title">
       <h2 id="settings-shadow-title">{t('settings.shadowTitle')}</h2>
       <p class="panel-subtitle">{t('settings.shadowAbout')}</p>
       <p class="settings-facts">
