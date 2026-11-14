@@ -1,0 +1,55 @@
+---
+// Reusable "On this page" panel: a sticky side column on wide screens, a collapsed <details> on narrow ones.
+// Behaviour (scroll-spy, smooth scroll) comes from src/scripts/doc-toc.js; without it the links are plain anchors.
+import { t } from '../i18n/index.mjs';
+import '../styles/doc-toc.css';
+
+interface Entry { id: string; text: string; level?: number }
+interface Group { label: string; items: Entry[] }
+interface Props {
+  toc?: Entry[];
+  groups?: Group[];
+  title?: string;
+  /** CSS selector of the scrolling element (e.g. a dialog body); the window when omitted. */
+  root?: string;
+}
+
+const { toc = [], groups = [], title = t('docToc.title'), root } = Astro.props;
+const flat = toc.filter((entry) => entry && entry.id && entry.text);
+const grouped = groups
+  .map((group) => ({ ...group, items: (group.items ?? []).filter((entry) => entry && entry.id && entry.text) }))
+  .filter((group) => group.items.length);
+const hasEntries = flat.length > 0 || grouped.length > 0;
+---
+
+{hasEntries && (
+  <nav class="doc-toc" aria-label={title} data-doc-toc data-doc-toc-root={root}>
+    <details class="doc-toc-details" data-doc-toc-details>
+      <summary class="doc-toc-summary">{title}</summary>
+      <div class="doc-toc-body">
+        <h2 class="doc-toc-title" aria-hidden="true">{title}</h2>
+        {flat.length > 0 && (
+          <ul class="doc-toc-list">
+            {flat.map((entry) => (
+              <li class="doc-toc-item" data-level={String(entry.level ?? 2)}>
+                <a class="doc-toc-link" href={`#${entry.id}`}>{entry.text}</a>
+              </li>
+            ))}
+          </ul>
+        )}
+        {grouped.map((group) => (
+          <div class="doc-toc-group">
+            <h3 class="doc-toc-group-label">{group.label}</h3>
+            <ul class="doc-toc-list">
+              {group.items.map((entry) => (
+                <li class="doc-toc-item" data-level={String(entry.level ?? 2)}>
+                  <a class="doc-toc-link" href={`#${entry.id}`}>{entry.text}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </details>
+  </nav>
+)}

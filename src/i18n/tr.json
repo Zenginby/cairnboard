@@ -75,6 +75,7 @@
   "board.moveAnnouncement": "{title} → {column}",
   "board.empty": "Bu sütunda kartın yok.",
   "board.errorTitle": "Pano yüklenemedi",
+  "docToc.title": "Bu sayfada",
   "document.assignee": "Atanan",
   "document.updated": "Güncellendi",
   "document.empty": "Bu sayfanın içeriği boş.",

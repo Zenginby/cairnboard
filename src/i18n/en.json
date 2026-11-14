@@ -75,6 +75,7 @@
   "board.moveAnnouncement": "{title} → {column}",
   "board.empty": "You have no cards in this column.",
   "board.errorTitle": "Board could not be loaded",
+  "docToc.title": "On this page",
   "document.assignee": "Assignee",
   "document.updated": "Updated",
   "document.empty": "This page has no content.",

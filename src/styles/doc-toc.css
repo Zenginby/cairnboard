@@ -1,0 +1,132 @@
+/* "On this page" panel (src/components/DocToc.astro); all values use design tokens. */
+
+.doc-toc {
+  min-width: 0;
+  font-size: var(--font-small-size);
+}
+
+.doc-toc-details {
+  border: var(--space-hairline) solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-inset);
+}
+
+.doc-toc-summary {
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text-2);
+  font-size: var(--font-label-size);
+  font-weight: var(--font-label-weight);
+  cursor: pointer;
+}
+
+.doc-toc-summary:focus-visible {
+  outline: var(--space-2xs) solid var(--color-focus);
+  outline-offset: var(--space-2xs);
+  border-radius: var(--radius-sm);
+}
+
+.doc-toc-body {
+  padding: 0 var(--space-md) var(--space-12);
+}
+
+.doc-toc-title {
+  display: none;
+  margin: 0 0 var(--space-sm);
+  color: var(--color-text-3);
+  font-size: var(--font-label-size);
+  font-weight: var(--font-label-weight);
+  line-height: var(--font-label-line-height);
+}
+
+.doc-toc-group + .doc-toc-group,
+.doc-toc-list + .doc-toc-group {
+  margin-top: var(--space-12);
+}
+
+.doc-toc-group-label {
+  margin: 0 0 var(--space-xs);
+  color: var(--color-text-3);
+  font-size: var(--font-caption-size);
+  font-weight: var(--font-label-weight);
+}
+
+.doc-toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-toc-item[data-level='3'] {
+  padding-inline-start: var(--space-12);
+}
+
+.doc-toc-link {
+  display: block;
+  padding: var(--space-xs) var(--space-sm);
+  border-inline-start: var(--space-2xs) solid transparent;
+  color: var(--color-text-2);
+  line-height: var(--font-small-line-height);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: color var(--motion-duration-quick) var(--motion-ease-out),
+    border-color var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+.doc-toc-link:hover {
+  color: var(--color-text);
+}
+
+.doc-toc-link[aria-current='true'] {
+  border-inline-start-color: var(--color-link);
+  color: var(--color-link);
+  font-weight: var(--font-label-weight);
+}
+
+@media (min-width: 64rem) {
+  .doc-toc {
+    position: sticky;
+    top: calc(var(--space-header-height) + var(--space-md));
+    max-height: calc(100vh - var(--space-header-height) - var(--space-md) * 2);
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .doc-toc-details {
+    border: 0;
+    background: none;
+  }
+
+  /* doc-toc.js opens the panel on wide screens; without it the summary stays as a toggle. */
+  .doc-toc-details[open] > .doc-toc-summary {
+    display: none;
+  }
+
+  .doc-toc-body {
+    padding: 0;
+  }
+
+  .doc-toc-title {
+    display: block;
+    padding-inline-start: var(--space-sm);
+  }
+
+  .doc-toc-list {
+    border-inline-start: var(--space-hairline) solid var(--color-line);
+  }
+
+  .doc-toc-link {
+    margin-inline-start: calc(var(--space-hairline) * -1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-toc-link {
+    transition: none;
+  }
+}
+
+[data-motion='less'] .doc-toc-link {
+  transition: none;
+}

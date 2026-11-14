@@ -3,6 +3,7 @@ import AppShell from '../../layouts/AppShell.astro';
 import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
 import ResearchMeta from '../../components/ResearchMeta.astro';
+import DocToc from '../../components/DocToc.astro';
 import { language, t } from '../../i18n/index.mjs';
 import { researchTypeLabel } from '../../scripts/research-filter.js';
 import '../../styles/research.css';
@@ -58,42 +59,35 @@ const body = doc?.content?.body ?? '';
   ) : (
     <>
       <ReadWarnings codes={result?.warnings} />
-      <div class="document-layout">
-      <article class="document">
-        <a class="research-back" href="/research">&larr; {t('research.back')}</a>
-        <h1 class="document-heading">{doc.content.title || t('home.untitled')}</h1>
-
-        <ResearchMeta
-          typeLabel={typeLabel}
-          dateLabel={dateLabel}
-          dateIso={dateIso}
-          project={doc.project ?? null}
-          source={source}
-          tags={tags}
-        />
-
-        {toc.length >= 3 && (
-          <nav class="research-toc" aria-label={t('research.toc')}>
-            <h2 class="research-toc-title">{t('research.toc')}</h2>
-            <ul class="research-toc-list">
-              {toc.map((entry) => (
-                <li class="research-toc-item" data-level={String(entry.level)}>
-                  <a class="research-toc-link" href={`#${entry.id}`}>{entry.text}</a>
-                </li>
-              ))}
-            </ul>
-          </nav>
+      <div class={toc.length ? 'research-doc-layout has-toc' : 'research-doc-layout'}>
+        {toc.length > 0 && (
+          <div class="research-toc">
+            <DocToc toc={toc} title={t('docToc.title')} />
+          </div>
         )}
+        <article class="document research-document">
+          <a class="research-back" href="/research">&larr; {t('research.back')}</a>
+          <h1 class="document-heading">{doc.content.title || t('home.untitled')}</h1>
 
-        {doc.content.html !== null ? (
-          <div class="document-body" set:html={doc.content.html} />
-        ) : body.trim() ? (
-          <pre class="plain-body">{body}</pre>
-        ) : (
-          <p class="empty-copy">{t('document.empty')}</p>
-        )}
-      </article>
+          <ResearchMeta
+            typeLabel={typeLabel}
+            dateLabel={dateLabel}
+            dateIso={dateIso}
+            project={doc.project ?? null}
+            source={source}
+            tags={tags}
+          />
+
+          {doc.content.html !== null ? (
+            <div class="document-body" set:html={doc.content.html} />
+          ) : body.trim() ? (
+            <pre class="plain-body">{body}</pre>
+          ) : (
+            <p class="empty-copy">{t('document.empty')}</p>
+          )}
+        </article>
       </div>
     </>
   )}
+  <script src="../../scripts/doc-toc.js"></script>
 </AppShell>
