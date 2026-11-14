@@ -36,6 +36,22 @@ for (const item of items) if (item.kind) kindCounts.set(item.kind, (kindCounts.g
 const kinds = [...kindCounts].sort((a, b) => collator.compare(a[0], b[0]));
 // "Unused" only makes sense when some snapshot carries usage counts.
 const hasUsage = items.some((item) => item.uses);
+const undescribedCount = items.filter((item) => !item.description).length;
+const unusedCount = items.filter((item) => item.uses && item.uses.count === 0).length;
+const slugify = (value: string) => value.trim().toLowerCase().replace(/\s+/gu, '-');
+const seenIds = new Set<string>();
+const rowId = (item: Tool) => {
+  const base = slugify(item.name);
+  let candidate = base;
+  if (seenIds.has(candidate) && item.kind) candidate = `${base}-${slugify(item.kind)}`;
+  let suffix = 2;
+  while (seenIds.has(candidate)) {
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  seenIds.add(candidate);
+  return candidate;
+};
 const external = (link: string) => link.startsWith('http');
 const summary = (n: number) => (n === 1 ? t('tools.countSingle') : t('tools.count').replace('{n}', String(n)));
 ---
@@ -94,11 +110,13 @@ const summary = (n: number) => (n === 1 ? t('tools.countSingle') : t('tools.coun
               </div>
               <div class="research-types" role="group" aria-label={t('tools.filterMore')}>
                 <button type="button" class="research-type-btn" data-filter-flag="undescribed" aria-pressed="false">
-                  {t('tools.undescribed')}
+                  {t('tools.undescribed')}{' '}
+                  <span class="research-type-count" data-flag-count="undescribed">{undescribedCount}</span>
                 </button>
                 {hasUsage && (
                   <button type="button" class="research-type-btn" data-filter-flag="unused" aria-pressed="false">
-                    {t('tools.unused')}
+                    {t('tools.unused')}{' '}
+                    <span class="research-type-count" data-flag-count="unused">{unusedCount}</span>
                   </button>
                 )}
               </div>
@@ -111,8 +129,9 @@ const summary = (n: number) => (n === 1 ? t('tools.countSingle') : t('tools.coun
 
             <ul class="research-list" data-tools-list>
               {items.map((item) => (
-                <li class="research-row tools-row" data-tool-row data-name={item.name} data-kind={item.kind ?? ''}
-                  data-described={item.description ? '1' : '0'}
+                <li class="research-row tools-row" id={rowId(item)} data-tool-row data-name={item.name}
+                  data-description={item.description ?? ''} data-project={item.project ?? ''}
+                  data-kind={item.kind ?? ''} data-described={item.description ? '1' : '0'}
                   data-used={item.uses ? (item.uses.count ? '1' : '0') : ''}>
                   <div class="research-row-title">
                     {item.link ? (
@@ -125,7 +144,18 @@ const summary = (n: number) => (n === 1 ? t('tools.countSingle') : t('tools.coun
                   {item.description && <p class="tools-description">{item.description}</p>}
                   <div class="research-row-meta">
                     {item.kind && <span class="chip">{item.kind}</span>}
-                    {item.machines.map((machine) => <span class="research-tag">{machine}</span>)}
+                    {machines.map((m) => {
+                      const installed = item.machines.includes(m.machine);
+                      return (
+                        <span class={`research-tag tools-machine-tag ${installed ? 'is-installed' : 'is-absent'}`}>
+                          {m.machine}{' '}
+                          <span aria-hidden="true">{installed ? '✓' : '—'}</span>{' '}
+                          <span class="sr-only">
+                            {installed ? t('tools.machineInstalled') : t('tools.machineNotInstalled')}
+                          </span>
+                        </span>
+                      );
+                    })}
                     {item.cost && <span class="research-tag">{item.cost}</span>}
                     {item.profile && (
                       <span class="research-tag">{t('tools.profile').replace('{p}', item.profile)}</span>
