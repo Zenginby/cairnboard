@@ -73,6 +73,10 @@ function initToolsFilter() {
       const badge = btn.querySelector('[data-flag-count]');
       if (badge && key) badge.textContent = String(result.flagCounts[key] ?? 0);
     }
+    // A kind group with no visible row hides its heading too.
+    for (const group of list.querySelectorAll('[data-tool-group]')) {
+      group.classList.toggle('hidden', !group.querySelector('[data-tool-row]:not(.hidden)'));
+    }
     page.querySelector('[data-tools-empty-filtered]')?.classList.toggle('hidden', result.total > 0);
     const summary = page.querySelector('[data-tools-summary]');
     if (summary) {

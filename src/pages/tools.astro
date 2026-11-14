@@ -52,6 +52,19 @@ const rowId = (item: Tool) => {
   seenIds.add(candidate);
   return candidate;
 };
+const shortFormat = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const formatShort = (iso: string | null) => {
+  if (!iso) return null;
+  const parsed = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
+  return Number.isNaN(parsed.getTime()) ? null : shortFormat.format(parsed);
+};
+// Rows are grouped by kind (kind-less tools last, as "Other"); ids are assigned in source order so anchors stay stable.
+const rowsWithId = items.map((item) => ({ item, id: rowId(item) }));
+const groups: Array<{ label: string; rows: typeof rowsWithId }> = kinds.map(([kind]) => (
+  { label: kind, rows: rowsWithId.filter((row) => row.item.kind === kind) }));
+const noKind = rowsWithId.filter((row) => !row.item.kind);
+if (noKind.length > 0) groups.push({ label: t('tools.otherKind'), rows: noKind });
+const columnCount = 4 + machines.length;
 const external = (link: string) => link.startsWith('http');
 const summary = (n: number) => (n === 1 ? t('tools.countSingle') : t('tools.count').replace('{n}', String(n)));
 ---
@@ -127,52 +140,78 @@ const summary = (n: number) => (n === 1 ? t('tools.countSingle') : t('tools.coun
               {summary(items.length)}
             </p>
 
-            <ul class="research-list" data-tools-list>
-              {items.map((item) => (
-                <li class="research-row tools-row" id={rowId(item)} data-tool-row data-name={item.name}
-                  data-description={item.description ?? ''} data-project={item.project ?? ''}
-                  data-kind={item.kind ?? ''} data-described={item.description ? '1' : '0'}
-                  data-used={item.uses ? (item.uses.count ? '1' : '0') : ''}>
-                  <div class="research-row-title">
-                    {item.link ? (
-                      <a class="row-title" href={item.link}
-                        {...(external(item.link) ? { rel: 'noopener noreferrer', target: '_blank' } : {})}>
-                        {item.name}
-                      </a>
-                    ) : <span class="row-title">{item.name}</span>}
-                  </div>
-                  {item.description && <p class="tools-description">{item.description}</p>}
-                  <div class="research-row-meta">
-                    {item.kind && <span class="chip">{item.kind}</span>}
-                    {machines.map((m) => {
-                      const installed = item.machines.includes(m.machine);
-                      return (
-                        <span class={`research-tag tools-machine-tag ${installed ? 'is-installed' : 'is-absent'}`}>
-                          {m.machine}{' '}
-                          <span aria-hidden="true">{installed ? '✓' : '—'}</span>{' '}
-                          <span class="sr-only">
-                            {installed ? t('tools.machineInstalled') : t('tools.machineNotInstalled')}
+            <div class="tools-table-wrap" role="region" tabindex="0" aria-label={t('tools.tableLabel')}>
+              <table class="tools-table" data-tools-list>
+                <caption class="sr-only">{t('tools.title')}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" class="tools-col-name">{t('tools.colTool')}</th>
+                    <th scope="col">{t('tools.colKind')}</th>
+                    {machines.map((m) => <th scope="col" class="tools-col-machine">{m.machine}</th>)}
+                    <th scope="col" class="tools-col-num">{t('tools.colUsage')}</th>
+                    <th scope="col">{t('tools.colCost')}</th>
+                  </tr>
+                </thead>
+                {groups.map((group) => (
+                  <tbody data-tool-group>
+                    <tr class="tools-group-row">
+                      <th scope="rowgroup" colspan={columnCount}>
+                        {group.label} <span class="tools-group-count">{group.rows.length}</span>
+                      </th>
+                    </tr>
+                    {group.rows.map(({ item, id }) => (
+                      <tr class="tools-row" id={id} data-tool-row data-name={item.name}
+                        data-description={item.description ?? ''} data-project={item.project ?? ''}
+                        data-kind={item.kind ?? ''} data-described={item.description ? '1' : '0'}
+                        data-used={item.uses ? (item.uses.count ? '1' : '0') : ''}>
+                        <th scope="row" class="tools-cell-name">
+                          <span class="tools-name-line">
+                            {item.link ? (
+                              <a class="row-title" href={item.link}
+                                {...(external(item.link) ? { rel: 'noopener noreferrer', target: '_blank' } : {})}>
+                                {item.name}
+                              </a>
+                            ) : <span class="row-title">{item.name}</span>}
+                            {item.profile && (
+                              <span class="research-tag">{t('tools.profile').replace('{p}', item.profile)}</span>
+                            )}
+                            {item.project && <span class="research-tag">{item.project}</span>}
                           </span>
-                        </span>
-                      );
-                    })}
-                    {item.cost && <span class="research-tag">{item.cost}</span>}
-                    {item.profile && (
-                      <span class="research-tag">{t('tools.profile').replace('{p}', item.profile)}</span>
-                    )}
-                    {item.project && <span class="research-tag">{item.project}</span>}
-                    {item.install && <span class="research-date">{t('tools.installed').replace('{d}',
-                      formatDate(item.install) ?? item.install)}</span>}
-                    {item.uses && (item.uses.count ? (
-                      <span class="research-date">
-                        {t('tools.uses').replace('{n}', String(item.uses.count))}
-                        {item.uses.last && <> · <time datetime={item.uses.last}>{formatDate(item.uses.last)}</time></>}
-                      </span>
-                    ) : <span class="research-date">{t('tools.neverUsed')}</span>)}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                          {item.description && (
+                            <span class="tools-description" title={item.description}>{item.description}</span>
+                          )}
+                        </th>
+                        <td>{item.kind && <span class="chip">{item.kind}</span>}</td>
+                        {machines.map((m) => {
+                          const installed = item.machines.includes(m.machine);
+                          return (
+                            <td class={`tools-cell-machine ${installed ? 'is-installed' : 'is-absent'}`}>
+                              <span aria-hidden="true">{installed ? '✓' : '—'}</span>
+                              <span class="sr-only">
+                                {installed ? t('tools.machineInstalled') : t('tools.machineNotInstalled')}
+                              </span>
+                            </td>
+                          );
+                        })}
+                        <td class="tools-col-num">
+                          {item.uses ? (item.uses.count ? (
+                            <>
+                              {item.uses.count}
+                              {item.uses.last && (
+                                <> · <time datetime={item.uses.last}>{formatShort(item.uses.last)}</time></>
+                              )}
+                            </>
+                          ) : <span class="tools-muted">{t('tools.neverUsed')}</span>) : (
+                            <span class="tools-muted">—</span>
+                          )}
+                        </td>
+                        <td>{item.cost ?? <span class="tools-muted">—</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                ))}
+              </table>
+            </div>
 
             <p class="empty-copy hidden" data-tools-empty-filtered>{t('tools.noMatches')}</p>
           </>

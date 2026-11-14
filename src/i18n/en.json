@@ -455,5 +455,11 @@
   "tools.emptyBody": "A scan file was read but lists no tools.",
   "tools.noMatches": "No tools match the chosen filters.",
   "tools.machineInstalled": "installed",
-  "tools.machineNotInstalled": "not installed"
+  "tools.machineNotInstalled": "not installed",
+  "tools.tableLabel": "Tools table",
+  "tools.colTool": "Tool",
+  "tools.colKind": "Kind",
+  "tools.colUsage": "Usage",
+  "tools.colCost": "Cost",
+  "tools.otherKind": "Other"
 }

@@ -456,5 +456,11 @@
   "tools.emptyBody": "Tarama dosyası okunabildi ama içinde araç yok.",
   "tools.noMatches": "Seçilen süzgeçlere uyan araç yok.",
   "tools.machineInstalled": "kurulu",
-  "tools.machineNotInstalled": "kurulu değil"
+  "tools.machineNotInstalled": "kurulu değil",
+  "tools.tableLabel": "Araç tablosu",
+  "tools.colTool": "Araç",
+  "tools.colKind": "Tür",
+  "tools.colUsage": "Kullanım",
+  "tools.colCost": "Maliyet",
+  "tools.otherKind": "Diğer"
 }
