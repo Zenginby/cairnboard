@@ -1,5 +1,5 @@
 ---
-import { t } from '../i18n/index.mjs';
+import { t, uiLanguage } from '../i18n/index.mjs';
 const { item, updated = false } = Astro.props;
 const { meta, content, project, column } = item;
 const priority = ['urgent', 'important', 'low'].includes(meta.priority) ? meta.priority : null;
@@ -7,6 +7,10 @@ const status = ['active', 'paused', 'archived'].includes(meta.status) ? meta.sta
 const role = ['doing', 'done'].includes(column?.role) ? column.role : 'planned';
 const tone = Number.isInteger(project?.tone) && project.tone >= 1 && project.tone <= 8 ? project.tone : 7;
 const assignee = meta.assignee ?? (typeof content.assignee === 'string' ? content.assignee : null);
+// Turkish keeps its numeric date (14.11.2026); English reads like the other dates (Nov 14, 2026).
+const dateText = (value) => (uiLanguage() === 'en'
+  ? value.toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' })
+  : value.toLocaleDateString('tr-TR', { timeZone: 'UTC' }));
 const date = updated && meta.updated && !Number.isNaN(Date.parse(meta.updated)) ? new Date(meta.updated) : null;
 ---
 <div class="entity-meta">
@@ -16,5 +20,5 @@ const date = updated && meta.updated && !Number.isNaN(Date.parse(meta.updated)) 
   {project && <span class:list={['chip', 'project-chip', `tone-${tone}`]}>{project.title || t('home.untitled')}</span>}
   {assignee && <span>{t('document.assignee')}: {assignee}</span>}
   {meta.acceptance?.total > 0 && <span class="acceptance-count">{meta.acceptance.done}/{meta.acceptance.total} {t('home.progress')}</span>}
-  {date && <span>{t('document.updated')}: <time datetime={meta.updated}>{date.toLocaleDateString('tr-TR', { timeZone: 'UTC' })}</time></span>}
+  {date && <span>{t('document.updated')}: <time datetime={meta.updated}>{dateText(date)}</time></span>}
 </div>

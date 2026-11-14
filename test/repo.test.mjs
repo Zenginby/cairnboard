@@ -42,8 +42,8 @@ test('app builds disable telemetry before importing Astro and never invoke its b
 
 test('license and readme', () => {
   assert.equal(oku('LICENSE').split('\n')[0], 'MIT License');
-  assert.match(oku('README.md'), /^## Türkçe$/m);
-  assert.match(oku('README.md'), /^## English$/m);
+  assert.match(oku('README.md'), /\]\(README\.tr\.md\)/);
+  assert.match(oku('README.tr.md'), /\]\(README\.md\)/);
 });
 
 test('.gitignore keeps local data and secrets out', () => {

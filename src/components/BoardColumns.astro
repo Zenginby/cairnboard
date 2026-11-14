@@ -1,7 +1,8 @@
 ---
 import CardStatus from './CardStatus.astro';
 import { relativeTime } from './relative-time.mjs';
-import { language, t } from '../i18n/index.mjs';
+import { uiLanguage, t } from '../i18n/index.mjs';
+const language = uiLanguage();
 // `add`: each column links to the new-card form; `status`: cards show `now` and `needs` under their title;
 // `filterable`: exposes filter data attributes. A lane from several columns (board-lanes.mjs) tags each card with
 // its column and adds new cards to its first column. Every card ends with its project, priority and how long ago it

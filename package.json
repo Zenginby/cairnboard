@@ -29,6 +29,7 @@
     "check:style": "node scripts/check-style.mjs",
     "check:types": "tsc -p tsconfig.json",
     "check:app": "node scripts/check-app.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
     "design:serve": "node scripts/design-serve.mjs",
     "build:app": "node scripts/build-app.mjs",
     "start": "node server/start.mjs --build",

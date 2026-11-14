@@ -1,5 +1,6 @@
 ---
-import { t, language } from '../i18n/index.mjs';
+import { t, uiLanguage } from '../i18n/index.mjs';
+const language = uiLanguage();
 const { project, index, featured = false, stats, span } = Astro.props;
 const tone = Number.isInteger(project.meta.tone) && project.meta.tone >= 1 && project.meta.tone <= 8
   ? project.meta.tone : index % 8 + 1;

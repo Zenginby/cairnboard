@@ -5,7 +5,8 @@ import ReadWarnings from '../../components/ReadWarnings.astro';
 import JournalForm from '../../components/JournalForm.astro';
 import DocToc from '../../components/DocToc.astro';
 import '../../styles/journal.css';
-import { language, t } from '../../i18n/index.mjs';
+import { uiLanguage, t } from '../../i18n/index.mjs';
+const language = uiLanguage();
 
 let result, state;
 try {

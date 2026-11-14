@@ -7,7 +7,8 @@ import JournalDialog from '../../components/JournalDialog.astro';
 import '../../styles/journal.css';
 // The day dialog imports a day page's contents rail, whose styles ship with DocToc on that page only.
 import '../../styles/doc-toc.css';
-import { language, t } from '../../i18n/index.mjs';
+import { uiLanguage, t } from '../../i18n/index.mjs';
+const language = uiLanguage();
 
 const params = Astro.url.searchParams;
 const query = { month: params.get('month') ?? undefined, project: params.get('project') ?? undefined,

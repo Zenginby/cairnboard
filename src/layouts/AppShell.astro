@@ -9,7 +9,8 @@ import favicon from '../assets/favicon.svg?url';
 import themeBoot from '../scripts/theme-boot.js?url';
 import liveScript from '../scripts/live-updates.js?url';
 import cardDialogScript from '../scripts/card-dialog.js?url';
-import { language, t } from '../i18n/index.mjs';
+import { t, uiLanguage } from '../i18n/index.mjs';
+const language = uiLanguage();
 
 // `searchPage`: /search marks its body, so the search dialog focuses the page's own field instead of opening.
 // `cardDialog`: the board opens cards and the new-card form in a dialog (card-dialog.js) instead of a new page.

@@ -2,7 +2,8 @@
 import AppShell from '../../layouts/AppShell.astro';
 import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
-import { language, t } from '../../i18n/index.mjs';
+import { uiLanguage, t } from '../../i18n/index.mjs';
+const language = uiLanguage();
 import { deriveResearchTypes, researchTypeLabel } from '../../scripts/research-filter.js';
 import '../../styles/research.css';
 

@@ -2,3 +2,15 @@
 # A file containing a NUL byte is a finding unless its exact path is listed here.
 src/styles/fonts/inter-latin-wght-normal.woff2
 src/styles/fonts/inter-latin-ext-wght-normal.woff2
+docs/images/agents-light.png
+docs/images/agents-dark.png
+docs/images/board-light.png
+docs/images/board-dark.png
+docs/images/card-light.png
+docs/images/card-dark.png
+docs/images/home-light.png
+docs/images/home-dark.png
+docs/images/journal-light.png
+docs/images/journal-dark.png
+docs/images/note-light.png
+docs/images/note-dark.png

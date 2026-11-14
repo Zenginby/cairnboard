@@ -14,6 +14,8 @@ import { watch } from '../core/watch.mjs';
 import { createEvents } from '../server/events.mjs';
 import { createSettings } from '../server/settings.mjs';
 import { createCards } from '../server/cards.mjs';
+import { createProjects } from '../server/projects.mjs';
+import { createJournal } from '../server/journal.mjs';
 import { createWrites } from '../server/writes.mjs';
 import { createRead } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
@@ -25,6 +27,7 @@ import { printTable } from './lib/design-check/report.mjs';
 import { selectAppPages, buildAppMatrix } from './lib/design-check/app-pages.mjs';
 import { APP_ALLOWLIST } from './lib/design-check/allowlist.mjs';
 import { checkSearchDialog } from './lib/design-check/search-dialog.mjs';
+import { useLanguage } from '../src/i18n/index.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const engines = { chromium, webkit, firefox };
@@ -116,6 +119,7 @@ async function main() {
     const openRead = () => openContext({ mode: 'read', dataDir, home, env, platform: process.platform });
     const pages = selectAppPages(openRead(), options.only);
 
+    useLanguage(openRead().config.language);
     const key = sessionKey({ home, env });
     const instance = newInstanceId();
     const { handler } = await import('../dist/app-check/server/entry.mjs');
@@ -129,11 +133,14 @@ async function main() {
       actor: 'web:owner' });
     const settings = createSettings({ key, port, open: openRead, openWrite });
     const cards = createCards({ key, port, open: openRead, openWrite });
-    const writes = createWrites({ key, port, routes: [...settings.routes, ...cards.routes] });
+    const projects = createProjects({ key, port, open: openRead, openWrite });
+    const journal = createJournal({ key, port, open: openRead, openWrite });
+    const writes = createWrites({ key, port,
+      routes: [...settings.routes, ...cards.routes, ...projects.routes, ...journal.routes] });
     const app = createApp({ root, appDir: 'dist/app-check', handler, writes: writes.handle,
       guard: createGuard({ port, key, instance, writable: writes.writable }),
       api: createApi({ open: openRead, render, events, live: settings.liveUpdates }),
-      locals: { cairn: createRead({ open: openRead, render }), settings, cards } });
+      locals: { cairn: createRead({ open: openRead, render }), settings, cards, projects, journal } });
     for (const server of servers) server.on('request', app);
     const session = await signIn(port, key, instance);
     const baseURL = `http://${session.host}`;

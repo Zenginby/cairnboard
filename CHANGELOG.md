@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- The web interface follows the data folder's language (English or Turkish) instead of always Turkish.
+- README: shorter English README with screenshots, a Turkish README.tr.md, and the full reference moved to `docs/`
+  (`docs/tr/` in Turkish). `npm run screenshots` regenerates the images from fictional data.
 - Owner board: drag cards between columns or reorder them; Alt + arrow keys offer the same moves.
 - Board: a search box (focus it with `/`) matches card titles, status lines and project names; the project pills
   become one project choice, priority pills show their counts, and a clear button resets every filter.

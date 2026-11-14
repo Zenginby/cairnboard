@@ -1,5 +1,6 @@
 ---
-import { t, language } from '../i18n/index.mjs';
+import { t, uiLanguage } from '../i18n/index.mjs';
+const language = uiLanguage();
 const { cards, columns, latest, spans = {} } = Astro.props;
 const total = columns.reduce((sum, column) => sum + column.total, 0);
 const dayLabel = latest && new Intl.DateTimeFormat(language, { dateStyle: 'full', timeZone: 'UTC' })
