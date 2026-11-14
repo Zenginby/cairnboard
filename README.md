@@ -19,7 +19,7 @@ projects in one folder of plain Markdown files that you can also open in Obsidia
 command-line tool so it can pick up a card, report progress and log what it did. Cairnboard never starts agents
 itself; your agent runs in its own terminal and uses the board as shared state.
 
-**Status:** under development, not yet released. The board, wiki, journal, web interface and CLI work; file formats
+**Status:** early (0.1.0), under active development. The board, wiki, journal, web interface and CLI work; file formats
 may still change. The interface speaks the data folder's language, English or Turkish
 (`init --language en|tr`).
 
