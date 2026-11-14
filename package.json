@@ -31,7 +31,7 @@
     "check:app": "node scripts/check-app.mjs",
     "design:serve": "node scripts/design-serve.mjs",
     "build:app": "node scripts/build-app.mjs",
-    "start": "node scripts/build-app.mjs && node server/start.mjs",
+    "start": "node server/start.mjs --build",
     "build:cli": "node scripts/build-cli.mjs",
     "bench:cli": "node scripts/bench-cli.mjs",
     "bench:reconcile": "node scripts/bench-reconcile.mjs",

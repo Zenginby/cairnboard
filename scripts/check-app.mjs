@@ -98,8 +98,10 @@ async function main() {
       code = 2;
       throw new Error(`Cannot start app check: ${error.message}\n${usage}`);
     }
-    // Always build first, like `npm start`: an older dist/app would check a different UI than the source.
-    const built = spawnSync(process.execPath, [join(root, 'scripts/build-app.mjs')], { cwd: root, stdio: 'inherit' });
+    // Always build first, like `npm start`: an older build would check a different UI than the source.
+    // Own output folder, so a Cairnboard server running from dist/app keeps its chunks.
+    const built = spawnSync(process.execPath, [join(root, 'scripts/build-app.mjs'), '--out', 'dist/app-check'],
+      { cwd: root, stdio: 'inherit' });
     if (built.status !== 0) throw new Error('The app build failed.');
     temp = realpathSync(mkdtempSync(join(tmpdir(), 'check-app-')));
     // The temp folder holds a session key; remove it even when the run is interrupted.
@@ -116,7 +118,7 @@ async function main() {
 
     const key = sessionKey({ home, env });
     const instance = newInstanceId();
-    const { handler } = await import('../dist/app/server/entry.mjs');
+    const { handler } = await import('../dist/app-check/server/entry.mjs');
     const { port, servers } = await listenLoopback({ from: 43000, to: 43200 });
     group = serverGroup(servers);
     const { render } = createRenderPool();
@@ -128,7 +130,7 @@ async function main() {
     const settings = createSettings({ key, port, open: openRead, openWrite });
     const cards = createCards({ key, port, open: openRead, openWrite });
     const writes = createWrites({ key, port, routes: [...settings.routes, ...cards.routes] });
-    const app = createApp({ root, handler, writes: writes.handle,
+    const app = createApp({ root, appDir: 'dist/app-check', handler, writes: writes.handle,
       guard: createGuard({ port, key, instance, writable: writes.writable }),
       api: createApi({ open: openRead, render, events, live: settings.liveUpdates }),
       locals: { cairn: createRead({ open: openRead, render }), settings, cards } });

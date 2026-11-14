@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { checkRuntime } from '../core/runtime.mjs';
 import { createApp } from './app.mjs';
@@ -27,6 +28,13 @@ async function start() {
     console.log(`Cairnboard is already running: ${previous.url}`);
     if (open) openLogin(loginUrl(previous.port, key, previous.instance), { dir: stateDir() });
     return;
+  }
+  // Build only after the running check: rebuilding dist/app under a live server renames its chunks
+  // and its next lazy page import fails with ERR_MODULE_NOT_FOUND.
+  if (process.argv.includes('--build')) {
+    const built = spawnSync(process.execPath, [fileURLToPath(new URL('../scripts/build-app.mjs', import.meta.url))],
+      { stdio: 'inherit' });
+    if (built.status !== 0) throw new Error('The app build failed.');
   }
   const { handler } = await import('../dist/app/server/entry.mjs');
   const { createApi } = await import('./api.mjs');

@@ -214,8 +214,9 @@ test('Board moves a CLI-claimed card without navigation or CSP and console error
   const watcher = watch(open());
   cleanup(() => watcher.close());
   if (!await watcher.ready) { liveUnavailable(t, 'Native file watching unavailable'); return; }
-  execFileSync(process.execPath, ['scripts/build-app.mjs'], { stdio: 'pipe', timeout: 120_000 });
-  const { handler } = await import('../dist/app/server/entry.mjs');
+  // Own output folder: rebuilding dist/app would break a Cairnboard server running from this checkout.
+  execFileSync(process.execPath, ['scripts/build-app.mjs', '--out', 'dist/app-live-test'], { stdio: 'pipe', timeout: 120_000 });
+  const { handler } = await import('../dist/app-live-test/server/entry.mjs');
   const pool = createRenderPool();
   cleanup(() => pool.close());
   const events = createEvents(watcher);
@@ -229,7 +230,7 @@ test('Board moves a CLI-claimed card without navigation or CSP and console error
     return;
   }
   const port = server.address().port, key = Buffer.alloc(32, 7), hostname = siteHost(key);
-  server.on('request', createApp({ root: process.cwd(), handler,
+  server.on('request', createApp({ root: process.cwd(), appDir: 'dist/app-live-test', handler,
     guard: createGuard({ port, key, instance: 'run-aaaaaaaaaaaaaaaa' }),
     api: createApi({ open, render: pool.render, events }), locals: { cairn: createRead({ open, render: pool.render }) } }));
   const context = await browser.newContext({ reducedMotion: 'reduce' });

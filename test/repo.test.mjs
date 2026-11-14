@@ -31,13 +31,13 @@ test('app builds disable telemetry before importing Astro and never invoke its b
   const { scripts } = JSON.parse(oku('package.json'));
   for (const script of Object.values(scripts)) assert.doesNotMatch(script, /\bastro(?:\.cmd)?(?:\s|$)/u);
   assert.equal(scripts['build:app'], 'node scripts/build-app.mjs');
-  assert.equal(scripts.start, 'node scripts/build-app.mjs && node server/start.mjs');
+  assert.equal(scripts.start, 'node server/start.mjs --build');
   const source = oku('scripts/build-app.mjs');
   const setting = source.indexOf("process.env.ASTRO_TELEMETRY_DISABLED = '1'");
   const importing = source.indexOf("await import('astro')");
   assert.ok(setting >= 0 && importing > setting);
   assert.doesNotMatch(source, /^import\s/mu);
-  assert.match(source, /const \{ build \} = await import\('astro'\);\s*await build\(\{\}\);/u);
+  assert.match(source, /const \{ build \} = await import\('astro'\);\s*await build\(outDir \? \{ outDir \} : \{\}\);/u);
 });
 
 test('license and readme', () => {
