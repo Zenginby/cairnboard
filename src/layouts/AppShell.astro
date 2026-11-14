@@ -2,6 +2,7 @@
 import '../styles/tokens.css';
 import '../styles/fonts.css';
 import '../styles/app.css';
+import '../styles/glass.css';
 import '../styles/settings.css';
 import favicon from '../assets/favicon.svg?url';
 import themeBoot from '../scripts/theme-boot.js?url';
@@ -21,7 +22,7 @@ const tabs = [
 const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
 ---
 <!doctype html>
-<html lang={language} data-theme="bento">
+<html lang={language} data-theme="cam">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

@@ -25,7 +25,7 @@ const under = {
   'glass-pill-indicator': ['glass-pill-bg', 'glass-material'],
 };
 // Text pairs that have no component of their own because their background is a mark.
-const extraPairs = [['glass-row-hover', 'text'], ['glass-row-hover', 'text-3']];
+const extraPairs = [['glass-row-hover', 'text'], ['glass-row-hover', 'text-3'], ['glass-row-hover', 'link']];
 
 function parseColor(value) {
   const hex = /^#([\da-f]{6})$/iu.exec(value);

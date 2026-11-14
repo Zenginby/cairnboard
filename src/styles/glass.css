@@ -1,0 +1,611 @@
+/* Cam theme: dithered horizon scene, translucent glass surfaces, edge light and chevron links. */
+
+[data-theme="cam"] {
+  --scene-image: url("./scene/cam-light.png");
+  --glass-blur: 18px;
+  --glass-saturate: 165%;
+  --project-wash-strength: 14%;
+}
+
+[data-theme="cam"][data-mode="dark"] {
+  --scene-image: url("./scene/cam-dark.png");
+  --glass-blur: 20px;
+  --glass-saturate: 155%;
+  --project-wash-strength: 9%;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="cam"]:not([data-mode="light"]) {
+    --scene-image: url("./scene/cam-dark.png");
+    --glass-blur: 20px;
+    --glass-saturate: 155%;
+    --project-wash-strength: 9%;
+  }
+}
+
+/* Fixed viewport scene layer; below the image height the page continues in --color-canvas. */
+[data-theme="cam"] body,
+[data-theme="cam"] body.surface-page {
+  background-color: var(--color-canvas);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+[data-theme="cam"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--color-canvas);
+  background-image: var(--scene-image);
+  background-size: max(100%, 760px) auto;
+  background-position: center top;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
+/* Outside the glass conditions below, all surfaces stay opaque (fallback tokens). */
+[data-theme="cam"] .app-shell,
+[data-theme="cam"] .surface-page .app-shell {
+  background: var(--color-material);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Keep headings, summaries and toolbars off the bare scene in both glass and opaque modes. */
+[data-theme="cam"] .screen-heading,
+[data-theme="cam"] .board-toolbar,
+[data-theme="cam"] .journal-filters,
+[data-theme="cam"] .research-header,
+[data-theme="cam"] .research-toolbar {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-material);
+  box-shadow: var(--shadow-box);
+}
+
+[data-theme="cam"] .board-toolbar,
+[data-theme="cam"] .journal-filters {
+  padding: var(--space-12) var(--space-lg);
+}
+
+[data-theme="cam"] .screen-heading + .settings {
+  margin-top: var(--space-md);
+}
+
+[data-theme="cam"] .projects-group-title {
+  display: inline-flex;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--color-material);
+  box-shadow: var(--shadow-box);
+}
+
+[data-theme="cam"] .research-summary,
+[data-theme="cam"] .settings-last {
+  align-self: flex-start;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-material);
+  box-shadow: var(--shadow-box);
+}
+
+[data-theme="cam"] .live-status:not(:empty) {
+  padding: var(--space-xs) var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-material);
+  box-shadow: var(--shadow-box);
+}
+
+[data-theme="cam"] .agents-empty,
+[data-theme="cam"] .journal-prompt,
+[data-theme="cam"] .journal-day-layout .empty-copy,
+[data-theme="cam"] .research-list,
+[data-theme="cam"] .research-page .empty-state,
+[data-theme="cam"] .research-page > .empty-copy,
+[data-theme="cam"] .search-page,
+[data-theme="cam"] .document,
+[data-theme="cam"] .page-frame > .card-form {
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-box);
+}
+
+[data-theme="cam"] .document-sidebar,
+[data-theme="cam"] .warnings {
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-box);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (prefers-reduced-transparency: no-preference) and (not (prefers-contrast: more)) {
+    [data-theme="cam"] {
+      --color-surface: var(--color-glass-surface);
+      --color-surface-inset: var(--color-glass-surface-inset);
+      --color-surface-inset-2: var(--color-glass-surface-inset-2);
+      --color-material: var(--color-glass-material);
+      --color-pill-bg: var(--color-glass-pill-bg);
+      --color-pill-indicator: var(--color-glass-pill-indicator);
+    }
+
+    [data-theme="cam"] .app-shell,
+    [data-theme="cam"] .surface-page .app-shell {
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      border-bottom: var(--space-hairline) solid var(--color-glass-rim);
+      box-shadow:
+        inset 0 var(--space-hairline) 0 var(--color-glass-highlight),
+        0 var(--space-hairline) 0 var(--color-line);
+    }
+
+    [data-theme="cam"] .app-tabs,
+    [data-theme="cam"] .shell-search,
+    [data-theme="cam"] .shell-icon,
+    [data-theme="cam"] .theme-toggle {
+      border: var(--space-hairline) solid var(--color-line);
+      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight);
+    }
+
+    [data-theme="cam"] .panel,
+    [data-theme="cam"] .board-column,
+    [data-theme="cam"] .screen-heading,
+    [data-theme="cam"] .board-toolbar,
+    [data-theme="cam"] .projects-group-title,
+    [data-theme="cam"] .agents-empty,
+    [data-theme="cam"] .journal-filters,
+    [data-theme="cam"] .journal-preview,
+    [data-theme="cam"] .journal-prompt,
+    [data-theme="cam"] .journal-day-layout .empty-copy,
+    [data-theme="cam"] .research-header,
+    [data-theme="cam"] .research-toolbar,
+    [data-theme="cam"] .research-summary,
+    [data-theme="cam"] .research-list,
+    [data-theme="cam"] .research-page .empty-state,
+    [data-theme="cam"] .research-page > .empty-copy,
+    [data-theme="cam"] .settings-last,
+    [data-theme="cam"] .search-page,
+    [data-theme="cam"] .document,
+    [data-theme="cam"] .document-sidebar,
+    [data-theme="cam"] .page-frame > .card-form,
+    [data-theme="cam"] .warnings,
+    [data-theme="cam"] .live-status:not(:empty) {
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      border: var(--space-hairline) solid var(--color-glass-rim);
+      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box);
+    }
+
+    [data-theme="cam"] .search-dialog {
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      border: var(--space-hairline) solid var(--color-glass-rim);
+      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box-raised);
+    }
+
+    [data-theme="cam"] .board-column {
+      background: var(--color-glass-column);
+    }
+
+    /* Board cards sit on the blurred column with no backdrop-filter of their own. */
+    [data-theme="cam"] .board-card {
+      background: var(--color-glass-card);
+      border: var(--space-hairline) solid var(--color-glass-rim);
+      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box);
+    }
+
+    [data-theme="cam"] .project-box {
+      background:
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--project-tone) var(--project-wash-strength), transparent),
+          transparent calc(var(--space-lg) * 4)
+        ),
+        var(--color-surface);
+    }
+
+    [data-theme="cam"] .project-cover {
+      background: linear-gradient(
+        color-mix(in srgb, var(--project-tone) var(--project-wash-strength), transparent),
+        color-mix(in srgb, var(--project-tone) var(--project-wash-strength), transparent) 35%,
+        var(--color-surface-inset)
+      );
+    }
+
+    /* Keep foreground labels opaque on dark/ink controls when --color-surface is translucent. */
+    [data-theme="cam"] .project-go,
+    [data-theme="cam"] .picker-save,
+    [data-theme="cam"] .board-filter-pill[aria-pressed="true"],
+    [data-theme="cam"] .journal-chip[aria-pressed="true"],
+    [data-theme="cam"] button.journal-day[aria-pressed="true"] {
+      color: var(--color-on-accent);
+    }
+
+    [data-theme="cam"] .settings-switch-track > span {
+      background: var(--color-on-accent);
+    }
+
+    [data-theme="cam"] .action-link,
+    [data-theme="cam"] .board-filter-pill,
+    [data-theme="cam"] .journal-chip,
+    [data-theme="cam"] .research-type-btn {
+      border: var(--space-hairline) solid var(--color-line);
+      box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight);
+    }
+
+    [data-theme="cam"] .board-filter-pill[aria-pressed="true"],
+    [data-theme="cam"] .journal-chip[aria-pressed="true"] {
+      border-color: transparent;
+      box-shadow: var(--shadow-indicator);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      [data-theme="cam"] .project-box:has(.project-cover-link):hover,
+      [data-theme="cam"] a.board-card:hover {
+        box-shadow: inset 0 var(--space-hairline) 0 var(--color-glass-highlight), var(--shadow-box-raised);
+      }
+    }
+  }
+}
+
+/* Typography wrapping */
+[data-theme="cam"] .hero h1,
+[data-theme="cam"] .screen-heading h1,
+[data-theme="cam"] .panel h2,
+[data-theme="cam"] .column-heading h2 {
+  text-wrap: balance;
+}
+
+[data-theme="cam"] .hero-summary,
+[data-theme="cam"] .project-status,
+[data-theme="cam"] .row-detail {
+  text-wrap: pretty;
+}
+
+/* Board card interaction and chevron */
+[data-theme="cam"] a.board-card {
+  position: relative;
+  transition:
+    transform var(--motion-duration-quick) var(--motion-ease-out),
+    box-shadow var(--motion-duration-quick) var(--motion-ease-out),
+    border-color var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+[data-theme="cam"] a.board-card h3 {
+  padding-inline-end: var(--space-md);
+}
+
+[data-theme="cam"] a.board-card::after {
+  content: "";
+  position: absolute;
+  top: var(--space-18);
+  inset-inline-end: var(--space-14);
+  width: var(--space-6);
+  height: var(--space-6);
+  border-top: var(--space-2xs) solid var(--color-text-3);
+  border-right: var(--space-2xs) solid var(--color-text-3);
+  transform: rotate(45deg);
+  opacity: 0.55;
+  transition:
+    transform var(--motion-duration-quick) var(--motion-ease-out),
+    border-color var(--motion-duration-quick) var(--motion-ease-out),
+    opacity var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="cam"] a.board-card:hover {
+    transform: translateY(calc(var(--motion-distance-lift-card) * -1));
+  }
+
+  [data-theme="cam"] a.board-card:hover::after {
+    border-color: var(--color-link);
+    opacity: 1;
+    transform: translateX(var(--space-2xs)) rotate(45deg);
+  }
+}
+
+/* Box title links: drop blue underline, keep text color, add CSS-drawn chevron in --color-link. */
+[data-theme="cam"] .panel h2 > a:not(.project-cover-link) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38em;
+  color: var(--color-text);
+  text-decoration: none;
+  border-bottom: var(--space-2xs) solid transparent;
+  transition:
+    color var(--motion-duration-quick) var(--motion-ease-out),
+    border-color var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+[data-theme="cam"] .panel h2 > a:not(.project-cover-link)::after {
+  content: "";
+  flex: none;
+  width: 0.4em;
+  height: 0.4em;
+  border-top: var(--space-2xs) solid var(--color-link);
+  border-right: var(--space-2xs) solid var(--color-link);
+  transform: rotate(45deg);
+  transition: transform var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="cam"] .panel h2 > a:not(.project-cover-link):hover {
+    color: var(--color-link);
+    border-bottom-color: var(--color-link);
+  }
+
+  [data-theme="cam"] .panel h2 > a:not(.project-cover-link):hover::after {
+    transform: translateX(var(--space-2xs)) rotate(45deg);
+  }
+}
+
+/* Project box title link keeps ::after as the full-card hit target; chevron uses ::before. */
+[data-theme="cam"] .project-box h2 > .project-cover-link {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 0.4em;
+  color: var(--color-text);
+}
+
+[data-theme="cam"] .project-box h2 > .project-cover-link::before {
+  content: "";
+  flex: none;
+  width: 0.38em;
+  height: 0.38em;
+  border-top: var(--space-2xs) solid var(--project-ink);
+  border-right: var(--space-2xs) solid var(--project-ink);
+  transform: rotate(45deg);
+  opacity: 0.85;
+  transition: transform var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="cam"] .project-box:has(.project-cover-link):hover h2 > .project-cover-link::before {
+    transform: translateX(var(--space-2xs)) rotate(45deg);
+  }
+}
+
+/* List row links: right-aligned chevron and --color-glass-row-hover highlight on hover. */
+[data-theme="cam"] .summary-row {
+  padding-inline: var(--space-sm);
+  margin-inline: calc(-1 * var(--space-sm));
+  border-radius: var(--radius-sm);
+  transition:
+    background-color var(--motion-duration-quick) var(--motion-ease-out),
+    transform var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+[data-theme="cam"] .research-row,
+[data-theme="cam"] .journal-list-row {
+  padding-inline: var(--space-sm);
+  margin-inline: calc(-1 * var(--space-sm));
+  border-radius: var(--radius-sm);
+  transition: background-color var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+[data-theme="cam"] .row-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+[data-theme="cam"] .row-title {
+  color: var(--color-text);
+  text-decoration: none;
+  text-underline-offset: var(--space-xs);
+  text-decoration-thickness: var(--space-2xs);
+}
+
+[data-theme="cam"] a.row-title {
+  position: relative;
+  display: block;
+  padding-inline-end: 1.35em;
+}
+
+[data-theme="cam"] a.row-title::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 0.2em;
+  top: 0.52em;
+  width: 0.38em;
+  height: 0.38em;
+  border-top: var(--space-2xs) solid currentColor;
+  border-right: var(--space-2xs) solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.48;
+  transition:
+    transform var(--motion-duration-quick) var(--motion-ease-out),
+    opacity var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="cam"] .summary-row:has(a.row-title):hover,
+  [data-theme="cam"] .research-row:has(a.row-title):hover,
+  [data-theme="cam"] .journal-list-row:hover {
+    transform: none;
+    background-color: var(--color-glass-row-hover);
+  }
+
+  [data-theme="cam"] .summary-row:has(a.row-title):hover a.row-title,
+  [data-theme="cam"] .research-row:has(a.row-title):hover a.row-title,
+  [data-theme="cam"] a.row-title:hover {
+    color: var(--color-link);
+    text-decoration: underline;
+  }
+
+  [data-theme="cam"] .summary-row:has(a.row-title):hover a.row-title::after,
+  [data-theme="cam"] .research-row:has(a.row-title):hover a.row-title::after,
+  [data-theme="cam"] a.row-title:hover::after {
+    opacity: 1;
+    transform: translateX(var(--space-2xs)) rotate(45deg);
+  }
+}
+
+@media (pointer: coarse) {
+  [data-theme="cam"] a.row-title {
+    min-height: calc(var(--space-xl) + var(--space-xs));
+  }
+}
+
+/* Action pills get a CSS-drawn chevron. */
+[data-theme="cam"] .action-link {
+  gap: 0.45em;
+}
+
+[data-theme="cam"] a.action-link:not(.journal-pager .action-link)::after {
+  content: "";
+  flex: none;
+  width: 0.38em;
+  height: 0.38em;
+  border-top: var(--space-2xs) solid var(--color-link);
+  border-right: var(--space-2xs) solid var(--color-link);
+  transform: rotate(45deg);
+  transition: transform var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="cam"] a.action-link:not(.journal-pager .action-link):hover::after {
+    transform: translateX(var(--space-2xs)) rotate(45deg);
+  }
+}
+
+[data-theme="cam"] summary.picker-trigger::after {
+  content: "";
+  flex: none;
+  width: 0.42em;
+  height: 0.42em;
+  margin-top: calc(-1 * var(--space-2xs));
+  border-right: var(--space-2xs) solid currentColor;
+  border-bottom: var(--space-2xs) solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.72;
+  transition: transform var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+[data-theme="cam"] details[open] > summary.picker-trigger::after {
+  margin-top: var(--space-2xs);
+  transform: rotate(225deg);
+}
+
+/* Calendar entry links */
+[data-theme="cam"] a.month-day.has-entry {
+  text-decoration: none;
+}
+
+[data-theme="cam"] a.month-day.has-entry:not(.is-latest) {
+  box-shadow: inset 0 0 0 var(--space-hairline) color-mix(in srgb, var(--color-tone-1-text) 24%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="cam"] a.month-day.has-entry:hover {
+    box-shadow: inset 0 0 0 var(--space-2xs) var(--color-tone-1-text);
+  }
+}
+
+/* Inline links in prose keep their underline. */
+[data-theme="cam"] .journal-content a,
+[data-theme="cam"] .document-body a,
+[data-theme="cam"] .settings-dialog-error a,
+[data-theme="cam"] .project-board-link {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-decoration-thickness: var(--space-2xs);
+  text-underline-offset: var(--space-xs);
+  text-decoration-color: color-mix(in srgb, var(--color-link) 55%, transparent);
+  transition: text-decoration-color var(--motion-duration-quick) var(--motion-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="cam"] .journal-content a:hover,
+  [data-theme="cam"] .document-body a:hover,
+  [data-theme="cam"] .settings-dialog-error a:hover,
+  [data-theme="cam"] .project-board-link:hover {
+    text-decoration-color: var(--color-link);
+  }
+}
+
+/* Keep keyboard focus rings visible (2px ring, 2px offset). */
+[data-theme="cam"] :focus-visible,
+[data-theme="cam"] .board-card:focus-visible,
+[data-theme="cam"] .row-title:focus-visible,
+[data-theme="cam"] .action-link:focus-visible,
+[data-theme="cam"] .board-filter-pill:focus-visible,
+[data-theme="cam"] .app-tabs a:focus-visible,
+[data-theme="cam"] .panel h2 > a:focus-visible {
+  outline: var(--space-2xs) solid var(--color-focus);
+  outline-offset: var(--space-2xs);
+  border-radius: var(--radius-xs);
+}
+
+[data-theme="cam"] .action-link:focus-visible,
+[data-theme="cam"] .board-filter-pill:focus-visible,
+[data-theme="cam"] .app-tabs a:focus-visible,
+[data-theme="cam"] .shell-search:focus-visible,
+[data-theme="cam"] .shell-icon:focus-visible,
+[data-theme="cam"] .theme-toggle:focus-visible,
+[data-theme="cam"] .month-day:focus-visible {
+  border-radius: var(--radius-full);
+}
+
+[data-theme="cam"] .board-card:focus-visible {
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="cam"] a.board-card,
+  [data-theme="cam"] a.board-card::after,
+  [data-theme="cam"] .panel h2 > a:not(.project-cover-link),
+  [data-theme="cam"] .panel h2 > a:not(.project-cover-link)::after,
+  [data-theme="cam"] .project-box h2 > .project-cover-link::before,
+  [data-theme="cam"] .summary-row,
+  [data-theme="cam"] .research-row,
+  [data-theme="cam"] .journal-list-row,
+  [data-theme="cam"] a.row-title::after,
+  [data-theme="cam"] a.action-link::after,
+  [data-theme="cam"] summary.picker-trigger::after {
+    transition: none;
+  }
+
+  [data-theme="cam"] a.board-card:hover {
+    transform: none;
+  }
+
+  [data-theme="cam"] a.board-card:hover::after,
+  [data-theme="cam"] .panel h2 > a:not(.project-cover-link):hover::after,
+  [data-theme="cam"] .project-box:has(.project-cover-link):hover h2 > .project-cover-link::before,
+  [data-theme="cam"] .summary-row:has(a.row-title):hover a.row-title::after,
+  [data-theme="cam"] .research-row:has(a.row-title):hover a.row-title::after,
+  [data-theme="cam"] a.row-title:hover::after,
+  [data-theme="cam"] a.action-link:not(.journal-pager .action-link):hover::after {
+    transform: rotate(45deg);
+  }
+}
+
+[data-theme="cam"][data-motion="less"] a.board-card,
+[data-theme="cam"][data-motion="less"] a.board-card::after,
+[data-theme="cam"][data-motion="less"] .panel h2 > a:not(.project-cover-link),
+[data-theme="cam"][data-motion="less"] .panel h2 > a:not(.project-cover-link)::after,
+[data-theme="cam"][data-motion="less"] .project-box h2 > .project-cover-link::before,
+[data-theme="cam"][data-motion="less"] .summary-row,
+[data-theme="cam"][data-motion="less"] .research-row,
+[data-theme="cam"][data-motion="less"] .journal-list-row,
+[data-theme="cam"][data-motion="less"] a.row-title::after,
+[data-theme="cam"][data-motion="less"] a.action-link::after,
+[data-theme="cam"][data-motion="less"] summary.picker-trigger::after {
+  transition: none;
+}
+
+[data-theme="cam"][data-motion="less"] a.board-card:hover {
+  transform: none;
+}
+
+[data-theme="cam"][data-motion="less"] a.board-card:hover::after,
+[data-theme="cam"][data-motion="less"] .panel h2 > a:not(.project-cover-link):hover::after,
+[data-theme="cam"][data-motion="less"] .project-box:has(.project-cover-link):hover h2 > .project-cover-link::before,
+[data-theme="cam"][data-motion="less"] .summary-row:has(a.row-title):hover a.row-title::after,
+[data-theme="cam"][data-motion="less"] .research-row:has(a.row-title):hover a.row-title::after,
+[data-theme="cam"][data-motion="less"] a.row-title:hover::after,
+[data-theme="cam"][data-motion="less"] a.action-link:not(.journal-pager .action-link):hover::after {
+  transform: rotate(45deg);
+}
