@@ -40,7 +40,7 @@ may still change. The interface speaks the data folder's language, English or Tu
 flowchart LR
     you["You<br/>web interface"]
     data[("Markdown folder<br/>cards · notes · journal")]
-    agent["Your agent, in its own terminal<br/><code>cairn card claim · check · done</code><br/><code>cairn journal add</code>"]
+    agent["Your agent, in its terminal<br/><code>cairn card claim · done</code><br/><code>cairn journal add</code>"]
     you -->|plans| data
     data -.->|live| you
     agent -->|works| data
