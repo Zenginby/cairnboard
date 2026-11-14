@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, symlinkSync, writeFileSync } from 'node:fs';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
 import { join } from 'node:path';
@@ -61,7 +61,7 @@ test('snapshots: fields are cleaned, unsafe links dropped, nameless tools skippe
   assert.deepEqual(parsed.tools.map((tool) => tool.name), ['lantern', 'compass', 'kettle']);
   assert.equal(parsed.tools[0].link, 'https://example.com/lantern');
   assert.equal(parsed.tools[2].link, null, 'a javascript: link never reaches the page');
-  assert.equal(parsed.tools[2].description, 'Boils  water .');
+  assert.equal(parsed.tools[2].description, 'Boils water.');
   assert.deepEqual(parsed.tools[1].uses, { count: 0, last: null });
   for (const bad of ['{', '[]', JSON.stringify({ ...NORTH, version: 2 }), JSON.stringify({ ...NORTH, machine: '' }),
     JSON.stringify({ ...NORTH, scannedAt: 'yesterday' }), JSON.stringify({ ...NORTH, tools: {} })]) {
@@ -79,6 +79,28 @@ test('reading: machines sort, bad, oversized and linked files are skipped with o
   assert.deepEqual(snapshots.map((s) => s.machine), ['north', 'south']);
   assert.deepEqual(warnings, ['tools_snapshot_invalid']);
   assert.equal(hasToolSnapshots(open()), true);
+});
+
+test('review cases: hidden characters, Obsidian actions, impossible dates, linked folder, unknown use', (t) => {
+  const one = (tool, extra = {}) => parseSnapshot(JSON.stringify({ ...NORTH, ...extra, tools: [tool] }));
+  const tag = String.fromCodePoint(0xe0041);
+  assert.equal(one({ name: `ab${tag}c\u2028d\u0085e\ufeff` }).tools[0].name, 'abcde');
+  assert.equal(one({ name: 'a', link: 'obsidian://advanced-uri?commandid=x' }).tools[0].link, null);
+  const note = 'obsidian://open?vault=V&file=n';
+  assert.equal(one({ name: 'a', link: note }).tools[0].link, note);
+  assert.equal(one({ name: 'a', uses: { count: 1, last: '2026-02-30' } }).tools[0].uses.last, null);
+  assert.equal(parseSnapshot(JSON.stringify({ ...NORTH, scannedAt: '2026-11-10T08:00:00.000Z' })).scannedAt,
+    '2026-11-10T08:00:00.000Z');
+  const { data, dir, open } = fixture(t);
+  const moved = join(data, 'elsewhere');
+  renameSync(dir, moved);
+  symlinkSync(moved, dir);
+  assert.deepEqual(readToolSnapshots(open()), { snapshots: [], warnings: ['tools_snapshot_invalid'] });
+  const unknown = mergeTools([
+    parseSnapshot(JSON.stringify({ ...NORTH, tools: [{ name: 'x', kind: 'skill' }] })),
+    parseSnapshot(JSON.stringify({ ...SOUTH, tools: [{ name: 'x', kind: 'skill', uses: { count: 0 } }] })),
+  ]);
+  assert.equal(unknown[0].uses, null, 'one machine without counts keeps the use unknown');
 });
 
 test('no snapshot folder: nothing to show and no tab', (t) => {
