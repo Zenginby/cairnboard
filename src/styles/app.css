@@ -217,6 +217,15 @@ a, button { -webkit-tap-highlight-color: transparent; }
 }
 .home-distribution { grid-column: span 2; }
 .latest-day { grid-column: span 3; }
+.home-distribution { grid-row: span 2; }
+/* Spans from src/components/bento-pack.mjs close the holes auto-placement leaves; wide screens only. */
+@media (min-width: 64.0625rem) {
+  .bento > .span-2 { grid-column: span 2; }
+  .bento > .span-3 { grid-column: span 3; }
+  .bento > .span-4 { grid-column: span 4; }
+  .bento > .span-5 { grid-column: span 5; }
+  .bento > .span-6 { grid-column: span 6; }
+}
 .home-distribution-bar {
   display: block;
   width: 100%;

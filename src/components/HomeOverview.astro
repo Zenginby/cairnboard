@@ -1,6 +1,6 @@
 ---
 import { t, language } from '../i18n/index.mjs';
-const { cards, columns, latest } = Astro.props;
+const { cards, columns, latest, spans = {} } = Astro.props;
 const total = columns.reduce((sum, column) => sum + column.total, 0);
 const dayLabel = latest && new Intl.DateTimeFormat(language, { dateStyle: 'full', timeZone: 'UTC' })
   .format(new Date(`${latest.date}T12:00:00Z`));
@@ -12,7 +12,7 @@ const segments = columns.map((column) => {
   return segment;
 });
 ---
-<section class="panel ongoing" aria-labelledby="ongoing-title">
+<section class:list={['panel', 'ongoing', spans.ongoing]} aria-labelledby="ongoing-title">
   <header class="panel-header"><h2 id="ongoing-title">{t('home.inProgress')}</h2>
     <span class="panel-count">{cards.length}</span></header>
   {cards.length ? <ul class="summary-list">{cards.map((card) => <li><div class="summary-row">
@@ -26,7 +26,7 @@ const segments = columns.map((column) => {
   </div></li>)}</ul> : <p class="empty-copy">{t('home.inProgressEmpty')}</p>}
   <a class="action-link" href="/board">{t('home.seeBoard')}</a>
 </section>
-<section class="panel home-distribution" aria-labelledby="distribution-title">
+<section class:list={['panel', 'home-distribution', spans.distribution]} aria-labelledby="distribution-title">
   <h2 id="distribution-title"><a href="/board">{t('home.distribution')}</a></h2>
   <p class="panel-subtitle">{t('home.totalCards', { count: total })}</p>
   <svg class="home-distribution-bar" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
@@ -37,7 +37,7 @@ const segments = columns.map((column) => {
     <dt>{column.label}</dt><dd>{column.total}</dd>
   </div>)}</dl>
 </section>
-<section class="panel latest-day" aria-labelledby="latest-day-title">
+<section class:list={['panel', 'latest-day', spans['latest-day']]} aria-labelledby="latest-day-title">
   <h2 id="latest-day-title">{t('home.latestDay')}</h2>
   {latest ? <>
     <p class="panel-subtitle"><time datetime={latest.date}>{dayLabel}</time></p>

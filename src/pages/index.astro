@@ -6,6 +6,7 @@ import HomeOverview from '../components/HomeOverview.astro';
 import AgentsBox from '../components/AgentsBox.astro';
 import ResearchBox from '../components/ResearchBox.astro';
 import PageState from '../components/PageState.astro';
+import { homeSpans } from '../components/bento-pack.mjs';
 import { t, warningText, language } from '../i18n/index.mjs';
 
 // The picker's revision is read before Home's data: a choice saved in between then makes this form's post a 409
@@ -51,6 +52,11 @@ const noneChosen = (data?.hiddenProjects?.length ?? 0) > 0 && !data.projects.len
 const warnings = [...new Set((result?.warnings ?? []).map(warningText))];
 const isFeatured = (project) => project.id !== null && project.id === data.featuredProject;
 const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) - Number(isFeatured(a))) : [];
+// Spans that close the holes auto-placement would leave for the boxes that render (wide screens only).
+const spans = data ? homeSpans({ calendar: Boolean(calendar),
+  projects: projects.map((project) => ({ featured: isFeatured(project) })),
+  agents: Boolean(data.agents), research: (Array.isArray(data.research?.items) ? data.research.items.length : 0) > 0,
+  pinned: (data.pinned?.length ?? 0) > 0, recent: (data.recentNotes?.length ?? 0) > 0 }) : {};
 ---
 <AppShell live="card project note journal board research" current="/">
   {homeForm && <meta slot="head" name="referrer" content="same-origin" />}
@@ -59,7 +65,7 @@ const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) 
       <details><summary>{t('warnings.title')}</summary><ul>{warnings.map((warning) => <li>{warning}</li>)}</ul></details>
     </aside>}
     <div class="bento">
-      <section class="panel hero">
+      <section class:list={['panel', 'hero', spans.hero]}>
         <p class="eyebrow"><time datetime={data.today}>{todayLabel}</time></p>
         <h1>{t('home.title')}</h1>
         <p class="hero-summary">{t('home.activitySummary',
@@ -90,7 +96,7 @@ const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) 
           </form> : <p class="empty-copy">{t('home.pickerUnavailable')}</p>}
         </details>}
       </section>
-      {calendar && <section class="panel calendar-box" aria-labelledby="calendar-title">
+      {calendar && <section class:list={['panel', 'calendar-box', spans.calendar]} aria-labelledby="calendar-title">
         <header class="panel-header"><h2 id="calendar-title"><a href="/journal">{t('home.calendar')}</a></h2>
           <span class="panel-count">{calendar.monthName}</span></header>
         <p class="panel-subtitle">{t('home.calendarDays', { count: data.journalCount ?? 0 })}</p>
@@ -107,16 +113,19 @@ const projects = data ? [...data.projects].sort((a, b) => Number(isFeatured(b)) 
       </section>}
       {projects.length ? projects.map((project, index) =>
         <ProjectBox project={project} index={index} featured={isFeatured(project)}
-          stats={data.projectCards?.[project.path]} />)
+          stats={data.projectCards?.[project.path]} span={spans[`project-${index}`]} />)
         : <section class="panel projects-empty">
           <h2>{t('home.projects')}</h2>
           <p class="empty-copy">{t(noneChosen ? 'home.noneChosen' : 'home.projectsEmpty')}</p>
         </section>}
-      <HomeOverview cards={data.inProgress ?? []} columns={data.distribution ?? []} latest={data.latestDay} />
-      <AgentsBox agents={data.agents} />
-      <ResearchBox research={data.research} />
-      <HomeList items={data.pinned} title="home.pinned" subtitle="home.pinnedSubtitle" className="pinned" />
-      <HomeList items={data.recentNotes} title="home.notes" subtitle="home.notesSubtitle" className="recent" />
+      <HomeOverview cards={data.inProgress ?? []} columns={data.distribution ?? []} latest={data.latestDay}
+        spans={spans} />
+      <AgentsBox agents={data.agents} span={spans.agents} />
+      <ResearchBox research={data.research} span={spans.research} />
+      <HomeList items={data.pinned} title="home.pinned" subtitle="home.pinnedSubtitle" className="pinned"
+        span={spans.pinned} />
+      <HomeList items={data.recentNotes} title="home.notes" subtitle="home.notesSubtitle" className="recent"
+        span={spans.recent} />
     </div>
   </>}
 </AppShell>

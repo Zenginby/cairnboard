@@ -2,7 +2,7 @@
 import { language, t } from '../i18n/index.mjs';
 import { researchTypeLabel } from '../scripts/research-filter.js';
 
-const { research } = Astro.props;
+const { research, span } = Astro.props;
 const items = Array.isArray(research?.items) ? research.items : [];
 const total = Number.isInteger(research?.total) ? research.total : items.length;
 
@@ -26,7 +26,7 @@ const kindLabels = {
 };
 const untypedLabel = t('research.kind.unknown');
 ---
-{items.length > 0 && <section class="panel research-box" aria-labelledby="research-box-title">
+{items.length > 0 && <section class:list={['panel', 'research-box', span]} aria-labelledby="research-box-title">
   <header class="panel-header">
     <h2 id="research-box-title"><a href="/research">{t('research.title')}</a></h2>
     <span class="panel-count">{total}</span>

@@ -1,6 +1,6 @@
 ---
 import { t, language } from '../i18n/index.mjs';
-const { project, index, featured = false, stats } = Astro.props;
+const { project, index, featured = false, stats, span } = Astro.props;
 const tone = Number.isInteger(project.meta.tone) && project.meta.tone >= 1 && project.meta.tone <= 8
   ? project.meta.tone : index % 8 + 1;
 const title = project.content.title || t('home.untitled');
@@ -15,7 +15,7 @@ const description = typeof project.content.description === 'string' ? project.co
   : project.content.snippet || '';
 ---
 <section class:list={['panel', 'project-box', `tone-${tone}`,
-  { 'project-featured': featured, 'project-archived': project.meta.status === 'archived' }]} aria-label={title}>
+  { 'project-featured': featured, 'project-archived': project.meta.status === 'archived' }, span]} aria-label={title}>
   {featured && <p class="eyebrow">{t('home.featured')}</p>}
   <h2>{href ? <a class="project-cover-link" href={href}>{title}</a> : title}</h2>
   {description && <p class="project-box-description">{description}</p>}
