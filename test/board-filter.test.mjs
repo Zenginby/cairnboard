@@ -282,6 +282,19 @@ test('/board interactive browser smoke: pill clicks, keyboard, empty state, live
   assert.equal(await backlogCol.locator('[data-column-empty]').isVisible(), false);
   assert.equal(await page.locator('#card-c-bah002').isVisible(), true);
 
+  // At 375px a group with many projects stays one row that scrolls sideways; the page itself never scrolls sideways.
+  await page.setViewportSize({ width: 375, height: 800 });
+  const narrow = await page.evaluate(() => {
+    const group = document.querySelector('.board-filter-group');
+    const pill = group.querySelector('.board-filter-pill:last-child');
+    for (let i = 0; i < 12; i += 1) group.append(pill.cloneNode(true));
+    const tops = new Set([...group.querySelectorAll('.board-filter-pill')].map((el) => el.offsetTop));
+    return { rows: tops.size, scrolls: group.scrollWidth > group.clientWidth,
+      page: document.documentElement.scrollWidth <= document.documentElement.clientWidth };
+  });
+  assert.deepEqual(narrow, { rows: 1, scrolls: true, page: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+
   // With JS disabled, all cards remain visible and clicking pills causes no harm.
   const noJsContext = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1280, height: 900 } });
   cleanup(() => noJsContext.close());

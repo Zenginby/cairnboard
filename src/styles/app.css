@@ -1027,6 +1027,19 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 }
 [data-motion="less"] .board-filter-pill { transition: none; }
 [data-motion="less"] .board-filter-pill:active { transform: none; }
+/* On phones each filter group is one row that scrolls sideways instead of wrapping into a tall block of pills. */
+@media (max-width: 40rem) {
+  .board-filters { flex-flow: column nowrap; align-items: stretch; width: 100%; min-width: 0; }
+  .board-filter-group {
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-block: var(--space-2xs);
+    scrollbar-width: none;
+  }
+  .board-filter-group::-webkit-scrollbar { display: none; }
+  .board-filter-pill { flex: none; white-space: nowrap; }
+}
 
 /* Keep five top tabs scrollable inside the pill track on 375px screens without horizontal page overflow. */
 .app-tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
