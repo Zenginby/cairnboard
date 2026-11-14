@@ -1,3 +1,5 @@
+<img src="docs/images/logo.png" alt="Cairnboard logo: a pixel-art stack of stones" width="96">
+
 # Cairnboard
 
 **A local project board, wiki and journal that your coding agents can use too.**

@@ -55,3 +55,4 @@ design/prototypes/yon-taban/assets/inter-ext.woff2
 # Scene backgrounds behind the app (generated pixel art).
 src/styles/scene/cam-dark.png
 src/styles/scene/cam-light.png
+docs/images/logo.png

@@ -11,10 +11,6 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .shell-top-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); max-width: var(--space-page-max); height: var(--space-header-height); margin-inline: auto; }
 .brand { display: inline-flex; align-items: center; gap: var(--space-10); color: var(--color-text); font-size: var(--font-lead-size); font-weight: var(--font-display-weight); letter-spacing: var(--font-title-letter-spacing); text-decoration: none; }
 .brand svg { width: var(--space-lg); height: var(--space-lg); flex: none; }
-.brand-one { fill: var(--color-tone-1); }
-.brand-two { fill: var(--color-tone-2); }
-.brand-three { fill: var(--color-line-strong); }
-.brand-four { fill: var(--color-tone-3); }
 .app-navigation { display: flex; align-items: center; min-height: var(--space-nav-height); max-width: var(--space-page-max); margin-inline: auto; padding-block: var(--space-xs); }
 .app-tabs { display: flex; gap: var(--space-2xs); padding: var(--space-xs); border-radius: var(--radius-full); background: var(--color-pill-bg); }
 .app-tabs a { display: flex; align-items: center; min-height: calc(var(--space-md) * 2); padding-inline: var(--space-md); border-radius: var(--radius-full); color: var(--color-text-2); font-size: var(--font-ui-size); font-weight: var(--font-ui-weight); text-decoration: none; }

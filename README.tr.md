@@ -1,3 +1,5 @@
+<img src="docs/images/logo.png" alt="Cairnboard logosu: üst üste dizili piksel taşlar" width="96">
+
 # Cairnboard
 
 **Kodlama ajanlarınızın da kullanabildiği yerel proje panosu, wiki ve günlük.**
