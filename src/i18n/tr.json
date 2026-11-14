@@ -95,8 +95,10 @@
   "settings.title": "Ayarlar",
   "settings.sections": "Ayarlar bölümleri",
   "settings.features": "Özellikler",
+  "settings.features.about": "Çalışma alanındaki izleyicileri ve yardımcıları açıp kapat.",
   "settings.close": "Kapat",
   "settings.look": "Görünüm",
+  "settings.look.about": "Bu tarayıcıda saklanan görünüm tercihlerin.",
   "settings.glass": "Cam efekti",
   "settings.glass.about": "Kutuların arkasındaki zemini buzlu cam gibi gösterir. Bu tarayıcıda saklanır.",
   "settings.glass.system": "Sisteme uy",
@@ -121,6 +123,7 @@
   "settings.mentions.about": "Başka sayfalarda geçen ama bağlanmamış adları bulur.",
   "settings.needsTrail": "Değişiklik izi açıkken çalışır.",
   "settings.shadowTitle": "Değişiklik izi deposu",
+  "settings.shadowStoreAbout": "Değişiklik farklarını göstermek için saklanan içerik kopyaları.",
   "settings.shadowAbout":
 "Saklanan içerik kopyalarını ve dış değişikliklerin önceki hâllerini siler. Kim, ne zaman, hangi dosya kayıtları kalır."
   ,
@@ -128,6 +131,9 @@
   "settings.shadowSize": "Boyut",
   "settings.shadowConfirm": "Saklanan içerik kopyalarının silinmesini onaylıyorum.",
   "settings.shadowClear": "Gölgeyi temizle",
+  "settings.dangerTitle": "Tehlikeli işlemler",
+  "settings.dangerAbout": "Saklanan verileri kalıcı olarak silen işlemler.",
+  "settings.shadowClearTitle": "İz deposunu temizle",
   "settings.lastChange": "Son ayar değişikliği",
   "settings.noChange": "Henüz bir ayar değişikliği yok.",
   "settings.unknownActor": "bilinmiyor",
