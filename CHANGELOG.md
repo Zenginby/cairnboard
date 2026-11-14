@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Optional Tools screen: reads per-machine snapshots from `.cairn/tools/` (written by a scanner outside Cairnboard),
+  with kind, no-description and unused filters; the tab appears only when a snapshot exists.
+- Fix research filters never hiding rows: the app had no `.hidden` rule.
 - Cam is the default theme: frosted glass boxes over a dithered pixel horizon, with an opaque fallback when backdrop
   blur is missing or the reader asks for reduced transparency or more contrast. Every theme gains `glass-*` tokens;
   a test composites glass text pairs over every scene color, since the design.md lint reads alpha as opaque.

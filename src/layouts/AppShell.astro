@@ -19,6 +19,8 @@ const tabs = [
   { href: '/journal', label: 'journal.title' },
   { href: '/research', label: 'research.title' },
 ];
+// Tools is an optional screen fed by machine snapshots (`.cairn/tools/`); without one there is no tab.
+if (await Astro.locals.cairn?.hasTools?.()) tabs.push({ href: '/tools', label: 'tools.title' });
 // Settings > Live updates: when off the page carries no script, no status line and no live region; unknown means on.
 const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
 ---
@@ -34,7 +36,7 @@ const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
   </head>
   <body class:list={{ 'surface-page': surface }} data-search-page={searchPage || undefined}>
     <a class="skip-link action-link" href="#main">{t('shell.skip')}</a>
-    <header class="app-shell">
+    <header class="app-shell" data-tab-count={tabs.length}>
       <div class="shell-top-row">
         <a class="brand" href="/">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect class="brand-one" x="1" y="1" width="9" height="9" rx="2"/><rect class="brand-two" x="14" y="1" width="9" height="9" rx="2"/><rect class="brand-three" x="1" y="14" width="9" height="9" rx="2"/><rect class="brand-four" x="14" y="14" width="9" height="9" rx="2"/></svg>

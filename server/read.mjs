@@ -14,6 +14,7 @@ import { homeView, boardView, showView, projectsView, projectSummary, result } f
 import { okEnvelope } from '../cli/output.mjs';
 import { createRenderPool } from './render-pool.mjs';
 import { searchView } from './search.mjs';
+import { hasToolSnapshots, mergeTools, readToolSnapshots } from '../core/tools.mjs';
 
 function journalDate(row) {
   for (const date of [row.data.date, basename(row.path, '.md')]) {
@@ -181,6 +182,16 @@ export function createRead({ open, render = createRenderPool().render }) {
     project(id) { return document('project', id); },
     research(id) { return document('research', id); },
     async researchList() { return researchListResult(await openRead()); },
+    async tools() {
+      const ctx = await openRead();
+      const { snapshots, warnings } = readToolSnapshots(ctx);
+      const machines = snapshots.map(({ machine, scannedAt, tools }) => ({ machine, scannedAt, count: tools.length }));
+      return okEnvelope({ machines, items: mergeTools(snapshots) }, [...ctx.warnings, ...warnings]);
+    },
+    /** The shell shows a Tools tab only when a snapshot file exists; any read failure just hides it. */
+    async hasTools() {
+      try { return hasToolSnapshots(await openRead()); } catch { return false; }
+    },
     async journalMonth(query) { return journalMonthResult(await openRead(), query); },
     async journalDay(date) { return journalDayResult(await openRead(), date, render); },
     async projects() {

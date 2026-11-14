@@ -1,0 +1,18 @@
+/* Tools screen: the research list layout plus a snapshot line under the heading and a one-line description. */
+.tools-intro { margin: var(--space-xs) 0 0; color: var(--color-text-2); font-size: var(--font-small-size); }
+.tools-machines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+.tools-page .research-toolbar { flex-wrap: wrap; }
+.tools-description {
+  margin: var(--space-2xs) 0 0;
+  color: var(--color-text-2);
+  font-size: var(--font-small-size);
+  overflow-wrap: anywhere;
+}

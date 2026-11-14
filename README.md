@@ -35,6 +35,15 @@ robot button beside search); Home shows how many sit in each column. A column wi
 `{ "key": "archive", "label": "Archive", "role": "done", "hidden": true }`) is left off both boards: move reviewed
 agent cards there and open them from the board's Archive link. The CLI and the API still list every column and card.
 
+**Tools (optional).** Cairnboard does not scan your machine. A scanner of your own may write one snapshot per machine
+to `.cairn/tools/<machine>.json`; when at least one exists, a Tools tab lists every tool with its kind, the machines
+that have it, its use count and description. The format, version 1:
+`{ "version": 1, "machine": "laptop", "scannedAt": "2026-11-14T09:00:00Z", "tools": [{ "name": "lantern",
+"kind": "skill", "description": "…", "cost": "…", "link": "https://…", "uses": { "count": 3, "last": "2026-11-13" } }]
+}`. Only `name`
+is required per tool; links must start with `https://`, `http://` or `obsidian://`. A file over 1 MB, with another
+version or a broken shape is skipped with a warning. Snapshots are not records: no change trail, search or backup.
+
 ### CLI
 
 Requires Node.js ≥ 22.23.4. From a fresh clone:
@@ -386,6 +395,15 @@ Oturum çereziyle korunan okuma API’si `/api/home`, `/api/board`, `/api/cards/
 `"hidden": true` taşıyan sütun (örneğin `{ "key": "archive", "label": "Arşiv", "role": "done", "hidden": true }`) iki
 panoda da görünmez: incelenen ajan kartlarını oraya taşıyın, panonun Arşiv bağlantısından açın. CLI ve API bütün
 sütunları ve kartları listelemeyi sürdürür.
+
+**Araçlar (isteğe bağlı).** Cairnboard makinenizi taramaz. Kendi tarayıcınız her makine için bir görüntüyü
+`.cairn/tools/<makine>.json` dosyasına yazabilir; en az biri varsa Araçlar sekmesi her aracı türü, hangi makinelerde
+olduğu, kullanım sayısı ve açıklamasıyla listeler. Biçim, sürüm 1:
+`{ "version": 1, "machine": "dizustu", "scannedAt": "2026-11-14T09:00:00Z", "tools": [{ "name": "fener",
+"kind": "skill", "description": "…", "cost": "…", "link": "https://…", "uses": { "count": 3, "last": "2026-11-13" } }]
+}`. Araç başına
+yalnız `name` zorunludur; bağlantı `https://`, `http://` ya da `obsidian://` ile başlamalıdır. 1 MB'tan büyük, başka
+sürümde ya da bozuk dosya uyarıyla atlanır. Görüntüler kayıt değildir: değişiklik izi, arama ve yedek dışındadır.
 
 ### CLI
 

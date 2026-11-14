@@ -1,0 +1,147 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import PageState from '../components/PageState.astro';
+import ReadWarnings from '../components/ReadWarnings.astro';
+import { language, t } from '../i18n/index.mjs';
+import '../styles/research.css';
+import '../styles/tools.css';
+
+let result = null;
+let state = null;
+try {
+  result = await Astro.locals.cairn.tools();
+} catch (error) {
+  state = (error as { code?: string })?.code === 'data_not_ready' ? 'notReady' : 'server';
+  Astro.response.status = state === 'notReady' ? 409 : 500;
+  if (state === 'server') console.error(error);
+}
+type Tool = {
+  name: string; kind: string | null; description: string | null; cost: string | null; link: string | null;
+  install: string | null; machines: string[]; uses: { count: number; last: string | null } | null;
+};
+const items: Tool[] = result?.data.items ?? [];
+const machines: Array<{ machine: string; scannedAt: string; count: number }> = result?.data.machines ?? [];
+
+const dateFormat = new Intl.DateTimeFormat(language,
+  { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+const formatDate = (iso: string | null) => {
+  if (!iso) return null;
+  const parsed = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
+  return Number.isNaN(parsed.getTime()) ? null : dateFormat.format(parsed);
+};
+const collator = new Intl.Collator(language, { sensitivity: 'base', numeric: true });
+const kindCounts = new Map<string, number>();
+for (const item of items) if (item.kind) kindCounts.set(item.kind, (kindCounts.get(item.kind) ?? 0) + 1);
+const kinds = [...kindCounts].sort((a, b) => collator.compare(a[0], b[0]));
+// "Unused" only makes sense when some snapshot carries usage counts.
+const hasUsage = items.some((item) => item.uses);
+const external = (link: string) => link.startsWith('http');
+const summary = (n: number) => (n === 1 ? t('tools.countSingle') : t('tools.count').replace('{n}', String(n)));
+---
+
+<AppShell title={t('tools.title')} current="/tools" surface>
+  {state ? (
+    <PageState
+      title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`}
+      message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`}
+      init={state === 'notReady'}
+      status={Astro.response.status}
+    />
+  ) : (
+    <>
+      <ReadWarnings codes={result?.warnings} />
+      <div class="research-page tools-page" data-tools-page data-locale={language}>
+        <header class="research-header">
+          <h1 class="page-heading">{t('tools.title')}</h1>
+          <p class="tools-intro">{t('tools.intro')}</p>
+          {machines.length > 0 && (
+            <ul class="tools-machines" aria-label={t('tools.machines')}>
+              {machines.map((m) => (
+                <li class="chip">
+                  {m.machine} · {t('tools.machineCount').replace('{n}', String(m.count))} ·{' '}
+                  <time datetime={m.scannedAt}>{formatDate(m.scannedAt)}</time>
+                </li>
+              ))}
+            </ul>
+          )}
+        </header>
+
+        {items.length === 0 ? (
+          <section class="empty-state">
+            <p class="empty-title">{t('tools.emptyTitle')}</p>
+            <p class="empty-copy">{t('tools.emptyBody')}</p>
+          </section>
+        ) : (
+          <>
+            <div class="research-toolbar">
+              <div class="research-controls">
+                <div class="research-field research-field-search">
+                  <label class="sr-only" for="tools-search">{t('tools.searchLabel')}</label>
+                  <input id="tools-search" class="research-input" type="search"
+                    placeholder={t('tools.searchPlaceholder')} data-tools-search />
+                </div>
+              </div>
+              <div class="research-types" role="group" aria-label={t('tools.filterKind')}>
+                <button type="button" class="research-type-btn" data-filter-kind="" aria-pressed="true">
+                  {t('tools.allKinds')} <span class="research-type-count" data-kind-count>{items.length}</span>
+                </button>
+                {kinds.map(([kind, count]) => (
+                  <button type="button" class="research-type-btn" data-filter-kind={kind} aria-pressed="false">
+                    {kind} <span class="research-type-count" data-kind-count>{count}</span>
+                  </button>
+                ))}
+              </div>
+              <div class="research-types" role="group" aria-label={t('tools.filterMore')}>
+                <button type="button" class="research-type-btn" data-filter-flag="undescribed" aria-pressed="false">
+                  {t('tools.undescribed')}
+                </button>
+                {hasUsage && (
+                  <button type="button" class="research-type-btn" data-filter-flag="unused" aria-pressed="false">
+                    {t('tools.unused')}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <p class="research-summary" aria-live="polite" data-tools-summary
+              data-template={t('tools.count')} data-template-single={t('tools.countSingle')}>
+              {summary(items.length)}
+            </p>
+
+            <ul class="research-list" data-tools-list>
+              {items.map((item) => (
+                <li class="research-row tools-row" data-tool-row data-name={item.name} data-kind={item.kind ?? ''}
+                  data-described={item.description ? '1' : '0'}
+                  data-used={hasUsage ? (item.uses?.count ? '1' : '0') : ''}>
+                  <div class="research-row-title">
+                    {item.link ? (
+                      <a class="row-title" href={item.link}
+                        {...(external(item.link) ? { rel: 'noopener noreferrer', target: '_blank' } : {})}>
+                        {item.name}
+                      </a>
+                    ) : <span class="row-title">{item.name}</span>}
+                  </div>
+                  {item.description && <p class="tools-description">{item.description}</p>}
+                  <div class="research-row-meta">
+                    {item.kind && <span class="chip">{item.kind}</span>}
+                    {item.machines.map((machine) => <span class="research-tag">{machine}</span>)}
+                    {item.cost && <span class="research-tag">{item.cost}</span>}
+                    {hasUsage && (item.uses?.count ? (
+                      <span class="research-date">
+                        {t('tools.uses').replace('{n}', String(item.uses.count))}
+                        {item.uses.last && <> · <time datetime={item.uses.last}>{formatDate(item.uses.last)}</time></>}
+                      </span>
+                    ) : <span class="research-date">{t('tools.neverUsed')}</span>)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <p class="empty-copy hidden" data-tools-empty-filtered>{t('tools.noMatches')}</p>
+          </>
+        )}
+      </div>
+    </>
+  )}
+  <script src="../scripts/tools-filter.js"></script>
+</AppShell>

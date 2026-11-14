@@ -1049,3 +1049,10 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 @media (min-width: 80rem) {
   .shell-search { width: calc(var(--space-search-width) * 2 / 3); }
 }
+/* The optional sixth tab (Tools) needs more room still: the field keeps its icon and caption, drops the shortcut. */
+@media (min-width: 80rem) {
+  .app-shell[data-tab-count="6"] .shell-search { width: calc(var(--space-search-width) / 2); }
+  .app-shell[data-tab-count="6"] .search-key { display: none; }
+}
+/* Script filters hide rows and empty notes with this class. */
+.hidden { display: none !important; }
