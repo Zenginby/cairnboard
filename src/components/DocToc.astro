@@ -5,7 +5,8 @@ import { t } from '../i18n/index.mjs';
 import '../styles/doc-toc.css';
 
 interface Entry { id: string; text: string; level?: number }
-interface Group { label: string; items: Entry[] }
+/** `tone`: a project colour tone (the `tone-*` classes); the group label takes its ink. */
+interface Group { label: string; items: Entry[]; tone?: string | number }
 interface Props {
   toc?: Entry[];
   groups?: Group[];
@@ -39,8 +40,10 @@ const hasEntries = flat.length > 0 || grouped.length > 0;
         )}
         {grouped.map((group) => (
           <div class="doc-toc-group">
-            <h3 class="doc-toc-group-label">{group.label}</h3>
-            <ul class="doc-toc-list">
+            {/* A label, not a heading: the panel title above it is hidden from assistive tech on wide screens. */}
+            <p class:list={['doc-toc-group-label', group.tone != null && `has-tone tone-${group.tone}`]}
+              aria-hidden="true">{group.label}</p>
+            <ul class="doc-toc-list" aria-label={group.label}>
               {group.items.map((entry) => (
                 <li class="doc-toc-item" data-level={String(entry.level ?? 2)}>
                   <a class="doc-toc-link" href={`#${entry.id}`}>{entry.text}</a>

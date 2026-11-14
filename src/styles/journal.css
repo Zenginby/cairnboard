@@ -131,15 +131,15 @@ button.journal-day:active { transform: scale(var(--motion-scale-enter)); }
 .journal-more { margin-top: var(--space-xs); color: var(--color-text-3); font-size: var(--font-caption-size); }
 .journal-full { margin-top: var(--space-sm); }
 .journal-back { color: var(--color-text-2); font-size: var(--font-ui-size); }
+/* The day: jobs on the left, the contents (DocToc, grouped by project) in a sticky column on the right. */
 .journal-day-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-md); align-items: start; }
-@media (min-width: 52rem) {
-  .journal-day-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
-  } .journal-contents { position: sticky;
-  top: var(--space-md);
-  };
+@media (min-width: 64rem) {
+  .journal-day-layout.has-toc { grid-template-columns: minmax(0, 1fr) var(--space-search-width); gap: var(--space-xl); }
+  .journal-day-layout.has-toc > .journal-day-toc { grid-column: 2; grid-row: 1; align-self: stretch; }
+  .journal-day-layout.has-toc > .journal-day-jobs { grid-column: 1; grid-row: 1; }
 }
-.journal-contents ol { margin: var(--space-sm) 0 0; padding-inline-start: var(--space-lg); }
-.journal-contents li + li { margin-top: var(--space-xs); }
+.journal-day-panel { display: flex; flex-direction: column; gap: var(--space-md); }
+.journal-day-summary { margin-top: 0; }
 .journal-day-jobs { display: flex; flex-direction: column; gap: var(--space-md); min-width: 0; }
 .journal-day-job { scroll-margin-top: var(--space-md); }
 .journal-day-job .document-body, .journal-day-job .empty-copy { margin-top: var(--space-sm); }
@@ -159,3 +159,46 @@ button.journal-day:active { transform: scale(var(--motion-scale-enter)); }
 .journal-form h2 { margin: 0; }
 .journal-form-hint { font-size: var(--font-ui-size); }
 .journal-add-today { justify-self: start; }
+
+/* The month page's dialogs (journal-dialog.js): a day to read and the add form. They reuse .settings-dialog. */
+.journal-dialog {
+  width: min(calc(var(--space-content-max) * 0.85), calc(100vw - var(--space-md) * 2));
+  height: calc(100dvh * 0.85);
+  max-height: calc(100dvh - var(--space-md) * 2);
+}
+.journal-add-dialog { width: min(calc(var(--space-content-max) * 0.55), calc(100vw - var(--space-md) * 2)); }
+.journal-dialog-header { flex-wrap: wrap; }
+.journal-dialog-header h2 { min-width: 0; }
+.journal-dialog-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-sm); }
+.journal-dialog-step:disabled { opacity: 0.5; cursor: default; }
+.journal-dialog-body { flex: 1; scroll-padding-top: var(--space-md); }
+.journal-dialog-status { color: var(--color-text-2); font-size: var(--font-small-size); }
+.journal-dialog-status:empty { display: none; }
+.journal-dialog-status + div:not(:empty) { margin-top: var(--space-md); }
+.journal-dialog-body[aria-busy="true"] [data-journal-dialog-content] { opacity: 0.6; }
+/* Inside the dialog the contents stick to the top of the scrolling body, not below the page header. */
+@media (min-width: 64rem) {
+  .journal-dialog .doc-toc { top: 0; max-height: calc(100dvh * 0.85 - var(--space-xl) * 3); }
+}
+.journal-add-dialog form.journal-form { margin-top: 0; padding: 0; background: none; box-shadow: none; }
+.journal-add-dialog .journal-form > h2 { display: none; }
+.journal-note { color: var(--color-text-2); font-size: var(--font-small-size); }
+.journal-note:not(:empty) {
+  position: fixed;
+  inset-block-end: var(--space-lg);
+  inset-inline-start: 50%;
+  z-index: 10;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-box-raised);
+  transform: translateX(-50%);
+}
+/* Opening is a fade with a short scale from .settings-dialog; reduced motion drops it. */
+@media (prefers-reduced-motion: reduce) {
+  .journal-dialog, .journal-dialog[open], .journal-add-dialog, .journal-add-dialog[open],
+  .journal-dialog::backdrop, .journal-add-dialog::backdrop { transition: none; transform: none; }
+}
+[data-motion="less"] :is(.journal-dialog, .journal-add-dialog),
+[data-motion="less"] :is(.journal-dialog, .journal-add-dialog)::backdrop { transition: none; transform: none; }

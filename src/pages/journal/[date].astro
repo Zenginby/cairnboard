@@ -3,6 +3,7 @@ import AppShell from '../../layouts/AppShell.astro';
 import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
 import JournalForm from '../../components/JournalForm.astro';
+import DocToc from '../../components/DocToc.astro';
 import '../../styles/journal.css';
 import { language, t } from '../../i18n/index.mjs';
 
@@ -32,6 +33,23 @@ const format = (options) => new Intl.DateTimeFormat(language, { timeZone: 'UTC',
 const heading = data && format({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   .format(utc(data.date));
 const short = (date) => format({ day: 'numeric', month: 'long', year: 'numeric' }).format(utc(date));
+// Contents grouped by project, in the order each project first appears in the day; jobs without one come last.
+const groups = (() => {
+  if (!data) return [];
+  const byProject = new Map();
+  const loose = [];
+  for (const job of data.jobs) {
+    const entry = { id: job.id, text: job.title || t('journal.untitledJob') };
+    if (!job.project) { loose.push(entry); continue; }
+    if (!byProject.has(job.project.id)) {
+      byProject.set(job.project.id, { label: job.project.title, tone: job.project.tone, items: [] });
+    }
+    byProject.get(job.project.id).items.push(entry);
+  }
+  const list = [...byProject.values()];
+  if (loose.length) list.push({ label: t('journal.unlinkedGroup'), items: loose });
+  return list;
+})();
 ---
 <AppShell live="journal project" title={data ? heading : t('journal.title')} current="/journal" surface>
   <meta slot="head" name="referrer" content="same-origin" />
@@ -45,29 +63,36 @@ const short = (date) => format({ day: 'numeric', month: 'long', year: 'numeric' 
           {t('journal.backToMonth')}</a>
         <p class="eyebrow">{t('journal.title')}</p>
         <h1>{heading}</h1>
-        {data.summary && <p class="journal-summary">{data.summary}</p>}
       </header>
-      <div class="journal-day-layout">
-        {data.jobs.length > 0 && <nav class="panel journal-contents" aria-labelledby="journal-contents-title">
-          <h2 id="journal-contents-title">{t('journal.contents')}</h2>
-          <ol>{data.jobs.map((job) => <li><a href={`#${job.id}`}>{job.title || t('journal.untitledJob')}</a></li>)}</ol>
-        </nav>}
-        <div class="journal-day-jobs">
-          {data.jobs.length ? data.jobs.map((job) => <article class="panel journal-day-job" id={job.id}
-            aria-labelledby={`${job.id}-title`}>
-            <header class="journal-job-head">
-              <h2 id={`${job.id}-title`}>{job.title || t('journal.untitledJob')}</h2>
-              {job.label && <span class="chip journal-label">{job.label}</span>}
-            </header>
-            {job.project && <p class="journal-job-project">{t('journal.project')}: <a
-              class={`journal-project tone-${job.project.tone}`}
-              href={`/projects/${encodeURIComponent(job.project.id)}`}>{job.project.title}</a></p>}
-            {job.html != null
-              ? job.html.trim() ? <div class="document-body" set:html={job.html} />
-                : <p class="empty-copy">{t('journal.noItems')}</p>
-              : job.items.length ? <ul class="journal-items">{job.items.map((item) => <li>{item}</li>)}</ul>
-                : <p class="empty-copy">{t('journal.noItems')}</p>}
-          </article>) : <p class="empty-copy">{t('journal.noJobs')}</p>}
+      {/* The dialog on the month page imports this panel; its data attributes fill the dialog's title bar. */}
+      <div class="journal-day-panel" data-journal-day-panel data-journal-day-date={data.date}
+        data-journal-day-title={heading}
+        data-journal-day-previous={data.previous ?? undefined}
+        data-journal-day-previous-label={data.previous ? short(data.previous) : undefined}
+        data-journal-day-next={data.next ?? undefined}
+        data-journal-day-next-label={data.next ? short(data.next) : undefined}>
+        {data.summary && <p class="journal-summary journal-day-summary">{data.summary}</p>}
+        <div class:list={['journal-day-layout', { 'has-toc': groups.length > 0 }]}>
+          {groups.length > 0 && <div class="journal-day-toc">
+            <DocToc groups={groups} title={t('journal.contents')} />
+          </div>}
+          <div class="journal-day-jobs">
+            {data.jobs.length ? data.jobs.map((job) => <article class="panel journal-day-job" id={job.id}
+              aria-labelledby={`${job.id}-title`}>
+              <header class="journal-job-head">
+                <h2 id={`${job.id}-title`}>{job.title || t('journal.untitledJob')}</h2>
+                {job.label && <span class="chip journal-label">{job.label}</span>}
+              </header>
+              {job.project && <p class="journal-job-project">{t('journal.project')}: <a
+                class={`journal-project tone-${job.project.tone}`}
+                href={`/projects/${encodeURIComponent(job.project.id)}`}>{job.project.title}</a></p>}
+              {job.html != null
+                ? job.html.trim() ? <div class="document-body" set:html={job.html} />
+                  : <p class="empty-copy">{t('journal.noItems')}</p>
+                : job.items.length ? <ul class="journal-items">{job.items.map((item) => <li>{item}</li>)}</ul>
+                  : <p class="empty-copy">{t('journal.noItems')}</p>}
+            </article>) : <p class="empty-copy">{t('journal.noJobs')}</p>}
+          </div>
         </div>
       </div>
       {form?.state === 'ready' && <JournalForm view={form} date={data.date} />}
@@ -79,4 +104,5 @@ const short = (date) => format({ day: 'numeric', month: 'long', year: 'numeric' 
       </nav>
     </div>
   </>}
+  <script src="../../scripts/doc-toc.js"></script>
 </AppShell>

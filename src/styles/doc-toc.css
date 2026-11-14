@@ -50,6 +50,10 @@
   font-weight: var(--font-label-weight);
 }
 
+.doc-toc-group-label.has-tone {
+  color: var(--project-ink, var(--color-text-2));
+}
+
 .doc-toc-list {
   list-style: none;
   margin: 0;

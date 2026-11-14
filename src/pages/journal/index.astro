@@ -3,6 +3,7 @@ import AppShell from '../../layouts/AppShell.astro';
 import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
 import JournalPreview from '../../components/JournalPreview.astro';
+import JournalDialog from '../../components/JournalDialog.astro';
 import '../../styles/journal.css';
 import { language, t } from '../../i18n/index.mjs';
 
@@ -18,11 +19,13 @@ try {
   // Match the API: unexpected failures reach the server log, the page shows only a generic message.
   if (state === 'server') console.error(error);
 }
-let today;
+let today, form;
 try {
   const view = Astro.locals.journal.view(Astro.request.headers.get('cookie'));
-  if (view.state === 'ready') today = view.today;
+  if (view.state === 'ready') { today = view.today; form = view; }
 } catch (error) { console.error(error); }
+// The add dialog posts from this page; no-referrer would send Origin: null, which the write guard rejects.
+Astro.response.headers.set('Referrer-Policy', 'same-origin');
 const data = result?.data;
 // Month, project and day live in the URL; only the parts that are set are written.
 const href = ({ month = data?.month, project = data?.project, day } = {}) => {
@@ -56,6 +59,7 @@ const jobsText = (count) => t(count === 1 ? 'journal.jobsOne' : 'journal.jobs', 
 const selected = data?.selected;
 ---
 <AppShell live="journal project" title={t('journal.title')} current="/journal" surface>
+  <meta slot="head" name="referrer" content="same-origin" />
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'error.serverTitle'}
     message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'}
     status={Astro.response.status} /> : <>
@@ -64,7 +68,7 @@ const selected = data?.selected;
       <header class="screen-heading journal-heading">
         <h1>{t('journal.title')}</h1>
         {today && <a class="action-link journal-add-today"
-          href={`/journal/${today}#journal-add`}>{t('journalForm.addToday')}</a>}
+          href={`/journal/${today}#journal-add`} data-journal-add-open>{t('journalForm.addToday')}</a>}
         <nav class="journal-months" aria-label={t('journal.calendar')}>
           <a class="journal-arrow" href={href({ month: data.previousMonth })} rel="prev"
             aria-label={t('journal.previousMonth')}><span aria-hidden="true">‹</span></a>
@@ -96,6 +100,7 @@ const selected = data?.selected;
                 <th scope="col">{t(`journal.weekday.${weekday}`)}</th>)}</tr></thead>
               <tbody>{grid.map((week) => <tr>{week.map((cell) => <td>{cell === null ? null : cell.count > 0
                 ? <button type="submit" name="day" value={cell.date} class="journal-day has-jobs"
+                  data-journal-day={cell.date}
                   aria-pressed={String(selected?.date === cell.date)}>
                   <span class="journal-day-number">{cell.day}</span>
                   <span class="journal-day-count">{cell.count}<span class="sr-only"> {t(cell.count === 1
@@ -114,6 +119,7 @@ const selected = data?.selected;
           </header>
           {data.list.length ? <ul class="summary-list">{data.list.map((day) => <li>
             <a class="journal-list-row" href={`${href({ day: day.date })}#journal-preview`}
+              data-journal-day={day.date}
               aria-current={selected?.date === day.date ? 'true' : undefined}>
               <span class="row-title">{dayName.format(utc(day.date))}</span>
               <span class="panel-count">{jobsText(day.count)}</span>
@@ -125,5 +131,7 @@ const selected = data?.selected;
         filtered={data.project !== ''} /> : data.days.length > 0
         && <p class="empty-copy journal-prompt">{t('journal.previewPrompt')}</p>}
     </div>
+    <JournalDialog view={form} />
   </>}
+  <script src="../../scripts/journal-dialog.js"></script>
 </AppShell>
