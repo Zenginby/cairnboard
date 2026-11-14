@@ -40,10 +40,12 @@ ilerlemesini yazar ve yaptığını günlüğe kaydeder. Cairnboard ajan başlat
 
 ```mermaid
 flowchart LR
-    you["Siz<br/>web arayüzü"] -->|"kart planlar"| data[("Markdown klasörü<br/>kartlar · notlar · günlük")]
-    agent["Ajanınız<br/>kendi terminali"] -->|"cairn card claim / check / done"| data
-    data -->|"canlı güncelleme"| you
-    agent -->|"cairn journal add"| data
+    you["Siz<br/>web arayüzü"]
+    data[("Markdown klasörü<br/>kartlar · notlar · günlük")]
+    agent["Ajanınız, kendi terminalinde<br/><code>cairn card claim · check · done</code><br/><code>cairn journal add</code>"]
+    you -->|planlar| data
+    data -.->|canlı| you
+    agent -->|çalışır| data
 ```
 
 ## Hızlı başlangıç
