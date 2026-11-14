@@ -135,6 +135,17 @@ function themeDeclarations(theme, mode) {
   return [`color-scheme: ${mode};`, ...declarations(theme.colors, 'color-'), ...declarations(theme.shadows, '')];
 }
 
+// The header names every source file, wrapped so no line passes the 120-character style limit.
+function sourcesComment(files) {
+  const lines = ['/* Generated; do not edit. Sources:'];
+  files.forEach((file, i) => {
+    const word = `${file}${i < files.length - 1 ? ',' : ' */'}`;
+    if (lines.at(-1).length + 1 + word.length > 120) lines.push(`   ${word}`);
+    else lines[lines.length - 1] += ` ${word}`;
+  });
+  return lines.join('\n');
+}
+
 export function buildTokens(sources) {
   const [root, ...themes] = sources.map(parseDesign);
   if (!root) throw new Error('DESIGN.md: missing root design');
@@ -153,7 +164,7 @@ export function buildTokens(sources) {
   rootLines.push(...Object.entries(root.motion).map(([key, value]) =>
     `--motion-${key}: ${springs.includes(key) ? root.motion['ease-spring-fallback'] : value};`));
   const output = [
-    `/* Generated; do not edit. Sources: ${sources.map(({ file }) => file).join(', ')} */`,
+    sourcesComment(sources.map(({ file }) => file)),
     block(':root', rootLines),
   ];
   // A theme is a family with a light palette (<family>.md, the root file for bento) and a dark one (<family>-dark.md).

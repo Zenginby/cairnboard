@@ -12,6 +12,17 @@ colors:
   material: "rgba(23, 20, 15, 0.75)"
   pill-bg: "#2e2922"
   pill-indicator: "#3d362c"
+  glass-surface: "#221e18"
+  glass-surface-inset: "#2b2620"
+  glass-surface-inset-2: "#352f27"
+  glass-material: "rgba(23, 20, 15, 0.75)"
+  glass-pill-bg: "#2e2922"
+  glass-pill-indicator: "#3d362c"
+  glass-column: "#2b2620"
+  glass-card: "#221e18"
+  glass-rim: "rgba(255, 240, 220, 0.09)"
+  glass-highlight: "rgba(255, 240, 220, 0.09)"
+  glass-row-hover: "#2b2620"
   text: "#f1eadf"
   text-2: "#cfc5b6"
   text-3: "#a89e8f"
@@ -102,6 +113,48 @@ spacing:
   nav-height: 48px
   search-width: 240px
 components:
+  glass-box:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.text}"
+  glass-box-secondary:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.text-2}"
+  glass-box-muted:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.text-3}"
+  glass-box-link:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.link}"
+  glass-inset:
+    backgroundColor: "{colors.glass-surface-inset}"
+    textColor: "{colors.text}"
+  glass-inset-muted:
+    backgroundColor: "{colors.glass-surface-inset-2}"
+    textColor: "{colors.text-3}"
+  glass-header:
+    backgroundColor: "{colors.glass-material}"
+    textColor: "{colors.text}"
+  glass-pill:
+    backgroundColor: "{colors.glass-pill-bg}"
+    textColor: "{colors.text}"
+  glass-pill-active:
+    backgroundColor: "{colors.glass-pill-indicator}"
+    textColor: "{colors.text}"
+  glass-column:
+    backgroundColor: "{colors.glass-column}"
+    textColor: "{colors.text-2}"
+  glass-card:
+    backgroundColor: "{colors.glass-card}"
+    textColor: "{colors.text}"
+  glass-card-muted:
+    backgroundColor: "{colors.glass-card}"
+    textColor: "{colors.text-3}"
+  glass-row-hover-mark:
+    backgroundColor: "{colors.glass-row-hover}"
+  glass-rim-mark:
+    backgroundColor: "{colors.glass-rim}"
+  glass-highlight-mark:
+    backgroundColor: "{colors.glass-highlight}"
   page:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.text}"

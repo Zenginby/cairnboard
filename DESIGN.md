@@ -12,6 +12,17 @@ colors:
   material: "rgba(242, 242, 245, 0.72)"
   pill-bg: "#e1e1e5"
   pill-indicator: "#ffffff"
+  glass-surface: "#ffffff"
+  glass-surface-inset: "#f5f5f8"
+  glass-surface-inset-2: "#ebebf0"
+  glass-material: "rgba(242, 242, 245, 0.72)"
+  glass-pill-bg: "#e1e1e5"
+  glass-pill-indicator: "#ffffff"
+  glass-column: "#f5f5f8"
+  glass-card: "#ffffff"
+  glass-rim: "rgba(16, 16, 30, 0.09)"
+  glass-highlight: "rgba(16, 16, 30, 0.09)"
+  glass-row-hover: "#f5f5f8"
   text: "#1d1d1f"
   text-2: "#45454c"
   text-3: "#64646c"
@@ -102,6 +113,48 @@ spacing:
   nav-height: 48px
   search-width: 240px
 components:
+  glass-box:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.text}"
+  glass-box-secondary:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.text-2}"
+  glass-box-muted:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.text-3}"
+  glass-box-link:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.link}"
+  glass-inset:
+    backgroundColor: "{colors.glass-surface-inset}"
+    textColor: "{colors.text}"
+  glass-inset-muted:
+    backgroundColor: "{colors.glass-surface-inset-2}"
+    textColor: "{colors.text-3}"
+  glass-header:
+    backgroundColor: "{colors.glass-material}"
+    textColor: "{colors.text}"
+  glass-pill:
+    backgroundColor: "{colors.glass-pill-bg}"
+    textColor: "{colors.text}"
+  glass-pill-active:
+    backgroundColor: "{colors.glass-pill-indicator}"
+    textColor: "{colors.text}"
+  glass-column:
+    backgroundColor: "{colors.glass-column}"
+    textColor: "{colors.text-2}"
+  glass-card:
+    backgroundColor: "{colors.glass-card}"
+    textColor: "{colors.text}"
+  glass-card-muted:
+    backgroundColor: "{colors.glass-card}"
+    textColor: "{colors.text-3}"
+  glass-row-hover-mark:
+    backgroundColor: "{colors.glass-row-hover}"
+  glass-rim-mark:
+    backgroundColor: "{colors.glass-rim}"
+  glass-highlight-mark:
+    backgroundColor: "{colors.glass-highlight}"
   page:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.text}"
@@ -232,6 +285,12 @@ each with a drawing color, a text color (`-text`) and a soft fill (`-bg`); tones
 never carry meaning on their own. Status colors (`done`, `doing`, `planned`, `urgent`, `important`, `warning`,
 `danger`) are always shown with a word, never by color alone.
 
+Glass layers (`glass-surface`, `glass-surface-inset`, `glass-surface-inset-2`, `glass-material`, `glass-pill-bg`,
+`glass-pill-indicator`, `glass-column`, `glass-card`, `glass-row-hover`, with `glass-rim` and `glass-highlight` for
+the edge light) exist in every theme. In an opaque theme they repeat the plain tokens; in the Cam theme they are
+translucent and sit over the theme's scene image (`src/styles/scene/`, built by `npm run design:scene`), while the
+plain tokens keep the opaque fallback for missing backdrop blur, reduced transparency and more contrast.
+
 ## Copy
 
 - Address the reader as "sen" in Turkish, including accessible labels.
@@ -345,7 +404,9 @@ front matter so their contrast is checked in every theme.
 
 - Do read colors, spacing, radii, durations and easings only from `tokens.css`; add a token here before using a new value.
 - Do show status with a word as well as a color.
-- Don't put text on a translucent color; use an opaque token (the contrast lint cannot composite alpha).
+- Don't put text on a translucent color other than a `glass-*` layer; the design.md contrast lint reads alpha as
+  opaque, so glass text pairs are checked by `test/glass-contrast.test.mjs` over every scene color. Text never sits
+  on the bare scene.
 - Do keep focus rings visible: 2px ring, 2px offset, at least 3:1 against the surface.
 - Don't animate layout properties (width, height, top, left) or start anything from `scale(0)`.
 - Don't put a box inside a box on document pages.

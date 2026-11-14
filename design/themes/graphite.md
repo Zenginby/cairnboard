@@ -12,6 +12,17 @@ colors:
   material: "rgba(233, 235, 239, 0.75)"
   pill-bg: "#dcdfe5"
   pill-indicator: "#f8f9fb"
+  glass-surface: "#f8f9fb"
+  glass-surface-inset: "#f0f2f5"
+  glass-surface-inset-2: "#e3e6eb"
+  glass-material: "rgba(233, 235, 239, 0.75)"
+  glass-pill-bg: "#dcdfe5"
+  glass-pill-indicator: "#f8f9fb"
+  glass-column: "#f0f2f5"
+  glass-card: "#f8f9fb"
+  glass-rim: "rgba(20, 30, 50, 0.1)"
+  glass-highlight: "rgba(20, 30, 50, 0.1)"
+  glass-row-hover: "#f0f2f5"
   text: "#1b1e24"
   text-2: "#3f4550"
   text-3: "#5b6270"
@@ -102,6 +113,48 @@ spacing:
   nav-height: 48px
   search-width: 240px
 components:
+  glass-box:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.text}"
+  glass-box-secondary:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.text-2}"
+  glass-box-muted:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.text-3}"
+  glass-box-link:
+    backgroundColor: "{colors.glass-surface}"
+    textColor: "{colors.link}"
+  glass-inset:
+    backgroundColor: "{colors.glass-surface-inset}"
+    textColor: "{colors.text}"
+  glass-inset-muted:
+    backgroundColor: "{colors.glass-surface-inset-2}"
+    textColor: "{colors.text-3}"
+  glass-header:
+    backgroundColor: "{colors.glass-material}"
+    textColor: "{colors.text}"
+  glass-pill:
+    backgroundColor: "{colors.glass-pill-bg}"
+    textColor: "{colors.text}"
+  glass-pill-active:
+    backgroundColor: "{colors.glass-pill-indicator}"
+    textColor: "{colors.text}"
+  glass-column:
+    backgroundColor: "{colors.glass-column}"
+    textColor: "{colors.text-2}"
+  glass-card:
+    backgroundColor: "{colors.glass-card}"
+    textColor: "{colors.text}"
+  glass-card-muted:
+    backgroundColor: "{colors.glass-card}"
+    textColor: "{colors.text-3}"
+  glass-row-hover-mark:
+    backgroundColor: "{colors.glass-row-hover}"
+  glass-rim-mark:
+    backgroundColor: "{colors.glass-rim}"
+  glass-highlight-mark:
+    backgroundColor: "{colors.glass-highlight}"
   page:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.text}"
