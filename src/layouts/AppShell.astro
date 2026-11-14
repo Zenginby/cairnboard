@@ -4,6 +4,7 @@ import '../styles/fonts.css';
 import '../styles/app.css';
 import '../styles/glass.css';
 import '../styles/settings.css';
+import GlassChoice from '../components/GlassChoice.astro';
 import favicon from '../assets/favicon.svg?url';
 import themeBoot from '../scripts/theme-boot.js?url';
 import liveScript from '../scripts/live-updates.js?url';
@@ -143,6 +144,7 @@ const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
         </button>
       </header>
       <div class="settings-dialog-body" data-settings-body>
+        <GlassChoice group="dialog" />
         <div class="settings-skeleton" data-settings-skeleton aria-hidden="true">
           {[0, 1, 2, 3].map(() => <div class="settings-skeleton-row">
             <span class="settings-skeleton-copy"><span /><span /></span><span class="settings-skeleton-switch" />
@@ -155,6 +157,7 @@ const liveUpdates = (await Astro.locals.settings?.liveUpdates?.()) ?? true;
       </div>
     </dialog>
     <script src="../scripts/theme-toggle.js"></script>
+    <script src="../scripts/glass-choice.js"></script>
     <script src="../scripts/shell-tabs.js"></script>
     {liveUpdates && <script is:inline type="module" src={liveScript}></script>}
     <script src="../scripts/search-dialog.js"></script>

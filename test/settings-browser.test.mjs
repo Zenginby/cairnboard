@@ -100,6 +100,19 @@ test('Settings dialog and fallback: switches save, closing reloads, axe and cons
     errors.length = 0;
   }
 
+  // The glass choice is per browser and applies at once; Follow system reads reduced transparency and contrast.
+  assert.equal(await dialog.locator('[data-glass-choice]').isVisible(), true, 'the glass choice shows with script');
+  const glass = () => page.evaluate(() =>
+    [document.documentElement.dataset.glass, localStorage.getItem('cairn-glass')]);
+  await dialog.getByRole('radio', { name: 'Kapalı', exact: true }).check();
+  assert.deepEqual(await glass(), ['off', 'off']);
+  await dialog.getByRole('radio', { name: 'Açık', exact: true }).check();
+  assert.deepEqual(await glass(), ['on', 'on']);
+  await dialog.getByRole('radio', { name: 'Sisteme uy', exact: true }).check();
+  const system = await page.evaluate(() =>
+    (matchMedia('(prefers-reduced-transparency: reduce), (prefers-contrast: more)').matches ? 'off' : 'on'));
+  assert.deepEqual(await glass(), [system, null]);
+
   const writeRequest = page.waitForRequest((request) => request.method() === 'POST'
     && request.url() === `${origin}/settings/feature`);
   await dialog.getByRole('switch', { name: 'Canlı güncelleme: Kapat' }).click();

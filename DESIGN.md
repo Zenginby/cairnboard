@@ -412,5 +412,5 @@ front matter so their contrast is checked in every theme.
 - Don't put a box inside a box on document pages.
 - Don't add theme-specific shapes or motion; a theme is colors and shadows only. The one exception is Cam's
   `src/styles/glass.css`: the scene layer, backdrop blur and edge light, glass bands that keep text off the scene,
-  and its chevron links. It switches glass on only with `data-glass="on"` (set by `theme-boot.js` unless the reader
-  asks for reduced transparency or more contrast) and where backdrop blur is supported.
+  and its chevron links. It switches glass on only with `data-glass="on"` (set by `theme-boot.js` from the reader's
+  Settings choice, or from their system's reduced transparency and contrast) and where backdrop blur is supported.

@@ -1,0 +1,22 @@
+---
+import { t } from '../i18n/index.mjs';
+// Per-browser choice for the Cam theme's glass; stored in localStorage by src/scripts/glass-choice.js, which also
+// shows this box (it needs script to work, so it starts hidden).
+const options = ['system', 'on', 'off'];
+// The shell's Settings dialog and the /settings page both carry one; each needs its own radio group.
+const { group = 'page' } = Astro.props;
+---
+<section class="panel glass-choice" data-glass-choice hidden aria-labelledby={`glass-choice-title-${group}`}>
+  <h2 id={`glass-choice-title-${group}`}>{t('settings.look')}</h2>
+  <fieldset class="glass-choice-field">
+    <legend class="glass-choice-legend">{t('settings.glass')}</legend>
+    <p class="glass-choice-about">{t('settings.glass.about')}</p>
+    <div class="glass-choice-options">
+      {options.map((value) => <label class="glass-choice-option">
+        <input type="radio" name={`cairn-glass-${group}`} value={value} data-glass-value />
+        <span>{t(`settings.glass.${value}`)}</span>
+      </label>)}
+    </div>
+    <p class="glass-choice-note" data-glass-system-note hidden>{t('settings.glass.systemReduced')}</p>
+  </fieldset>
+</section>

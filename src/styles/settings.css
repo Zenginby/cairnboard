@@ -159,3 +159,37 @@
     .settings-dialog[open] { transform: none; }
   }
 }
+
+/* Glass choice (Cam theme): three radio pills, kept per browser by glass-choice.js. */
+.glass-choice[hidden], .glass-choice-note[hidden] { display: none; }
+.glass-choice-field { margin: var(--space-sm) 0 0; padding: 0; border: 0; min-width: 0; }
+.glass-choice-legend { padding: 0; font-size: var(--font-ui-size); font-weight: var(--font-title-weight); }
+.glass-choice-about, .glass-choice-note {
+  margin-top: var(--space-xs);
+  color: var(--color-text-2);
+  font-size: var(--font-small-size);
+  line-height: var(--font-small-line-height);
+}
+.glass-choice-options { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-12); }
+.glass-choice-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: calc(var(--space-xl) + var(--space-xs));
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--color-pill-bg);
+  color: var(--color-text);
+  font-size: var(--font-ui-size);
+  font-weight: var(--font-ui-weight);
+  cursor: pointer;
+}
+.glass-choice-option:has(input:checked) {
+  background: var(--color-pill-indicator);
+  box-shadow: var(--shadow-indicator);
+}
+.glass-choice-option:has(input:focus-visible) {
+  outline: var(--space-2xs) solid var(--color-focus);
+  outline-offset: var(--space-2xs);
+}
+.glass-choice-option input { margin: 0; accent-color: var(--color-focus); }
