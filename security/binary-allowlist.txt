@@ -14,3 +14,44 @@ docs/images/journal-light.png
 docs/images/journal-dark.png
 docs/images/note-light.png
 docs/images/note-dark.png
+# Removed design prototypes (direction A/B/C), still in history: screenshots of sample-data, generated
+# backgrounds, and copies of the Inter fonts above (same blobs). Reviewed 2026-11-15.
+design/prototypes/yon-a/background-dark.png
+design/prototypes/yon-a/background-light.png
+design/prototypes/yon-a/shots/board-1440-dark.png
+design/prototypes/yon-a/shots/board-1440-light.png
+design/prototypes/yon-a/shots/board-390-dark.png
+design/prototypes/yon-a/shots/board-390-light.png
+design/prototypes/yon-a/shots/home-1440-dark.png
+design/prototypes/yon-a/shots/home-1440-light.png
+design/prototypes/yon-a/shots/home-390-dark.png
+design/prototypes/yon-a/shots/home-390-light.png
+design/prototypes/yon-b/shots/board-1440-dark.png
+design/prototypes/yon-b/shots/board-1440-light.png
+design/prototypes/yon-b/shots/board-390-dark.png
+design/prototypes/yon-b/shots/board-390-light.png
+design/prototypes/yon-b/shots/home-1440-dark.png
+design/prototypes/yon-b/shots/home-1440-light.png
+design/prototypes/yon-b/shots/home-390-dark.png
+design/prototypes/yon-b/shots/home-390-light.png
+design/prototypes/yon-c/assets/zemin-acik.png
+design/prototypes/yon-c/assets/zemin-koyu.png
+design/prototypes/yon-c/shots/board-1440-dark.png
+design/prototypes/yon-c/shots/board-1440-light.png
+design/prototypes/yon-c/shots/board-390-dark.png
+design/prototypes/yon-c/shots/board-390-light.png
+design/prototypes/yon-c/shots/home-1440-dark.png
+design/prototypes/yon-c/shots/home-1440-light.png
+design/prototypes/yon-c/shots/home-390-dark.png
+design/prototypes/yon-c/shots/home-390-light.png
+design/prototypes/yon-a/assets/inter.woff2
+design/prototypes/yon-a/assets/inter-ext.woff2
+design/prototypes/yon-b/assets/inter.woff2
+design/prototypes/yon-b/assets/inter-ext.woff2
+design/prototypes/yon-c/assets/inter.woff2
+design/prototypes/yon-c/assets/inter-ext.woff2
+design/prototypes/yon-taban/assets/inter.woff2
+design/prototypes/yon-taban/assets/inter-ext.woff2
+# Scene backgrounds behind the app (generated pixel art).
+src/styles/scene/cam-dark.png
+src/styles/scene/cam-light.png
