@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-15
+
+First public release.
+
 - The web interface follows the data folder's language (English or Turkish) instead of always Turkish.
 - README: shorter English README with screenshots, a Turkish README.tr.md, and the full reference moved to `docs/`
   (`docs/tr/` in Turkish). `npm run screenshots` regenerates the images from fictional data.

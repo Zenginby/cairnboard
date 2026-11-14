@@ -1,5 +1,5 @@
 {
-  "cli": "0.0.0",
+  "cli": "0.1.0",
   "commands": [
     {
       "name": "help",
