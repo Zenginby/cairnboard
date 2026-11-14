@@ -5,6 +5,8 @@ import ReadWarnings from '../../components/ReadWarnings.astro';
 import JournalPreview from '../../components/JournalPreview.astro';
 import JournalDialog from '../../components/JournalDialog.astro';
 import '../../styles/journal.css';
+// The day dialog imports a day page's contents rail, whose styles ship with DocToc on that page only.
+import '../../styles/doc-toc.css';
 import { language, t } from '../../i18n/index.mjs';
 
 const params = Astro.url.searchParams;
