@@ -17,7 +17,8 @@ try {
 }
 type Tool = {
   name: string; kind: string | null; description: string | null; cost: string | null; link: string | null;
-  install: string | null; machines: string[]; uses: { count: number; last: string | null } | null;
+  install: string | null; profile: string | null; project: string | null; machines: string[];
+  uses: { count: number; last: string | null } | null;
 };
 const items: Tool[] = result?.data.items ?? [];
 const machines: Array<{ machine: string; scannedAt: string; count: number }> = result?.data.machines ?? [];
@@ -112,7 +113,7 @@ const summary = (n: number) => (n === 1 ? t('tools.countSingle') : t('tools.coun
               {items.map((item) => (
                 <li class="research-row tools-row" data-tool-row data-name={item.name} data-kind={item.kind ?? ''}
                   data-described={item.description ? '1' : '0'}
-                  data-used={hasUsage ? (item.uses?.count ? '1' : '0') : ''}>
+                  data-used={item.uses ? (item.uses.count ? '1' : '0') : ''}>
                   <div class="research-row-title">
                     {item.link ? (
                       <a class="row-title" href={item.link}
@@ -126,7 +127,13 @@ const summary = (n: number) => (n === 1 ? t('tools.countSingle') : t('tools.coun
                     {item.kind && <span class="chip">{item.kind}</span>}
                     {item.machines.map((machine) => <span class="research-tag">{machine}</span>)}
                     {item.cost && <span class="research-tag">{item.cost}</span>}
-                    {hasUsage && (item.uses?.count ? (
+                    {item.profile && (
+                      <span class="research-tag">{t('tools.profile').replace('{p}', item.profile)}</span>
+                    )}
+                    {item.project && <span class="research-tag">{item.project}</span>}
+                    {item.install && <span class="research-date">{t('tools.installed').replace('{d}',
+                      formatDate(item.install) ?? item.install)}</span>}
+                    {item.uses && (item.uses.count ? (
                       <span class="research-date">
                         {t('tools.uses').replace('{n}', String(item.uses.count))}
                         {item.uses.last && <> · <time datetime={item.uses.last}>{formatDate(item.uses.last)}</time></>}

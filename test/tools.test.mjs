@@ -15,6 +15,7 @@ import { createRenderPool } from '../server/render-pool.mjs';
 import { loginUrl, siteHost } from '../server/session.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
+import { checkData } from '../core/doctor.mjs';
 import { hasToolSnapshots, mergeTools, parseSnapshot, readToolSnapshots } from '../core/tools.mjs';
 import { filterTools } from '../src/scripts/tools-filter.js';
 import { APP_ALLOWLIST, filterAllowed } from '../scripts/lib/design-check/allowlist.mjs';
@@ -51,7 +52,7 @@ function fixture(t, files = { 'north.json': NORTH, 'south.json': SOUTH }) {
   for (const [name, body] of Object.entries(files ?? {})) {
     writeFileSync(join(dir, name), typeof body === 'string' ? body : JSON.stringify(body));
   }
-  return { data, dir, open: () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock }) };
+  return { data, dir, home, clock, open: () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock }) };
 }
 
 test('snapshots: fields are cleaned, unsafe links dropped, nameless tools skipped', () => {
@@ -84,6 +85,12 @@ test('no snapshot folder: nothing to show and no tab', (t) => {
   const { open } = fixture(t, null);
   assert.deepEqual(readToolSnapshots(open()), { snapshots: [], warnings: [] });
   assert.equal(hasToolSnapshots(open()), false);
+});
+
+test('doctor: a snapshot folder changes no data check', (t) => {
+  const status = ({ data, home, clock }) => Object.fromEntries(
+    checkData({ dataDir: data, env: {}, home, cwd: home, clock }).map(({ name, ok }) => [name, ok]));
+  assert.deepEqual(status(fixture(t)), status(fixture(t, null)));
 });
 
 test('merging joins a tool across machines by name and kind and adds up its uses', () => {
@@ -221,7 +228,7 @@ test('/tools browser smoke: filters, axe and console clean, 375px without sidewa
   await page.getByRole('button', { name: 'Açıklama yok' }).click();
   await page.getByRole('button', { name: /^Tümü/u }).click();
   await page.getByRole('button', { name: 'Kullanılmayan' }).click();
-  assert.deepEqual(await visible(), ['atlas', 'compass', 'kettle']);
+  assert.deepEqual(await visible(), ['compass'], 'unknown usage is not "unused"');
   await page.getByRole('button', { name: 'Kullanılmayan' }).click();
   await page.getByLabel('Adda ara').fill('lant');
   assert.deepEqual(await visible(), ['lantern']);

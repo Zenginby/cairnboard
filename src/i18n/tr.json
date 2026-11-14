@@ -410,6 +410,8 @@
   "tools.count": "{n} araç",
   "tools.countSingle": "1 araç",
   "tools.uses": "{n} kez",
+  "tools.profile": "Profil {p}",
+  "tools.installed": "kurulum {d}",
   "tools.neverUsed": "kullanılmadı",
   "tools.emptyTitle": "Araç görüntüsü boş",
   "tools.emptyBody": "Tarama dosyası okunabildi ama içinde araç yok.",

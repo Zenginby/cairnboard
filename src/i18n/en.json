@@ -409,6 +409,8 @@
   "tools.count": "{n} tools",
   "tools.countSingle": "1 tool",
   "tools.uses": "{n} uses",
+  "tools.profile": "Profile {p}",
+  "tools.installed": "installed {d}",
   "tools.neverUsed": "not used",
   "tools.emptyTitle": "The tool snapshot is empty",
   "tools.emptyBody": "A scan file was read but lists no tools.",
