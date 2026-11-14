@@ -214,7 +214,7 @@ test('the built card form has its session token, selected column and active proj
     assert.equal(page.status, 200);
     assert.equal(page.headers['referrer-policy'], 'same-origin');
     assert.match(page.body, /<meta name="referrer" content="same-origin"/u);
-    assert.match(page.body, /<form class="card-form" method="post" action="\/cards"/u);
+    assert.match(page.body, /<form class="card-form card-edit-form" method="post" action="\/cards"/u);
     assert.match(page.body, /name="title"[^>]*required[^>]*maxlength="200"/u);
     const token = page.body.match(/name="csrf" value="([^"]+)"/u)?.[1];
     assert.ok(verifyCsrf(key, port, cookie, token, 'card'));
@@ -246,7 +246,8 @@ function actionFixture(t, options) {
   const added = addCard(f.openWrite(), { title: 'Reading plan', column: f.column }, body);
   const id = added.entity.id;
   const current = () => resolve(f.open(), 'card', id);
-  const edit = () => ({ title: 'Revised plan', project: '', priority: '', body, revision: current().revision });
+  const edit = () => ({ title: 'Revised plan', project: '', priority: '', now: '', next: '', needs: '', body,
+    revision: current().revision });
   const send = (suffix, fields, options = {}) => f.post(fields, { path: `/cards/${id}${suffix}`, ...options });
   // What the page's check form sends for item `n`: its number, the wanted state and the mark of its text.
   const check = (n, checked) => ({ n: String(n), checked, mark: f.cards.view(null, id).items[n - 1].mark });
@@ -292,6 +293,51 @@ test('moving appends to the target column; checking and commenting preserve the 
   assert.deepEqual(listCards(f.open(), { column, includeDone: true }).map((card) => card.id), [first.entity.id, f.id]);
   assert.equal(f.current().body, f.body.replace('- [ ] Choose', '- [x] Choose').replace('- [x] Read', '- [ ] Read')
     + '- 2026-11-08T12:00:00.000Z owner: Another thought with a second line\n');
+});
+
+test('moving accepts exactly one position reference in the destination column', async (t) => {
+  const f = actionFixture(t);
+  const column = f.open().config.columns[0].key;
+  const first = addCard(f.openWrite(), { title: 'First card', column }).entity.id;
+  const last = addCard(f.openWrite(), { title: 'Last card', column }).entity.id;
+  const ids = () => listCards(f.open(), { column, includeDone: true }).map((card) => card.id);
+  const before = await f.send('/move', { column, before: first });
+  assert.equal(before.status, 303);
+  assert.equal(before.headers.location, `/cards/${f.id}`);
+  assert.deepEqual(ids(), [f.id, first, last]);
+  const after = await f.send('/move', { column, after: first });
+  assert.equal(after.status, 303);
+  assert.equal(after.headers.location, `/cards/${f.id}`);
+  assert.deepEqual(ids(), [first, f.id, last]);
+});
+
+test('move rejects invalid, missing, foreign and self references before opening a write context', async (t) => {
+  const f = actionFixture(t);
+  const column = f.open().config.columns[0].key;
+  const foreign = addCard(f.openWrite(), { title: 'Other column', column }).entity.id;
+  const before = f.stored(), events = readEvents(f.open()), writes = f.writeCalls();
+  for (const fields of [
+    { column, before: foreign, after: foreign }, { column: f.column, before: foreign },
+    { column: f.column, after: foreign }, { column, before: 'c-000000' }, { column, after: 'c-000000' },
+    { column, before: '../card' }, { column, after: '' }, { column: f.column, before: f.id },
+    { before: foreign }, { column, before: foreign, extra: 'unexpected' },
+  ]) {
+    assert.equal((await f.send('/move', fields)).status, 400, JSON.stringify(fields));
+  }
+  assert.equal(f.writeCalls(), writes);
+  assert.deepEqual(f.stored(), before);
+  assert.deepEqual(readEvents(f.open()), events);
+});
+
+test('a positioned move of a claimed card returns 409 without changing its position', async (t) => {
+  const f = actionFixture(t);
+  const anchor = addCard(f.openWrite(), { title: 'Anchor', column: f.column }).entity.id;
+  claimCard(openContext({ mode: 'write', ...f.options, actor: 'agent:reader' }), f.id);
+  const before = f.stored();
+  const response = await f.send('/move', { column: f.column, before: anchor });
+  assert.equal(response.status, 409);
+  assert.match(response.body, /Kart bir ajanda/u);
+  assert.deepEqual(f.stored(), before);
 });
 
 test('all action fields are strict and invalid requests do not open a write context or change files or events',
@@ -408,7 +454,8 @@ test('all actions refuse an uninitialised data folder before opening a write con
     open: () => openContext({ mode: 'read', dataDir, home, env: {}, clock: fixedClock('2026-11-08T12:00:00Z') }),
     openWrite: () => assert.fail('nothing may be written') });
   const values = [
-    { title: 'Reading plan', project: '', priority: '', body: '', revision: 'a'.repeat(16) },
+    { title: 'Reading plan', project: '', priority: '', now: '', next: '', needs: '', body: '',
+      revision: 'a'.repeat(16) },
     { column: 'todo' }, {}, {}, { n: '1', checked: 'on', mark: 'a'.repeat(16) }, { text: 'A thought' },
   ];
   for (const [index, route] of cards.routes.slice(1).entries()) {
@@ -563,7 +610,7 @@ test('built card pages show token-bound actions and the edit form preserves the 
   assert.ok(edit.body.includes(`value="${selected.entity.id}" selected`), 'the current paused project stays selected');
   assert.ok(edit.body.includes('value="urgent" selected'));
   const escaped = body.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-  assert.ok(edit.body.includes(`rows="20">\n${escaped}</textarea>`),
+  assert.ok(edit.body.includes(`>\n${escaped}</textarea>`),
     'the parser drops one line break after the tag, so the page adds one and the body keeps its own first line');
   const missing = await call(f.app, { path: '/cards/c-000000/edit', headers });
   assert.equal(missing.status, 404);
@@ -644,3 +691,23 @@ test('the built board puts a token-bound Archive form on done cards only, and Re
     assert.match(archive.body, form(finished, 'restore'));
     assert.doesNotMatch(archive.body, /Still open|column-add/u);
   });
+
+test('editing sets, changes and clears the one-line status fields; line breaks become spaces', async (t) => {
+  const f = actionFixture(t);
+  assert.equal((await f.send('', { ...f.edit(), now: '  Drafting the list  ', next: 'Ask the shop' })).status, 303);
+  assert.equal(f.current().data.now, 'Drafting the list');
+  assert.equal(f.current().data.next, 'Ask the shop');
+  assert.equal(f.current().data.needs, undefined);
+  assert.equal((await f.send('', { ...f.edit(), now: '', next: 'Ask the shop', needs: 'Approve the budget' })).status,
+    303);
+  assert.equal(f.current().data.now, undefined, 'an empty field removes the line');
+  assert.equal(f.current().data.needs, 'Approve the budget');
+  assert.equal((await f.send('', { ...f.edit(), next: 'two\r\nlines\n' })).status, 303);
+  assert.equal(f.current().data.next, 'two lines', 'line breaks from the wrapping field become spaces');
+  const before = f.stored();
+  for (const value of ['x'.repeat(501), 'hidden\u200b']) {
+    const response = await f.send('', { ...f.edit(), next: value });
+    assert.equal(response.status, 400, JSON.stringify(value));
+  }
+  assert.deepEqual(f.stored(), before);
+});

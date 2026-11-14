@@ -2,10 +2,19 @@
 
 ## [Unreleased]
 
+- Owner board: drag cards between columns or reorder them; Alt + arrow keys offer the same moves.
 - Board: a search box (focus it with `/`) matches card titles, status lines and project names; the project pills
   become one project choice, priority pills show their counts, and a clear button resets every filter.
 - Board cards end with one row: project, priority and how long ago the card changed (full date on hover). A dot in
   each column heading and beside that time shows the column's role: amber for to do, blue for doing, green for done.
+- Board cards and "Add card" open in a dialog instead of a new page; the edit form now has the Now, Next and Needs
+  lines (they were missing, so the form looked empty) above the Markdown details. The card page keeps a compact
+  move select as the keyboard and no-script path. The archive pill lifts with its card.
+- Card dialog: a card opens readable, Edit switches to the form and Save returns to it; Go to project sits beside
+  Close. Long Now/Next/Needs lines wrap. Form fields follow the theme. The project cover keeps its two buttons
+  together at the end.
+- Faster pages: the search index ran SQLite `quick_check` on every open (about 0.2 s on a few MB, several times per
+  request); it now runs once per index file per process, and `cairn doctor` still checks on demand.
 - Board archive: done cards carry an Archive button that moves them to the configured hidden done column, the
   toolbar links to `/board?archive` with its count, and archived cards there have a Restore button back to Done.
   The board search also matches card tags. With one column per role the board drops the "every column" link.

@@ -6,6 +6,7 @@ import BoardColumns from '../components/BoardColumns.astro';
 import { laneColumns } from '../components/board-lanes.mjs';
 import { t } from '../i18n/index.mjs';
 import '../styles/research.css';
+import boardDrag from '../scripts/board-drag.js?url';
 
 // `?project=<ref>` narrows the board to one project (the Home project boxes link here); an unknown ref shows it all.
 // `?archive` shows the owner's archive (hidden columns); its cards can be sent back to Done from there.
@@ -42,7 +43,7 @@ const toggleHref = `${toggleUrl.pathname}${toggleUrl.search}`;
 const csrf = !state && Astro.locals.cards
   ? (await Astro.locals.cards.view(Astro.request.headers.get('cookie')))?.csrf : '';
 const cardAction = csrf && (archive || result.data.archive) ? { csrf, kind: archive ? 'restore' : 'archive' } : null;
-if (cardAction) Astro.response.headers.set('Referrer-Policy', 'same-origin');
+if (csrf) Astro.response.headers.set('Referrer-Policy', 'same-origin');
 const PRIORITY_ORDER = ['urgent', 'important', 'low'];
 const projectEntries = new Map();
 const presentPriorities = new Set();
@@ -74,8 +75,9 @@ const priorities = PRIORITY_ORDER.filter((priority) => presentPriorities.has(pri
 const projectKeys = new Map([...projectEntries].map(([ref, entry]) => [ref, entry.key]));
 const totalCards = columns.reduce((sum, column) => sum + column.total, 0);
 ---
-<AppShell live="card project board" title={t(archive ? 'board.archiveTitle' : 'shell.board')} current="/board" surface>
-  {cardAction && <meta slot="head" name="referrer" content="same-origin" />}
+<AppShell live="card project board" title={t(archive ? 'board.archiveTitle' : 'shell.board')} current="/board" surface
+  cardDialog>
+  {csrf && <meta slot="head" name="referrer" content="same-origin" />}
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'board.errorTitle'}
     message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'} /> : <>
     <ReadWarnings codes={result.warnings} />
@@ -138,8 +140,9 @@ const totalCards = columns.reduce((sum, column) => sum + column.total, 0);
       </div>
     </div>
     <BoardColumns columns={columns} add={!archive} status filterable projectKeys={projectKeys} lanes={!showAll}
-      cardAction={cardAction} />
+      cardAction={cardAction} draggable={!archive} csrf={csrf} />
   </>}
+  {!archive && <script is:inline type="module" src={boardDrag}></script>}
   <script src="../scripts/board-focus.js"></script>
   <script src="../scripts/board-filter.js"></script>
 </AppShell>

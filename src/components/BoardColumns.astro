@@ -9,7 +9,7 @@ import { language, t } from '../i18n/index.mjs';
 // `cardAction` ({ csrf, kind }): `archive` puts an Archive button on done cards, `restore` a Restore button on every
 // card (the archive view). The form sits next to the card link, since a form cannot live inside a link.
 const { columns, add = true, status = false, filterable = false, projectKeys = null, lanes = false,
-  cardAction = null } = Astro.props;
+  cardAction = null, draggable = false, csrf = '' } = Astro.props;
 const PRIORITIES = new Set(['urgent', 'important', 'low']);
 const ROLES = new Set(['todo', 'doing', 'done']);
 const now = Date.now();
@@ -22,12 +22,20 @@ const toneOf = (project) => (Number.isInteger(project?.tone) && project.tone >= 
 const assigneeOf = (card) => card.meta?.assignee
   ?? (typeof card.content?.assignee === 'string' ? card.content.assignee : null);
 ---
-<div class:list={['board', { 'board-lanes': lanes }]} role="region" aria-label={t('board.columns')} tabindex="0">
+{draggable && <p id="board-move-hint" class="sr-only">{t('board.moveHint')}</p>}
+<div class:list={['board', { 'board-lanes': lanes }]} role="region" aria-label={t('board.columns')} tabindex="0"
+  data-board-draggable={draggable ? '' : undefined} data-csrf={draggable && csrf ? csrf : undefined}
+  aria-describedby={draggable ? 'board-move-hint' : undefined}
+  data-claimed-title={draggable ? t('card.claimedTitle') : undefined}
+  data-move-failed={draggable ? t('board.moveFailed') : undefined}
+  data-move-claimed={draggable ? t('board.moveClaimed') : undefined}
+  data-move-announcement={draggable ? t('board.moveAnnouncement') : undefined}>
   {columns.map((column, index) => <section
     class:list={['board-column', `role-${roleOf(column)}`]}
     aria-labelledby={`column-${index}`}
     data-board-column={filterable ? '' : undefined}
     data-column-key={filterable ? column.key : undefined}
+    data-move-column={draggable ? column.addKey ?? column.key : undefined}
     data-column-total={filterable ? column.total : undefined}>
     <header class="column-heading">
       <span class="role-dot" aria-hidden="true"></span>
@@ -41,7 +49,7 @@ const assigneeOf = (card) => card.meta?.assignee
       aria-label={`${t('card.add')}: ${column.label}`}>
       {t('card.add')}
     </a>}
-    {column.cards.length > 0 && <ul class="board-cards"
+    {(draggable || column.cards.length > 0) && <ul class="board-cards"
       data-column-list={filterable ? '' : undefined}>{column.cards.map((card) => {
       const priority = cardPriority(card);
       const assignee = assigneeOf(card);
@@ -53,13 +61,16 @@ const assigneeOf = (card) => card.meta?.assignee
       const title = card.content.title || t('home.untitled');
       return <li
         id={card.id ? `card-${card.id}` : undefined}
+        data-card-id={draggable ? card.id : undefined}
+        data-card-column={draggable ? card.meta?.column : undefined}
         data-board-card={filterable ? '' : undefined}
         data-card-project={filterable ? cardProjectKey(card) : undefined}
         data-card-priority={filterable ? priority : undefined}
         data-card-tags={filterable && Array.isArray(card.content?.tags)
           ? card.content.tags.filter((tag) => typeof tag === 'string').join(' ') || undefined : undefined}
         class:list={{ 'has-card-quick': quick }}>
-        <Face class="board-card" href={card.id ? `/cards/${encodeURIComponent(card.id)}` : undefined}>
+        <Face class="board-card" aria-describedby={draggable ? 'board-move-hint' : undefined}
+          href={card.id ? `/cards/${encodeURIComponent(card.id)}` : undefined}>
           <h3>{title}</h3>
           {status && <CardStatus content={card.content} fields={['now', 'needs']} />}
           <div class="card-foot">
