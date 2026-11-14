@@ -160,7 +160,7 @@ export function createRead({ open, render = createRenderPool().render }) {
     return okEnvelope(view.data, [...ctx.warnings, ...view.warnings]);
   };
   return {
-    /** @param {{ scope?: 'owner' | 'agents' | 'archive', project?: string }} [options] */
+    /** @param {{ scope?: 'owner' | 'owner-archive' | 'agents' | 'archive', project?: string }} [options] */
     async board({ scope, project } = {}) {
       const ctx = await openRead();
       const projects = projectMap(ctx);

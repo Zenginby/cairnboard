@@ -422,7 +422,14 @@ if (searchPage) {
     } else if (event.key === '/' && !dialog.open && !event.metaKey && !event.ctrlKey && !event.altKey
       && !typing(event.target)) {
       event.preventDefault();
-      open();
+      // A page with its own filter box (the board) takes `/`; ⌘K still opens the global search there.
+      const local = document.querySelector('[data-slash-search]');
+      if (local instanceof HTMLInputElement && local.getClientRects().length > 0) {
+        local.focus();
+        local.select();
+      } else {
+        open();
+      }
     }
   });
   input.addEventListener('input', () => update());

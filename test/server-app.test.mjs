@@ -345,7 +345,7 @@ test('built Board, Card and Note routes use injected data, safe states and exter
     assert.match(response.body, /Joined project/u);
     assert.match(response.body, /tone-3/u);
     assert.match(response.body, /priority-urgent[^>]*>Acil/u);
-    assert.match(response.body, /Atanan: owner/u);
+    assert.match(response.body, /Atanan: (?:<\/span>)?owner/u);
     assert.match(response.body, /1\/2 ölçüt tamamlandı/u);
     if (method === 'board') {
       for (const title of ['Custom column', 'card title', 'Empty column', 'son 50']) assert.ok(response.body.includes(title), title);

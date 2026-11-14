@@ -1,6 +1,6 @@
 // Card forms use the same write checks as Settings; only card fields are validated here.
 import { createHash } from 'node:crypto';
-import { addCard, moveCard, checkCard, commentCard } from '../core/card.mjs';
+import { addCard, moveCard, checkCard, commentCard, archiveColumn } from '../core/card.mjs';
 import * as entity from '../core/entity.mjs';
 import { acceptanceItems } from '../core/frontmatter.mjs';
 import * as project from '../core/project.mjs';
@@ -114,6 +114,21 @@ export function createCards({ key, port, open, openWrite }) {
       if (!ctx.config.columns.some(({ key }) => key === values.column)) return bad('card.invalidColumn');
       return (write) => moveCard(write, current.id, { column: values.column });
     } },
+    // Board buttons: a done card goes to the archive column, an archived one back to the first visible done column.
+    // Both return to the board they were pressed on.
+    { suffix: '/archive', fields: [], next: () => '/board', plan(ctx, current) {
+      const target = archiveColumn(ctx.config);
+      const column = ctx.config.columns.find(({ key }) => key === current.data.column);
+      if (!target || column?.role !== 'done') return bad('card.invalidColumn');
+      if (column.key === target.key) return null;
+      return (write) => moveCard(write, current.id, { column: target.key });
+    } },
+    { suffix: '/restore', fields: [], next: () => '/board?archive', plan(ctx, current) {
+      const column = ctx.config.columns.find(({ key }) => key === current.data.column);
+      const target = ctx.config.columns.find((item) => item.role === 'done' && item.hidden !== true);
+      if (!target || column?.hidden !== true) return bad('card.invalidColumn');
+      return (write) => moveCard(write, current.id, { column: target.key });
+    } },
     { suffix: '/check', fields: ['n', 'checked', 'mark'], validate(values) {
       if (!/^[1-9][0-9]{0,5}$/u.test(values.n)) return bad('card.invalidItem');
       if (!['on', 'off'].includes(values.checked)) return bad('card.invalidChecked');
@@ -151,6 +166,7 @@ export function createCards({ key, port, open, openWrite }) {
       const plan = action.plan(ctx, entity.resolve(ctx, 'card', id), values);
       if (plan && typeof plan !== 'function') return plan;
       if (plan) plan(openWrite());
+      if (action.next) return action.next(id);
       return `/cards/${id}${action.suffix === '/comment' ? '#comments' : ''}`;
     },
   });

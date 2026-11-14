@@ -274,6 +274,10 @@
   padding-inline-end: var(--space-md);
 }
 
+/* A card with an Archive / Restore pill keeps its corner for that pill: no chevron, room after the title. */
+[data-theme="cam"] .has-card-quick a.board-card h3 { padding-inline-end: calc(var(--space-xl) * 2); }
+[data-theme="cam"] .has-card-quick a.board-card::after { display: none; }
+
 [data-theme="cam"] a.board-card::after {
   content: "";
   position: absolute;

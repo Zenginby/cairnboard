@@ -25,6 +25,12 @@ export function effectiveColumn(config, card) {
   return { ...(column ?? config.columns[0]), warnings: column ? [] : ['unknown_column'] };
 }
 
+/** The hidden column finished cards are archived to: the first hidden done column, else the first hidden one. */
+export function archiveColumn(config) {
+  const hidden = config.columns.filter((column) => column.hidden === true);
+  return hidden.find((column) => column.role === 'done') ?? hidden[0] ?? null;
+}
+
 function knownColumn(ctx, key) {
   const column = ctx.config.columns.find((column) => column.key === key);
   if (!column) throw invalid('Unknown card column.');

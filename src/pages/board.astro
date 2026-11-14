@@ -3,39 +3,68 @@ import AppShell from '../layouts/AppShell.astro';
 import PageState from '../components/PageState.astro';
 import ReadWarnings from '../components/ReadWarnings.astro';
 import BoardColumns from '../components/BoardColumns.astro';
+import { laneColumns } from '../components/board-lanes.mjs';
 import { t } from '../i18n/index.mjs';
+import '../styles/research.css';
 
 // `?project=<ref>` narrows the board to one project (the Home project boxes link here); an unknown ref shows it all.
+// `?archive` shows the owner's archive (hidden columns); its cards can be sent back to Done from there.
+const archive = Astro.url.searchParams.has('archive');
 const projectRef = Array.from(Astro.url.searchParams.get('project') ?? '').slice(0, 200).join('') || undefined;
 let result, state;
 try {
-  // The owner's board: hidden (archive) columns and the agents project's cards live on /agents.
-  result = await Astro.locals.cairn.board({ scope: 'owner', project: projectRef });
+  // The owner's board leaves out the agents project's cards (they live on /agents) and hidden columns, which
+  // `?archive` shows instead.
+  result = await Astro.locals.cairn.board({ scope: archive ? 'owner-archive' : 'owner', project: projectRef });
 } catch (error) {
   state = error?.code === 'data_not_ready' ? 'notReady' : 'error';
   Astro.response.status = state === 'notReady' ? 409 : 500;
   // Match the API: unexpected failures reach the server log, the page shows only a generic message.
   if (state === 'error') console.error(error);
 }
+// One lane per column role unless the reader asked for every column; `?columns=` sets it, a cookie keeps it.
+const COLUMNS_COOKIE = 'cairn-board-columns';
+const columnsChoice = Astro.url.searchParams.get('columns');
+if (columnsChoice === 'all' || columnsChoice === 'lanes') {
+  Astro.cookies.set(COLUMNS_COOKIE, columnsChoice,
+    { path: '/board', sameSite: 'strict', httpOnly: true, maxAge: 60 * 60 * 24 * 365 });
+}
+const configured = result?.data.columns ?? [];
+// With one column per role there is nothing to group: the lanes are the columns, in to do, doing, done order.
+const canGroup = laneColumns(configured, {}).length < configured.length;
+const showAll = canGroup && (columnsChoice ?? Astro.cookies.get(COLUMNS_COOKIE)?.value) === 'all';
+const columns = showAll ? configured : laneColumns(configured,
+  { todo: t('board.lane.todo'), doing: t('board.lane.doing'), done: t('board.lane.done') });
+const toggleUrl = new URL(Astro.url);
+toggleUrl.searchParams.set('columns', showAll ? 'lanes' : 'all');
+const toggleHref = `${toggleUrl.pathname}${toggleUrl.search}`;
+// Archive and restore buttons post the card form; they need its token, as the card page does.
+const csrf = !state && Astro.locals.cards
+  ? (await Astro.locals.cards.view(Astro.request.headers.get('cookie')))?.csrf : '';
+const cardAction = csrf && (archive || result.data.archive) ? { csrf, kind: archive ? 'restore' : 'archive' } : null;
+if (cardAction) Astro.response.headers.set('Referrer-Policy', 'same-origin');
 const PRIORITY_ORDER = ['urgent', 'important', 'low'];
-const columns = result?.data.columns ?? [];
 const projectEntries = new Map();
 const presentPriorities = new Set();
+// Counts of the cards on the page (a long Done column shows only its latest ones), as the filter script sees them.
+const priorityCounts = new Map();
+let totalShown = 0;
 for (const column of columns) {
   for (const card of column.cards) {
     if (card.project) {
       const ref = card.project.id || card.project;
       if (!projectEntries.has(ref)) {
-        const tone = Number.isInteger(card.project.tone) && card.project.tone >= 1 && card.project.tone <= 8
-          ? card.project.tone : 7;
         projectEntries.set(ref, {
           key: card.project.id || `project-${projectEntries.size + 1}`,
           title: card.project.title || t('home.untitled'),
-          tone,
         });
       }
     }
-    if (PRIORITY_ORDER.includes(card.meta?.priority)) presentPriorities.add(card.meta.priority);
+    if (PRIORITY_ORDER.includes(card.meta?.priority)) {
+      presentPriorities.add(card.meta.priority);
+      priorityCounts.set(card.meta.priority, (priorityCounts.get(card.meta.priority) ?? 0) + 1);
+    }
+    totalShown += 1;
   }
 }
 const collator = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
@@ -45,51 +74,71 @@ const priorities = PRIORITY_ORDER.filter((priority) => presentPriorities.has(pri
 const projectKeys = new Map([...projectEntries].map(([ref, entry]) => [ref, entry.key]));
 const totalCards = columns.reduce((sum, column) => sum + column.total, 0);
 ---
-<AppShell live="card project board" title={t('shell.board')} current="/board" surface>
+<AppShell live="card project board" title={t(archive ? 'board.archiveTitle' : 'shell.board')} current="/board" surface>
+  {cardAction && <meta slot="head" name="referrer" content="same-origin" />}
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : 'board.errorTitle'}
     message={state === 'notReady' ? 'state.notReadyBody' : 'error.serverBody'} init={state === 'notReady'} /> : <>
     <ReadWarnings codes={result.warnings} />
-    {result.data.project ? <header class="screen-heading board-project-heading">
+    {archive ? <header class="screen-heading board-project-heading">
+      <div>
+        <p class="eyebrow">{t('shell.board')}</p>
+        <h1>{t('board.archiveTitle')}</h1>
+      </div>
+      <a class="action-link" href="/board">{t('board.all')}</a>
+    </header> : result.data.project ? <header class="screen-heading board-project-heading">
       <div>
         <p class="eyebrow">{t('shell.board')}</p>
         <h1>{result.data.project.title || t('home.untitled')}</h1>
       </div>
       <a class="action-link" href="/board">{t('board.all')}</a>
     </header> : <header class="screen-heading"><h1>{t('shell.board')}</h1></header>}
-    <div class="board-toolbar" data-board-toolbar>
-      {(projects.length > 0 || priorities.length > 0) && (
-        <div class="board-filters">
-          {projects.length > 0 && (
-            <div class="board-filter-group" role="group" aria-label={t('board.filterProject')}>
-              <button type="button" class="board-filter-pill" data-filter-project="" aria-pressed="true">
-                {t('board.filterAll')}
-              </button>
-              {projects.map((project) => (
-                <button type="button" class="board-filter-pill" data-filter-project={project.key}
-                  aria-pressed="false">
-                  <span class:list={['board-filter-dot', `tone-${project.tone}`]} aria-hidden="true"></span>
-                  {project.title}
-                </button>
-              ))}
-            </div>
-          )}
-          {priorities.length > 0 && (
-            <div class="board-filter-group" role="group" aria-label={t('board.filterPriority')}>
-              {priorities.map((priority) => (
-                <button type="button" class="board-filter-pill" data-filter-priority={priority} aria-pressed="false">
-                  {t(`priority.${priority}`)}
-                </button>
-              ))}
-            </div>
-          )}
+    <div class="board-toolbar" role="search" aria-label={t('board.filterLabel')} data-board-toolbar>
+      <div class="board-controls">
+        <div class="board-search">
+          <label class="sr-only" for="board-search">{t('board.searchLabel')}</label>
+          <input id="board-search" class="research-input board-search-input" type="search" autocomplete="off"
+            placeholder={t('board.searchPlaceholder')} data-board-search data-slash-search />
+          <kbd class="board-search-key" aria-hidden="true">/</kbd>
         </div>
-      )}
-      <p class="board-summary" aria-live="polite" data-board-summary data-template={t('board.summary')}
-        data-total-cards={totalCards} data-column-count={columns.length}>
-        {t('board.summary', { n: totalCards, m: columns.length })}
-      </p>
+        {projects.length > 0 && (
+          <div class="board-project">
+            <label class="sr-only" for="board-project">{t('board.filterProject')}</label>
+            <select id="board-project" class="research-select" data-board-project>
+              <option value="">{t('research.allProjects')}</option>
+              {projects.map((project) => <option value={project.key}>{project.title}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+      <div class="board-controls board-controls-second">
+        {priorities.length > 0 && (
+          <div class="board-filter-group" role="group" aria-label={t('board.filterPriority')}>
+            <button type="button" class="board-filter-pill" data-filter-priority="" aria-pressed="true">
+              {t('board.filterAll')}
+              <span class="board-filter-count" data-priority-count>{totalShown}</span>
+            </button>
+            {priorities.map((priority) => (
+              <button type="button" class="board-filter-pill" data-filter-priority={priority} aria-pressed="false">
+                {t(`priority.${priority}`)}
+                <span class="board-filter-count" data-priority-count>{priorityCounts.get(priority)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <p class="board-summary" aria-live="polite" data-board-summary data-template={t('board.summary')}
+          data-total-cards={totalCards} data-column-count={columns.length}>
+          {t('board.summary', { n: totalCards, m: columns.length })}
+        </p>
+        <button type="button" class="action-link board-clear" data-board-clear hidden>{t('board.clear')}</button>
+        {canGroup && <a class="action-link board-columns-toggle" href={toggleHref}>
+          {showAll ? t('board.columnsLanes') : t('board.columnsAll', { n: configured.length })}</a>}
+        {result.data.archive && <a class="action-link board-archive-link"
+          href={`/board?archive${projectRef ? `&project=${encodeURIComponent(projectRef)}` : ''}`}>
+          {t('board.archiveTitle')} <span class="panel-count">{result.data.archive.count}</span></a>}
+      </div>
     </div>
-    <BoardColumns columns={columns} status filterable projectKeys={projectKeys} />
+    <BoardColumns columns={columns} add={!archive} status filterable projectKeys={projectKeys} lanes={!showAll}
+      cardAction={cardAction} />
   </>}
   <script src="../scripts/board-focus.js"></script>
   <script src="../scripts/board-filter.js"></script>

@@ -401,6 +401,9 @@ a, button { -webkit-tap-highlight-color: transparent; }
   padding: var(--space-xs) var(--space-xs) var(--space-md);
 }
 .board-column { min-width: 0; border-radius: var(--radius-md); background: var(--color-surface-inset); }
+/* Grouped lanes (three at most) are a little wider than single columns, but stop growing on wide screens so a
+   card keeps a readable line length; the board stays centred as before. */
+.board.board-lanes { grid-auto-columns: minmax(calc(var(--space-md) * 15), calc(var(--space-md) * 26)); }
 .column-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-sm); padding: var(--space-md); }
 .column-heading h2 { font-size: var(--font-ui-size); font-weight: var(--font-title-weight); }
 .column-add {
@@ -436,6 +439,61 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .status-doing { background: var(--color-doing-bg); color: var(--color-doing); }
 .status-done { background: var(--color-done-bg); color: var(--color-done); }
 .acceptance-count { font-variant-numeric: tabular-nums; }
+/* Board columns: the role (todo, doing, done) colours the heading dot and each card's "changed" time. */
+.board-column { --role-color: var(--color-tone-3); }
+.board-column.role-doing { --role-color: var(--color-tone-4); }
+.board-column.role-done { --role-color: var(--color-done); }
+.role-dot {
+  flex: none;
+  align-self: center;
+  width: var(--space-sm);
+  height: var(--space-sm);
+  border-radius: var(--radius-full);
+  background: var(--role-color);
+}
+.card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  margin-top: var(--space-12);
+  color: var(--color-text-3);
+  font-size: var(--font-caption-size);
+}
+.card-foot > * { min-width: 0; max-width: 100%; }
+.card-foot .chip { max-width: 100%; }
+.card-time {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-inline-start: auto;
+  color: var(--color-text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.card-time::before {
+  content: "";
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-full);
+  background: var(--role-color);
+}
+/* Archive / restore: a small pill in the card's top corner, next to (not inside) the card link. */
+.has-card-quick { position: relative; }
+.has-card-quick .board-card h3 { padding-inline-end: calc(var(--space-xl) * 2); }
+.card-quick { position: absolute; inset-block-start: var(--space-sm); inset-inline-end: var(--space-sm); margin: 0; }
+.card-quick-button {
+  padding: var(--space-2xs) var(--space-10);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-inset);
+  color: var(--color-text-2);
+  font: inherit;
+  font-size: var(--font-caption-size);
+  font-weight: var(--font-caption-weight);
+  cursor: pointer;
+}
+.card-quick-button:hover { color: var(--color-text); }
 .column-empty { padding: 0 var(--space-md) var(--space-md); color: var(--color-text-3); font-size: var(--font-small-size); }
 .document-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); align-items: start; }
 .document-layout.has-sidebar { grid-template-columns: var(--space-search-width) minmax(0, 1fr); }
@@ -973,13 +1031,49 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 .board-cards[hidden], .column-empty[hidden], [data-board-card][hidden], [data-column-recent][hidden] { display: none; }
 .board-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm) var(--space-md);
+  flex-direction: column;
+  gap: var(--space-12);
   margin-top: var(--space-md);
 }
-.board-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm) var(--space-md); }
+.board-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm) var(--space-md); }
+/* The search box starts compact and widens while it is in use (focused or holding a query). */
+.board-search {
+  position: relative;
+  flex: 0 1 18rem;
+  min-width: 0;
+  transition: flex-basis var(--motion-duration-medium) var(--motion-ease-out);
+}
+.board-search:focus-within,
+.board-search:has(.board-search-input:not(:placeholder-shown)) { flex-basis: 34rem; }
+.board-search-input { padding-inline-end: calc(var(--space-xl) + var(--space-xs)); }
+.board-search-key {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--space-12);
+  display: grid;
+  place-items: center;
+  margin-block: auto;
+  height: fit-content;
+  min-width: var(--space-md);
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-inset-2);
+  color: var(--color-text-2);
+  font-family: var(--font-code-family);
+  font-size: var(--font-label-size);
+  pointer-events: none;
+}
+.board-search:focus-within .board-search-key,
+.board-search:has(.board-search-input:not(:placeholder-shown)) .board-search-key { display: none; }
+.board-project { flex: 0 1 14rem; min-width: 0; }
+.board-controls-second .board-summary { margin-inline-start: auto; }
+.board-clear[hidden] { display: none; }
+.board-filter-count {
+  color: inherit;
+  font-size: var(--font-label-size);
+  font-weight: var(--font-body-weight);
+  font-variant-numeric: tabular-nums;
+}
 .board-filter-group { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 .board-filter-pill {
   display: inline-flex;
@@ -1022,14 +1116,19 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
   .board-filter-pill { min-height: calc(var(--space-xl) + var(--space-xs)); }
 }
 @media (prefers-reduced-motion: reduce) {
+  .board-search { transition: none; }
   .board-filter-pill { transition: none; }
   .board-filter-pill:active { transform: none; }
 }
-[data-motion="less"] .board-filter-pill { transition: none; }
+[data-motion="less"] .board-filter-pill,
+[data-motion="less"] .board-search { transition: none; }
 [data-motion="less"] .board-filter-pill:active { transform: none; }
 /* On phones each filter group is one row that scrolls sideways instead of wrapping into a tall block of pills. */
 @media (max-width: 40rem) {
-  .board-filters { flex-flow: column nowrap; align-items: stretch; width: 100%; min-width: 0; }
+  .board-search, .board-search:focus-within,
+  .board-search:has(.board-search-input:not(:placeholder-shown)), .board-project { flex: 1 1 100%; }
+  .board-search-key { display: none; }
+  .board-controls-second .board-filter-group { flex: 1 1 100%; }
   .board-filter-group {
     min-width: 0;
     flex-wrap: nowrap;

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+- Board: a search box (focus it with `/`) matches card titles, status lines and project names; the project pills
+  become one project choice, priority pills show their counts, and a clear button resets every filter.
+- Board cards end with one row: project, priority and how long ago the card changed (full date on hover). A dot in
+  each column heading and beside that time shows the column's role: amber for to do, blue for doing, green for done.
+- Board archive: done cards carry an Archive button that moves them to the configured hidden done column, the
+  toolbar links to `/board?archive` with its count, and archived cards there have a Restore button back to Done.
+  The board search also matches card tags. With one column per role the board drops the "every column" link.
+- Board shows one lane per column role by default, always in the order to do, doing, done, and lanes stop widening
+  on large screens; a card in a merged lane carries its column as a chip and new cards go to the lane's first
+  column. A toolbar link switches to every column, remembered in a cookie. Data and the agent board are unchanged.
 - Optional Tools screen: reads per-machine snapshots from `.cairn/tools/` (written by a scanner outside Cairnboard),
   with kind, no-description and unused filters; the tab appears only when a snapshot exists.
 - Fix research filters never hiding rows: the app had no `.hidden` rule.

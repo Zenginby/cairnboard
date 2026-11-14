@@ -1,3 +1,5 @@
+import { normalizeSearch } from './search-text.js';
+
 /**
  * Resolves the display type label for a research item: trimmed `category` if present, otherwise translated `kind`.
  * @param {{ category?: string | null, kind?: string | null, content?: { category?: string | null },
@@ -29,11 +31,6 @@ export function deriveResearchTypes(items, { kindLabels = {}, untypedLabel = '',
   return [...counts.entries()]
     .map(([label, count]) => ({ value: label, label, count }))
     .sort((a, b) => collator.compare(a.label, b.label));
-}
-
-function normalizeSearch(value, locale) {
-  if (typeof value !== 'string') return '';
-  return value.trim().replace(/İ/gu, 'i').toLocaleLowerCase(locale).replace(/\u0307/gu, '');
 }
 
 /**

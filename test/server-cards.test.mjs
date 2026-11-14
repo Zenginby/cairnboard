@@ -231,7 +231,8 @@ test('the built card form has its session token, selected column and active proj
     assert.ok(verifyCsrf(key, port, other, otherToken, 'card'));
     assert.notEqual(otherToken, token);
     const added = await f.post();
-    const board = await call(f.app, { path: '/board', headers });
+    // Every configured column, not the grouped lanes, so each one shows its own add link.
+    const board = await call(f.app, { path: '/board?columns=all', headers });
     assert.equal(board.status, 200);
     assert.ok(board.body.includes(`id="${added.headers.location.split('#')[1]}"`));
     for (const column of f.open().config.columns) {
@@ -408,7 +409,7 @@ test('all actions refuse an uninitialised data folder before opening a write con
     openWrite: () => assert.fail('nothing may be written') });
   const values = [
     { title: 'Reading plan', project: '', priority: '', body: '', revision: 'a'.repeat(16) },
-    { column: 'todo' }, { n: '1', checked: 'on', mark: 'a'.repeat(16) }, { text: 'A thought' },
+    { column: 'todo' }, {}, {}, { n: '1', checked: 'on', mark: 'a'.repeat(16) }, { text: 'A thought' },
   ];
   for (const [index, route] of cards.routes.slice(1).entries()) {
     const response = route.run({ values: values[index], params: { id: 'c-000000' } });
@@ -570,3 +571,76 @@ test('built card pages show token-bound actions and the edit form preserves the 
   writeFileSync(file, readFileSync(file, 'utf8').replace(/^id: .*\n/mu, ''));
   assert.equal(f.cards.view(null, `@${path}`).state, 'notFound');
 });
+
+test('a done card is archived to the hidden done column and restored to Done; both return to the board',
+  async (t) => {
+    const f = actionFixture(t);
+    const file = join(f.dataDir, '.cairn/config.json');
+    const config = JSON.parse(readFileSync(file, 'utf8'));
+    config.columns.push({ key: 'archive', label: 'Archive', role: 'done', hidden: true });
+    writeFileSync(file, JSON.stringify(config));
+    const done = f.open().config.columns.find((column) => column.role === 'done' && !column.hidden).key;
+
+    // Only a card in a done column can be archived, and only an archived card restored.
+    assert.equal((await f.send('/archive', {})).status, 400);
+    assert.equal((await f.send('/restore', {})).status, 400);
+    assert.equal((await f.send('/archive', { column: 'archive' })).status, 400, 'the action takes no fields');
+    assert.equal(f.current().data.column, f.column);
+
+    await f.send('/move', { column: done });
+    const archived = await f.send('/archive', {});
+    assert.equal(archived.status, 303);
+    assert.equal(archived.headers.location, '/board');
+    assert.equal(f.current().data.column, 'archive');
+    assert.equal(readEvents(f.open()).at(-1).op, 'card.move');
+    assert.equal(readEvents(f.open()).at(-1).actor, 'web:owner');
+
+    const restored = await f.send('/restore', {});
+    assert.equal(restored.status, 303);
+    assert.equal(restored.headers.location, '/board?archive');
+    assert.equal(f.current().data.column, done);
+  });
+
+test('without a hidden column there is nothing to archive to', async (t) => {
+  const f = actionFixture(t);
+  const done = f.open().config.columns.find((column) => column.role === 'done').key;
+  await f.send('/move', { column: done });
+  assert.equal((await f.send('/archive', {})).status, 400);
+  assert.equal(f.current().data.column, done);
+});
+
+test('the built board puts a token-bound Archive form on done cards only, and Restore on the archive view',
+  async (t) => {
+    if (!built) return t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+    const { handler } = await import('../dist/app/server/entry.mjs');
+    const f = fixture(t, { handler });
+    const cookie = mintCookie(key, port);
+    const headers = { cookie: `${cookieName(port)}=${cookie}` };
+    const done = f.open().config.columns.find((column) => column.role === 'done').key;
+    const open = addCard(f.openWrite(), { title: 'Still open', column: f.column }).entity.id;
+    const finished = addCard(f.openWrite(), { title: 'Finished', column: done }).entity.id;
+    const form = (id, kind) => new RegExp(`<form class="card-quick" method="post" action="/cards/${id}/${kind}">`
+      + '<input type="hidden" name="csrf" value="([^"]+)"', 'u');
+
+    // Without a hidden column there is nowhere to archive to: no buttons, no archive link.
+    let board = await call(f.app, { path: '/board', headers });
+    assert.equal(board.status, 200);
+    assert.doesNotMatch(board.body, /card-quick|href="\/board\?archive"/u);
+
+    const file = join(f.dataDir, '.cairn/config.json');
+    const config = JSON.parse(readFileSync(file, 'utf8'));
+    config.columns.push({ key: 'archive', label: 'Archive', role: 'done', hidden: true });
+    writeFileSync(file, JSON.stringify(config));
+    board = await call(f.app, { path: '/board', headers });
+    const token = board.body.match(form(finished, 'archive'))?.[1];
+    assert.ok(verifyCsrf(key, port, cookie, token, 'card'));
+    assert.doesNotMatch(board.body, new RegExp(`/cards/${open}/archive`, 'u'));
+    assert.match(board.body, /href="\/board\?archive"/u);
+    assert.equal(board.headers['referrer-policy'], 'same-origin');
+
+    await f.post({}, { path: `/cards/${finished}/archive`, cookie });
+    const archive = await call(f.app, { path: '/board?archive', headers });
+    assert.equal(archive.status, 200);
+    assert.match(archive.body, form(finished, 'restore'));
+    assert.doesNotMatch(archive.body, /Still open|column-add/u);
+  });

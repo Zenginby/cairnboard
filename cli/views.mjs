@@ -2,7 +2,7 @@ import { basename } from 'node:path';
 import * as entity from '../core/entity.mjs';
 import * as journal from '../core/journal.mjs';
 import * as index from '../core/index.mjs';
-import { listCards, effectiveColumn } from '../core/card.mjs';
+import { listCards, effectiveColumn, archiveColumn } from '../core/card.mjs';
 import { normalizeId } from '../core/ids.mjs';
 import { toJson, compact, clean } from './output.mjs';
 import { readFile } from '../core/store.mjs';
@@ -253,32 +253,39 @@ export function projectsView(ctx, opts = {}) {
 // `scope` (web only; the CLI passes none and sees every column and card):
 // - `owner`: visible columns, without agent cards;
 // - `agents`: visible columns with agent cards only, planning columns left out while empty;
-// - `archive`: hidden columns with agent cards only.
+// - `archive`: hidden columns with agent cards only;
+// - `owner-archive`: hidden columns without agent cards (the owner's archive).
 // `project` (web only): a set of project refs; only that project's cards are kept.
 export function boardView(ctx, opts = {}, { scope, project } = {}) {
   const agents = scope ? agentProject(ctx) : null;
   const isAgentCard = (card) => agents !== null && agents.refs.has(card.data.project);
-  const inScope = scope === 'owner' ? (card) => !isAgentCard(card) : scope ? isAgentCard : () => true;
+  const ownerSide = scope === 'owner' || scope === 'owner-archive';
+  const inScope = ownerSide ? (card) => !isAgentCard(card) : scope ? isAgentCard : () => true;
+  const archiveScope = scope === 'archive' || scope === 'owner-archive';
   const keep = project ? (card) => inScope(card) && project.has(card.data.project) : inScope;
   const cards = listCards(ctx, { includeDone: true }).filter(keep);
   const warnings = [];
   const shownColumns = scope === undefined ? ctx.config.columns
-    : ctx.config.columns.filter((column) => (column.hidden === true) === (scope === 'archive'));
+    : ctx.config.columns.filter((column) => (column.hidden === true) === archiveScope);
   const columns = shownColumns.map(({ key, label, role, hidden }) => {
     const items = cards.filter((card) => effectiveColumn(ctx.config, card).key === key);
     // The archive view lists every archived card; everywhere else a done column shows its 50 newest.
-    const recent = role === 'done' && scope !== 'archive' ? new Set([...items].sort(newest).slice(0, 50)) : null;
+    const recent = role === 'done' && !archiveScope ? new Set([...items].sort(newest).slice(0, 50)) : null;
     const shown = result(ctx, recent ? items.filter((item) => recent.has(item)) : items, opts);
     warnings.push(...shown.warnings);
     return { key, label, role, ...(hidden === true ? { hidden } : {}), cards: shown.data.items, total: items.length };
   }).filter((column) => scope !== 'agents' || column.role !== 'todo' || column.total > 0);
   const data = { columns };
+  const hiddenKeys = new Set(ctx.config.columns.filter((column) => column.hidden === true)
+    .map((column) => column.key));
+  const archivedCount = () => cards.filter((card) => hiddenKeys.has(effectiveColumn(ctx.config, card).key)).length;
   if (scope === 'agents' || scope === 'archive') {
     data.agentProject = agents?.id ?? null;
-    const hiddenKeys = new Set(ctx.config.columns.filter((column) => column.hidden === true)
-      .map((column) => column.key));
-    data.archived = scope === 'agents'
-      ? cards.filter((card) => hiddenKeys.has(effectiveColumn(ctx.config, card).key)).length : null;
+    data.archived = scope === 'agents' ? archivedCount() : null;
+  }
+  // The owner's board links to its archive when the configuration has a hidden done column to move cards to.
+  if (scope === 'owner') {
+    data.archive = archiveColumn(ctx.config) ? { count: archivedCount() } : null;
   }
   return { data, warnings };
 }

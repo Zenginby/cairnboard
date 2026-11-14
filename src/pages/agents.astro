@@ -35,7 +35,7 @@ const title = t(archive ? 'agents.archiveTitle' : 'agents.title');
         <p class="panel-subtitle">{t('agents.setupBody')}</p>
         <pre class="agents-setup-code"><code>{'"agents": { "project": "<project-id>" }'}</code></pre></section>
       : data.columns.length
-        ? <BoardColumns columns={data.columns} add={false} updated />
+        ? <BoardColumns columns={data.columns} add={false} />
         : <p class="column-empty agents-empty">{t(archive ? 'agents.archiveEmpty' : 'board.empty')}</p>}
   </>}
   <script src="../scripts/board-focus.js"></script>

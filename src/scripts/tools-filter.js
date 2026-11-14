@@ -1,10 +1,7 @@
 // Tools screen filters: name search, one kind at a time, "no description" and "unused". Rows stay in the HTML, so
 // the page works without script; this only hides rows and keeps the counts and summary in step.
 
-function normalizeSearch(value, locale) {
-  if (typeof value !== 'string') return '';
-  return value.trim().replace(/İ/gu, 'i').toLocaleLowerCase(locale).replace(/̇/gu, '');
-}
+import { normalizeSearch } from './search-text.js';
 
 /**
  * @param {Array<{ name?: string, kind?: string, described?: boolean, used?: boolean | null }>} items
