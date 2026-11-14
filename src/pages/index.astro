@@ -7,7 +7,8 @@ import AgentsBox from '../components/AgentsBox.astro';
 import ResearchBox from '../components/ResearchBox.astro';
 import PageState from '../components/PageState.astro';
 import { homeSpans } from '../components/bento-pack.mjs';
-import { t, warningText, language } from '../i18n/index.mjs';
+import { t, warningText, uiLanguage } from '../i18n/index.mjs';
+const language = uiLanguage();
 
 // The picker's revision is read before Home's data: a choice saved in between then makes this form's post a 409
 // conflict, never a silent overwrite of the newer choice with this page's older checkboxes.

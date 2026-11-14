@@ -12,7 +12,7 @@ import { searchView } from '../server/search.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
 import tr from '../src/i18n/tr.json' with { type: 'json' };
 import en from '../src/i18n/en.json' with { type: 'json' };
-import { language, t as translate } from '../src/i18n/index.mjs';
+import { t as translate, uiLanguage, useLanguage } from '../src/i18n/index.mjs';
 import { tempDir, fixedClock } from './support/env.mjs';
 
 function fixture(t, body) {
@@ -109,9 +109,23 @@ test('only context-open failures become data-not-ready errors', async () => {
 
 test('Home dictionaries share keys and the language is chosen in one place', () => {
   assert.deepEqual(Object.keys(tr).sort(), Object.keys(en).sort());
-  assert.equal(language, 'tr');
+  assert.equal(uiLanguage(), 'tr');
   assert.equal(translate('shell.home'), tr['shell.home']);
   for (const value of [...Object.values(tr), ...Object.values(en)]) assert.ok(value.trim());
+});
+
+test('the interface follows the data folder language and falls back to Turkish', (t) => {
+  const before = process.env.CAIRN_LANGUAGE;
+  t.after(() => {
+    if (before === undefined) delete process.env.CAIRN_LANGUAGE;
+    else process.env.CAIRN_LANGUAGE = before;
+  });
+  useLanguage('en');
+  assert.equal(uiLanguage(), 'en');
+  assert.equal(translate('shell.home'), en['shell.home']);
+  useLanguage('de');
+  assert.equal(uiLanguage(), 'tr');
+  assert.equal(translate('shell.home'), tr['shell.home']);
 });
 
 test('t() fills {name} placeholders and leaves unknown ones as written', () => {

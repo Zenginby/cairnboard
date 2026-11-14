@@ -1,5 +1,6 @@
 ---
-import { t, language } from '../i18n/index.mjs';
+import { t, uiLanguage } from '../i18n/index.mjs';
+const language = uiLanguage();
 
 const { jobs = [], total = 0 } = Astro.props;
 const day = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });

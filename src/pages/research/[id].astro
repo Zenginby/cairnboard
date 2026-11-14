@@ -4,7 +4,8 @@ import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
 import ResearchMeta from '../../components/ResearchMeta.astro';
 import DocToc from '../../components/DocToc.astro';
-import { language, t } from '../../i18n/index.mjs';
+import { uiLanguage, t } from '../../i18n/index.mjs';
+const language = uiLanguage();
 import { researchTypeLabel } from '../../scripts/research-filter.js';
 import '../../styles/research.css';
 

@@ -1,5 +1,6 @@
 ---
-import { language, t } from '../i18n/index.mjs';
+import { uiLanguage, t } from '../i18n/index.mjs';
+const language = uiLanguage();
 // Result rows for the /search page. `groups` is [{ type, rows, more, count }]; `headings` shows the group
 // titles ("All" lists every type). Only `snippetHtml` is HTML (the server lets through nothing but <mark>);
 // every other field is printed as text.

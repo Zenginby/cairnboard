@@ -18,6 +18,7 @@ import { createWrites } from './writes.mjs';
 import { createLiveWatcher } from './live.mjs';
 import { installShutdown } from './shutdown.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
+import { useLanguage } from '../src/i18n/index.mjs';
 
 async function start() {
   await checkRuntime();
@@ -36,11 +37,13 @@ async function start() {
       { stdio: 'inherit' });
     if (built.status !== 0) throw new Error('The app build failed.');
   }
+  const { openContext } = await import('../core/context.mjs');
+  // The interface speaks the data folder's language; a folder that cannot be read yet keeps the default.
+  try { useLanguage(openContext({ mode: 'read' }).config.language); } catch { /* the pages report the data problem */ }
   const { handler } = await import('../dist/app/server/entry.mjs');
   const { createApi } = await import('./api.mjs');
   const { createRead } = await import('./read.mjs');
   const { createRenderPool } = await import('./render-pool.mjs');
-  const { openContext } = await import('../core/context.mjs');
   const root = fileURLToPath(new URL('../', import.meta.url));
   const { port, servers } = await listenLoopback();
   const instance = newInstanceId();
