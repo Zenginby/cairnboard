@@ -126,17 +126,24 @@ test('merging joins a tool across machines by name and kind and adds up its uses
 
 test('filters: kind, search, no description and unused', () => {
   const items = [
-    { name: 'lantern', kind: 'skill', described: true, used: true },
-    { name: 'compass', kind: 'plugin', described: false, used: false },
-    { name: 'atlas', kind: 'skill', described: false, used: null },
+    { name: 'lantern', description: 'Lights the path.', project: 'wayfinder', kind: 'skill',
+      described: true, used: true },
+    { name: 'compass', description: '', project: 'cairn', kind: 'plugin', described: false, used: false },
+    { name: 'atlas', description: '', project: '', kind: 'skill', described: false, used: null },
   ];
   const names = (result) => result.visible.map((item) => item.name);
   assert.deepEqual(names(filterTools(items, { kind: 'skill' }, ['plugin', 'skill'])), ['lantern', 'atlas']);
   assert.deepEqual(names(filterTools(items, { query: 'COMP' })), ['compass']);
-  assert.deepEqual(names(filterTools(items, { undescribed: true })), ['compass', 'atlas']);
+  assert.deepEqual(names(filterTools(items, { query: 'path' })), ['lantern']);
+  assert.deepEqual(names(filterTools(items, { query: 'cairn' })), ['compass']);
+  assert.deepEqual(names(filterTools(items, { query: 'plugin' })), ['compass']);
+  const undescribed = filterTools(items, { undescribed: true });
+  assert.deepEqual(names(undescribed), ['compass', 'atlas']);
+  assert.deepEqual(undescribed.flagCounts, { undescribed: 2, unused: 1 });
   const unused = filterTools(items, { unused: true }, ['plugin', 'skill']);
   assert.deepEqual(names(unused), ['compass'], 'unknown usage is not "unused"');
   assert.deepEqual(unused.kindCounts, { plugin: 1, skill: 0 });
+  assert.deepEqual(unused.flagCounts, { undescribed: 1, unused: 1 });
 });
 
 async function inProcess(app, path) {
@@ -167,9 +174,12 @@ test('HTTP smoke: /tools lists merged tools and the tab shows only with a snapsh
   const withTools = get(fixture(t).open);
   const page = await withTools('/tools');
   assert.equal(page.status, 200);
-  for (const text of ['lantern', 'compass', 'atlas', 'north', 'south', 'Açıklama yok', 'Kullanılmayan', '4 araç']) {
+  for (const text of ['lantern', 'compass', 'atlas', 'north', 'south', 'Açıklama yok', 'Kullanılmayan', '4 araç',
+    'id="lantern"', 'kurulu değil', '✓', '—']) {
     assert.match(page.body, new RegExp(text, 'u'), text);
   }
+  assert.match(page.body, /data-flag-count="undescribed">2</u);
+  assert.match(page.body, /data-flag-count="unused">1</u);
   assert.doesNotMatch(page.body, /javascript:/u);
   assert.match(page.body, /href="https:\/\/example\.com\/lantern"[^>]*rel="noopener noreferrer"/u);
   assert.match((await withTools('/')).body, /href="\/tools"/u, 'tab present with a snapshot');
@@ -240,21 +250,32 @@ test('/tools browser smoke: filters, axe and console clean, 375px without sidewa
   const visible = () => page.locator('[data-tool-row]:not(.hidden)').evaluateAll((rows) =>
     rows.map((row) => row.dataset.name));
   assert.equal((await summary.innerText()).trim(), '4 araç');
+  const undescribedBtn = page.getByRole('button', { name: /^Açıklama yok/u });
+  const unusedBtn = page.getByRole('button', { name: /^Kullanılmayan/u });
+  assert.equal(await undescribedBtn.locator('[data-flag-count]').innerText(), '2');
+  assert.equal(await unusedBtn.locator('[data-flag-count]').innerText(), '1');
   await page.getByRole('button', { name: /^skill/u }).click();
   assert.deepEqual(await visible(), ['atlas', 'lantern']);
-  await page.getByRole('button', { name: 'Açıklama yok' }).click();
+  assert.equal(await undescribedBtn.locator('[data-flag-count]').innerText(), '1');
+  assert.equal(await unusedBtn.locator('[data-flag-count]').innerText(), '0');
+  await undescribedBtn.click();
   assert.deepEqual(await visible(), ['atlas']);
   assert.equal(await page.locator('[data-tool-row][data-name="lantern"]').isVisible(), false,
     'filtered rows are hidden');
   assert.equal((await summary.innerText()).trim(), '1 araç');
-  await page.getByRole('button', { name: 'Açıklama yok' }).click();
+  await undescribedBtn.click();
   await page.getByRole('button', { name: /^Tümü/u }).click();
-  await page.getByRole('button', { name: 'Kullanılmayan' }).click();
+  await unusedBtn.click();
   assert.deepEqual(await visible(), ['compass'], 'unknown usage is not "unused"');
-  await page.getByRole('button', { name: 'Kullanılmayan' }).click();
+  await unusedBtn.click();
   await page.getByLabel('Adda ara').fill('lant');
   assert.deepEqual(await visible(), ['lantern']);
+  await page.getByLabel('Adda ara').fill('boils');
+  assert.deepEqual(await visible(), ['kettle']);
   await page.getByLabel('Adda ara').fill('');
+  const controlHeights = await page.locator('.tools-page .research-input, .tools-page .research-type-btn')
+    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+  assert.equal(controlHeights.every((h) => h >= 44), true, 'filter controls meet touch target height');
 
   for (const width of [1280, 375]) {
     await page.setViewportSize({ width, height: 900 });

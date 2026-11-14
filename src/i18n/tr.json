@@ -445,5 +445,7 @@
   "tools.neverUsed": "kullanılmadı",
   "tools.emptyTitle": "Araç görüntüsü boş",
   "tools.emptyBody": "Tarama dosyası okunabildi ama içinde araç yok.",
-  "tools.noMatches": "Seçilen süzgeçlere uyan araç yok."
+  "tools.noMatches": "Seçilen süzgeçlere uyan araç yok.",
+  "tools.machineInstalled": "kurulu",
+  "tools.machineNotInstalled": "kurulu değil"
 }

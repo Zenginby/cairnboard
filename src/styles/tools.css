@@ -10,9 +10,29 @@
   font-variant-numeric: tabular-nums;
 }
 .tools-page .research-toolbar { flex-wrap: wrap; }
+.tools-page .research-input,
+.tools-page .research-type-btn {
+  min-height: calc(var(--space-xl) + var(--space-xs));
+}
+.tools-row {
+  scroll-margin-top: calc(var(--space-header-height) + var(--space-md));
+}
 .tools-description {
   margin: var(--space-2xs) 0 0;
-  color: var(--color-text-2);
-  font-size: var(--font-small-size);
+  color: var(--color-text);
+  font-size: var(--font-body-size);
   overflow-wrap: anywhere;
+}
+.tools-machine-tag {
+  gap: var(--space-xs);
+}
+.tools-machine-tag.is-installed {
+  background: var(--color-done-bg);
+  color: var(--color-done);
+}
+.tools-machine-tag.is-absent {
+  background: transparent;
+  border: var(--space-hairline) solid var(--color-line);
+  color: var(--color-text-3);
+  text-decoration: none;
 }
