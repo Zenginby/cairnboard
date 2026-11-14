@@ -157,7 +157,7 @@ test('Home renders research box with total, newest 5 links, badges, dates and om
 
   const { status, body } = await render(f.reader());
   assert.equal(status, 200);
-  const box = body.match(/<section class="panel research-box"[\s\S]*?<\/section>/u)?.[0];
+  const box = body.match(/<section class="panel research-box[^"]*"[\s\S]*?<\/section>/u)?.[0];
   assert.ok(box, 'research box is rendered');
   assert.match(box, /<h2[^>]*><a href="\/research">Araştırmalar<\/a><\/h2>/u);
   assert.match(box, /<span class="panel-count">6<\/span>/u);
