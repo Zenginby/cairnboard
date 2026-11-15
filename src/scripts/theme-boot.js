@@ -1,9 +1,10 @@
 (() => {
   const root = document.documentElement;
-  let saved, glass;
+  let saved, glass, rail;
   try {
     saved = localStorage.getItem('cairn-mode');
     glass = localStorage.getItem('cairn-glass');
+    rail = localStorage.getItem('cairn-pinned-rail');
   } catch { /* Storage may be unavailable. */ }
   root.dataset.mode = saved === 'light' || saved === 'dark' ? saved
     : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -12,4 +13,5 @@
   // that do not know the feature still get glass.
   const plain = matchMedia('(prefers-reduced-transparency: reduce), (prefers-contrast: more)');
   root.dataset.glass = glass === 'on' || glass === 'off' ? glass : plain.matches ? 'off' : 'on';
+  root.dataset.pinnedRail = rail === 'closed' ? 'closed' : 'open';
 })();

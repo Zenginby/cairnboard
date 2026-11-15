@@ -1,0 +1,624 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { IncomingMessage, ServerResponse } from 'node:http';
+import { Socket } from 'node:net';
+import { Writable } from 'node:stream';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createApp } from '../server/app.mjs';
+import { createGuard } from '../server/guard.mjs';
+import { createNotes } from '../server/notes.mjs';
+import { createWrites } from '../server/writes.mjs';
+import { createRead, pinnedNotesResult, plainItem } from '../server/read.mjs';
+import { cookieName, csrfToken, mintCookie, siteHost } from '../server/session.mjs';
+import { openContext } from '../core/context.mjs';
+import { initDataDir } from '../core/roots.mjs';
+import { readEvents } from '../core/events.mjs';
+import { parseFile } from '../core/frontmatter.mjs';
+import { refresh } from '../core/index.mjs';
+import { renderMarkdown } from '../core/render.mjs';
+import { CairnError } from '../core/errors.mjs';
+import * as entity from '../core/entity.mjs';
+import * as note from '../core/note.mjs';
+import * as project from '../core/project.mjs';
+import { useLanguage } from '../src/i18n/index.mjs';
+import { fixedClock, tempDir } from './support/env.mjs';
+
+const repo = fileURLToPath(new URL('..', import.meta.url));
+const port = 4321;
+const key = Buffer.alloc(32, 9);
+const instance = 'run-dddddddddddddddd';
+const clock = fixedClock('2026-11-15T10:00:00Z');
+
+async function call(app, { method = 'GET', path, headers = {}, body }) {
+  const socket = new Socket();
+  const req = new IncomingMessage(socket);
+  req.method = method;
+  req.url = path;
+  req.headers = { host: `${siteHost(key)}:${port}`, ...headers };
+  if (body !== undefined) {
+    const raw = Buffer.from(body);
+    req.push(raw);
+    req.headers['content-length'] = String(raw.length);
+  }
+  req.push(null);
+
+  const chunks = [];
+  const res = new ServerResponse(req);
+  res.assignSocket(new Writable({
+    write(chunk, _enc, done) { chunks.push(chunk); done(); },
+  }));
+  const finished = new Promise((resolve) => res.on('finish', resolve));
+  app(req, res);
+  await finished;
+  const raw = Buffer.concat(chunks).toString('utf8');
+  const split = raw.indexOf('\r\n\r\n');
+  return { status: res.statusCode, headers: res.getHeaders(), body: split < 0 ? raw : raw.slice(split + 4) };
+}
+
+async function setup(t, { language = 'en', rules, agentsProject } = {}) {
+  useLanguage(language);
+  const dir = tempDir(t, 'cairn-notes-route-');
+  const home = tempDir(t, 'cairn-notes-home-');
+  initDataDir(dir, { language });
+  if (rules || agentsProject) {
+    const cfgPath = join(dir, '.cairn', 'config.json');
+    const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
+    if (rules) cfg.rules = { ...(cfg.rules ?? {}), ...rules };
+    if (agentsProject) cfg.agents = { ...(cfg.agents ?? {}), project: agentsProject };
+    writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`);
+  }
+  const open = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
+  const openWrite = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'web:owner' });
+  const notes = createNotes({ key, port, open, openWrite });
+  const writes = createWrites({ key, port, routes: notes.routes, limit: 100 });
+  const guard = createGuard({ port, key, instance, writable: writes.writable });
+  let handler = (_req, res) => { res.statusCode = 404; res.end('not found'); };
+  let built = false;
+  if (existsSync(join(repo, 'dist/app/server/entry.mjs'))) {
+    ({ handler } = await import(new URL('../dist/app/server/entry.mjs', import.meta.url)));
+    built = true;
+  }
+  const app = createApp({
+    root: repo,
+    handler,
+    guard,
+    writes: writes.handle,
+    locals: { cairn: createRead({ open, render: renderMarkdown }), notes },
+  });
+  const cookie = mintCookie(key, port);
+  const cookieHeader = `${cookieName(port)}=${cookie}`;
+  const csrf = csrfToken(key, port, cookie, 'note');
+  const post = (form, { token = csrf, withCookie = true } = {}) => call(app, {
+    method: 'POST',
+    path: '/notes',
+    headers: {
+      ...(withCookie ? { cookie: cookieHeader } : {}),
+      origin: `http://${siteHost(key)}:${port}`,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(token === null ? form : { ...form, csrf: token }).toString(),
+  });
+  return { dir, open, openWrite, notes, app, cookieHeader, csrf, post, built };
+}
+
+test('POST /notes creates a kind:note file with normalized body and logs web:owner', async (t) => {
+  const { open, post } = await setup(t);
+  const res = await post({ title: '  Quick thought  ', body: 'Line 1\r\nLine 2', project: '' });
+  assert.equal(res.status, 303);
+  assert.match(String(res.headers.location), /^\/notes\/n-[0-9a-hjkmnp-tv-z]{6}$/u);
+  const id = String(res.headers.location).slice('/notes/'.length);
+  const ctx = open();
+  const created = entity.resolve(ctx, 'note', id);
+  assert.equal(created.data.kind, 'note');
+  assert.equal(created.id, id);
+  assert.equal(created.title, 'Quick thought');
+  assert.equal(created.body, 'Line 1\nLine 2');
+  assert.equal(existsSync(join(ctx.root, created.path)), true);
+  assert.equal(readEvents(ctx).at(-1).actor, 'web:owner');
+});
+
+test('POST /notes accepts optional active project and refuses the agents project', async (t) => {
+  const env = await setup(t);
+  const active = project.create(env.openWrite(), { title: 'Work', status: 'active' }, '', {}).entity;
+  const paused = project.create(env.openWrite(), { title: 'Hold', status: 'paused' }, '', {}).entity;
+  const agent = project.create(env.openWrite(), { title: 'Bots', status: 'active' }, '', {}).entity;
+  const cfgPath = join(env.dir, '.cairn', 'config.json');
+  const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
+  cfg.agents = { project: agent.id };
+  writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`);
+
+  const view = env.notes.view(env.cookieHeader);
+  assert.equal(view.state, 'ready');
+  assert.deepEqual(view.projects.map((p) => p.id), [active.id]);
+
+  const ok = await env.post({ title: 'Project note', body: '', project: active.id });
+  assert.equal(ok.status, 303);
+  const id = String(ok.headers.location).slice('/notes/'.length);
+  assert.equal(entity.resolve(env.open(), 'note', id).data.project, active.id);
+
+  // Unknown and paused-is-okay? Check non-existent fails 400 and agents project fails 400.
+  const unknown = await env.post({ title: 'Bad proj', body: '', project: 'no-such-project' });
+  assert.equal(unknown.status, 400);
+  const byAgent = await env.post({ title: 'Agent note', body: '', project: agent.id });
+  assert.equal(byAgent.status, 400);
+  assert.equal(entity.list(env.open(), 'note', { all: true }).length, 1);
+  // Active check passes while paused stays hidden from picker.
+  assert.ok(paused.id);
+});
+
+test('POST /notes rejects bad titles, unknown fields and oversized bodies without writing', async (t) => {
+  const { open, post } = await setup(t);
+  const badCases = [
+    { title: '', body: '', project: '' },
+    { title: '   ', body: '', project: '' },
+    { title: 'a'.repeat(201), body: '', project: '' },
+    { title: 'Line\tbreak', body: '', project: '' },
+    { title: 'Line\nbreak', body: '', project: '' },
+    { title: 'Line\rbreak', body: '', project: '' },
+    { title: 'Line\u0085break', body: '', project: '' },
+    { title: 'Hidden\u200bchar', body: '', project: '' },
+    { body: 'missing title', project: '' },
+    { title: 'Extra', body: '', project: '', extra: 'nope' },
+    { title: 'Kind', body: '', project: '', kind: 'concept' },
+    { title: 'Pinned', body: '', project: '', pinned: 'true' },
+    { title: 'Tags', body: '', project: '', tags: 'a' },
+    { title: 'Path', body: '', project: '', path: 'evil.md' },
+    { title: 'Id', body: '', project: '', id: 'n-aaaaaa' },
+    { title: 'Too big', body: 'x'.repeat(256 * 1024 + 1), project: '' },
+  ];
+  for (const fields of badCases) {
+    const res = await post(fields);
+    assert.equal(res.status, 400, `Expected 400 for ${JSON.stringify(fields).slice(0, 60)}`);
+  }
+  const overLimit = await post({ title: 'Way too big', body: 'x'.repeat(4 * 256 * 1024 + 5000), project: '' });
+  assert.equal(overLimit.status, 413);
+  assert.equal(entity.list(open(), 'note', { all: true }).length, 0);
+});
+
+test('POST /notes rejects missing, wrong and wrong-form CSRF tokens with 403', async (t) => {
+  const { open, post, cookieHeader } = await setup(t);
+  const cookie = cookieHeader.split('=')[1];
+  const cardToken = csrfToken(key, port, cookie, 'card');
+  const settingsToken = csrfToken(key, port, cookie, 'settings');
+
+  for (const token of [null, 'wrong-token', cardToken, settingsToken]) {
+    const res = await post({ title: 'Blocked', body: '', project: '' }, { token });
+    assert.equal(res.status, 403);
+  }
+  assert.equal(entity.list(open(), 'note', { all: true }).length, 0);
+});
+
+test('POST /notes returns 422 naming the rule when a write rule is error severity', async (t) => {
+  const { open, post } = await setup(t, { rules: { links: 'error' } });
+  const res = await post({ title: 'Broken link note', body: 'See [[ghost]] for details.', project: '' });
+  assert.equal(res.status, 422);
+  assert.match(res.body, /links/u);
+  assert.match(res.body, /href="\/notes\/new"/u);
+  assert.equal(entity.list(open(), 'note', { all: true }).length, 0);
+});
+
+test('POST /notes handles conflicts (409), validation (400), notReady (409) and locked stores (503 Retry-After)',
+  async (t) => {
+    const dir = tempDir(t, 'cairn-notes-err-');
+    const home = tempDir(t, 'cairn-notes-err-home-');
+    initDataDir(dir, { language: 'en' });
+    const cookie = mintCookie(key, port);
+    const csrf = csrfToken(key, port, cookie, 'note');
+    const postWith = (notes) => {
+      const writes = createWrites({ key, port, routes: notes.routes, limit: 100 });
+      const app = createApp({
+        root: repo,
+        handler: (_req, res) => { res.statusCode = 404; res.end(); },
+        guard: createGuard({ port, key, instance, writable: writes.writable }),
+        writes: writes.handle,
+      });
+      return call(app, {
+        method: 'POST',
+        path: '/notes',
+        headers: {
+          cookie: `${cookieName(port)}=${cookie}`,
+          origin: `http://${siteHost(key)}:${port}`,
+          'sec-fetch-site': 'same-origin',
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ csrf, title: 'Note', body: '', project: '' }).toString(),
+      });
+    };
+
+    const cases = [
+      ['conflict', 409],
+      ['duplicate_id', 409],
+      ['validation', 400],
+      ['not_found', 409],
+    ];
+    for (const [code, expected] of cases) {
+      const notes = createNotes({
+        key,
+        port,
+        open: () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' }),
+        openWrite: () => { throw new CairnError(code, `Simulated ${code}`); },
+      });
+      const res = await postWith(notes);
+      assert.equal(res.status, expected, `Expected ${expected} for ${code}`);
+    }
+
+    const missingDir = join(tempDir(t, 'cairn-missing-'), 'absent');
+    const uninit = createNotes({
+      key,
+      port,
+      open: () => openContext({ dataDir: missingDir, home, env: {}, clock, mode: 'read' }),
+      openWrite: () => openContext({ dataDir: missingDir, home, env: {}, clock, mode: 'write', actor: 'web:owner' }),
+    });
+    assert.equal((await postWith(uninit)).status, 409);
+
+    const locked = createNotes({
+      key,
+      port,
+      open: () => { throw new CairnError('locked', 'Busy lock'); },
+      openWrite: () => { throw new CairnError('locked', 'Busy lock'); },
+    });
+    const lockedRes = await postWith(locked);
+    assert.equal(lockedRes.status, 503);
+    assert.equal(lockedRes.headers['retry-after'], '1');
+  });
+
+test('GET /notes and /notes/new render form links and submit without scripts in built app', async (t) => {
+  const env = await setup(t);
+  if (!env.built) {
+    t.skip('Astro output missing; run npm run build:app to verify built pages.');
+    return;
+  }
+  const active = project.create(env.openWrite(), { title: 'Alpha', status: 'active' }, '', {}).entity;
+  const agent = project.create(env.openWrite(), { title: 'AgentProj', status: 'active' }, '', {}).entity;
+  const cfgPath = join(env.dir, '.cairn', 'config.json');
+  const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
+  cfg.agents = { project: agent.id };
+  writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`);
+
+  const listEmpty = await call(env.app, { path: '/notes', headers: { cookie: env.cookieHeader } });
+  assert.equal(listEmpty.status, 200);
+  const newLinks = listEmpty.body.match(/href="\/notes\/new"/gu) ?? [];
+  assert.equal(newLinks.length >= 2, true);
+
+  const formPage = await call(env.app, { path: '/notes/new', headers: { cookie: env.cookieHeader } });
+  assert.equal(formPage.status, 200);
+  assert.equal(formPage.headers['referrer-policy'], 'same-origin');
+  assert.match(formPage.body, /data-note-panel/u);
+  assert.match(formPage.body, /name="csrf"/u);
+  assert.match(formPage.body, /Alpha/u);
+  assert.doesNotMatch(formPage.body, /AgentProj/u);
+  assert.doesNotMatch(formPage.body, /style="/u);
+
+  const created = await env.post({ title: 'Scriptless note', body: 'Hello world', project: active.id });
+  assert.equal(created.status, 303);
+  const readNote = await call(env.app, {
+    path: String(created.headers.location),
+    headers: { cookie: env.cookieHeader },
+  });
+  assert.equal(readNote.status, 200);
+  assert.match(readNote.body, /Scriptless note/u);
+});
+
+function postPin(env, ref, form, { token = env.csrf, withCookie = true } = {}) {
+  return call(env.app, {
+    method: 'POST',
+    path: `/notes/${ref}/pin`,
+    headers: {
+      ...(withCookie ? { cookie: env.cookieHeader } : {}),
+      origin: `http://${siteHost(key)}:${port}`,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(token === null ? form : { ...form, csrf: token }).toString(),
+  });
+}
+
+test('POST /notes accepts pinned=on as boolean true and rejects invalid pinned values', async (t) => {
+  const env = await setup(t);
+  const pinnedRes = await env.post({ title: 'Pinned quick', body: 'Keep me visible', project: '', pinned: 'on' });
+  assert.equal(pinnedRes.status, 303);
+  const id = String(pinnedRes.headers.location).slice('/notes/'.length);
+  const resolved = entity.resolve(env.open(), 'note', id);
+  const parsed = parseFile(readFileSync(join(env.dir, resolved.path), 'utf8'));
+  assert.strictEqual(parsed.data.pinned, true);
+
+  for (const badPinned of ['', 'off', 'yes', 'true']) {
+    const res = await env.post({ title: 'Bad pinned', body: '', project: '', pinned: badPinned });
+    assert.equal(res.status, 400);
+  }
+  assert.equal(entity.list(env.open(), 'note', { all: true }).length, 1);
+});
+
+test('POST /notes/<ref>/pin toggles boolean pinned on notes with and without id', async (t) => {
+  const env = await setup(t);
+  const withId = note.create(env.openWrite(), { title: 'Has id' }, 'Body', {}).entity;
+
+  const pinRes = await postPin(env, withId.id, { pinned: 'on', revision: withId.revision });
+  assert.equal(pinRes.status, 303);
+  assert.equal(pinRes.headers.location, `/notes/${withId.id}`);
+  const afterPin = entity.resolve(env.open(), 'note', withId.id);
+  assert.strictEqual(parseFile(readFileSync(join(env.dir, afterPin.path), 'utf8')).data.pinned, true);
+
+  const unpinRes = await postPin(env, withId.id, { pinned: 'off', revision: afterPin.revision });
+  assert.equal(unpinRes.status, 303);
+  assert.equal(unpinRes.headers.location, `/notes/${withId.id}`);
+  const afterUnpin = entity.resolve(env.open(), 'note', withId.id);
+  assert.strictEqual(parseFile(readFileSync(join(env.dir, afterUnpin.path), 'utf8')).data.pinned, false);
+
+  const rawPath = join(env.dir, 'notes', 'manual-note.md');
+  mkdirSync(dirname(rawPath), { recursive: true });
+  writeFileSync(rawPath, '---\ntitle: Manual note without id\n---\nHand-written body\n');
+  const writeCtx = env.openWrite();
+  refresh(writeCtx);
+  const noId = note.list(writeCtx).find((item) => item.path === 'notes/manual-note.md');
+  assert.ok(noId);
+  assert.equal(noId.id, null);
+  assert.match(noId.ref, /^n-[0-9a-f]{16}$/u);
+
+  const pinNoId = await postPin(env, noId.ref, { pinned: 'on', revision: noId.revision });
+  assert.equal(pinNoId.status, 303);
+  assert.equal(pinNoId.headers.location, `/notes/${noId.ref}`);
+  const parsedNoId = parseFile(readFileSync(rawPath, 'utf8'));
+  assert.strictEqual(parsedNoId.data.pinned, true);
+  assert.equal(Object.hasOwn(parsedNoId.data, 'id'), false);
+
+  const nextNoId = note.resolve(env.open(), noId.ref);
+  const unpinNoId = await postPin(env, noId.ref, { pinned: 'off', revision: nextNoId.revision });
+  assert.equal(unpinNoId.status, 303);
+  assert.strictEqual(parseFile(readFileSync(rawPath, 'utf8')).data.pinned, false);
+});
+
+test('POST /notes/<ref>/pin enforces revision 409, fields 400, values 400, CSRF 403, missing 404, rule 422',
+  async (t) => {
+  const env = await setup(t);
+  const item = note.create(env.openWrite(), { title: 'Target note' }, 'Text', {}).entity;
+  const staleRev = item.revision;
+  note.update(env.openWrite(), item.id, { pinned: true });
+  const fresh = note.resolve(env.open(), item.id);
+
+  const conflict = await postPin(env, item.id, { pinned: 'off', revision: staleRev });
+  assert.equal(conflict.status, 409);
+
+  const unknownField = await postPin(env, item.id, {
+    pinned: 'off', revision: fresh.revision, next: '/board',
+  });
+  assert.equal(unknownField.status, 400);
+
+  const missingRev = await postPin(env, item.id, { pinned: 'off' });
+  assert.equal(missingRev.status, 400);
+
+  for (const bad of [
+    { pinned: 'yes', revision: fresh.revision },
+    { pinned: '', revision: fresh.revision },
+    { pinned: 'off', revision: 'not-hex' },
+    { pinned: 'off', revision: '0123456789abcdef0' },
+  ]) {
+    const res = await postPin(env, item.id, bad);
+    assert.equal(res.status, 400);
+  }
+
+  const cookie = env.cookieHeader.split('=')[1];
+  for (const token of [null, 'bad-token', csrfToken(key, port, cookie, 'card')]) {
+    const res = await postPin(env, item.id, { pinned: 'off', revision: fresh.revision }, { token });
+    assert.equal(res.status, 403);
+  }
+
+  const noCookie = await postPin(env, item.id, { pinned: 'off', revision: fresh.revision }, { withCookie: false });
+  assert.equal(noCookie.status, 401);
+
+  for (const missingRef of ['n-000000', 'n-0000000000000000']) {
+    const missing = await postPin(env, missingRef, { pinned: 'on', revision: fresh.revision });
+    assert.equal(missing.status, 404);
+  }
+
+  const ruleEnv = await setup(t, { rules: { links: 'error' } });
+  const rulePath = join(ruleEnv.dir, 'notes', 'broken-link.md');
+  mkdirSync(dirname(rulePath), { recursive: true });
+  writeFileSync(rulePath, '---\ntitle: Broken\n---\nSee [[missing-note]].\n');
+  const ruleCtx = ruleEnv.openWrite();
+  refresh(ruleCtx);
+  const broken = note.list(ruleCtx).find((entry) => entry.path === 'notes/broken-link.md');
+  const ruleRes = await postPin(ruleEnv, broken.ref, { pinned: 'on', revision: broken.revision });
+  assert.equal(ruleRes.status, 422);
+  assert.match(ruleRes.body, /links/u);
+});
+
+test('note page renders script-free pin button and survives pinned rail read failure', async (t) => {
+  const env = await setup(t);
+  if (!env.built) return;
+  const item = note.create(env.openWrite(), { title: 'View note' }, 'Body copy', {}).entity;
+
+  const page1 = await call(env.app, { path: `/notes/${item.id}`, headers: { cookie: env.cookieHeader } });
+  assert.equal(page1.status, 200);
+  assert.equal(page1.headers['referrer-policy'], 'same-origin');
+  assert.match(page1.body, new RegExp(`action="/notes/${item.id}/pin"`, 'u'));
+  assert.match(page1.body, /name="pinned" value="on"/u);
+
+  const pinned = await postPin(env, item.id, { pinned: 'on', revision: item.revision });
+  assert.equal(pinned.status, 303);
+
+  const page2 = await call(env.app, { path: `/notes/${item.id}`, headers: { cookie: env.cookieHeader } });
+  assert.equal(page2.status, 200);
+  assert.match(page2.body, /name="pinned" value="off"/u);
+  assert.match(page2.body, /pinned-rail-item/u);
+
+  const failingCairn = createRead({ open: env.open, render: renderMarkdown });
+  failingCairn.pinnedNotes = () => { throw new Error('boom'); };
+  const brokenRailApp = createApp({
+    root: repo,
+    handler: (await import(new URL('../dist/app/server/entry.mjs', import.meta.url))).handler,
+    guard: createGuard({ port, key, instance, writable: () => false }),
+    locals: { cairn: failingCairn, notes: env.notes },
+  });
+  const degraded = await call(brokenRailApp, { path: `/notes/${item.id}`, headers: { cookie: env.cookieHeader } });
+  assert.equal(degraded.status, 200);
+  assert.doesNotMatch(degraded.body, /class="pinned-rail"/u);
+});
+
+test('pinnedNotesResult orders newest first, caps at 30, drops agents project, includes all kinds, strips Markdown',
+  (t) => {
+    const dir = tempDir(t, 'cairn-pinned-read-');
+    const home = tempDir(t, 'cairn-pinned-home-');
+    initDataDir(dir, { language: 'en' });
+    const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
+    const work = project.create(seedCtx, { title: 'Work', tone: 2 }, '', {}).entity;
+    const bots = project.create(seedCtx, { title: 'Bots', tone: 1 }, '', {}).entity;
+    const cfgPath = join(dir, '.cairn', 'config.json');
+    const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
+    cfg.agents = { project: bots.id };
+    writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`);
+
+    note.create(seedCtx, { title: 'Agent pin', project: bots.id, pinned: true }, 'Secret agent note', {});
+    note.create(seedCtx, { title: 'Unpinned note', project: work.id, pinned: false }, 'Not pinned', {});
+
+    const writeAt = (iso, title, extra = {}, body = 'Body') => {
+      const ctxAt = openContext({ dataDir: dir, home, env: {}, clock: fixedClock(iso),
+        mode: 'write', actor: 'cli:test' });
+      return note.create(ctxAt, { title, pinned: true, ...extra }, body, {}).entity;
+    };
+
+    writeAt('2026-11-01T00:00:00Z', 'Pinned 1');
+    writeAt('2026-11-01T00:01:00Z', 'Pinned 2');
+    writeAt('2026-11-01T00:02:00Z', 'Concept one', { kind: 'concept', project: work.id });
+    writeAt('2026-11-01T00:03:00Z', 'Tool one', { kind: 'tool' });
+    writeAt('2026-11-01T00:04:00Z', 'Query one', { kind: 'query' });
+    writeAt('2026-11-01T00:05:00Z', 'Overview one', { kind: 'overview' });
+    for (let i = 3; i <= 27; i += 1) {
+      const mm = String(i + 3).padStart(2, '0');
+      writeAt(`2026-11-01T00:${mm}:00Z`, `Pinned ${i}`);
+    }
+    writeAt(
+      '2026-11-01T01:00:00Z',
+      'Latest markdown note',
+      { project: work.id },
+      [
+        '# Heading line',
+        '',
+        '> Quoted **bold** and *italic* with _under_ and ~~old~~ plus `code`',
+        '',
+        '- [ ] Task [external link](https://example.invalid) and [[wikilink|shown label]] ![pic](a.png)',
+        'Extra padding '.repeat(20),
+      ].join('\n'),
+    );
+
+    const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
+    const res = pinnedNotesResult(readCtx);
+    assert.equal(res.ok, true);
+    assert.equal(res.data.items.length, 30);
+    assert.equal(res.data.items[0].title, 'Latest markdown note');
+    assert.deepEqual(res.data.items[0].project, { id: work.id, title: 'Work', tone: 2 });
+    assert.equal(res.data.items.at(-1).title, 'Concept one');
+    assert.equal(res.data.items.some((item) => item.title === 'Pinned 1'), false);
+    assert.equal(res.data.items.some((item) => item.title === 'Pinned 2'), false);
+    assert.equal(res.data.items.some((item) => item.title === 'Agent pin'), false);
+    assert.equal(res.data.items.some((item) => item.title === 'Unpinned note'), false);
+    assert.equal(res.data.items.some((item) => item.kind === 'concept'), true);
+    assert.equal(res.data.items.some((item) => item.kind === 'tool'), true);
+    assert.equal(res.data.items.some((item) => item.kind === 'query'), true);
+    assert.equal(res.data.items.some((item) => item.kind === 'overview'), true);
+
+    const excerpt = res.data.items[0].excerpt;
+    assert.ok(excerpt.length <= 160);
+    assert.doesNotMatch(excerpt, /[#*`~\[\]>!]/u);
+    assert.match(excerpt, /Heading line/u);
+    assert.match(excerpt, /shown label/u);
+    assert.match(excerpt, /external link/u);
+  });
+
+test('pinnedNotesResult handles 256 KiB blank and space-newline bodies under 250 ms each', (t) => {
+  for (const [label, body] of [
+    ['newlines', '\n'.repeat(256 * 1024)],
+    ['space-newlines', ' \n'.repeat(128 * 1024)],
+  ]) {
+    const dir = tempDir(t, `cairn-pinned-perf-${label}-`);
+    const home = tempDir(t, `cairn-pinned-perf-home-${label}-`);
+    initDataDir(dir, { language: 'en' });
+    const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
+    note.create(seedCtx, { title: `Blank ${label}`, pinned: true }, body, {});
+    const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
+    const start = performance.now();
+    const res = pinnedNotesResult(readCtx);
+    const elapsed = performance.now() - start;
+    assert.equal(res.data.items.length, 1);
+    assert.equal(res.data.items[0].excerpt, '');
+    assert.ok(elapsed < 250, `${label} took ${elapsed.toFixed(1)} ms`);
+  }
+});
+
+test('plainItem keeps pre-rail journal day preview behavior', () => {
+  assert.equal(
+    plainItem('**Decision:** # keep ~~strike~~ and _under_ with [[page|shown]] plus [link](https://a.test)'),
+    'Decision: # keep ~~strike~~ and _under_ with shown plus link',
+  );
+  assert.equal(plainItem('x'.repeat(250)).length, 200);
+});
+
+test('pinnedNotesResult formats heading, paragraph and Markdown table without separator rows or outer pipes',
+  (t) => {
+    const dir = tempDir(t, 'cairn-pinned-table-');
+    const home = tempDir(t, 'cairn-pinned-table-home-');
+    initDataDir(dir, { language: 'en' });
+    const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
+    note.create(
+      seedCtx,
+      { title: 'Table note', pinned: true },
+      [
+        '# Section Title',
+        '',
+        'Short intro paragraph.',
+        '',
+        '| Alan | Örnek |',
+        '| :--- | ---: |',
+        '| Bir | İki |',
+      ].join('\n'),
+      {},
+    );
+    const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
+    const res = pinnedNotesResult(readCtx);
+    assert.equal(res.data.items[0].excerpt, 'Section Title Short intro paragraph. Alan · Örnek Bir · İki');
+  });
+
+test('PinnedRail falls back to notes.kind.note label for unknown note kinds', async (t) => {
+  const env = await setup(t);
+  if (!env.built) {
+    t.skip('Astro output missing; run npm run build:app to verify built pages.');
+    return;
+  }
+  const rawPath = join(env.dir, 'notes', 'unknown-kind.md');
+  mkdirSync(dirname(rawPath), { recursive: true });
+  writeFileSync(rawPath, '---\nid: n-u00001\ntitle: Unknown kind pin\nkind: custom-kind\npinned: true\n---\nBody\n');
+  refresh(env.openWrite());
+  const page = await call(env.app, { path: '/', headers: { cookie: env.cookieHeader } });
+  assert.equal(page.status, 200);
+  assert.match(page.body, /<span class="pinned-rail-kind">Note<\/span>/u);
+  assert.doesNotMatch(page.body, /notes\.kind\.custom-kind/u);
+  assert.match(page.body, /data-pinned-unpin/u);
+});
+
+test('POST /notes/<ref>/pin refuses notes belonging to the agents project with 400', async (t) => {
+  const env = await setup(t);
+  const agent = project.create(env.openWrite(), { title: 'Bots', status: 'active' }, '', {}).entity;
+  const cfgPath = join(env.dir, '.cairn', 'config.json');
+  const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
+  cfg.agents = { project: agent.id };
+  writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`);
+
+  const byId = note.create(env.openWrite(), { title: 'Agent id note', project: agent.id }, 'Body', {}).entity;
+  const byPath = note.create(
+    env.openWrite(),
+    { title: 'Agent path note', project: `@${agent.path}`, pinned: true },
+    'Body',
+    {},
+  ).entity;
+
+  const pinRes = await postPin(env, byId.id, { pinned: 'on', revision: byId.revision });
+  assert.equal(pinRes.status, 400);
+  assert.strictEqual(entity.resolve(env.open(), 'note', byId.id).data.pinned, false);
+
+  const unpinRes = await postPin(env, byPath.id, { pinned: 'off', revision: byPath.revision });
+  assert.equal(unpinRes.status, 400);
+  assert.strictEqual(entity.resolve(env.open(), 'note', byPath.id).data.pinned, true);
+});

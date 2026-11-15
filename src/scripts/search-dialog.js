@@ -1,6 +1,8 @@
 // The ⌘K search dialog. AppShell draws the dialog with every text (data-* attributes); this file only adds
 // behaviour. Rows are built with textContent; `snippetHtml` is the only field ever set as HTML (the server
 // lets through nothing but <mark>).
+import { typing } from './typing.js';
+
 const dialog = document.querySelector('[data-search-dialog]');
 const opener = document.querySelector('[data-search-open]');
 // On /search a live update replaces <main>, so the page's field and list are looked up at the moment of use.
@@ -16,8 +18,6 @@ const PATHS = { card: 'cards', note: 'notes', research: 'research' };
 const isMac = /mac|iphone|ipad/iu.test(navigator.userAgentData?.platform || navigator.platform || '');
 const fill = (template, values) => template.replace(/\{(\w+)\}/gu,
   (whole, name) => (Object.hasOwn(values, name) ? String(values[name]) : whole));
-const typing = (target) => target instanceof Element
-  && Boolean(target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]'));
 const searchHref = (q, type) => `/search?${new URLSearchParams(type ? { q, type } : { q })}`;
 
 for (const key of document.querySelectorAll('[data-shortcut]')) key.textContent = isMac ? '⌘K' : 'Ctrl K';

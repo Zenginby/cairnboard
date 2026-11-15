@@ -4,7 +4,7 @@ import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
 import '../../styles/journal.css';
 import '../../styles/research.css';
-import { uiLanguage, t } from '../../i18n/index.mjs';
+import { uiLanguage, t, noteKindLabel } from '../../i18n/index.mjs';
 
 const language = uiLanguage();
 const projectParam = Astro.url.searchParams.get('project') ?? undefined;
@@ -35,11 +35,6 @@ try {
 const data = result?.data;
 const items = data?.items ?? [];
 const showKind = new Set(items.map((item) => item.kind)).size > 1;
-const kindLabel = (kind: string) => {
-  const key = `notes.kind.${kind}`;
-  const translated = t(key);
-  return translated === key ? t('notes.kind.note') : translated;
-};
 
 const dateFormat = new Intl.DateTimeFormat(language, {
   day: 'numeric',
@@ -83,8 +78,9 @@ for (const [topic, list] of topics) {
     <>
       <ReadWarnings codes={result?.warnings} />
       <div class="journal-page">
-        <header class="screen-heading">
+        <header class="screen-heading projects-heading-actions">
           <h1>{t('notes.title')}</h1>
+          <a class="action-link" href="/notes/new">{t('noteForm.add')}</a>
         </header>
         {data && data.projects.length > 0 && (
           <form class="journal-filters" method="get" action="/notes">
@@ -111,6 +107,7 @@ for (const [topic, list] of topics) {
         {groups.length === 0 ? (
           <section class="panel projects-empty">
             <p class="empty-copy">{t('notes.empty')}</p>
+            <p class="empty-copy"><a class="action-link" href="/notes/new">{t('noteForm.add')}</a></p>
           </section>
         ) : (
           groups.map((group) => (
@@ -131,7 +128,7 @@ for (const [topic, list] of topics) {
                           </a>
                           {(note.project || dateLabel || showKind) && (
                             <div class="research-row-meta">
-                              {showKind && <span class="chip">{kindLabel(note.kind)}</span>}
+                              {showKind && <span class="chip">{noteKindLabel(note.kind)}</span>}
                               {note.project && (
                                 <span class:list={['chip', 'project-chip', `tone-${note.project.tone ?? 1}`]}>
                                   {note.project.title}
