@@ -14,7 +14,8 @@ const NOT_READY = Object.freeze({ status: 409, title: 'state.notReadyTitle', mes
 const NOT_FOUND = Object.freeze({ status: 404, title: 'write.notFoundTitle', message: 'write.notFound' });
 const notReady = (error) => error instanceof CairnError
   && ['validation', 'not_found', 'format_too_new'].includes(error.code);
-const lines = (text) => text.replace(/\r\n/gu, '\n');
+// Browsers submit every line break as CRLF, a lone CR included; all three forms compare and store as LF.
+const lines = (text) => text.replace(/\r\n?/gu, '\n');
 
 function isAgentProject(agents, item) {
   if (agents === null) return false;
@@ -172,7 +173,11 @@ export function createNotes({ key, port, open, openWrite }) {
               }
               throw error;
             }
-            if (isAgentProject(agents, resolved)) return bad('noteForm.invalidProject');
+            // The form offers active projects only; a changed project must be one of them.
+            const status = resolved.data?.status;
+            if (isAgentProject(agents, resolved) || (status !== undefined && status !== 'active')) {
+              return bad('noteForm.invalidProject');
+            }
             patch.project = resolved.id ?? resolved.ref;
           }
         }

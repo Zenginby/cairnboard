@@ -797,3 +797,19 @@ test('edit addresses a note without an id by its note key and never gives it an 
   assert.equal(Object.hasOwn(parsed.data, 'id'), false);
   assert.equal(parsed.body.trim(), 'New body');
 });
+
+test('an unchanged edit leaves a lone carriage return alone; a changed project must be active', async (t) => {
+  const env = await setup(t);
+  const hold = project.create(env.openWrite(), { title: 'Hold', status: 'paused' }, '', {}).entity;
+  const item = note.create(env.openWrite(), { title: 'Mixed' }, 'one\rtwo', {}).entity;
+  const before = readFileSync(join(env.dir, item.path), 'utf8');
+  // A browser submits the lone CR as CRLF.
+  const same = await postEdit(env, item.id, { title: 'Mixed', body: 'one\r\ntwo', project: '',
+    revision: item.revision });
+  assert.equal(same.status, 303);
+  assert.equal(readFileSync(join(env.dir, item.path), 'utf8'), before);
+  const moved = await postEdit(env, item.id, { title: 'Mixed', body: 'one\r\ntwo', project: hold.id,
+    revision: item.revision });
+  assert.equal(moved.status, 400);
+  assert.equal(readFileSync(join(env.dir, item.path), 'utf8'), before);
+});
