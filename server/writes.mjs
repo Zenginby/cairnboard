@@ -51,7 +51,8 @@ function readBody(req, limit) {
 function fields(body) {
   const result = {};
   for (const [name, value] of new URLSearchParams(body.toString('utf8'))) {
-    if (Object.hasOwn(result, name)) return null;
+    // `__proto__` would be swallowed by the prototype setter and slip past duplicate and exact-field checks.
+    if (name === '__proto__' || Object.hasOwn(result, name)) return null;
     result[name] = value;
   }
   return result;

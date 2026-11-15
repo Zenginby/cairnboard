@@ -414,3 +414,21 @@ test('a hand-written breach and an over-long key are shown, but only the actions
     assert.equal((await f.send(column('backlog', 'hidden'), { value: 'off' })).status, 303);
     assert.equal((await f.send(column(long, 'hidden'), { value: 'on' })).status, 405);
   });
+
+test('a body field named __proto__ is refused instead of slipping past the exact-field check', async (t) => {
+  const f = fixture(t);
+  const before = f.stored();
+  const csrf = csrfToken(key, port, f.cookie);
+  for (const extra of ['&__proto__=a', '&__proto__=a&__proto__=b']) {
+    const body = `csrf=${csrf}&minutes=45&revision=${f.revision()}${extra}`;
+    const res = await f.send(LEASE, {}, { body });
+    assert.equal(res.status, 400);
+  }
+  // Boundary values the route accepts or refuses on its own.
+  for (const minutes of ['0', '00030', '1e3', ' 30', '30 ']) {
+    assert.equal((await f.send(LEASE, { minutes })).status, 400);
+  }
+  assert.equal(f.stored(), before);
+  for (const minutes of ['5', '1440']) assert.equal((await f.send(LEASE, { minutes })).status, 303);
+  assert.equal(loadConfig(f.dataDir).leaseMinutes, 1440);
+});
