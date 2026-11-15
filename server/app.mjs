@@ -77,6 +77,19 @@ export function createApp({ root, appDir = 'dist/app', handler, guard, api, writ
     }
     return res.headersSent || res.writableEnded;
   }
+  /** A refused form write drawn as its app page (`view.url`), so the form comes back with the owner's text. */
+  async function renderedView(req, res, view) {
+    const { url, method } = req;
+    try {
+      req.url = view.url;
+      req.method = 'GET';
+      await handler(req, res, () => {}, { ...locals, writeView: view });
+    } finally {
+      req.url = url;
+      req.method = method;
+    }
+    return res.headersSent || res.writableEnded;
+  }
   // `viaApp`: the request had already reached the app's handler, so its error page may be rendered by it too.
   // Refused targets (assets, malformed paths, the API) never reach the handler and get the plain page.
   async function errorPage(req, res, status, viaApp = false) {
@@ -97,7 +110,7 @@ export function createApp({ root, appDir = 'dist/app', handler, guard, api, writ
       const path = requestPath(req.url);
       if (req.method === 'POST') {
         // Only table writes reach this point (see guard); anything else a guard let through stays refused.
-        if (path && writes && await writes(req, res, path)) return;
+        if (path && writes && await writes(req, res, path, (view) => renderedView(req, res, view))) return;
         res.writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Method not allowed.');
         return;

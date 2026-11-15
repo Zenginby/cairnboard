@@ -1,0 +1,67 @@
+---
+import AppShell from '../../../layouts/AppShell.astro';
+import PageState from '../../../components/PageState.astro';
+import { t } from '../../../i18n/index.mjs';
+
+let view;
+try {
+  view = await Astro.locals.notes?.editView(Astro.request.headers.get('cookie'), Astro.params.id);
+} catch (error) {
+  console.error(error);
+  Astro.response.status = 500;
+}
+// A form post on localhost needs the page's origin in Referer/Origin; see notes/new.astro.
+Astro.response.headers.set('Referrer-Policy', 'same-origin');
+const ready = view?.state === 'ready';
+if (view && !ready) Astro.response.status = view.state === 'notFound' ? 404 : 409;
+const item = view?.note;
+// A refused save (stale revision, write rule) comes back here with the owner's text and the reason.
+const failed = ready && Astro.locals.writeView?.ref === item.ref ? Astro.locals.writeView : null;
+if (failed) Astro.response.status = failed.status;
+const draft = failed?.draft;
+const title = draft?.title ?? item?.title ?? '';
+const body = draft?.body ?? item?.body ?? '';
+const revision = draft?.revision ?? item?.revision;
+const project = draft?.project ?? view?.project ?? '';
+// A note may name its project by id or by reference.
+const chosen = (entry) => entry.id === project || entry.ref === project;
+const knownProject = view?.projects?.some(chosen);
+const noteHref = item ? `/notes/${encodeURIComponent(item.ref)}` : '/notes';
+---
+<AppShell title={t('noteEdit.title')} current="/notes" surface quickNoteFab={false}>
+  <meta slot="head" name="referrer" content="same-origin" />
+  {ready ? <><header class="screen-heading"><h1>{t('noteEdit.title')}</h1></header>
+    <div class="card-panel">
+      <form class="card-form" method="post" action={noteHref}>
+        {failed && <div class="warnings" role="alert">
+          <p><strong>{t(failed.title)}</strong></p>
+          <p>{t(failed.message)}</p>
+        </div>}
+        <input type="hidden" name="csrf" value={view.csrf} />
+        <input type="hidden" name="revision" value={revision} />
+        <label class="sr-only" for="note-title">{t('noteForm.title')}</label>
+        <input id="note-title" class="card-title-input" name="title" type="text" required maxlength="200"
+          value={title} placeholder={t('noteForm.title')} autocomplete="off" />
+        <label class="card-field" for="note-body">{t('noteForm.body')}
+          {/* The leading line break keeps a body that starts with a blank line: browsers drop the first one. */}
+          <textarea id="note-body" name="body" rows="14"
+            placeholder={t('noteForm.bodyPlaceholder')}>{`\n${body}`}</textarea>
+        </label>
+        <label class="card-field" for="note-project">{t('noteForm.project')}
+          <select id="note-project" name="project">
+            <option value="" selected={!project}>{t('noteForm.noProject')}</option>
+            {project && !knownProject && <option value={project} selected>{project}</option>}
+            {view.projects.map((entry) => <option value={chosen(entry) ? project : entry.id ?? entry.ref}
+              selected={chosen(entry)}>{entry.title}</option>)}
+          </select>
+        </label>
+        <div class="card-actions card-panel-actions">
+          <a class="action-link" href={noteHref}>{t('noteForm.cancel')}</a>
+          <button class="action-link action-primary" type="submit">{t('noteEdit.save')}</button>
+        </div>
+      </form>
+    </div></> : view?.state === 'notFound'
+      ? <PageState title="error.notFoundTitle" message="error.notFoundBody" status={404} />
+      : view ? <PageState title="state.notReadyTitle" message="state.notReadyBody" init />
+        : <PageState title="noteForm.errorTitle" message="noteForm.errorBody" />}
+</AppShell>

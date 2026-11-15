@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Notes: edit a note from its page (`/notes/<ref>/edit`, `POST /notes/<ref>`), script-free, with stale-revision and
+  write-rule refusals returning the form with the text kept.
+
 ## [0.2.0] - 2026-11-15
 
 - Notes list page at `/notes`: pinned notes first, one section per topic (the folder under the notes root), project

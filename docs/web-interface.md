@@ -45,3 +45,9 @@ project or pinned (`Pin note`), or open `/notes/new` directly without scripts. S
 page open and links to the saved note; `/notes` also has an Add note link. Note pages carry a script-free Pin / Unpin
 button (`POST /notes/<ref>/pin`), and screens 90 rem and wider show a collapsible pinned-notes rail on every page
 (kept in the browser's `localStorage`, defaulting to open) with direct links, row unpin with Undo, and live updates.
+
+**Editing a note.** A note page's Edit action opens `/notes/<ref>/edit`, a script-free form for the title, the Markdown
+body and the project; saving posts `POST /notes/<ref>` with the revision the form was opened at. If the note changed
+elsewhere meanwhile, the form comes back (409) with your text kept; an `error` write rule also returns the form (422)
+naming the rule, and a `warn` rule saves and shows one warning line on the note page. The overview page, notes with a
+broken id and notes of the agents project have no Edit action; edit those in their files.

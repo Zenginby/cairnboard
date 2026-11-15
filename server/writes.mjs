@@ -88,7 +88,8 @@ function checkRoute(route) {
  *   back: { href: string, label: string } | ((params: Record<string, string>) => { href: string, label: string }),
  *   run: (input: { values: Record<string, string>, params: Record<string, string> }) => any,
  *   failure?: (error: CairnError) => any }> }} options
- * `run` returns the address to redirect to (303), or `{ status, title, message, headers? }` to refuse with a page;
+ * `run` returns the address to redirect to (303), or `{ status, title, message, headers?, view? }` to refuse with a
+ * page; with a `view` (`{ url, ... }`) and the app's `render`, the refusal is drawn as that app page instead;
  * it may be async and may throw a CairnError. `failure` may map a CairnError to such a page before the defaults.
  */
 export function createWrites({ key, port, routes, now = Date.now, limit = 5 }) {
@@ -121,7 +122,11 @@ export function createWrites({ key, port, routes, now = Date.now, limit = 5 }) {
     return over;
   }
 
-  async function handle(req, res) {
+  /**
+   * `render(view)`, when the app supplies it, draws a refusal that carries a `view` as an app page (a form with the
+   * owner's text kept) and resolves true; otherwise the refusal falls back to the message page.
+   */
+  async function handle(req, res, _target, render) {
     const found = req.method === 'POST' ? find(req.url) : null;
     if (!found) return false;
     const { route, params } = found;
@@ -160,7 +165,13 @@ export function createWrites({ key, port, routes, now = Date.now, limit = 5 }) {
     const failed = () => page({ status: 500, title: 'write.errorTitle', message: 'write.error' });
     if (typeof result !== 'string') {
       if (Number.isSafeInteger(result?.status) && typeof result.title === 'string'
-        && typeof result.message === 'string') return page(result);
+        && typeof result.message === 'string') {
+        if (typeof result.view?.url === 'string' && typeof render === 'function'
+          && await render({ ...result.view, status: result.status, title: result.title, message: result.message })) {
+          return true;
+        }
+        return page(result);
+      }
       console.error(new TypeError('A write route returned neither an address nor a page.'));
       return failed();
     }

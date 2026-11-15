@@ -4,6 +4,7 @@ import PageState from '../../components/PageState.astro';
 import ReadWarnings from '../../components/ReadWarnings.astro';
 import ReadDocument from '../../components/ReadDocument.astro';
 import { t } from '../../i18n/index.mjs';
+import { RULE_NAMES } from '../../../core/rules.mjs';
 
 let result, state;
 try {
@@ -20,12 +21,18 @@ const pinned = result?.data.meta.pinned === true;
 const revision = result?.data.revision;
 const canPin = !state && Boolean(noteCsrf && noteRef && revision);
 if (canPin) Astro.response.headers.set('Referrer-Policy', 'same-origin');
+// The overview page, notes with a broken identity and agent notes are edited in their files.
+const canEdit = canPin && Astro.locals.notes?.canEdit?.(noteRef) === true;
+// After an edit a `warn` write rule names itself once: `?warning=<rule>`.
+const warned = Astro.url.searchParams.get('warning');
+const ruleWarning = !state && RULE_NAMES.includes(warned) ? warned : null;
 ---
 <AppShell live="note card project journal" current="/notes"
   title={result?.data.content.title || t('type.note')} surface>
   {canPin && <meta slot="head" name="referrer" content="same-origin" />}
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`} message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'} status={Astro.response.status} /> : <>
     <ReadWarnings codes={result.warnings} />
+    {ruleWarning && <p class="warnings" role="status">{t(`noteEdit.warning.${ruleWarning}`)}</p>}
     <ReadDocument item={result.data}>
       {canPin && <div slot="actions" class="card-actions card-page-actions">
         <form class="note-pin-form" method="post" action={`/notes/${encodeURIComponent(noteRef)}/pin`}>
@@ -34,6 +41,8 @@ if (canPin) Astro.response.headers.set('Referrer-Policy', 'same-origin');
           <input type="hidden" name="revision" value={revision} />
           <button class="action-link" type="submit">{t(pinned ? 'notes.unpin' : 'notes.pin')}</button>
         </form>
+        {canEdit && <a class="action-link"
+          href={`/notes/${encodeURIComponent(noteRef)}/edit`}>{t('noteEdit.action')}</a>}
       </div>}
     </ReadDocument>
   </>}

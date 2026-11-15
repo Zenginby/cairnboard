@@ -622,3 +622,178 @@ test('POST /notes/<ref>/pin refuses notes belonging to the agents project with 4
   assert.equal(unpinRes.status, 400);
   assert.strictEqual(entity.resolve(env.open(), 'note', byPath.id).data.pinned, true);
 });
+
+function postEdit(env, ref, form, { token = env.csrf } = {}) {
+  return call(env.app, {
+    method: 'POST',
+    path: `/notes/${ref}`,
+    headers: {
+      cookie: env.cookieHeader,
+      origin: `http://${siteHost(key)}:${port}`,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(token === null ? form : { ...form, csrf: token }).toString(),
+  });
+}
+
+const getPage = (env, path) => call(env.app, { path, headers: { cookie: env.cookieHeader } });
+
+test('POST /notes/<ref> edits title, body and project, keeps the id and links Edit from the note page',
+  async (t) => {
+  const env = await setup(t);
+  const work = project.create(env.openWrite(), { title: 'Work', status: 'active' }, '', {}).entity;
+  const item = note.create(env.openWrite(), { title: 'Draft' }, 'Old text', {}).entity;
+  if (env.built) {
+    const page = await getPage(env, `/notes/${item.id}`);
+    assert.match(page.body, new RegExp(`href="/notes/${item.id}/edit"`, 'u'));
+    const form = await getPage(env, `/notes/${item.id}/edit`);
+    assert.equal(form.status, 200);
+    assert.equal(form.headers['referrer-policy'], 'same-origin');
+    assert.match(form.body, new RegExp(`action="/notes/${item.id}"`, 'u'));
+    assert.match(form.body, new RegExp(`name="revision" value="${item.revision}"`, 'u'));
+    assert.match(form.body, /value="Draft"/u);
+    assert.match(form.body, /Old text<\/textarea>/u);
+    assert.doesNotMatch(form.body, /<script(?![^>]*\bsrc=)/u);
+  }
+  const res = await postEdit(env, item.id, { title: 'Final', body: 'New\r\ntext', project: work.id,
+    revision: item.revision });
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.location, `/notes/${item.id}`);
+  const after = note.resolve(env.open(), item.id);
+  assert.equal(after.id, item.id);
+  assert.equal(after.path, item.path);
+  assert.equal(after.title, 'Final');
+  assert.equal(after.body.trim(), 'New\ntext');
+  assert.equal(after.data.project, work.id);
+  assert.equal(readEvents(env.open()).at(-1).actor, 'web:owner');
+});
+
+test('POST /notes/<ref> rejects unknown or missing fields, bad values and missing CSRF without writing',
+  async (t) => {
+  const env = await setup(t);
+  const item = note.create(env.openWrite(), { title: 'Keep' }, 'Body', {}).entity;
+  const before = readFileSync(join(env.dir, item.path), 'utf8');
+  const good = { title: 'Changed', body: 'Changed', project: '', revision: item.revision };
+  for (const form of [{ ...good, pinned: 'on' }, { ...good, kind: 'concept' }, { title: 'x', body: '', revision:
+    item.revision }, { ...good, title: '' }, { ...good, title: 'a\tb' }, { ...good, revision: 'nothex' },
+  { ...good, project: 'p-zzzzzz' }]) {
+    const res = await postEdit(env, item.id, form);
+    assert.equal(res.status, 400, JSON.stringify(form));
+  }
+  const tooLarge = await postEdit(env, item.id, { ...good, body: 'a'.repeat(256 * 1024 + 1) });
+  assert.equal(tooLarge.status, 400);
+  const cookie = env.cookieHeader.split('=')[1];
+  for (const token of [null, 'bad-token', csrfToken(key, port, cookie, 'card')]) {
+    assert.equal((await postEdit(env, item.id, good, { token })).status, 403);
+  }
+  assert.equal((await postEdit(env, 'n-000000', good)).status, 404);
+  assert.equal(readFileSync(join(env.dir, item.path), 'utf8'), before);
+});
+
+test('POST /notes/<ref> with a stale revision answers 409 and brings the form back with the text kept',
+  async (t) => {
+  const env = await setup(t);
+  // The form comes back from the built app; without it the re-render answers the stub's 404.
+  if (!env.built) { t.skip('needs npm run build:app'); return; }
+  const item = note.create(env.openWrite(), { title: 'Shared' }, 'First', {}).entity;
+  note.update(env.openWrite(), item.id, { pinned: true });
+  const before = readFileSync(join(env.dir, item.path), 'utf8');
+  const fresh = note.resolve(env.open(), item.id);
+  const res = await postEdit(env, item.id, { title: 'My title', body: 'My <long> text', project: '',
+    revision: item.revision });
+  assert.equal(res.status, 409);
+  assert.equal(readFileSync(join(env.dir, item.path), 'utf8'), before);
+  assert.match(res.body, /The note changed elsewhere/u);
+  assert.match(res.body, /value="My title"/u);
+  assert.match(res.body, /My &lt;long&gt; text<\/textarea>/u);
+  assert.match(res.body, new RegExp(`name="revision" value="${fresh.revision}"`, 'u'));
+  assert.match(res.body, new RegExp(`action="/notes/${item.id}"`, 'u'));
+});
+
+test('POST /notes/<ref> answers 422 naming an error rule with the text kept; a warn rule saves and is shown once',
+  async (t) => {
+  const env = await setup(t, { rules: { links: 'error' } });
+  // The form comes back from the built app; without it the re-render answers the stub's 404.
+  if (!env.built) { t.skip('needs npm run build:app'); return; }
+  const item = note.create(env.openWrite(), { title: 'Linked' }, 'Fine', {}).entity;
+  const before = readFileSync(join(env.dir, item.path), 'utf8');
+  const res = await postEdit(env, item.id, { title: 'Linked', body: 'See [[ghost-page]].', project: '',
+    revision: item.revision });
+  assert.equal(res.status, 422);
+  assert.equal(readFileSync(join(env.dir, item.path), 'utf8'), before);
+  assert.match(res.body, /The links rule blocked this note/u);
+  assert.match(res.body, /See \[\[ghost-page\]\]\.<\/textarea>/u);
+  assert.match(res.body, new RegExp(`name="revision" value="${item.revision}"`, 'u'));
+
+  const warnEnv = await setup(t, { rules: { links: 'warn' } });
+  const warned = note.create(warnEnv.openWrite(), { title: 'Warned' }, 'Fine', {}).entity;
+  const saved = await postEdit(warnEnv, warned.id, { title: 'Warned', body: 'See [[ghost-page]].', project: '',
+    revision: warned.revision });
+  assert.equal(saved.status, 303);
+  assert.equal(saved.headers.location, `/notes/${warned.id}?warning=links`);
+  assert.equal(note.resolve(warnEnv.open(), warned.id).body.trim(), 'See [[ghost-page]].');
+  const page = await getPage(warnEnv, saved.headers.location);
+  assert.equal(page.status, 200);
+  assert.equal(page.body.match(/The links rule warns/gu)?.length, 1);
+  const unknown = await getPage(warnEnv, `/notes/${warned.id}?warning=%3Cb%3E`);
+  assert.doesNotMatch(unknown.body, /rule warns/u);
+});
+
+test('edit answers 404 for agent-project notes, the overview page and notes with a broken id', async (t) => {
+  const env = await setup(t);
+  const agent = project.create(env.openWrite(), { title: 'Bots', status: 'active' }, '', {}).entity;
+  const cfgPath = join(env.dir, '.cairn', 'config.json');
+  const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
+  cfg.agents = { project: agent.id };
+  writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`);
+  const agentNote = note.create(env.openWrite(), { title: 'Agent note', project: `@${agent.path}` }, 'Body', {})
+    .entity;
+  const overview = note.create(env.openWrite(), { kind: 'overview', title: 'Overview' }, 'Map', {}).entity;
+  const brokenPath = join(env.dir, 'notes', 'broken-id.md');
+  mkdirSync(dirname(brokenPath), { recursive: true });
+  writeFileSync(brokenPath, '---\nid: banana\ntitle: Broken id\n---\nBody\n');
+  const ctx = env.openWrite();
+  refresh(ctx);
+  const broken = note.list(ctx).find((entry) => entry.path === 'notes/broken-id.md');
+
+  const form = (item) => ({ title: 'Changed', body: 'Changed', project: '', revision: item.revision });
+  for (const item of [agentNote, overview, broken]) {
+    assert.equal((await postEdit(env, item.id ?? item.ref, form(item))).status, 404, item.path);
+  }
+  for (const item of [agentNote, overview, broken]) {
+    assert.equal(readFileSync(join(env.dir, item.path), 'utf8').includes('Changed'), false, item.path);
+  }
+  if (env.built) {
+    for (const item of [agentNote, overview, broken]) {
+      const ref = item.id ?? item.ref;
+      assert.equal((await getPage(env, `/notes/${ref}/edit`)).status, 404, item.path);
+      const page = await getPage(env, `/notes/${ref}`);
+      assert.doesNotMatch(page.body, /\/edit"/u, item.path);
+    }
+  }
+});
+
+test('edit addresses a note without an id by its note key and never gives it an id', async (t) => {
+  const env = await setup(t);
+  const rawPath = join(env.dir, 'notes', 'hand-written.md');
+  mkdirSync(dirname(rawPath), { recursive: true });
+  writeFileSync(rawPath, '---\ntitle: Hand written\n---\nOld body\n');
+  const ctx = env.openWrite();
+  refresh(ctx);
+  const item = note.list(ctx).find((entry) => entry.path === 'notes/hand-written.md');
+  assert.equal(item.id, null);
+  if (env.built) {
+    assert.match((await getPage(env, `/notes/${item.ref}`)).body, new RegExp(`href="/notes/${item.ref}/edit"`, 'u'));
+    const form = await getPage(env, `/notes/${item.ref}/edit`);
+    assert.equal(form.status, 200);
+    assert.match(form.body, new RegExp(`action="/notes/${item.ref}"`, 'u'));
+  }
+  const res = await postEdit(env, item.ref, { title: 'Hand written', body: 'New body', project: '',
+    revision: item.revision });
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.location, `/notes/${item.ref}`);
+  const parsed = parseFile(readFileSync(rawPath, 'utf8'));
+  assert.equal(Object.hasOwn(parsed.data, 'id'), false);
+  assert.equal(parsed.body.trim(), 'New body');
+});
