@@ -10,6 +10,7 @@
   when the UI changed). It needs Playwright's Chromium: `npx playwright-core install chromium`, or `CAIRN_BROWSER_PATH`.
 - Never put personal data (names, e-mail addresses, home paths, machine names) into files, commit messages,
   branch names or pull request descriptions. Use `example.com` and invented names in tests.
+- Releases follow the checklist in [docs/releasing.md](docs/releasing.md).
 
 ## B1.5 live-update acceptance
 

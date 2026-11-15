@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Release process: `docs/releasing.md` checklist and `npm run release:verify` version consistency check.
+
 ## [0.2.0] - 2026-11-15
 
 - Notes list page at `/notes`: pinned notes first, one section per topic (the folder under the notes root), project
