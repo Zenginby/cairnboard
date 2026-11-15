@@ -2,8 +2,10 @@
 
 [← README](../../README.tr.md)
 
-Arayüz, veri klasörünün `language` değerini kullanır (`en` ya da `tr`, `init --language` ile seçilir); değiştirince
-sunucuyu yeniden başlatın.
+Arayüz, veri klasörünün `language` değerini kullanır (`en` ya da `tr`, `init --language` ile seçilir); değer yoksa
+İngilizce açılır. Dili `/settings` sayfasındaki Dil bölümünden değiştirin: çalışan sunucu hemen geçer. CLI ile ya da
+elle değiştirdikten sonra sunucuyu yeniden başlatın ya da dili `/settings` sayfasında bir kez kaydedin
+([Ayarlar](ayarlar.md)).
 
 `npm start` web arayüzünü derler, sunucuyu başlatır ve tarayıcıyı açar. Sunucu 4321–4340 aralığındaki
 ilk boş portu kullanır ve yalnızca geri döngüde (`127.0.0.1` ve `::1`) dinler. Çalışan arayüzü yeniden açmak için

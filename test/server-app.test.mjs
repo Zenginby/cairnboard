@@ -17,6 +17,9 @@ import { defaultConfig } from '../core/config.mjs';
 import { PRESETS } from '../core/presets.mjs';
 import { tempDir, fixedClock } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
+// The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
+// explicitly, the way the server does at start.
+process.env.CAIRN_LANGUAGE = 'tr';
 
 // Real Node request/response objects let unit tests run without permission to bind a socket.
 async function inProcess(app, path, method = 'GET') {
@@ -69,8 +72,9 @@ function fixture(t) {
   const root = tempDir(t), client = join(root, 'dist/app/client');
   mkdirSync(join(client, '_astro'), { recursive: true });
   writeFileSync(join(client, '_astro/app.js'), 'document.documentElement.dataset.ready = "1";');
-  writeFileSync(join(client, '404.html'), '<!doctype html><h1>404 — Page not found</h1>');
-  writeFileSync(join(client, '500.html'), '<!doctype html><h1>500 — Something went wrong</h1>');
+  // Stale error pages from an old build must never be served: the plain page is the only fallback.
+  writeFileSync(join(client, '404.html'), '<!doctype html><h1>stale 404</h1>');
+  writeFileSync(join(client, '500.html'), '<!doctype html><h1>stale 500</h1>');
   return { root, client };
 }
 
@@ -89,8 +93,8 @@ test('createApp guards first and keeps headers on pages, errors, static files an
     else next();
   } }));
   for (const [path, method, status, text] of [
-    ['/', 'GET', 200, 'Cairnboard'], ['/missing', 'GET', 404, '404 — Page not found'],
-    ['/throw', 'GET', 500, '500 — Something went wrong'], ['/next-error', 'GET', 500, '500 — Something went wrong'],
+    ['/', 'GET', 200, 'Cairnboard'], ['/missing', 'GET', 404, 'Sayfa bulunamadı'],
+    ['/throw', 'GET', 500, 'Bir şeyler ters gitti'], ['/next-error', 'GET', 500, 'Bir şeyler ters gitti'],
     ['/', 'POST', 405, 'Method not allowed'], ['/_astro/app.js', 'GET', 200, 'dataset.ready'],
     ['/_astro/app.js', 'HEAD', 200, ''], ['/missing', 'HEAD', 404, ''], ['/throw', 'HEAD', 500, ''],
   ]) {
@@ -130,7 +134,7 @@ test('createApp refuses traversal, malformed paths and symlinks before invoking 
     '/_astro/%252e%252e/package.json', '/_astro/%00app.js', '/_astro/%5c..%5cpackage.json', '/bad%']) {
     const response = await get(path);
     assert.equal(response.status, 404, path);
-    assert.match(response.body, /404 — Page not found/u);
+    assert.match(response.body, /Sayfa bulunamadı/u);
     headers(response);
   }
   if (process.platform === 'win32') {
@@ -157,13 +161,62 @@ test('createApp refuses traversal, malformed paths and symlinks before invoking 
   }
 });
 
+test('without a static error page the plain one is in the current interface language', async (t) => {
+  const root = tempDir(t);
+  t.mock.method(console, 'error', () => {});
+  t.after(() => { process.env.CAIRN_LANGUAGE = 'tr'; });
+  const reached = [];
+  const get = await serve(t, createApp({ root, guard, handler: (req, res, next) => {
+    reached.push(req.url);
+    if (req.url === '/throw') throw new Error('page failed');
+    next();
+  } }));
+  for (const [language, missing, failed] of [['tr', 'Sayfa bulunamadı', 'Bir şeyler ters gitti'],
+    ['en', 'Page not found', 'Something went wrong']]) {
+    process.env.CAIRN_LANGUAGE = language;
+    reached.length = 0;
+    const notFound = await get('/missing');
+    assert.equal(notFound.status, 404);
+    assert.equal(notFound.body,
+      `<!doctype html><html lang="${language}"><title>404</title><h1>${missing}</h1></html>`);
+    // A page request that reached the app asks the app for its own /404 first; refused targets never reach it.
+    assert.deepEqual(reached, ['/missing', '/404']);
+    assert.doesNotMatch(notFound.body, /stale/u, 'an old build\'s 404.html is never served');
+    reached.length = 0;
+    assert.equal((await get('/_astro/missing.js')).body, notFound.body);
+    assert.equal((await get('/api/none')).body, notFound.body);
+    assert.deepEqual(reached, []);
+    const error = await get('/throw');
+    assert.equal(error.status, 500);
+    assert.equal(error.body, `<!doctype html><html lang="${language}"><title>500</title><h1>${failed}</h1></html>`);
+    headers(error);
+  }
+});
+
+test('an error page that fails after sending headers closes the response instead of leaving it open', async (t) => {
+  const { root } = fixture(t);
+  t.mock.method(console, 'error', () => {});
+  const get = await serve(t, createApp({ root, guard, handler: (req, res, next) => {
+    if (req.url === '/404' || req.url === '/500') {
+      res.writeHead(404, { 'Content-Type': 'text/html' });
+      res.write('<h1>half');
+      throw new Error('error page failed');
+    }
+    if (req.url === '/throw') throw new Error('page failed');
+    next();
+  } }), true);
+  for (const path of ['/missing', '/throw']) {
+    await assert.rejects(get(path), /socket hang up|aborted|ECONNRESET/u, path);
+  }
+});
+
 test('very long static paths return our 404 without logging a stack', async (t) => {
   const { root } = fixture(t);
   const logged = t.mock.method(console, 'error', () => {});
   const get = await serve(t, createApp({ root, guard, handler: (req, res, next) => next() }));
   const response = await get(`/_astro/${'a'.repeat(1000)}.js`);
   assert.equal(response.status, 404);
-  assert.match(response.body, /404 — Page not found/u);
+  assert.match(response.body, /Sayfa bulunamadı/u);
   assert.doesNotMatch(response.body, /Error:|ENAMETOOLONG|stack|dist\/app/u);
   headers(response);
   assert.equal(logged.mock.calls.filter((call) => call.arguments[0] instanceof Error).length, 0);
@@ -190,8 +243,22 @@ test('real Astro output serves CSP-safe HTML, our 404 body and an external scrip
   assert.match(home.body, /<title>Ana sayfa · Cairnboard<\/title>/u);
   const notFound = await get('/does-not-exist');
   assert.equal(notFound.status, 404);
-  assert.equal(notFound.body, readFileSync(join(root, 'dist/app/client/404.html'), 'utf8'));
-  const error = await get('/500.html');
+  // The error pages are rendered per request (never prerendered), so they follow a language switch at once.
+  assert.match(notFound.body, /<html lang="tr"/u);
+  assert.match(notFound.body, /<h1 id="state-title">Sayfa bulunamadı<\/h1>/u);
+  assert.equal(existsSync(join(root, 'dist/app/client/404.html')), false, 'no error page frozen at build time');
+  assert.equal(existsSync(join(root, 'dist/app/client/500.html')), false);
+  process.env.CAIRN_LANGUAGE = 'en';
+  t.after(() => { process.env.CAIRN_LANGUAGE = 'tr'; });
+  const notFoundEnglish = await get('/does-not-exist');
+  process.env.CAIRN_LANGUAGE = 'tr';
+  assert.equal(notFoundEnglish.status, 404);
+  assert.match(notFoundEnglish.body, /<html lang="en"/u);
+  assert.match(notFoundEnglish.body, /<h1 id="state-title">Page not found<\/h1>/u);
+  headers(notFoundEnglish);
+  const error = await get('/500');
+  assert.equal(error.status, 500);
+  assert.match(error.body, /<h1 id="state-title">Bir şeyler ters gitti<\/h1>/u);
   for (const response of [home, notFound, error]) {
     headers(response);
     externalAssets(response.body);

@@ -9,6 +9,7 @@ import { createApp } from '../server/app.mjs';
 import { createApi } from '../server/api.mjs';
 import { createGuard } from '../server/guard.mjs';
 import { createSettings } from '../server/settings.mjs';
+import { createWrites } from '../server/writes.mjs';
 import { loginUrl, siteHost } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
 import { initDataDir } from '../core/roots.mjs';
@@ -16,6 +17,9 @@ import { loadConfig } from '../core/config.mjs';
 import { resolveBrowser } from '../scripts/lib/design-check/config.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { liveCleanup, liveUnavailable } from './support/live.mjs';
+// The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
+// explicitly, the way the server does at start.
+process.env.CAIRN_LANGUAGE = 'tr';
 
 const repo = fileURLToPath(new URL('../', import.meta.url));
 const key = Buffer.alloc(32, 7), instance = 'run-aaaaaaaaaaaaaaaa';
@@ -24,6 +28,8 @@ const key = Buffer.alloc(32, 7), instance = 'run-aaaaaaaaaaaaaaaa';
 // buttons. Not run in the Codex sandbox: it needs a browser and a loopback listener.
 test('Settings dialog and fallback: switches save, closing reloads, axe and console stay clean', async (t) => {
   const cleanup = liveCleanup(t);
+  // The language steps at the end switch this process to English; later runs of this file start in Turkish again.
+  cleanup(() => { process.env.CAIRN_LANGUAGE = 'tr'; });
   if (!existsSync(join(repo, 'dist/app/server/entry.mjs'))) {
     return liveUnavailable(t, 'Astro output missing; run npm run build:app to enable integration coverage.');
   }
@@ -54,7 +60,10 @@ test('Settings dialog and fallback: switches save, closing reloads, axe and cons
   const { handler } = await import('../dist/app/server/entry.mjs');
   const empty = { data: { pinned: [], recentNotes: [], openCards: [], projects: [], featuredProject: null,
     journal: null }, warnings: [] };
-  const app = createApp({ root: repo, handler, guard: createGuard({ port, key, instance }), writes: settings.handle,
+  // The server's write table, as in server/start.mjs: the baseline guard alone does not know the language path.
+  const { writable } = createWrites({ key, port, routes: settings.routes });
+  const app = createApp({ root: repo, handler, guard: createGuard({ port, key, instance, writable }),
+    writes: settings.handle,
     api: createApi({ open, live: settings.liveUpdates, events: { handle(req, res) { res.writeHead(200,
       { 'Content-Type': 'text/event-stream' }); res.write('retry: 2000\n\n'); return true; } } }),
     locals: { settings, cairn: { home: async () => empty } } });
@@ -164,7 +173,8 @@ test('Settings dialog and fallback: switches save, closing reloads, axe and cons
   });
   await gear.click();
   await dialog.locator('[data-settings-panel]').waitFor();
-  await dialog.locator('form').first().evaluate((form) => { form.requestSubmit(); form.requestSubmit(); });
+  await dialog.locator('form[action="/settings/feature"]').first()
+    .evaluate((form) => { form.requestSubmit(); form.requestSubmit(); });
   await dialog.getByRole('link', { name: 'Ayarları aç' }).waitFor();
   assert.equal(writes, 1);
   assert.equal(page.url(), `${origin}/`);
@@ -195,5 +205,37 @@ test('Settings dialog and fallback: switches save, closing reloads, axe and cons
   await page.getByRole('button', { name: 'Gölgeyi temizle' }).click();
   assert.match(await page.locator('body').innerText(), /onay kutusunu işaretle/u,
     'an unticked box is refused with a message');
+
+  // Language, no-script path: the stored language is English while this server speaks Turkish, as after a CLI change.
+  assert.equal(loadConfig(dataDir).language, 'en');
+  await page.goto(`${origin}/settings`);
+  assert.equal(await page.locator('html').getAttribute('lang'), 'tr');
+  const choice = page.getByRole('radiogroup', { name: 'Arayüz dili' });
+  assert.equal(await choice.getByRole('radio', { name: 'English', exact: true }).isChecked(), true);
+  await choice.getByRole('radio', { name: 'Türkçe', exact: true }).check();
+  await page.getByRole('button', { name: 'Dili kaydet', exact: true }).click();
+  await page.waitForURL(`${origin}/settings?saved=language`);
+  assert.match(await page.getByRole('status').first().innerText(), /Kaydedildi: Dil/u);
+  assert.equal(loadConfig(dataDir).language, 'tr');
+  assert.equal(await page.getByRole('radio', { name: 'Türkçe', exact: true }).isChecked(), true);
+
+  // Language, dialog path: the panel comes back in the new language and closing reloads the shell into it.
+  await page.goto(`${origin}/`);
+  await gear.click();
+  await dialog.locator('[data-settings-panel]').waitFor();
+  await dialog.getByRole('radio', { name: 'English', exact: true }).check();
+  await dialog.getByRole('button', { name: 'Dili kaydet', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save language', exact: true }).waitFor();
+  assert.match(await dialog.getByRole('status').first().innerText(), /Saved: Language/u);
+  assert.equal(await dialog.getByRole('heading', { name: 'Features', exact: true }).count(), 1);
+  assert.equal(loadConfig(dataDir).language, 'en');
+  assert.equal(page.url(), `${origin}/`);
+  const english = page.waitForEvent('load');
+  await dialog.getByRole('button', { name: 'Kapat', exact: true }).click();
+  await english;
+  assert.equal(await page.locator('html').getAttribute('lang'), 'en', 'no restart: the reloaded shell is English');
+  assert.equal(await page.title(), 'Home · Cairnboard');
+  await page.goto(`${origin}/no-such-page`);
+  assert.match(await page.locator('h1').innerText(), /Page not found/u);
   assert.deepEqual(errors.filter((text) => !/status of (?:400|404)/u.test(text)), [], 'no CSP or other console errors');
 });

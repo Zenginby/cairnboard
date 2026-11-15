@@ -10,6 +10,7 @@ import { appendEvent, readEvents } from './events.mjs';
 import { clearExternalHistory, revision } from './store.mjs';
 import { clearShadowBlobs, shadowStats, withShadow } from './shadow.mjs';
 
+export const LANGUAGES = Object.freeze(['tr', 'en']);
 const configPath = '.cairn/config.json';
 const statePath = '.cairn/settings-state.json';
 const configEvent = (event) => ['config.change', 'config.external'].includes(event.op);
@@ -168,7 +169,7 @@ export function readSettings(ctx, { stats = true } = {}) {
   return locked(ctx, (write, disk, state) => {
     drift(write, disk, state, { ignoreTrailError: true, skipSync: !stats });
     const last = state.lastChange;
-    return { features: features(disk.config), revision: disk.rev,
+    return { features: features(disk.config), language: disk.config.language, revision: disk.rev,
       shadow: stats ? withLock(write, '_shadow', () => shadowStats(write)) : null,
       trailOffSince: state.features.changeTrail ? null : state.trailOffSince ?? null,
       lastChange: last ? { ts: last.ts, actor: last.actor,
@@ -277,6 +278,39 @@ export function setHomeProjects(ctx, { listed, shown, expectedRevision, actor = 
     // Not a feature change: the settings state only learns the new revision, so it is not seen as a hand edit.
     // The event stays small: hidden ids are at most 200 of 64 characters, the earlier list only as a count.
     event(ctx, 'config.home', { actor, hiddenBefore: before.length, hidden, rev });
+    state.rev = rev;
+    writeState(ctx, state);
+    return { changed: true, revision: rev };
+  });
+}
+
+/**
+ * Sets the data folder's `language`. It is not interface-only: journal labels, the Turkish write rules and the wiki
+ * sort order read it too. The event carries nothing but the two language codes.
+ * @param {*} ctx @param {{ language: string, expectedRevision: string, actor?: string }} options
+ */
+export function setLanguage(ctx, { language, expectedRevision, actor = ctx.actor }) {
+  if (!LANGUAGES.includes(language)) throw new CairnError('validation', 'Invalid language. Use tr or en.');
+  return withLock(ctx, '_config', () => {
+    const disk = snapshot(ctx);
+    if (disk.rev !== expectedRevision) throw new CairnError('conflict', 'Configuration changed since it was read.');
+    ctx.config = disk.config;
+    const state = readState(ctx);
+    drift(ctx, disk, state, { ignoreTrailError: true });
+    const before = disk.config.language;
+    if (before === language) return { changed: false, revision: disk.rev };
+    const config = validate({ ...disk.config, language });
+    const bytes = JSON.stringify(config, null, 2) + '\n';
+    fs.writeFileAtomic(checkedPath(ctx.root, configPath), bytes, () => {
+      if (!readChecked(ctx.root, configPath)?.equals(disk.bytes)) {
+        throw new CairnError('conflict', 'Configuration changed during the write.');
+      }
+    });
+    ctx.config = config;
+    const rev = revision(bytes);
+    // Not a feature change: like the Home projects, the settings state only learns the new revision (so the next
+    // drift check does not see a hand edit) and `lastChange` keeps describing the last feature change.
+    event(ctx, 'config.language', { actor, before, after: language, rev });
     state.rev = rev;
     writeState(ctx, state);
     return { changed: true, revision: rev };

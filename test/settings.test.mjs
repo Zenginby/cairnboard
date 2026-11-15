@@ -11,7 +11,8 @@ import { revision, write } from '../core/store.mjs';
 import { readShadow, recordShadow, shadowBytes } from '../core/shadow.mjs';
 import { changeDiff, listChanges, reconcileBeforeRun, reconcileExternal } from '../core/changes.mjs';
 import { mentions, linkMention } from '../core/mentions.mjs';
-import { checkConfigDrift, clearShadow, readSettings, setFeature, setHomeProjects } from '../core/settings.mjs';
+import { checkConfigDrift, clearShadow, readSettings, setFeature, setHomeProjects,
+  setLanguage } from '../core/settings.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 import { lockName, withLock } from '../core/lock.mjs';
@@ -40,7 +41,7 @@ test('feature defaults and validation preserve the existing format', (t) => {
   const { ctx, editConfig } = fixture(t);
   const defaults = { changeTrail: true, changeContent: true, liveUpdates: true, mentions: true };
   assert.deepEqual(features({}), defaults);
-  assert.deepEqual(readSettings(ctx), { features: defaults,
+  assert.deepEqual(readSettings(ctx), { features: defaults, language: 'en',
     revision: revision(fs.readFileSync(join(ctx.root, '.cairn/config.json'))),
     shadow: { blobs: 0, bytes: 0 }, trailOffSince: null, lastChange: null });
   assert.equal(loadConfig(ctx.root).formatVersion, 1);
@@ -82,6 +83,79 @@ test('settings writes are conditional, audited and preserve unrelated fields', (
   }
   assert.equal(readEvents(ctx).length, 1);
   assert.doesNotMatch(JSON.stringify(readEvents(ctx)), /"(?:title|body|text|content)"\s*:/u);
+});
+
+test('the language write is conditional, audited by code only and is not seen as a hand edit', (t) => {
+  const { ctx, editConfig, set, open } = fixture(t);
+  editConfig({ lint: { orphan: 'off' }, home: { hiddenProjects: ['p-000001'] }, schema: ctx.schema });
+  set('mentions', false);
+  const before = loadConfig(ctx.root), initial = readSettings(ctx);
+  const file = join(ctx.root, '.cairn/config.json');
+  const bytes = fs.readFileSync(file), events = readEvents(ctx).length;
+  assert.equal(initial.language, 'en');
+
+  // Writing the current value changes nothing and logs nothing.
+  assert.deepEqual(setLanguage(ctx, { language: 'en', expectedRevision: initial.revision }),
+    { changed: false, revision: initial.revision });
+  assert.deepEqual(fs.readFileSync(file), bytes);
+  assert.equal(readEvents(ctx).length, events);
+
+  for (const language of ['de', 'TR', '', 'tr ', null, undefined, true, ['tr'], { tr: 1 }]) {
+    assert.throws(() => setLanguage(ctx, { language, expectedRevision: initial.revision }), { code: 'validation' });
+  }
+  assert.throws(() => setLanguage(ctx, { language: 'tr', expectedRevision: '0123456789abcdef' }),
+    { code: 'conflict' });
+  assert.deepEqual(fs.readFileSync(file), bytes);
+  assert.equal(readEvents(ctx).length, events);
+
+  const changed = setLanguage(ctx, { language: 'tr', expectedRevision: initial.revision, actor: 'web:owner' });
+  assert.equal(changed.changed, true);
+  assert.equal(changed.revision, revision(fs.readFileSync(file)));
+  assert.notEqual(changed.revision, initial.revision);
+  assert.deepEqual(loadConfig(ctx.root), { ...before, language: 'tr' }, 'unrelated fields are preserved');
+  assert.equal(ctx.config.language, 'tr');
+  const event = readEvents(ctx).at(-1);
+  assert.equal(readEvents(ctx).length, events + 1);
+  const { tx, seq, ...logged } = event;
+  assert.match(tx, /^s-/u);
+  assert.deepEqual(logged, { v: 1, ts: ctx.clock.now().toISOString(), actor: 'web:owner', op: 'config.language',
+    target: '.cairn/config.json', rev: changed.revision, before: 'en', after: 'tr' });
+
+  // Our own write keeps the stored revision in step: neither a drift check nor a read logs a hand edit.
+  assert.equal(checkConfigDrift(open()), false);
+  const after = readSettings(open());
+  assert.equal(after.language, 'tr');
+  assert.equal(after.revision, changed.revision);
+  assert.deepEqual(after.lastChange, initial.lastChange, 'the last feature change line is left as it was');
+  assert.equal(readEvents(ctx).length, events + 1);
+  assert.equal(readEvents(ctx).some(({ op }) => op === 'config.external'), false);
+  assert.equal(ctx.warnings?.includes('settings_state_rebuilt') ?? false, false, 'the stored state stays valid');
+
+  // The old revision no longer works; a feature write on the new one does, and the language survives it.
+  assert.throws(() => setLanguage(ctx, { language: 'en', expectedRevision: initial.revision }), { code: 'conflict' });
+  set('mentions', true);
+  assert.equal(loadConfig(ctx.root).language, 'tr');
+  assert.equal(setLanguage(ctx, { language: 'en', expectedRevision: readSettings(ctx).revision }).changed, true);
+  assert.equal(readEvents(ctx).at(-1).actor, ctx.actor, 'the actor defaults to the context actor');
+  assert.equal(readEvents(ctx).some(({ op }) => op === 'config.external'), false);
+});
+
+test('the language write waits for the config lock and survives a rebuilt settings state', (t) => {
+  const { ctx, put, open } = fixture(t);
+  const initial = readSettings(ctx);
+  const lockPath = join(ctx.root, '.cairn/locks/_config.lock');
+  put('.cairn/locks/_config.lock', JSON.stringify({ host: ctx.host, pid: ctx.pid, instance: 'holder',
+    ts: ctx.clock.now().toISOString() }));
+  assert.throws(() => setLanguage(ctx, { language: 'tr', expectedRevision: initial.revision }), { code: 'locked' });
+  fs.rmSync(lockPath);
+  assert.equal(loadConfig(ctx.root).language, 'en');
+  const changed = setLanguage(ctx, { language: 'tr', expectedRevision: initial.revision });
+  // A lost state file is rebuilt from the events; the language event alone must not turn into a hand edit.
+  fs.rmSync(join(ctx.root, '.cairn/settings-state.json'));
+  const fresh = open();
+  assert.equal(checkConfigDrift(fresh), false);
+  assert.equal(readSettings(fresh).revision, changed.revision);
+  assert.equal(readEvents(fresh).some(({ op }) => op === 'config.external'), false);
 });
 
 test('disabled trail skips reconciliation and reopening baselines once with a gap', (t) => {
