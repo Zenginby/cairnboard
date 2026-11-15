@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-15
+
+- Notes list page at `/notes`: pinned notes first, one section per topic (the folder under the notes root), project
+  filter chips; the top bar gains a Notes entry.
 - Quick notes: `POST /notes`, `/notes/new` and a global `N` shortcut dialog let the owner save a note from any page.
 - Floating quick-note button, quick-note pin option, note-page `Pin` / `Unpin` action (`POST /notes/<ref>/pin`), and a
   wide-screen pinned-notes rail (`pinnedNotes`) across shell pages with row unpin + Undo and live updates.
