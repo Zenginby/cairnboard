@@ -242,7 +242,8 @@ test('config get and set language follow the owner-only rule and log only the la
   assert.match(set.json.data.revision, /^[0-9a-f]{16}$/u);
   assert.notEqual(set.json.data.revision, all.json.data.revision);
   const [event] = readEvents(f.open());
-  assert.deepEqual([event.op, event.actor, event.before, event.after], ['config.language', 'cli:owner', 'en', 'tr']);
+  assert.deepEqual([event.op, event.actor, event.fields, event.before, event.after],
+    ['config.change', 'cli:owner', ['language'], undefined, undefined]);
   assert.equal((await f.run(['config', 'get', 'language'])).stdout, 'tr\n');
   const after = await f.run(['config', '--json']);
   assert.equal(after.json.data.language, 'tr');
@@ -257,7 +258,7 @@ test('config get and set language follow the owner-only rule and log only the la
   assert.equal(named.stdout, 'language: en\n');
   const events = readEvents(f.open());
   assert.deepEqual(events.map(({ op, actor }) => [op, actor]),
-    [['config.language', 'cli:owner'], ['config.language', 'cli:alice']]);
+    [['config.change', 'cli:owner'], ['config.change', 'cli:alice']]);
   assert.equal(events.some(({ op }) => op === 'config.external'), false);
 });
 

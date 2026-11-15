@@ -296,23 +296,25 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.ok(panel);
   assert.doesNotMatch(panel[0], /settings-page|settings-nav|data-glass-choice/u);
   const forms = [...panel[0].matchAll(/<form method="post" action="([^"]+)">([^]*?)<\/form>/gu)];
-  assert.equal(forms.length, 6, 'the dialog keeps the language form, the four feature forms and the clear form');
-  assert.equal(forms[0][1], '/settings/language');
-  assert.deepEqual(forms.slice(1, 5).map((form) => form[2].match(/name="name" value="([^"]+)"/u)[1]),
-    ['changeTrail', 'changeContent', 'liveUpdates', 'mentions']);
-  assert.equal(forms[5][1], '/settings/clear-shadow');
-  assert.match(forms[5][2], /<button type="submit" class="action-link">/u, 'clear remains secondary');
+  // Forms are found by their action, not by count or position, so a later section may add its own.
+  const byAction = (action) => forms.filter((form) => form[1] === action);
+  const [languageForm] = byAction('/settings/language'), [clearForm] = byAction('/settings/clear-shadow');
+  assert.equal(byAction('/settings/language').length, 1, 'the dialog keeps the language form');
+  assert.equal(byAction('/settings/clear-shadow').length, 1, 'and the clear form');
+  assert.deepEqual(byAction('/settings/feature').map((form) => form[2].match(/name="name" value="([^"]+)"/u)[1]),
+    ['changeTrail', 'changeContent', 'liveUpdates', 'mentions'], 'and the four feature forms');
+  assert.match(clearForm[2], /<button type="submit" class="action-link">/u, 'clear remains secondary');
   // The language card sits above the features, with both choices, the stored one checked and its two notes.
   assert.ok(page.body.indexOf('id="settings-language"') < page.body.indexOf('id="settings-features"'));
   assert.match(page.body, /<h2 id="settings-language-title">Dil<\/h2>/u);
-  assert.deepEqual([...forms[0][2].matchAll(/<input type="radio" name="language" value="([a-z]+)"( checked)?>/gu)]
+  assert.deepEqual([...languageForm[2].matchAll(/<input type="radio" name="language" value="([a-z]+)"( checked)?>/gu)]
     .map((match) => [match[1], Boolean(match[2])]), [['en', true], ['tr', false]]);
-  assert.match(forms[0][2], /<span lang="en">English<\/span>/u);
-  assert.match(forms[0][2], /<span lang="tr">Türkçe<\/span>/u);
-  assert.ok(forms[0][2].includes('Pano sütun adları senin verindir; çevrilmez.'));
-  assert.ok(forms[0][2].includes('Günlük etiketleri ve Türkçe yazım kuralları bu ayarı izler.'));
+  assert.match(languageForm[2], /<span lang="en">English<\/span>/u);
+  assert.match(languageForm[2], /<span lang="tr">Türkçe<\/span>/u);
+  assert.ok(languageForm[2].includes('Pano sütun adları senin verindir; çevrilmez.'));
+  assert.ok(languageForm[2].includes('Günlük etiketleri ve Türkçe yazım kuralları bu ayarı izler.'));
   assert.ok(page.body.includes('yeniden başlatma isteyebilir'), 'a change from outside the web may need a restart');
-  assert.ok(forms[0][2].includes(`name="revision" value="${f.revision()}"`));
+  assert.ok(languageForm[2].includes(`name="revision" value="${f.revision()}"`));
   assert.match(page.body, /<h2 id="settings-features-title">Özellikler<\/h2>/u);
   assert.match(page.body, /<h2 id="settings-shadow-title">Değişiklik izi deposu<\/h2>/u);
   assert.match(page.body, /<h2 id="settings-danger-title">Tehlikeli işlemler<\/h2>/u);
@@ -323,8 +325,8 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.match(home.body, /<svg class="settings-icon"[^]*?<path fill-rule="evenodd"/u);
   assert.doesNotMatch(page.body, /<style\b|\sstyle=/u, 'no inline styles: the CSP stays as it is');
   const tokens = [...page.body.matchAll(/name="csrf" value="([^"]+)"/gu)].map((match) => match[1]);
-  assert.equal(tokens.length, 6);
-  assert.ok(tokens.every((token) => verifyCsrf(key, port, cookie, token)));
+  assert.equal(tokens.length, [...page.body.matchAll(/<form method="post"/gu)].length, 'every form carries a token');
+  assert.ok(tokens.length >= 6 && tokens.every((token) => verifyCsrf(key, port, cookie, token)));
   assert.ok(page.body.includes(`name="revision" value="${f.revision()}"`));
   for (const name of ['Değişiklik izi', 'Ne değişti', 'Canlı güncelleme', 'Bağlantısız anmalar',
     'Gölgeyi temizle']) {
@@ -433,7 +435,7 @@ test('the Home project picker write stores hidden ids and refuses malformed fiel
   assert.equal(ok.headers.location, '/?saved=projects');
   assert.deepEqual(loadConfig(f.dataDir).home.hiddenProjects, ['p-000001', 'p-000003']);
   const [event] = readEvents(f.open());
-  assert.deepEqual([event.op, event.actor], ['config.home', 'web:owner']);
+  assert.deepEqual([event.op, event.fields, event.actor], ['config.change', ['home.hiddenProjects'], 'web:owner']);
   f.tick(1000);
   const old = new URLSearchParams({ csrf: csrfToken(key, port, cookie, 'home-projects'), revision: 'a'.repeat(16) });
   assert.equal((await call(f.app, { method: 'POST', path: '/settings/home-projects', body: old.toString(), headers: {
@@ -523,8 +525,8 @@ test('the language write stores the code, records the web owner and switches the
   assert.equal(loadConfig(f.dataDir).language, 'tr');
   assert.deepEqual(switched, ['tr']);
   const events = readEvents(f.open());
-  assert.deepEqual(events.map((event) => [event.op, event.actor, event.before, event.after]),
-    [['config.language', 'web:owner', 'en', 'tr']]);
+  assert.deepEqual(events.map((event) => [event.op, event.actor, event.fields, event.before, event.after]),
+    [['config.change', 'web:owner', ['language'], undefined, undefined]]);
   assert.equal(f.settings.view(null).language, 'tr');
   assert.equal(features(loadConfig(f.dataDir)).mentions, true, 'the features are untouched');
 
@@ -635,6 +637,6 @@ test('the built pages are in the new language right after the language POST, wit
   f.tick(1000);
   assert.equal((await save('en')).status, 303);
   await check('en');
-  assert.deepEqual(readEvents(f.open()).map((event) => [event.op, event.before, event.after]),
-    [['config.language', 'en', 'tr'], ['config.language', 'tr', 'en']]);
+  assert.deepEqual(readEvents(f.open()).map((event) => [event.op, event.fields]),
+    [['config.change', ['language']], ['config.change', ['language']]]);
 });

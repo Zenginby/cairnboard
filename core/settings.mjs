@@ -9,13 +9,46 @@ import { withLock } from './lock.mjs';
 import { appendEvent, readEvents } from './events.mjs';
 import { clearExternalHistory, revision } from './store.mjs';
 import { clearShadowBlobs, shadowStats, withShadow } from './shadow.mjs';
+import { foldTr, oneLine, stripHidden } from './text.mjs';
 
 export const LANGUAGES = Object.freeze(['tr', 'en']);
+/** Limits the guarded writer enforces; `validate` stays looser, so a hand-written file still loads. */
+export const CONFIG_LIMITS = Object.freeze({ labelMax: 40, leaseMin: 5, leaseMax: 1440 });
 const configPath = '.cairn/config.json';
 const statePath = '.cairn/settings-state.json';
 const configEvent = (event) => ['config.change', 'config.external'].includes(event.op);
 const validTime = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const validActor = (value) => value === null || typeof value === 'string';
+const digestPattern = /^[0-9a-f]{16}$/u;
+const plain = (value) => value !== null && typeof value === 'object'
+  && [Object.prototype, null].includes(Object.getPrototypeOf(value));
+// The audited field names, sorted: events, the pending record and the stored digests all use exactly these.
+const FIELD_NAMES = Object.freeze(['columns.hidden', 'columns.label', 'columns.order', 'home.hiddenProjects',
+  'language', 'leaseMinutes']);
+const ROLES = ['todo', 'doing', 'done'];
+
+/** A 16-digit digest per audited field name; values never leave this module, only the names of changed fields do. */
+function digests(config) {
+  const { columns, home } = config;
+  const views = {
+    'columns.hidden': columns.filter((column) => column.hidden === true).map((column) => column.key).sort(),
+    'columns.label': columns.map((column) => [column.key, column.label]).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0),
+    'columns.order': columns.map((column) => column.key),
+    'home.hiddenProjects': home && typeof home === 'object' && !Array.isArray(home) ? home.hiddenProjects ?? [] : [],
+    language: config.language,
+    leaseMinutes: config.leaseMinutes,
+  };
+  return Object.fromEntries(FIELD_NAMES.map((name) => [name, revision(JSON.stringify(views[name]))]));
+}
+
+const validDigests = (value) => plain(value) && Object.values(value)
+  .every((digest) => typeof digest === 'string' && digestPattern.test(digest));
+
+const validPending = (item) => item === undefined || item === null || (plain(item)
+  && typeof item.tx === 'string' && item.tx.length > 0 && validTime(item.ts) && validActor(item.actor)
+  && Array.isArray(item.fields) && item.fields.length > 0
+  && item.fields.every((name) => typeof name === 'string' && name.length > 0)
+  && typeof item.rev === 'string' && digestPattern.test(item.rev) && validDigests(item.digests));
 
 function lastChange(item) {
   return item ? { ts: item.ts, actor: item.actor,
@@ -48,7 +81,8 @@ function readState(ctx) {
         || (typeof state.rev === 'string' && /^[0-9a-f]{16}$/u.test(state.rev)))
         && Object.keys(state.features).length === 4 && typeof state.trailPending === 'boolean'
         && validChange(state.lastChange) && validGap(state.gapPending) && validGap(state.lastGap)
-        && (state.trailOffSince === undefined || state.trailOffSince === null || validTime(state.trailOffSince))) {
+        && (state.trailOffSince === undefined || state.trailOffSince === null || validTime(state.trailOffSince))
+        && (state.fields === undefined || validDigests(state.fields)) && validPending(state.pending)) {
         features({ features: state.features });
         return state;
       }
@@ -56,13 +90,17 @@ function readState(ctx) {
     ctx.warnings ??= [];
     if (!ctx.warnings.includes('settings_state_rebuilt')) ctx.warnings.push('settings_state_rebuilt');
   }
+  // `rev` and `features` come from the last configuration event of any shape; `lastChange` only from one that names
+  // a feature. Field digests cannot be rebuilt from events (they carry no values): `drift` baselines them from disk.
   const events = readEvents(ctx), last = events.findLast(configEvent);
+  const lastFeature = events.findLast((item) => (item.op === 'config.change' && item.feature !== undefined)
+    || (item.op === 'config.external' && Array.isArray(item.changed) && item.changed.length > 0));
   const disabled = events.findLast((item) => (item.op === 'config.change'
     && item.feature === 'changeTrail' && item.after === false)
     || (item.op === 'config.external' && item.after?.changeTrail === false));
   const gap = events.findLast((item) => item.op === 'external.gap' && item.seq > (disabled?.seq ?? 0));
   const state = { v: 1, rev: last?.rev ?? null, features: last?.features ?? features({}),
-    lastChange: lastChange(last), trailPending: Boolean(disabled), gapPending: null,
+    lastChange: lastChange(lastFeature), trailPending: Boolean(disabled), gapPending: null,
     trailOffSince: last?.features?.changeTrail === false ? disabled?.ts ?? null : null,
     lastGap: gap ? { tx: gap.tx, from: gap.from, to: gap.to, actor: gap.actor } : null };
   writeState(ctx, state);
@@ -144,20 +182,55 @@ function syncPendingTrail(ctx, state, ignoreError) {
   try { syncTrail(ctx, state); } catch { /* Retry on subsequent read or checkConfigDrift. */ }
 }
 
+/** Finishes or drops the intent record of a `setConfig` write that did not reach its last step. */
+function recoverPending(ctx, disk, state) {
+  const { pending } = state;
+  if (!pending) return;
+  if (disk.rev === pending.rev) {
+    // The write reached the disk. `appendEvent` skips a transaction it already holds, so this never logs twice.
+    event(ctx, 'config.change', { tx: pending.tx, ts: pending.ts, actor: pending.actor, rev: pending.rev,
+      fields: pending.fields, features: features(disk.config) });
+    state.rev = pending.rev;
+    state.fields = { ...state.fields, ...pending.digests };
+  }
+  // Otherwise the write never landed or was edited over by hand; the digest comparison below reports that.
+  delete state.pending;
+  writeState(ctx, state);
+}
+
 function drift(ctx, disk, state, { ignoreTrailError = false, skipSync = false } = {}) {
+  recoverPending(ctx, disk, state);
+  const now = digests(disk.config);
+  // A field name with no stored digest (a state written before this field was audited) is baselined silently.
+  const missing = FIELD_NAMES.filter((name) => state.fields?.[name] === undefined);
+  if (missing.length) {
+    state.fields = { ...state.fields, ...Object.fromEntries(missing.map((name) => [name, now[name]])) };
+    writeState(ctx, state);
+  }
   if (!skipSync) syncPendingTrail(ctx, state, ignoreTrailError);
   if (state.rev === disk.rev) return false;
   const current = features(disk.config);
   const changed = Object.keys(current).filter((name) => state.features[name] !== current[name]);
+  const fields = FIELD_NAMES.filter((name) => state.fields[name] !== now[name]);
+  if (!changed.length && !fields.length) {
+    state.rev = disk.rev;
+    writeState(ctx, state);
+    return false;
+  }
+  // One event for the whole hand edit: feature values as before, other fields by name only.
+  const item = event(ctx, 'config.external', { actor: 'owner:external', rev: disk.rev,
+    ...(changed.length ? { changed, after: Object.fromEntries(changed.map((name) => [name, current[name]])) } : {}),
+    ...(fields.length ? { fields } : {}), features: current });
+  state.fields = { ...state.fields, ...now };
   if (changed.length) {
-    recordConfig(ctx, state, event(ctx, 'config.external', { actor: 'owner:external', rev: disk.rev, changed,
-      after: Object.fromEntries(changed.map((name) => [name, current[name]])), features: current }));
+    recordConfig(ctx, state, item);
     if (!skipSync) syncPendingTrail(ctx, state, ignoreTrailError);
   } else {
+    // `lastChange` keeps describing the last feature change.
     state.rev = disk.rev;
     writeState(ctx, state);
   }
-  return changed.length > 0;
+  return true;
 }
 
 export function checkConfigDrift(ctx) {
@@ -169,7 +242,11 @@ export function readSettings(ctx, { stats = true } = {}) {
   return locked(ctx, (write, disk, state) => {
     drift(write, disk, state, { ignoreTrailError: true, skipSync: !stats });
     const last = state.lastChange;
-    return { features: features(disk.config), language: disk.config.language, revision: disk.rev,
+    return { features: features(disk.config), language: disk.config.language,
+      leaseMinutes: disk.config.leaseMinutes,
+      columns: disk.config.columns
+        .map(({ key, label, role, hidden }) => ({ key, label, role, hidden: hidden === true })),
+      revision: disk.rev,
       shadow: stats ? withLock(write, '_shadow', () => shadowStats(write)) : null,
       trailOffSince: state.features.changeTrail ? null : state.trailOffSince ?? null,
       lastChange: last ? { ts: last.ts, actor: last.actor,
@@ -233,86 +310,240 @@ export function clearShadow(ctx, { actor = ctx.actor } = {}) {
   });
 }
 
-/**
- * Records which listed projects the owner's web Home shows. `listed` are the projects the picker offered, `shown` the
- * ticked ones (a subset); the rest of `listed` is hidden. Hidden ids the picker did not list (a paused or missing
- * project) stay hidden, and projects never listed (new ones) show, so `home.hiddenProjects` is all that is stored.
- * @param {*} ctx @param {{ listed: string[], shown: string[], expectedRevision: string, actor?: string }} options
- */
-export function setHomeProjects(ctx, { listed, shown, expectedRevision, actor = ctx.actor }) {
+const refuse = (field, reason) => new CairnError('validation', `Invalid setting: ${field}`,
+  reason ? { field, reason } : { field });
+
+function parseColumns(input) {
+  const bad = () => refuse('columns');
+  if (!plain(input)) throw bad();
+  const names = Reflect.ownKeys(input);
+  if (!names.length || names.some((name) => !['labels', 'hidden', 'order', 'move'].includes(/** @type {*} */ (name)))
+    || (Object.hasOwn(input, 'order') && Object.hasOwn(input, 'move'))) throw bad();
+  const pairs = (map, type) => {
+    if (!plain(map) || Object.values(map).some((value) => typeof value !== type)) throw bad();
+    return Object.entries(map);
+  };
+  const value = {};
+  if (Object.hasOwn(input, 'labels')) value.labels = pairs(input.labels, 'string');
+  if (Object.hasOwn(input, 'hidden')) value.hidden = pairs(input.hidden, 'boolean');
+  if (Object.hasOwn(input, 'order')) {
+    if (!Array.isArray(input.order) || input.order.some((key) => typeof key !== 'string')) throw bad();
+    value.order = [...input.order];
+  }
+  if (Object.hasOwn(input, 'move')) {
+    const { move } = input;
+    if (!plain(move) || Reflect.ownKeys(move).length !== 2 || typeof move.key !== 'string'
+      || ![-1, 1].includes(move.by)) throw bad();
+    value.move = { key: move.key, by: move.by };
+  }
+  return value;
+}
+
+// Keys and roles never change here; each column object is copied by spread, so unknown properties and their order stay.
+function applyColumns(config, { labels = [], hidden = [], order, move }) {
+  let columns = config.columns.map((column) => ({ ...column }));
+  const at = (key, field) => {
+    const index = columns.findIndex((column) => column.key === key);
+    if (index < 0) throw refuse(field, 'column_unknown');
+    return index;
+  };
+  const renamed = [];
+  for (const [key, input] of labels) {
+    const index = at(key, 'columns.label');
+    const raw = input.normalize('NFC'), label = raw.trim();
+    // Rules bind only a label that really changes: an older label that breaks them does not block other writes.
+    if (label === columns[index].label) continue;
+    if (!label) throw refuse('columns.label', 'label_empty');
+    // Checked before trimming, so a hidden or line-breaking character is refused rather than silently dropped.
+    if (stripHidden(raw).removed > 0 || oneLine(raw) !== raw) throw refuse('columns.label', 'label_chars');
+    if ([...label].length > CONFIG_LIMITS.labelMax) throw refuse('columns.label', 'label_long');
+    columns[index].label = label;
+    renamed.push(index);
+  }
+  for (const index of renamed) {
+    const folded = foldTr(columns[index].label);
+    if (columns.some((column, other) => other !== index && foldTr(column.label) === folded)) {
+      throw refuse('columns.label', 'label_duplicate');
+    }
+  }
+  for (const [key, value] of hidden) {
+    const index = at(key, 'columns.hidden');
+    if (value) columns[index].hidden = true;
+    else delete columns[index].hidden;
+  }
+  if (order) {
+    if (order.length !== columns.length || new Set(order).size !== order.length
+      || order.some((key) => !columns.some((column) => column.key === key))) {
+      throw refuse('columns.order', 'order_mismatch');
+    }
+    columns = order.map((key) => columns.find((column) => column.key === key));
+  }
+  if (move) {
+    const index = at(move.key, 'columns.order'), target = index + move.by;
+    if (target < 0 || target >= columns.length) throw refuse('columns.order', 'move_edge');
+    [columns[index], columns[target]] = [columns[target], columns[index]];
+  }
+  return { ...config, columns };
+}
+
+function parseHomeProjects(input) {
+  const invalid = () => new CairnError('validation', 'Invalid project list.', { field: 'home.hiddenProjects' });
+  if (!plain(input) || Reflect.ownKeys(input).some((name) => !['listed', 'shown'].includes(/** @type {*} */ (name)))) {
+    throw invalid();
+  }
   const ids = (list) => Array.isArray(list) && list.length <= HOME_PROJECTS_MAX
     && list.every((id) => normalizeId(id) !== null) ? [...new Set(list.map(normalizeId))] : null;
-  const offered = ids(listed), ticked = ids(shown);
-  if (!offered || !ticked || ticked.some((id) => !offered.includes(id))) {
-    throw new CairnError('validation', 'Invalid project list.');
+  const offered = ids(input.listed), ticked = ids(input.shown);
+  if (!offered || !ticked || ticked.some((id) => !offered.includes(id))) throw invalid();
+  return { offered, ticked };
+}
+
+// `offered` are the projects the picker listed, `ticked` the shown ones; the rest of `offered` is hidden. Hidden ids
+// the picker did not list stay hidden and projects never listed show, so `home.hiddenProjects` is all that is stored.
+function applyHomeProjects(ctx, config, { offered, ticked }) {
+  const home = config.home && typeof config.home === 'object' && !Array.isArray(config.home) ? config.home : {};
+  const before = home.hiddenProjects ?? [];
+  // Earlier hidden ids keep their order unless now ticked; newly hidden ones go last, so a resend is no change.
+  // Ids that are not valid ids or name no project any more (a deleted one) are dropped, so the list cannot fill up.
+  // A preview has no context to look projects up with and keeps every valid id.
+  const exists = (id) => {
+    if (!ctx) return true;
+    try { resolveEntity(ctx, 'project', id); return true; } catch { return false; }
+  };
+  const kept = before.map(normalizeId)
+    .filter((id) => id !== null && !ticked.includes(id) && (offered.includes(id) || exists(id)));
+  const keptIds = new Set(kept);
+  const hidden = [...new Set([...kept, ...offered.filter((id) => !ticked.includes(id) && !keptIds.has(id))])];
+  if (JSON.stringify(before) === JSON.stringify(hidden)) return config;
+  if (hidden.length > HOME_PROJECTS_MAX) {
+    throw new CairnError('validation', 'Too many hidden projects.', { field: 'home.hiddenProjects' });
   }
+  return { ...config, home: { ...home, hiddenProjects: hidden } };
+}
+
+// The only fields `setConfig` writes. `parse` is pure and runs outside the lock; `apply` runs under it and returns a
+// new configuration without touching its input.
+const FIELDS = Object.freeze({
+  language: Object.freeze({
+    parse(input) {
+      if (!LANGUAGES.includes(input)) {
+        throw new CairnError('validation', 'Invalid language. Use tr or en.', { field: 'language' });
+      }
+      return input;
+    },
+    apply: (ctx, config, language) => ({ ...config, language }),
+  }),
+  leaseMinutes: Object.freeze({
+    parse(input) {
+      if (!Number.isInteger(input) || input < CONFIG_LIMITS.leaseMin || input > CONFIG_LIMITS.leaseMax) {
+        throw refuse('leaseMinutes', 'lease_range');
+      }
+      return input;
+    },
+    apply: (ctx, config, leaseMinutes) => ({ ...config, leaseMinutes }),
+  }),
+  columns: Object.freeze({ parse: parseColumns, apply: (ctx, config, value) => applyColumns(config, value) }),
+  homeProjects: Object.freeze({ parse: parseHomeProjects, apply: applyHomeProjects }),
+});
+
+function parseChanges(changes) {
+  if (!plain(changes)) throw refuse('changes');
+  const names = Reflect.ownKeys(changes);
+  if (!names.length || names.some((name) => !Object.hasOwn(FIELDS, name))) throw refuse('changes');
+  return Object.keys(FIELDS).filter((name) => Object.hasOwn(changes, name))
+    .map((name) => [name, FIELDS[name].parse(changes[name])]);
+}
+
+function applyChanges(ctx, config, parsed) {
+  let next = config;
+  for (const [name, value] of parsed) next = FIELDS[name].apply(ctx, next, value);
+  const before = digests(config), after = digests(next);
+  const fields = FIELD_NAMES.filter((name) => before[name] !== after[name]);
+  const visibility = ['columns.hidden', 'columns.order'].find((name) => fields.includes(name));
+  // A write that changes visibility or order must leave the first column of every role visible: new, claimed and
+  // finished cards then never land in the archive. Other writes pass, so a hand-written breach blocks nothing else.
+  if (visibility && ROLES.some((role) => next.columns.find((column) => column.role === role)?.hidden === true)) {
+    throw refuse(visibility, 'role_first_hidden');
+  }
+  return { config: next, fields };
+}
+
+/**
+ * What a `setConfig` call with these changes would store, without a lock or a file read: the next configuration and
+ * the sorted names of the fields that differ. Throws the same `validation` errors as the writer. With no context it
+ * cannot look projects up, so a `homeProjects` preview keeps hidden ids the writer would drop as deleted.
+ * @param {*} config @param {*} changes @returns {{ config: *, fields: string[] }}
+ */
+export function previewConfig(config, changes) {
+  return applyChanges(null, config, parseChanges(changes));
+}
+
+/**
+ * The one guarded writer for `language`, `leaseMinutes`, `columns` (labels, hidden flags, order) and `homeProjects`.
+ * The event names the changed fields and never carries a value. An intent record is stored before the file is
+ * replaced, so a write whose event could not be appended is completed by the next locked read or write.
+ * @param {*} ctx @param {{ changes: *, expectedRevision: string, actor?: string }} options
+ * @returns {{ changed: boolean, revision: string, fields: string[] }}
+ */
+export function setConfig(ctx, { changes, expectedRevision, actor = ctx.actor }) {
+  const parsed = parseChanges(changes);
   return withLock(ctx, '_config', () => {
     const disk = snapshot(ctx);
     if (disk.rev !== expectedRevision) throw new CairnError('conflict', 'Configuration changed since it was read.');
     ctx.config = disk.config;
     const state = readState(ctx);
     drift(ctx, disk, state, { ignoreTrailError: true });
-    const home = disk.config.home && typeof disk.config.home === 'object' && !Array.isArray(disk.config.home)
-      ? disk.config.home : {};
-    const before = home.hiddenProjects ?? [];
-    // Earlier hidden ids keep their order unless now ticked; newly hidden ones go last, so a resend is no change.
-    // Ids that are not valid ids or name no project any more (a deleted one) are dropped, so the list cannot fill up.
-    const exists = (id) => {
-      try { resolveEntity(ctx, 'project', id); return true; } catch { return false; }
-    };
-    const kept = before.map(normalizeId)
-      .filter((id) => id !== null && !ticked.includes(id) && (offered.includes(id) || exists(id)));
-    const keptIds = new Set(kept);
-    const hidden = [...new Set([...kept, ...offered.filter((id) => !ticked.includes(id) && !keptIds.has(id))])];
-    if (JSON.stringify(before) === JSON.stringify(hidden)) return { changed: false, revision: disk.rev };
-    if (hidden.length > HOME_PROJECTS_MAX) throw new CairnError('validation', 'Too many hidden projects.');
-    const config = validate({ ...disk.config, home: { ...home, hiddenProjects: hidden } });
+    const planned = applyChanges(ctx, disk.config, parsed);
+    if (!planned.fields.length) return { changed: false, revision: disk.rev, fields: [] };
+    const config = validate(planned.config);
     const bytes = JSON.stringify(config, null, 2) + '\n';
-    fs.writeFileAtomic(checkedPath(ctx.root, configPath), bytes, () => {
-      if (!readChecked(ctx.root, configPath)?.equals(disk.bytes)) {
-        throw new CairnError('conflict', 'Configuration changed during the write.');
-      }
-    });
-    ctx.config = config;
-    const rev = revision(bytes);
-    // Not a feature change: the settings state only learns the new revision, so it is not seen as a hand edit.
-    // The event stays small: hidden ids are at most 200 of 64 characters, the earlier list only as a count.
-    event(ctx, 'config.home', { actor, hiddenBefore: before.length, hidden, rev });
-    state.rev = rev;
+    const rev = revision(bytes), next = digests(config);
+    const pending = { tx: `s-${ctx.clock.now().getTime().toString(36)}-${randomBytes(8).toString('hex')}`,
+      ts: ctx.clock.now().toISOString(), actor, fields: planned.fields, rev, digests: next };
+    state.pending = pending;
     writeState(ctx, state);
-    return { changed: true, revision: rev };
+    try {
+      fs.writeFileAtomic(checkedPath(ctx.root, configPath), bytes, () => {
+        if (!readChecked(ctx.root, configPath)?.equals(disk.bytes)) {
+          throw new CairnError('conflict', 'Configuration changed during the write.');
+        }
+      });
+    } catch (error) {
+      if (error.code === 'conflict') {
+        delete state.pending;
+        writeState(ctx, state);
+      }
+      throw error;
+    }
+    ctx.config = config;
+    event(ctx, 'config.change', { tx: pending.tx, ts: pending.ts, actor, rev, fields: planned.fields,
+      features: features(config) });
+    // Not a feature change: `lastChange` keeps describing the last feature change.
+    state.rev = rev;
+    state.fields = { ...state.fields, ...next };
+    delete state.pending;
+    writeState(ctx, state);
+    return { changed: true, revision: rev, fields: planned.fields };
   });
 }
 
 /**
+ * Records which listed projects the owner's web Home shows. `listed` are the projects the picker offered, `shown` the
+ * ticked ones (a subset); the rest of `listed` is hidden. A thin wrapper over `setConfig`.
+ * @param {*} ctx @param {{ listed: string[], shown: string[], expectedRevision: string, actor?: string }} options
+ */
+export function setHomeProjects(ctx, { listed, shown, expectedRevision, actor = ctx.actor }) {
+  const { changed, revision: rev } = setConfig(ctx, { changes: { homeProjects: { listed, shown } },
+    expectedRevision, actor });
+  return { changed, revision: rev };
+}
+
+/**
  * Sets the data folder's `language`. It is not interface-only: journal labels, the Turkish write rules and the wiki
- * sort order read it too. The event carries nothing but the two language codes.
+ * sort order read it too. A thin wrapper over `setConfig`.
  * @param {*} ctx @param {{ language: string, expectedRevision: string, actor?: string }} options
  */
 export function setLanguage(ctx, { language, expectedRevision, actor = ctx.actor }) {
-  if (!LANGUAGES.includes(language)) throw new CairnError('validation', 'Invalid language. Use tr or en.');
-  return withLock(ctx, '_config', () => {
-    const disk = snapshot(ctx);
-    if (disk.rev !== expectedRevision) throw new CairnError('conflict', 'Configuration changed since it was read.');
-    ctx.config = disk.config;
-    const state = readState(ctx);
-    drift(ctx, disk, state, { ignoreTrailError: true });
-    const before = disk.config.language;
-    if (before === language) return { changed: false, revision: disk.rev };
-    const config = validate({ ...disk.config, language });
-    const bytes = JSON.stringify(config, null, 2) + '\n';
-    fs.writeFileAtomic(checkedPath(ctx.root, configPath), bytes, () => {
-      if (!readChecked(ctx.root, configPath)?.equals(disk.bytes)) {
-        throw new CairnError('conflict', 'Configuration changed during the write.');
-      }
-    });
-    ctx.config = config;
-    const rev = revision(bytes);
-    // Not a feature change: like the Home projects, the settings state only learns the new revision (so the next
-    // drift check does not see a hand edit) and `lastChange` keeps describing the last feature change.
-    event(ctx, 'config.language', { actor, before, after: language, rev });
-    state.rev = rev;
-    writeState(ctx, state);
-    return { changed: true, revision: rev };
-  });
+  const { changed, revision: rev } = setConfig(ctx, { changes: { language }, expectedRevision, actor });
+  return { changed, revision: rev };
 }
