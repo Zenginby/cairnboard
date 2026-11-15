@@ -580,7 +580,7 @@ test('intent recovery: an intent whose write never landed is dropped without an 
   assert.deepEqual(f.bytes(), stored);
 });
 
-test('intent recovery: a hand edit over an unfinished write is recorded as external', (t) => {
+test('intent recovery: a hand edit after an unfinished write keeps the real actor and reports the rest', (t) => {
   const f = fixture(t);
   const expectedRevision = readSettings(f.ctx).revision;
   t.after(() => fs.__setFsHooks());
@@ -591,16 +591,126 @@ test('intent recovery: a hand edit over an unfinished write is recorded as exter
       throw new Error('crash after rename');
     }
   } });
-  assert.throws(() => setConfig(f.ctx, { changes: { leaseMinutes: 30 }, expectedRevision }), /crash after rename/u);
+  assert.throws(() => setConfig(f.ctx, { changes: { leaseMinutes: 30 }, expectedRevision, actor: 'web:owner' }),
+    /crash after rename/u);
+  const { tx } = f.state().pending;
   f.edit({ language: 'tr' });
   assert.equal(checkConfigDrift(f.open()), true);
-  const [event, ...rest] = f.events();
+  const [first, second, ...rest] = f.events();
   assert.deepEqual(rest, []);
-  assert.deepEqual([event.op, event.actor, event.fields], ['config.external', 'owner:external',
-    ['language', 'leaseMinutes']]);
+  assert.deepEqual([first.op, first.tx, first.actor, first.fields], ['config.change', tx, 'web:owner',
+    ['leaseMinutes']]);
+  assert.deepEqual([second.op, second.actor, second.fields, second.unknown], ['config.external', 'owner:external',
+    ['language'], undefined]);
   assert.equal(f.state().pending, undefined);
   assert.equal(checkConfigDrift(f.open()), false);
-  assert.equal(f.events().length, 1);
+  assert.equal(f.events().length, 2);
+});
+
+test('a pending write is not logged twice even when the log has grown far past the dedup window', (t) => {
+  const f = fixture(t);
+  const expectedRevision = readSettings(f.ctx).revision;
+  f.ctx.faults = (point) => {
+    if (point === 'after-event') throw new Error('crash after event');
+  };
+  assert.throws(() => setConfig(f.ctx, { changes: { leaseMinutes: 30 }, expectedRevision }), /crash after event/u);
+  delete f.ctx.faults;
+  const log = join(f.root, '.cairn/events/2026-11.jsonl');
+  const extra = Array.from({ length: 600 }, (_, index) => JSON.stringify({ v: 1, seq: index + 2,
+    ts: f.ctx.clock.now().toISOString(), actor: 'cli:owner', op: 'note.write', target: 'notes/a.md', rev: null,
+    tx: `t-${index}`, pad: 'x'.repeat(200) })).join('\n') + '\n';
+  fs.appendFileSync(log, extra);
+  assert.equal(checkConfigDrift(f.open()), false);
+  assert.equal(f.events().filter(({ op }) => op === 'config.change').length, 1);
+  assert.equal(f.state().pending, undefined);
+});
+
+test('a lost state cannot launder a hand edit or an interrupted write', (t) => {
+  const f = fixture(t);
+  setFeature(f.ctx, { name: 'mentions', value: false, expectedRevision: f.rev() });
+  const edits = [() => f.edit({ leaseMinutes: 999 }),
+    () => f.editColumns((columns) => columns.map((column) => column.key === 'review'
+      ? { ...column, label: 'Secret label' } : column)),
+    () => f.editColumns((columns) => columns.map((column) => column.key === 'review'
+      ? { ...column, hidden: true } : column))];
+  for (const [index, apply] of edits.entries()) {
+    const count = f.events().length;
+    apply();
+    for (const damage of [() => fs.rmSync(f.stateFile), () => fs.writeFileSync(f.stateFile, '{')]) {
+      damage();
+      const fresh = f.open();
+      assert.equal(readSettings(fresh).features.mentions, false);
+      const logged = f.events();
+      assert.equal(logged.length, count + 1, `edit ${index}`);
+      const event = logged.at(-1);
+      assert.deepEqual([event.op, event.actor, event.fields, event.unknown, event.rev],
+        ['config.external', 'owner:external', FIELD_NAMES, true, f.rev()]);
+      assert.equal(event.changed, undefined);
+      // No storm: the state is consistent, so neither another read nor a rebuild from the log repeats it.
+      assert.equal(checkConfigDrift(f.open()), false);
+      fs.rmSync(f.stateFile);
+      assert.equal(checkConfigDrift(f.open()), false);
+      assert.equal(f.events().length, count + 1);
+      assert.deepEqual(Object.keys(f.state().fields).sort(), FIELD_NAMES);
+      break;
+    }
+  }
+  assert.doesNotMatch(fs.readFileSync(join(f.root, '.cairn/events/2026-11.jsonl'), 'utf8'), /Secret label|999/u);
+
+  // A write that reached the disk before its state and event were lost is reported too.
+  const expectedRevision = readSettings(f.ctx).revision, count = f.events().length;
+  t.after(() => fs.__setFsHooks());
+  fs.__setFsHooks({ rename(from, to) {
+    fs.renameSync(from, to);
+    if (to === f.file) {
+      fs.__setFsHooks();
+      throw new Error('crash after rename');
+    }
+  } });
+  assert.throws(() => setConfig(f.ctx, { changes: { leaseMinutes: 30 }, expectedRevision }), /crash after rename/u);
+  fs.rmSync(f.stateFile);
+  readSettings(f.open());
+  assert.equal(f.events().length, count + 1);
+  assert.deepEqual([f.events().at(-1).op, f.events().at(-1).unknown], ['config.external', true]);
+});
+
+test('a lost state is silent when the file is the one last recorded, legacy events included', (t) => {
+  const f = fixture(t);
+  // A fresh folder has no configuration event: nothing to report.
+  fs.rmSync(f.stateFile, { force: true });
+  readSettings(f.open());
+  assert.deepEqual(f.events(), []);
+  setFeature(f.ctx, { name: 'mentions', value: false, expectedRevision: f.rev() });
+  // A write of an earlier version: the file changed and a legacy event carries the new revision.
+  f.edit({ language: 'tr' });
+  const legacy = f.rev();
+  fs.mkdirSync(join(f.root, '.cairn/events'), { recursive: true });
+  const last = f.events().at(-1);
+  fs.appendFileSync(join(f.root, '.cairn/events/2026-11.jsonl'), JSON.stringify({ v: 1, seq: last.seq + 1,
+    ts: last.ts, actor: 'cli:owner', op: 'config.language', target: '.cairn/config.json', rev: legacy,
+    before: 'en', after: 'tr', tx: 's-legacy-0000000000000000' }) + '\n');
+  fs.rmSync(f.stateFile);
+  const fresh = f.open();
+  assert.equal(readSettings(fresh).language, 'tr');
+  assert.deepEqual(f.events().map(({ op }) => op), ['config.change', 'config.language']);
+});
+
+test('column input is read once and symbol keys are refused', (t) => {
+  const f = fixture(t);
+  let reads = 0;
+  const labels = {};
+  Object.defineProperty(labels, 'review', { enumerable: true, get() { return reads++ === 0 ? 'Once' : 7; } });
+  assert.equal(f.set({ columns: { labels } }).changed, true);
+  assert.equal(reads, 1);
+  assert.equal(loadConfig(f.root).columns[2].label, 'Once');
+  let moves = 0;
+  const move = { by: 1 };
+  Object.defineProperty(move, 'key', { enumerable: true, get() { return moves++ === 0 ? 'backlog' : 7; } });
+  assert.equal(f.set({ columns: { move } }).changed, true);
+  assert.equal(moves, 1);
+  assert.equal(loadConfig(f.root).columns[1].key, 'backlog');
+  f.refused({ columns: { labels: { [Symbol('x')]: 'A' } } }, 'columns');
+  f.refused({ columns: { hidden: { [Symbol('x')]: true } } }, 'columns');
 });
 
 test('a rebuilt state takes no last change from a fields event and stays valid afterwards', (t) => {

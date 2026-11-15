@@ -93,13 +93,17 @@ function readState(ctx) {
   // `rev` and `features` come from the last configuration event of any shape; `lastChange` only from one that names
   // a feature. Field digests cannot be rebuilt from events (they carry no values): `drift` baselines them from disk.
   const events = readEvents(ctx), last = events.findLast(configEvent);
+  // The revision also follows the retired `config.language` and `config.home` events, so a folder written by an
+  // earlier version still proves which file content was last recorded.
+  const lastRevision = events.findLast((item) => configEvent(item)
+    || ['config.language', 'config.home'].includes(item.op));
   const lastFeature = events.findLast((item) => (item.op === 'config.change' && item.feature !== undefined)
     || (item.op === 'config.external' && Array.isArray(item.changed) && item.changed.length > 0));
   const disabled = events.findLast((item) => (item.op === 'config.change'
     && item.feature === 'changeTrail' && item.after === false)
     || (item.op === 'config.external' && item.after?.changeTrail === false));
   const gap = events.findLast((item) => item.op === 'external.gap' && item.seq > (disabled?.seq ?? 0));
-  const state = { v: 1, rev: last?.rev ?? null, features: last?.features ?? features({}),
+  const state = { v: 1, rev: lastRevision?.rev ?? null, features: last?.features ?? features({}),
     lastChange: lastChange(lastFeature), trailPending: Boolean(disabled), gapPending: null,
     trailOffSince: last?.features?.changeTrail === false ? disabled?.ts ?? null : null,
     lastGap: gap ? { tx: gap.tx, from: gap.from, to: gap.to, actor: gap.actor } : null };
@@ -186,14 +190,21 @@ function syncPendingTrail(ctx, state, ignoreError) {
 function recoverPending(ctx, disk, state) {
   const { pending } = state;
   if (!pending) return;
-  if (disk.rev === pending.rev) {
-    // The write reached the disk. `appendEvent` skips a transaction it already holds, so this never logs twice.
-    event(ctx, 'config.change', { tx: pending.tx, ts: pending.ts, actor: pending.actor, rev: pending.rev,
-      fields: pending.fields, features: features(disk.config) });
-    state.rev = pending.rev;
-    state.fields = { ...state.fields, ...pending.digests };
+  const now = digests(disk.config);
+  // The write is on disk when the file is exactly the one it produced, or when each field it changed still holds the
+  // value it wrote (a hand edit of other fields may have followed). A write that never landed holds the old values.
+  const landed = disk.rev === pending.rev || pending.fields.every((name) => now[name] === pending.digests[name]);
+  if (landed) {
+    // `appendEvent` only deduplicates within the newest 64 KB, so this rare path looks through the whole log.
+    if (!readEvents(ctx).some((item) => item.tx === pending.tx)) {
+      event(ctx, 'config.change', { tx: pending.tx, ts: pending.ts, actor: pending.actor, rev: pending.rev,
+        fields: pending.fields, features: state.features });
+    }
+    if (disk.rev === pending.rev) state.rev = pending.rev;
+    // Only the written fields move on; anything else that differs is reported by the comparison in `drift`.
+    state.fields = { ...state.fields,
+      ...Object.fromEntries(pending.fields.map((name) => [name, pending.digests[name]])) };
   }
-  // Otherwise the write never landed or was edited over by hand; the digest comparison below reports that.
   delete state.pending;
   writeState(ctx, state);
 }
@@ -202,16 +213,20 @@ function drift(ctx, disk, state, { ignoreTrailError = false, skipSync = false } 
   recoverPending(ctx, disk, state);
   const now = digests(disk.config);
   // A field name with no stored digest (a state written before this field was audited) is baselined silently.
+  // That is only safe while the file is provably the one last recorded (`state.rev` is the revision of the last
+  // configuration event, or the stored one) or no configuration event exists yet. Otherwise a hand edit or an
+  // interrupted write may hide in the gap, and the event below names every field as possibly changed.
   const missing = FIELD_NAMES.filter((name) => state.fields?.[name] === undefined);
+  const unknown = missing.length > 0 && state.rev !== null && state.rev !== disk.rev;
   if (missing.length) {
     state.fields = { ...state.fields, ...Object.fromEntries(missing.map((name) => [name, now[name]])) };
-    writeState(ctx, state);
+    if (!unknown) writeState(ctx, state);
   }
   if (!skipSync) syncPendingTrail(ctx, state, ignoreTrailError);
   if (state.rev === disk.rev) return false;
   const current = features(disk.config);
   const changed = Object.keys(current).filter((name) => state.features[name] !== current[name]);
-  const fields = FIELD_NAMES.filter((name) => state.fields[name] !== now[name]);
+  const fields = unknown ? [...FIELD_NAMES] : FIELD_NAMES.filter((name) => state.fields[name] !== now[name]);
   if (!changed.length && !fields.length) {
     state.rev = disk.rev;
     writeState(ctx, state);
@@ -220,7 +235,7 @@ function drift(ctx, disk, state, { ignoreTrailError = false, skipSync = false } 
   // One event for the whole hand edit: feature values as before, other fields by name only.
   const item = event(ctx, 'config.external', { actor: 'owner:external', rev: disk.rev,
     ...(changed.length ? { changed, after: Object.fromEntries(changed.map((name) => [name, current[name]])) } : {}),
-    ...(fields.length ? { fields } : {}), features: current });
+    ...(fields.length ? { fields } : {}), ...(unknown ? { unknown: true } : {}), features: current });
   state.fields = { ...state.fields, ...now };
   if (changed.length) {
     recordConfig(ctx, state, item);
@@ -315,26 +330,33 @@ const refuse = (field, reason) => new CairnError('validation', `Invalid setting:
 
 function parseColumns(input) {
   const bad = () => refuse('columns');
-  if (!plain(input)) throw bad();
-  const names = Reflect.ownKeys(input);
-  if (!names.length || names.some((name) => !['labels', 'hidden', 'order', 'move'].includes(/** @type {*} */ (name)))
-    || (Object.hasOwn(input, 'order') && Object.hasOwn(input, 'move'))) throw bad();
+  // Every value is read once into a snapshot, which is then validated and used; getters cannot change it afterwards.
+  const own = (value) => {
+    if (!plain(value) || Reflect.ownKeys(value).some((name) => typeof name !== 'string')) throw bad();
+    return Object.entries(value);
+  };
+  const top = new Map(own(input));
+  if (!top.size || [...top.keys()].some((name) => !['labels', 'hidden', 'order', 'move'].includes(name))
+    || (top.has('order') && top.has('move'))) throw bad();
   const pairs = (map, type) => {
-    if (!plain(map) || Object.values(map).some((value) => typeof value !== type)) throw bad();
-    return Object.entries(map);
+    const entries = own(map);
+    if (entries.some(([, value]) => typeof value !== type)) throw bad();
+    return entries;
   };
   const value = {};
-  if (Object.hasOwn(input, 'labels')) value.labels = pairs(input.labels, 'string');
-  if (Object.hasOwn(input, 'hidden')) value.hidden = pairs(input.hidden, 'boolean');
-  if (Object.hasOwn(input, 'order')) {
-    if (!Array.isArray(input.order) || input.order.some((key) => typeof key !== 'string')) throw bad();
-    value.order = [...input.order];
+  if (top.has('labels')) value.labels = pairs(top.get('labels'), 'string');
+  if (top.has('hidden')) value.hidden = pairs(top.get('hidden'), 'boolean');
+  if (top.has('order')) {
+    const order = top.get('order');
+    if (!Array.isArray(order)) throw bad();
+    value.order = [...order];
+    if (value.order.some((key) => typeof key !== 'string')) throw bad();
   }
-  if (Object.hasOwn(input, 'move')) {
-    const { move } = input;
-    if (!plain(move) || Reflect.ownKeys(move).length !== 2 || typeof move.key !== 'string'
-      || ![-1, 1].includes(move.by)) throw bad();
-    value.move = { key: move.key, by: move.by };
+  if (top.has('move')) {
+    const move = new Map(own(top.get('move')));
+    const key = move.get('key'), by = move.get('by');
+    if (move.size !== 2 || typeof key !== 'string' || ![-1, 1].includes(by)) throw bad();
+    value.move = { key, by };
   }
   return value;
 }
