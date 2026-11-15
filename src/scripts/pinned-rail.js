@@ -1,4 +1,6 @@
 // Wide-screen pinned-notes rail: visibility persistence, Escape, inert sync, fetch unpin + undo.
+import { pauseLive, resumeLive } from './live-pause.js';
+
 const RAIL_KEY = 'cairn-pinned-rail';
 const root = document.documentElement;
 const rail = document.querySelector('[data-pinned-panel]');
@@ -68,7 +70,7 @@ if (rail && tab) {
     if (!status) return;
     status.replaceChildren();
     const message = document.createElement('span');
-    message.textContent = (rail.dataset.unpinned || '').replace('{title}', title);
+    message.textContent = (rail.dataset.unpinned || '').replace('{title}', () => title);
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'pinned-rail-undo';
@@ -77,18 +79,8 @@ if (rail && tab) {
     status.append(message, button);
   }
 
-  let pausedByRail = false;
-  const pauseLive = () => {
-    if (root.dataset.livePaused === 'true') return;
-    root.dataset.livePaused = 'true';
-    pausedByRail = true;
-  };
-  const resumeLive = () => {
-    if (!pausedByRail) return;
-    pausedByRail = false;
-    delete root.dataset.livePaused;
-    document.dispatchEvent(new CustomEvent('live:resume'));
-  };
+  const pauseRailLive = () => pauseLive('pinned-rail');
+  const resumeRailLive = () => resumeLive('pinned-rail');
 
   const waitCollapse = (row) => new Promise((resolve) => {
     if (reducedMotion() || !wide.matches) { resolve(); return; }
@@ -177,7 +169,7 @@ if (rail && tab) {
     submit.disabled = true;
     undoState = null;
     if (status) status.textContent = '';
-    pauseLive();
+    pauseRailLive();
     const formData = new FormData(form);
     const collapse = waitCollapse(row);
     row.classList.add('is-leaving');
@@ -212,7 +204,7 @@ if (rail && tab) {
       restoreRow();
     } finally {
       busy = false;
-      resumeLive();
+      resumeRailLive();
     }
   });
 

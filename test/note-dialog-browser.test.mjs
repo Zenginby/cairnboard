@@ -322,3 +322,28 @@ test('quick-note dialog reports success with link even when the followed note pa
   assert.equal(entity.resolve(env.open(), 'note', href.slice('/notes/'.length)).title, 'Saved despite 500');
   assert.ok(errors.length === 1 && /500/u.test(errors[0]), errors.join('\n'));
 });
+
+test('/notes/new N shortcut focuses the page title field instead of opening a duplicate dialog', async (t) => {
+  const env = await boot(t);
+  if (!env) return;
+  const context = await env.browser.newContext({ viewport: { width: 1280, height: 800 } });
+  env.cleanup(() => context.close());
+  const page = await context.newPage();
+  const errors = [];
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('pageerror', (error) => errors.push(error.message));
+
+  const origin = `http://${siteHost(key)}:${env.port}`;
+  await page.goto(loginUrl(env.port, key, instance));
+  await page.waitForURL(`${origin}/`, { timeout: 10_000 });
+
+  await page.goto(`${origin}/notes/new`);
+  await page.locator('#note-title').waitFor({ state: 'visible' });
+  await page.locator('h1').click();
+  await page.keyboard.press('n');
+
+  assert.equal(await page.locator('[data-note-dialog]').evaluate((el) => el.open), false);
+  assert.equal(await page.locator('#note-title').count(), 1);
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'note-title');
+  assert.deepEqual(errors, [], `unexpected console/page errors: ${errors.join('; ')}`);
+});

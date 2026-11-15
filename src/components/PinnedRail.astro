@@ -55,7 +55,7 @@ const showLabel = t('pinned.show').replace('{n}', count);
                   class="pinned-rail-unpin"
                   type="submit"
                   data-pinned-unpin
-                  aria-label={t('pinned.unpin').replace('{title}', label)}
+                  aria-label={t('pinned.unpin').replace('{title}', () => label)}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>
                 </button>

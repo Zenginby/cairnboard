@@ -263,10 +263,10 @@ const TABLE_SEPARATOR_ROW = /^[ \t]*\|?(?:[ \t]*:?-{1,}:?[ \t]*\|)+[ \t]*(?::?-{
 export function pinnedExcerpt(text, max = PINNED_EXCERPT) {
   const sample = typeof text === 'string' ? text.slice(0, EXCERPT_SCAN_LIMIT) : '';
   const stripped = stripHidden(sample).text
-    .replace(/!\[([^\]\r\n]*)\]\([^)\r\n]*\)/gu, '$1')
-    .replace(/\[\[([^\]|\r\n]*)\|([^\]\r\n]*)\]\]/gu, '$2')
-    .replace(/\[\[([^\]\r\n]*)\]\]/gu, '$1')
-    .replace(/\[([^\]\r\n]*)\]\([^)\r\n]*\)/gu, '$1')
+    .replace(/!\[([^\[\]\r\n]*)\]\([^)\r\n]*\)/gu, '$1')
+    .replace(/\[\[([^\[\]|\r\n]*)\|([^\[\]\r\n]*)\]\]/gu, '$2')
+    .replace(/\[\[([^\[\]\r\n]*)\]\]/gu, '$1')
+    .replace(/\[([^\[\]\r\n]*)\]\([^)\r\n]*\)/gu, '$1')
     .replace(/^ {0,3}(?:`{3,}|~{3,})[^\r\n]*$/gmu, '')
     .replace(/^ {0,3}(?:[-*_][ \t]*){3,}$/gmu, '')
     .replace(/^ {0,3}(?:>[ \t]?)+/gmu, '')

@@ -6,7 +6,6 @@ import BoardColumns from '../components/BoardColumns.astro';
 import { laneColumns } from '../components/board-lanes.mjs';
 import { t } from '../i18n/index.mjs';
 import '../styles/research.css';
-import boardDrag from '../scripts/board-drag.js?url';
 
 // `?project=<ref>` narrows the board to one project (the Home project boxes link here); an unknown ref shows it all.
 // `?archive` shows the owner's archive (hidden columns); its cards can be sent back to Done from there.
@@ -142,7 +141,7 @@ const totalCards = columns.reduce((sum, column) => sum + column.total, 0);
     <BoardColumns columns={columns} add={!archive} status filterable projectKeys={projectKeys} lanes={!showAll}
       cardAction={cardAction} draggable={!archive} csrf={csrf} />
   </>}
-  {!archive && <script is:inline type="module" src={boardDrag}></script>}
+  <script src="../scripts/board-drag.js"></script>
   <script src="../scripts/board-focus.js"></script>
   <script src="../scripts/board-filter.js"></script>
 </AppShell>

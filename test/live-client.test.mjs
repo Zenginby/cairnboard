@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { setImmediate } from 'node:timers/promises';
+import { pauseLive, resumeLive } from '../src/scripts/live-pause.js';
 
 function fixture(visibility = 'visible', { notReady = false } = {}) {
   const documentEvents = {}, windowEvents = {}, requests = [], sources = [], timers = new Map();
@@ -227,4 +228,39 @@ test('a page fetch already in flight cannot replace the board after a drag pause
   await setImmediate();
   assert.equal(f.requests.length, 2);
   assert.equal(f.region.innerHTML, 'fresh page');
+});
+
+test('per-owner live pause stays active until every owner resumes', () => {
+  const events = [];
+  const doc = {
+    documentElement: { dataset: {} },
+    dispatchEvent(event) { events.push(event.type); },
+  };
+  pauseLive('A', doc);
+  pauseLive('B', doc);
+  assert.equal(doc.documentElement.dataset.livePaused, 'true');
+  assert.equal(doc.documentElement.dataset.livePausedBy, 'A B');
+
+  resumeLive('A', doc);
+  assert.equal(doc.documentElement.dataset.livePaused, 'true');
+  assert.equal(doc.documentElement.dataset.livePausedBy, 'B');
+  assert.deepEqual(events, []);
+
+  resumeLive('B', doc);
+  assert.equal(doc.documentElement.dataset.livePaused, undefined);
+  assert.equal(doc.documentElement.dataset.livePausedBy, undefined);
+  assert.deepEqual(events, ['live:resume']);
+});
+
+test('a pause flag cleared from outside does not leave a stale owner holding the pause', () => {
+  const doc = { documentElement: { dataset: { livePaused: 'true' } }, dispatchEvent() {} };
+  pauseLive('A', doc);
+  resumeLive('A', doc);
+  assert.equal(doc.documentElement.dataset.livePaused, 'true');
+  delete doc.documentElement.dataset.livePaused;
+  pauseLive('B', doc);
+  assert.equal(doc.documentElement.dataset.livePausedBy, 'B');
+  resumeLive('B', doc);
+  assert.equal(doc.documentElement.dataset.livePaused, undefined);
+  assert.equal(doc.documentElement.dataset.livePausedBy, undefined);
 });
