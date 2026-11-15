@@ -1,7 +1,8 @@
 import { basename } from 'node:path';
 import { validateDate } from '../core/dates.mjs';
 import * as index from '../core/index.mjs';
-import { stripHidden, oneLine } from '../core/text.mjs';
+import { safeRelative } from '../core/paths.mjs';
+import { stripHidden, oneLine, pathKey } from '../core/text.mjs';
 import { CairnError } from '../core/errors.mjs';
 import { normalizeId, isNoteKey } from '../core/ids.mjs';
 import * as journal from '../core/journal.mjs';
@@ -10,11 +11,12 @@ import { effectiveColumn } from '../core/card.mjs';
 import { parseFile } from '../core/frontmatter.mjs';
 import { extractProjectLinks } from '../core/project-links.mjs';
 import { readFile } from '../core/store.mjs';
-import { homeView, boardView, showView, projectsView, projectSummary, result } from '../cli/views.mjs';
+import { homeView, boardView, showView, projectsView, projectSummary, result, agentProject } from '../cli/views.mjs';
 import { okEnvelope } from '../cli/output.mjs';
 import { createRenderPool } from './render-pool.mjs';
 import { searchView } from './search.mjs';
 import { hasToolSnapshots, mergeTools, readToolSnapshots } from '../core/tools.mjs';
+import { uiLanguage } from '../src/i18n/index.mjs';
 
 function journalDate(row) {
   for (const date of [row.data.date, basename(row.path, '.md')]) {
@@ -179,6 +181,8 @@ export function createRead({ open, render = createRenderPool().render }) {
       return okEnvelope(searchView(ctx, { q, type, limit }, projectMap(ctx)), ctx.warnings);
     },
     note(id) { return document('note', id); },
+    /** @param {{ project?: string }} [query] */
+    async notes(query) { return notesResult(await openRead(), query); },
     project(id) { return document('project', id); },
     research(id) { return document('research', id); },
     async researchList() { return researchListResult(await openRead()); },
@@ -488,4 +492,95 @@ function homeResearch(ctx) {
     },
     warnings,
   };
+}
+
+// ---- Notes list (/notes): read-only index across every note kind, excluding agent notes. ----
+
+function noteRoots(schema) {
+  const configured = schema?.roots?.note?.path;
+  const list = Array.isArray(configured) ? configured : configured ? [configured] : [];
+  return list
+    .map((entry) => {
+      try {
+        const parts = safeRelative(entry).replace(/\\/gu, '/').split('/').filter(Boolean);
+        return parts.length ? { parts, keys: parts.map(pathKey) } : null;
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.keys.join('/').length - a.keys.join('/').length);
+}
+
+function noteTopic(roots, notePath) {
+  let parts;
+  try {
+    parts = safeRelative(notePath).replace(/\\/gu, '/').split('/').filter(Boolean);
+  } catch {
+    return null;
+  }
+  const keys = parts.map(pathKey);
+  const root = roots.find((candidate) => parts.length > candidate.parts.length
+    && candidate.keys.every((segment, at) => keys[at] === segment));
+  if (!root || parts.length <= root.parts.length + 1) return null;
+  return oneLine(stripHidden(parts[root.parts.length]).text) || null;
+}
+
+/**
+ * Every owner note across all note kinds, leaving out notes linked to the agents project. Pinned notes come first,
+ * then unpinned notes grouped by folder topic under the schema's notes root (locale order, unassigned last),
+ * newest `updated` first within each group.
+ * @param {*} ctx @param {{ project?: string }} [query]
+ */
+export function notesResult(ctx, { project } = {}) {
+  const projects = projectMap(ctx);
+  const agents = agentProject(ctx);
+  const isAgentNote = (item) => agents !== null && (agents.refs.has(item.data?.project)
+    || (agents.id !== null && projects.get(item.data?.project)?.id === agents.id));
+  const rawNotes = entity.list(ctx, 'note', { all: true }).filter((item) => !isAgentNote(item));
+  const { data, warnings } = result(ctx, rawNotes, {}, true);
+  const roots = noteRoots(ctx.schema);
+  const collator = new Intl.Collator(uiLanguage(), { sensitivity: 'base', numeric: true });
+  const chips = [];
+  const entries = data.items.map((item, at) => {
+    const raw = rawNotes[at];
+    const linked = projects.get(item.content.project) ?? null;
+    if (linked?.id && !chips.some((chip) => chip.id === linked.id)) chips.push(linked);
+    return {
+      path: raw.path,
+      note: {
+        ref: item.ref,
+        title: item.content.title ?? '',
+        kind: item.meta.kind ?? 'note',
+        pinned: item.meta.pinned === true,
+        topic: noteTopic(roots, raw.path),
+        project: linked ? { id: linked.id, title: linked.title, tone: linked.tone } : null,
+        updated: item.meta.updated ?? null,
+      },
+    };
+  });
+  chips.sort((a, b) => collator.compare(a.title, b.title));
+  const active = chips.find((chip) => chip.id === project)?.id ?? '';
+  const visible = entries.filter((entry) => !active || entry.note.project?.id === active);
+  visible.sort((a, b) => {
+    if (a.note.pinned !== b.note.pinned) return a.note.pinned ? -1 : 1;
+    if (!a.note.pinned) {
+      const ta = a.note.topic;
+      const tb = b.note.topic;
+      if (ta !== tb) {
+        if (ta === null) return 1;
+        if (tb === null) return -1;
+        const topicOrder = collator.compare(ta, tb) || (ta < tb ? -1 : 1);
+        if (topicOrder !== 0) return topicOrder;
+      }
+    }
+    const updatedOrder = (Date.parse(b.note.updated) || 0) - (Date.parse(a.note.updated) || 0);
+    if (updatedOrder !== 0) return updatedOrder;
+    return collator.compare(a.note.title, b.note.title) || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+  });
+  return okEnvelope({
+    items: visible.map((entry) => entry.note),
+    projects: chips,
+    project: active,
+  }, [...ctx.warnings, ...warnings]);
 }

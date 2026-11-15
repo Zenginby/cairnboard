@@ -436,7 +436,7 @@ test('built Board, Card and Note routes use injected data, safe states and exter
         assert.doesNotMatch(response.body, /document-sidebar/u);
       }
     }
-    if (method === 'note') assert.doesNotMatch(response.body, /aria-current="page"/u);
+    if (method === 'note') assert.match(response.body, /href="\/notes" aria-current="page"/u);
     else assert.match(response.body, /href="\/board" aria-current="page"/u);
 
     const malicious = '<img src=x onerror=attack(1)>';

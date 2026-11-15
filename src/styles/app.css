@@ -1308,10 +1308,26 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 @media (min-width: 80rem) {
   .shell-search { width: calc(var(--space-search-width) * 2 / 3); }
 }
-/* The optional sixth tab (Tools) needs more room still: the field keeps its icon and caption, drops the shortcut. */
+/* Six or seven centred tabs leave less room beside them: drop the shortcut, and with seven tabs (Tools) compact
+ * the search pill so the fixed-width top row never overlaps centered tabs. */
 @media (min-width: 80rem) {
   .app-shell[data-tab-count="6"] .shell-search { width: calc(var(--space-search-width) / 2); }
-  .app-shell[data-tab-count="6"] .search-key { display: none; }
+  .app-shell[data-tab-count="6"] .search-key,
+  .app-shell[data-tab-count="7"] .search-key { display: none; }
+  .app-shell[data-tab-count="7"] .shell-search {
+    width: auto;
+    min-width: calc(var(--space-xl) + var(--space-xs));
+    padding: var(--space-xs);
+    justify-content: center;
+  }
+  .app-shell[data-tab-count="7"] .search-caption {
+    position: absolute;
+    width: var(--space-hairline);
+    height: var(--space-hairline);
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 /* Script filters hide rows and empty notes with this class. */
 .hidden { display: none !important; }

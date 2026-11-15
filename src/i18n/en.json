@@ -476,5 +476,16 @@
   "tools.colKind": "Kind",
   "tools.colUsage": "Usage",
   "tools.colCost": "Cost",
-  "tools.otherKind": "Other"
+  "tools.otherKind": "Other",
+  "notes.title": "Notes",
+  "notes.filter": "Filter by project",
+  "notes.all": "All",
+  "notes.pinned": "Pinned",
+  "notes.otherTopic": "No topic",
+  "notes.empty": "No notes yet.",
+  "notes.kind.note": "Note",
+  "notes.kind.concept": "Concept",
+  "notes.kind.tool": "Tool",
+  "notes.kind.query": "Query",
+  "notes.kind.overview": "Overview"
 }
