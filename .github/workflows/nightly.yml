@@ -51,6 +51,7 @@ jobs:
           node-version: '24'
       - run: npm ci
       - run: npm run build:cli
+      - run: npm run build:app
       - run: npm test
       - run: npm run bench:cli
         continue-on-error: true
@@ -69,6 +70,7 @@ jobs:
           node-version: '24'
       - run: npm ci
       - run: npm run build:cli
+      - run: npm run build:app
       - run: npm test
       - run: npm run bench:cli
         continue-on-error: true
