@@ -5,7 +5,7 @@ import { CairnError } from '../../core/errors.mjs';
 import { features, loadConfig } from '../../core/config.mjs';
 import { readChecked, realRoot } from '../../core/paths.mjs';
 import { findDataDir } from '../../core/roots.mjs';
-import { clearShadow, readSettings, setFeature } from '../../core/settings.mjs';
+import { clearShadow, LANGUAGES, readSettings, setFeature, setLanguage } from '../../core/settings.mjs';
 import { shadowStats } from '../../core/shadow.mjs';
 import { revision } from '../../core/store.mjs';
 import { oneLine, stripHidden } from '../../core/text.mjs';
@@ -44,12 +44,22 @@ export function readConfiguredFeatures(opts = {}, io = {}) {
   }
 }
 
+// `language` is the one setting that is not an on/off feature; it shares `config get` and `config set`.
+const LANGUAGE = 'language';
+
 function parseFeature(name) {
+  if (name === LANGUAGE) return { cli: name, key: name, language: true };
   const key = cliToKey.get(name);
   if (!key) {
-    throw new CairnError('validation', 'Unknown feature. Use change-trail, change-content, live-updates or mentions.');
+    throw new CairnError('validation',
+      'Unknown setting. Use change-trail, change-content, live-updates, mentions or language.');
   }
   return { cli: name, key };
+}
+
+function parseLanguage(value) {
+  if (LANGUAGES.includes(value)) return value;
+  throw new CairnError('validation', 'Invalid language. Use tr or en.');
 }
 
 function parseToggle(value) {
@@ -87,7 +97,8 @@ async function confirmWord(io, message, expected) {
 
 function currentSettings(ctx) {
   if (ctx.ephemeral) {
-    return { features: features(ctx.config), revision: null, shadow: { blobs: 0, bytes: 0 }, lastChange: null };
+    return { features: features(ctx.config), language: ctx.config.language, revision: null,
+      shadow: { blobs: 0, bytes: 0 }, lastChange: null };
   }
   return readSettings(ctx);
 }
@@ -108,6 +119,7 @@ function formatSettings(settings) {
   const { blobs, bytes } = settings.shadow;
   return [
     ...FEATURES.map(([cli, key]) => `${cli}: ${settings.features[key] ? 'on' : 'off'}`),
+    `${LANGUAGE}: ${settings.language}`,
     `shadow: ${blobs} ${blobs === 1 ? 'blob' : 'blobs'}, ${bytes} ${bytes === 1 ? 'byte' : 'bytes'}`,
     `last-change: ${formatChange(settings.lastChange)}`,
   ].join('\n');
@@ -135,7 +147,7 @@ export function configCommands() {
     },
     {
       name: 'config get',
-      summary: 'Get one feature setting.',
+      summary: 'Get one feature setting or the language.',
       args: ['<feature>'],
       options: {},
       mode: 'read',
@@ -144,6 +156,10 @@ export function configCommands() {
       prepare: ([name]) => parseFeature(name),
       run: (ctx, args, opts, io, feature) => {
         const settings = currentSettings(ctx);
+        if (feature.language) {
+          const data = { name: LANGUAGE, value: settings.language, revision: settings.revision };
+          return { data: opts.json ? data : settings.language };
+        }
         const value = settings.features[feature.key];
         const data = { name: feature.cli, feature: feature.key, value, revision: settings.revision };
         return { data: opts.json ? data : (value ? 'on' : 'off') };
@@ -151,7 +167,7 @@ export function configCommands() {
     },
     {
       name: 'config set',
-      summary: 'Enable or disable a feature.',
+      summary: 'Enable or disable a feature, or set the language.',
       args: ['<feature>', '<value>'],
       options: {},
       mode: 'write',
@@ -161,7 +177,7 @@ export function configCommands() {
       dangerous: false,
       prepare: async ([name, value], opts, io) => {
         const feature = parseFeature(name);
-        const enabled = parseToggle(value);
+        const enabled = feature.language ? parseLanguage(value) : parseToggle(value);
         const actor = writeActor(opts);
         if (!opts['dry-run']) {
           requireOwnerTerminal(io);
@@ -179,11 +195,19 @@ export function configCommands() {
           if (opts['if-revision'] !== undefined && opts['if-revision'] !== rev) {
             throw new CairnError('conflict', 'Configuration changed since it was read.');
           }
-          const changed = features(ctx.config)[feature.key] !== enabled;
-          const data = { name: feature.cli, feature: feature.key, value: enabled, changed, revision: rev };
+          const current = feature.language ? ctx.config.language : features(ctx.config)[feature.key];
+          const data = { name: feature.cli, ...(feature.language ? {} : { feature: feature.key }), value: enabled,
+            changed: current !== enabled, revision: rev };
           return { data: opts.json ? data : `${feature.cli}: ${value} (dry-run)` };
         }
         const expectedRevision = opts['if-revision'] ?? readSettings(ctx).revision;
+        if (feature.language) {
+          const saved = setLanguage({ ...ctx, actor }, { language: enabled, expectedRevision, actor });
+          const data = { name: LANGUAGE, value: enabled, changed: saved.changed, revision: saved.revision };
+          // A running web server keeps its interface language until it restarts or the Settings page saves it.
+          const text = saved.changed ? `${LANGUAGE}: ${value}` : `${LANGUAGE}: ${value} (unchanged)`;
+          return { data: opts.json ? data : text };
+        }
         const result = setFeature({ ...ctx, actor }, { name: feature.key, value: enabled, expectedRevision, actor });
         if (feature.key === 'changeTrail' && enabled) {
           ctx.warnings = ctx.warnings.filter((warning) => warning !== 'trail_disabled');

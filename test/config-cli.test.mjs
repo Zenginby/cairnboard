@@ -184,6 +184,83 @@ test('config set writes config with typed confirmation, records cli:owner and de
   assert.equal(badActor.json.error.code, 'usage');
 });
 
+test('config get and set language follow the owner-only rule and log only the language codes', async (t) => {
+  const f = fixture(t);
+  const all = await f.run(['config', '--json']);
+  assert.equal(all.json.data.language, 'en');
+  assert.match((await f.run(['config'])).stdout, /^language: en$/mu);
+  assert.equal((await f.run(['config', 'get', 'language'])).stdout, 'en\n');
+  const got = await f.run(['config', 'get', 'language', '--json']);
+  assert.equal(got.code, 0, got.stdout);
+  assert.deepEqual(got.json.data, { name: 'language', value: 'en', revision: all.json.data.revision });
+
+  const before = tree(f.data);
+  const args = ['config', 'set', 'language', 'tr'];
+  const nonTty = await f.run([...args, '--json']);
+  assert.equal(nonTty.code, 2, nonTty.stdout);
+  assert.equal(nonTty.json.error.code, 'owner_only');
+  assert.equal(nonTty.json.error.message, 'Change settings from your own terminal or the Settings page.');
+  const stdinNotTty = await f.run([...args, '--json'], {
+    isTTY: true, stdin: Object.assign(Readable.from(['language\n']), { isTTY: false }),
+  });
+  assert.equal(stdinNotTty.json.error.code, 'owner_only');
+  const agentPty = await f.run([...args, '--json'], { isTTY: true, stdin: 'language\n', env: { CODEX_SANDBOX: '1' } });
+  assert.equal(agentPty.code, 2);
+  assert.equal(agentPty.json.error.code, 'owner_only');
+  const withYes = await f.run([...args, '--yes', '--json'], { isTTY: true, stdin: 'language\n' });
+  assert.equal(withYes.code, 2);
+  assert.equal(withYes.json.error.code, 'usage');
+  for (const input of ['yes\n', 'tr\n', '']) {
+    const mismatch = await f.run([...args, '--json'], { isTTY: true, stdin: input });
+    assert.equal(mismatch.code, 2, mismatch.stdout + mismatch.stderr);
+    assert.equal(mismatch.json.error.code, 'usage');
+  }
+  for (const value of ['de', 'TR', 'on', 'off']) {
+    const bad = await f.run(['config', 'set', 'language', value, '--json'], { isTTY: true, stdin: 'language\n' });
+    assert.equal(bad.code, 5, value);
+    assert.equal(bad.json.error.code, 'validation');
+    assert.equal(bad.json.error.message, 'Invalid language. Use tr or en.');
+  }
+  assert.deepEqual(tree(f.data), before, 'nothing above touched the disk');
+  const stored = fs.readFileSync(join(f.data, '.cairn/config.json'), 'utf8');
+  const stale = await f.run([...args, '--if-revision', '0000000000000000', '--json'],
+    { isTTY: true, stdin: 'language\n' });
+  assert.equal(stale.code, 4);
+  assert.equal(stale.json.error.code, 'conflict');
+  const dry = await f.run([...args, '--dry-run', '--json']);
+  assert.equal(dry.code, 0, dry.stdout);
+  assert.deepEqual(dry.json.data, { name: 'language', value: 'tr', changed: true, revision: all.json.data.revision });
+  assert.equal(fs.readFileSync(join(f.data, '.cairn/config.json'), 'utf8'), stored);
+  assert.deepEqual(readEvents(f.open()), []);
+
+  const set = await f.run([...args, '--json'], { isTTY: true, stdin: 'language\n' });
+  assert.equal(set.code, 0, set.stdout + set.stderr);
+  assert.match(set.stderr, /Set language to tr.*Type language:/u);
+  assert.equal(set.json.data.name, 'language');
+  assert.equal(set.json.data.value, 'tr');
+  assert.equal(set.json.data.changed, true);
+  assert.match(set.json.data.revision, /^[0-9a-f]{16}$/u);
+  assert.notEqual(set.json.data.revision, all.json.data.revision);
+  const [event] = readEvents(f.open());
+  assert.deepEqual([event.op, event.actor, event.before, event.after], ['config.language', 'cli:owner', 'en', 'tr']);
+  assert.equal((await f.run(['config', 'get', 'language'])).stdout, 'tr\n');
+  const after = await f.run(['config', '--json']);
+  assert.equal(after.json.data.language, 'tr');
+  assert.equal(after.json.data.revision, set.json.data.revision);
+  assert.equal(after.json.data.lastChange, null, 'not a feature change');
+
+  const same = await f.run(args, { isTTY: true, stdin: 'language\n' });
+  assert.equal(same.code, 0, same.stderr);
+  assert.equal(same.stdout, 'language: tr (unchanged)\n');
+  const named = await f.run(['config', 'set', 'language', 'en', '--actor', 'alice'],
+    { isTTY: true, stdin: 'language\n' });
+  assert.equal(named.stdout, 'language: en\n');
+  const events = readEvents(f.open());
+  assert.deepEqual(events.map(({ op, actor }) => [op, actor]),
+    [['config.language', 'cli:owner'], ['config.language', 'cli:alice']]);
+  assert.equal(events.some(({ op }) => op === 'config.external'), false);
+});
+
 test('main rejects non-TTY stdin or stdout when io.isTTY is omitted', async (t) => {
   const f = fixture(t);
   for (const [stdinTty, stdoutTty] of [[false, true], [true, false], [true, undefined]]) {

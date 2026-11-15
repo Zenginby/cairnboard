@@ -24,6 +24,9 @@ import { resolve, update } from '../core/entity.mjs';
 import { addCard, claimCard, listCards } from '../core/card.mjs';
 import * as project from '../core/project.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
+// The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
+// explicitly, the way the server does at start.
+process.env.CAIRN_LANGUAGE = 'tr';
 
 const repo = fileURLToPath(new URL('../', import.meta.url));
 const port = 4332, key = Buffer.alloc(32, 6), instance = 'run-cccccccccccccccc';

@@ -18,6 +18,25 @@ kapatabilir. `.cairn/config.json` içinde yazılmayan özellik varsayılan olara
   `feature_disabled` hatası verir, `help` komutu `(disabled)` gösterir ve `agent install` ajanın skill belgesinden
   çıkarır. Önceki bağlantılara dokunulmaz.
 
+## Dil
+
+`language` (`en` ya da `tr`) veri klasörünün arayüz dilidir; değer yoksa arayüz İngilizce açılır. Yalnız arayüzü
+etkilemez: günlük bölüm etiketleri, Türkçe yazım kuralları ve wiki sıralaması da bu değeri izler. Pano sütun adları
+sizin verinizdir, çevrilmez.
+
+- **Web**: `/settings` sayfasındaki Dil bölümünden English ya da Türkçe seçip kaydedin. Çalışan sunucu aynı süreçte
+  dil değiştirir; sonraki sayfa (hata sayfaları dahil) yeni dildedir, yeniden başlatma gerekmez.
+- **CLI**: `config get language` kodu yazar, `config set language tr|en` değiştirir; özelliklerle aynı yalnız-sahip
+  kuralı geçerlidir (onay için `language` yazılır). `config --json` çıktısında `language` bulunur.
+- Çalışan sunucu dosyayı izlemez: CLI ile ya da elle yapılan değişiklikten sonra sunucuyu yeniden başlatın ya da dili
+  `/settings` sayfasında bir kez kaydedin.
+
+Ayarlar sayfası ve CLI üzerinden yapılan yazmalar, yalnız eski ve yeni kodu taşıyan tek bir `config.language` olayı
+kaydeder. `.cairn/config.json` içindeki `language` değerinin elle düzenlenmesi değişiklik izine yazılmaz (yalnız
+`features` alanındaki elle düzenlemeler yazılır); elle yapılan düzenleme sessiz kalır.
+
+## Komutlar
+
 Ayarları herhangi bir terminalden okuyabilir, kendi etkileşimli terminalinizden ya da `/settings` sayfasından
 değiştirebilir ve iz revizyonlarını koruyarak saklanan içerik kopyalarını temizleyebilirsiniz:
 
@@ -25,16 +44,20 @@ değiştirebilir ve iz revizyonlarını koruyarak saklanan içerik kopyalarını
 node dist/cairn.mjs config --data "./cairn-data" --json
 node dist/cairn.mjs config get change-trail --data "./cairn-data"
 node dist/cairn.mjs config set change-content off --data "./cairn-data"
+node dist/cairn.mjs config get language --data "./cairn-data"
+node dist/cairn.mjs config set language tr --data "./cairn-data"
 node dist/cairn.mjs config clear-shadow --data "./cairn-data"
 ```
 
-`config set <özellik> on|off` ve `config clear-shadow` yalnız sahibin kendi etkileşimli terminalinde çalışır (`--yes`
-yoktur): TTY olmayan akışlarda veya bilinen bir kodlama ajanı kabuğunda `owner_only` hatası verir. Onay için
-özellik adını (`clear-shadow` için `clear`) yazmanız istenir; `--actor` verilmezse `owner` (`cli:owner`) kullanılır.
-`cairn context`, ajanı etkileyen kapalı özellikleri `settings` bölümünde açıkça listeler.
+`config set <özellik> on|off`, `config set language tr|en` ve `config clear-shadow` yalnız sahibin kendi etkileşimli
+terminalinde çalışır (`--yes` yoktur): TTY olmayan akışlarda veya bilinen bir kodlama ajanı kabuğunda `owner_only`
+hatası verir. Onay için özellik adını (dil için `language`, `clear-shadow` için `clear`) yazmanız istenir; `--actor`
+verilmezse `owner` (`cli:owner`) kullanılır. `cairn context`, ajanı etkileyen kapalı özellikleri `settings` bölümünde
+açıkça listeler.
 
 Ayarlar yalnız sahip içindir, ancak CLI sahipliği kriptografik bir sınır değildir: `--actor` serbest yazıdır, kendi
 sahte terminalini süren bir araç yanıt verebilir ve `.cairn/config.json` diskte doğrudan düzenlenebilir. Amaç sessiz
 değişiklik olmamasıdır: yazmalar terminal onayı ya da korumalı `/settings` POST isteği gerektirir, değişiklikler
-`config.change` (temizleme `shadow.clear`) yazar, `features` alanındaki elle düzenlemeler `config.external`
-(`owner:external`) olarak kaydedilir ve kapalı özellikler `context` çıktısında görünür.
+`config.change` (dil değişikliği `config.language`, temizleme `shadow.clear`) yazar, `features` alanındaki elle
+düzenlemeler `config.external` (`owner:external`) olarak kaydedilir (elle `language` düzenlemesi kaydedilmez) ve
+kapalı özellikler `context` çıktısında görünür.

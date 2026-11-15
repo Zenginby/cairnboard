@@ -13,6 +13,9 @@ import { guard } from '../server/guard.mjs';
 import { createRead } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
 import { tempDir, fixedClock } from './support/env.mjs';
+// The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
+// explicitly, the way the server does at start.
+process.env.CAIRN_LANGUAGE = 'tr';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 

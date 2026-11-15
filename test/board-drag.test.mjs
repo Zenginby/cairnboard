@@ -20,6 +20,9 @@ import { resolve } from '../core/entity.mjs';
 import { resolveBrowser } from '../scripts/lib/design-check/config.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
 import { liveCleanup, liveUnavailable } from './support/live.mjs';
+// The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
+// explicitly, the way the server does at start.
+process.env.CAIRN_LANGUAGE = 'tr';
 
 const repo = fileURLToPath(new URL('../', import.meta.url));
 const key = Buffer.alloc(32, 5), instance = 'run-cccccccccccccccc';

@@ -111,26 +111,44 @@ test('Home dictionaries share keys and the language is chosen in one place', () 
   assert.deepEqual(Object.keys(tr).sort(), Object.keys(en).sort());
   const before = process.env.CAIRN_LANGUAGE;
   delete process.env.CAIRN_LANGUAGE;
-  try { assert.equal(uiLanguage(), 'tr'); } finally { if (before !== undefined) process.env.CAIRN_LANGUAGE = before; }
-  assert.equal(translate('shell.home'), tr['shell.home']);
+  try {
+    assert.equal(uiLanguage(), 'en');
+    assert.equal(translate('shell.home'), en['shell.home']);
+  } finally { if (before !== undefined) process.env.CAIRN_LANGUAGE = before; }
   for (const value of [...Object.values(tr), ...Object.values(en)]) assert.ok(value.trim());
 });
 
-test('the interface follows the data folder language and falls back to Turkish', (t) => {
+test('the interface follows the data folder language and falls back to English', (t) => {
   const before = process.env.CAIRN_LANGUAGE;
   t.after(() => {
     if (before === undefined) delete process.env.CAIRN_LANGUAGE;
     else process.env.CAIRN_LANGUAGE = before;
   });
-  useLanguage('en');
-  assert.equal(uiLanguage(), 'en');
-  assert.equal(translate('shell.home'), en['shell.home']);
-  useLanguage('de');
+  useLanguage('tr');
   assert.equal(uiLanguage(), 'tr');
   assert.equal(translate('shell.home'), tr['shell.home']);
+  for (const other of ['de', 'TR', '', undefined, null]) {
+    useLanguage('tr');
+    useLanguage(other);
+    assert.equal(uiLanguage(), 'en', String(other));
+    assert.equal(translate('shell.home'), en['shell.home']);
+  }
+  for (const raw of ['de', 'EN', '']) {
+    process.env.CAIRN_LANGUAGE = raw;
+    assert.equal(uiLanguage(), 'en', raw);
+  }
+  useLanguage('en');
+  assert.equal(uiLanguage(), 'en');
 });
 
-test('t() fills {name} placeholders and leaves unknown ones as written', () => {
+test('t() fills {name} placeholders and leaves unknown ones as written', (t) => {
+  // The expected text below is Turkish, so the language is set explicitly instead of relying on the fallback.
+  const before = process.env.CAIRN_LANGUAGE;
+  t.after(() => {
+    if (before === undefined) delete process.env.CAIRN_LANGUAGE;
+    else process.env.CAIRN_LANGUAGE = before;
+  });
+  useLanguage('tr');
   assert.equal(translate('search.titleWithQuery', { q: 'plan' }), tr['search.titleWithQuery'].replace('{q}', 'plan'));
   const more = tr['search.moreOfType'].replace('{type}', 'x').replace('{n}', '0');
   assert.equal(translate('search.moreOfType', { type: 'x', n: 0 }), more);

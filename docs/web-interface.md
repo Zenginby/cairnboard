@@ -2,8 +2,9 @@
 
 [← README](../README.md)
 
-The interface uses the data folder's `language` (`en` or `tr`, set by `init --language`); restart the server after
-changing it.
+The interface uses the data folder's `language` (`en` or `tr`, set by `init --language`) and falls back to English.
+Change it under Language on `/settings`: the running server switches at once. After a change from the CLI or by hand,
+restart the server or save the language once on `/settings` ([Settings](settings.md)).
 
 Run `npm start` to build and start the web interface and open your browser. The server uses the first
 free port in 4321–4340 and listens only on the loopback (`127.0.0.1` and `::1`). Use `cairn open` to reopen a

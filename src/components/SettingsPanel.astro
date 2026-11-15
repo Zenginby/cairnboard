@@ -3,7 +3,8 @@ import { t } from '../i18n/index.mjs';
 
 const { view, requested } = Astro.props;
 const names = ['changeTrail', 'changeContent', 'liveUpdates', 'mentions'];
-const saved = [...names, 'shadow'].includes(requested) ? requested : null;
+const languages = ['en', 'tr'];
+const saved = [...names, 'shadow', 'language'].includes(requested) ? requested : null;
 const label = (name) => t(`settings.${name}`);
 const kib = (bytes) => `${(bytes / 1024).toFixed(1)} KiB`;
 const ready = view.state === 'ready';
@@ -18,6 +19,32 @@ const lastState = lastAfter.every(Boolean) ? t('settings.on') : t('settings.off'
     {saved && <p class="settings-saved panel" role="status">
       {t('settings.saved')}: {saved === 'shadow' ? t('settings.shadowTitle') : label(saved)}
     </p>}
+    <section id="settings-language" class="panel settings-language" aria-labelledby="settings-language-title">
+      <h2 id="settings-language-title">{t('settings.language')}</h2>
+      <p class="panel-subtitle">{t('settings.language.about')}</p>
+      <ul class="settings-list">
+        <li class="settings-item">
+          <form method="post" action="/settings/language">
+            <input type="hidden" name="csrf" value={view.csrf} />
+            <input type="hidden" name="revision" value={view.revision} />
+            <div class="settings-text">
+              <h3 id="settings-language-choice">{t('settings.language.choice')}</h3>
+              <p class="panel-subtitle">{t('settings.language.columns')}</p>
+              <p class="panel-subtitle">{t('settings.language.follows')}</p>
+            </div>
+            <div class="settings-control">
+              <div class="glass-choice-options" role="radiogroup" aria-labelledby="settings-language-choice">
+                {languages.map((code) => <label class="glass-choice-option">
+                  <input type="radio" name="language" value={code} checked={view.language === code} />
+                  <span lang={code}>{t(`settings.language.${code}`)}</span>
+                </label>)}
+              </div>
+              <button type="submit" class="action-link">{t('settings.language.save')}</button>
+            </div>
+          </form>
+        </li>
+      </ul>
+    </section>
     <section id="settings-features" class="panel settings-features" aria-labelledby="settings-features-title">
       <h2 id="settings-features-title">{t('settings.features')}</h2>
       <p class="panel-subtitle">{t('settings.features.about')}</p>

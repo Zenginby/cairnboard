@@ -2,7 +2,7 @@
 // and Sec-Fetch-Site; this module checks the rest for every route alike: rate, content type, body size, CSRF token
 // and repeated fields. A route only validates its own fields and calls the core.
 import { CairnError } from '../core/errors.mjs';
-import { t } from '../src/i18n/index.mjs';
+import { t, uiLanguage } from '../src/i18n/index.mjs';
 import { cookieName, csrfToken, readCookie, verifyCsrf } from './session.mjs';
 
 export const BODY_LIMIT = 4096;
@@ -12,7 +12,7 @@ const escape = (text) => String(text).replace(/[&<>"']/gu, (c) => `&#${c.charCod
 /** A small page without scripts or styles: a title, one message and a link back to where the form lives. */
 export function messagePage(res, status, titleKey, messageKey, back, headers = {}) {
   const body = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<html lang="${uiLanguage()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>${escape(t(titleKey))} · ${escape(t('app.name'))}</title></head><body><main>
 <h1>${escape(t(titleKey))}</h1>
 <p>${escape(t(messageKey))}</p>

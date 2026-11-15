@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Settings: a Language card on `/settings` and `cairn config get|set language tr|en` change the data folder's
+  language (owner-only, logged as `config.language`). A web save switches the running server at once, without a
+  restart; `cairn config --json` includes `language`.
+- The interface now falls back to English instead of Turkish when no language is set.
+- The 404 and 500 pages are rendered per request instead of at build time, so they follow the interface language.
+
 ## [0.1.0] - 2026-11-15
 
 First public release.

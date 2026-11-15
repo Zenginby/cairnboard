@@ -1,12 +1,14 @@
-// The Settings page's data and its two write routes (spec §6). The shared checks of every write (rate, content type,
+// The Settings page's data and its write routes (spec §6). The shared checks of every write (rate, content type,
 // body size, CSRF token) live in writes.mjs; a route here checks only its own fields.
 import { CairnError } from '../core/errors.mjs';
 import { features } from '../core/config.mjs';
-import { clearShadow, readSettings, setFeature, setHomeProjects } from '../core/settings.mjs';
+import { clearShadow, LANGUAGES, readSettings, setFeature, setHomeProjects,
+  setLanguage } from '../core/settings.mjs';
 import { HOME_PROJECTS_MAX } from '../core/config.mjs';
 import { normalizeId } from '../core/ids.mjs';
 import { cookieName, csrfToken, readCookie } from './session.mjs';
 import { BODY_LIMIT, createWrites } from './writes.mjs';
+import { useLanguage } from '../src/i18n/index.mjs';
 
 export { BODY_LIMIT };
 export const FEATURES = Object.freeze(['changeTrail', 'changeContent', 'liveUpdates', 'mentions']);
@@ -34,11 +36,13 @@ function failure(error) {
 
 /**
  * @param {{ key: Buffer, port: number, open: () => any, openWrite: () => any,
- *   now?: () => number, limit?: number }} options
+ *   now?: () => number, limit?: number, switchLanguage?: (language: string) => void }} options
+ * `switchLanguage` moves the running interface to a saved language; the default sets it for the whole process.
  * `open` returns a read context, `openWrite` a write context acting as the web owner; both may throw.
  * `routes` goes into the server's write table; `handle` serves them alone (tests, or a server with no other writes).
  */
-export function createSettings({ key, port, open, openWrite, now = Date.now, limit = 5 }) {
+export function createSettings({ key, port, open, openWrite, now = Date.now, limit = 5,
+  switchLanguage = useLanguage }) {
   const name = cookieName(port);
   const routes = [
     { path: '/settings/feature', form: 'settings', back: BACK, failure,
@@ -49,6 +53,18 @@ export function createSettings({ key, port, open, openWrite, now = Date.now, lim
         setFeature(openWrite(), { name: values.name, value: values.value === 'on',
           expectedRevision: values.revision, actor: 'web:owner' });
         return `/settings?saved=${values.name}`;
+      } },
+    { path: '/settings/language', form: 'settings', back: BACK, failure,
+      run({ values }) {
+        if (!only(values, ['language', 'revision']) || Object.keys(values).length !== 2
+          || !LANGUAGES.includes(values.language) || !REVISION.test(values.revision)) return BAD;
+        setLanguage(openWrite(), { language: values.language, expectedRevision: values.revision,
+          actor: 'web:owner' });
+        // Pages, write messages and the built app read the language from the process on every request, so the
+        // next page is already in it. Also after an unchanged save: a CLI or hand edit may have left the running
+        // interface behind the file.
+        switchLanguage(values.language);
+        return '/settings?saved=language';
       } },
     { path: '/settings/home-projects', form: 'home-projects', back: HOME, failure, bodyLimit: 16384,
       run({ values }) {

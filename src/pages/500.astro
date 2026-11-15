@@ -3,7 +3,7 @@ import AppShell from '../layouts/AppShell.astro';
 import PageState from '../components/PageState.astro';
 import { t } from '../i18n/index.mjs';
 
-export const prerender = true;
+// Rendered per request, never prerendered: a prerendered page would keep the language of the build.
 ---
 <AppShell title={t('error.serverTitle')}>
   <PageState title="error.serverTitle" message="error.serverBody" status="500" />

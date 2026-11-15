@@ -16,9 +16,12 @@ import { openContext } from '../core/context.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { readEvents } from '../core/events.mjs';
 import { features, loadConfig } from '../core/config.mjs';
-import { readSettings, setFeature } from '../core/settings.mjs';
+import { readSettings, setFeature, setLanguage } from '../core/settings.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
+// The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
+// explicitly, the way the server does at start.
+process.env.CAIRN_LANGUAGE = 'tr';
 
 const repo = fileURLToPath(new URL('../', import.meta.url));
 const port = 4330, key = Buffer.alloc(32, 7), instance = 'run-aaaaaaaaaaaaaaaa';
@@ -45,14 +48,16 @@ async function call(app, { method = 'GET', path = '/', headers = {}, body, lengt
   return { status: res.statusCode, headers: res.getHeaders(), body: output.slice(output.indexOf('\r\n\r\n') + 4) };
 }
 
-function fixture(t, { handler, cairn } = {}) {
+function fixture(t, { handler, cairn, switchLanguage, locals = {} } = {}) {
   const dataDir = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-08T12:00:00Z');
   initDataDir(dataDir, { home, env: {}, clock });
   const options = { dataDir, home, env: {}, clock };
   const open = () => openContext({ mode: 'read', ...options });
   const openWrite = () => openContext({ mode: 'write', ...options, actor: 'web:owner' });
   let time = 1_900_000_000_000;
-  const settings = createSettings({ key, port, open, openWrite, now: () => time });
+  // Each test that changes the language gets the file's language back, whatever it left behind.
+  t.after(() => { process.env.CAIRN_LANGUAGE = 'tr'; });
+  const settings = createSettings({ key, port, open, openWrite, now: () => time, switchLanguage });
   // The server's write table, as in server/start.mjs: the baseline guard alone knows only the feature paths.
   const { writable } = createWrites({ key, port, routes: settings.routes });
   const app = createApp({ root: repo, guard: createGuard({ port, key, instance, writable }), writes: settings.handle,
@@ -61,7 +66,7 @@ function fixture(t, { handler, cairn } = {}) {
       events: { handle(req, res) { res.writeHead(200); res.end('stream'); return true; } } }),
     locals: { settings, cairn: cairn ?? { home: async () => ({ data: { pinned: [], recentNotes: [], openCards: [],
       projects: [],
-      featuredProject: null, journal: null }, warnings: [] }) } } });
+      featuredProject: null, journal: null }, warnings: [] }) }, ...locals } });
   const configFile = join(dataDir, '.cairn/config.json');
   const session = () => mintCookie(key, port);
   const revision = () => readSettings(open()).revision;
@@ -280,7 +285,8 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.equal([...page.body.matchAll(/<form method="post" action="\/settings\/feature"/gu)].length, 4);
   assert.match(page.body, /<div class="settings" data-settings-panel>/u);
   assert.doesNotMatch(page.body, /settings-nav/u, 'the single-column layout has no side navigation');
-  for (const id of ['settings-look', 'settings-features', 'settings-shadow', 'settings-danger']) {
+  for (const id of ['settings-look', 'settings-language', 'settings-features', 'settings-shadow',
+    'settings-danger']) {
     assert.equal([...page.body.matchAll(new RegExp(`id="${id}"`, 'gu'))].length, 1, 'unique section id');
   }
   assert.match(page.body, /<section[^>]*id="settings-look"[^>]*data-glass-choice hidden/u);
@@ -290,11 +296,23 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.ok(panel);
   assert.doesNotMatch(panel[0], /settings-page|settings-nav|data-glass-choice/u);
   const forms = [...panel[0].matchAll(/<form method="post" action="([^"]+)">([^]*?)<\/form>/gu)];
-  assert.equal(forms.length, 5, 'the dialog keeps the four feature forms and the clear form');
-  assert.deepEqual(forms.slice(0, 4).map((form) => form[2].match(/name="name" value="([^"]+)"/u)[1]),
+  assert.equal(forms.length, 6, 'the dialog keeps the language form, the four feature forms and the clear form');
+  assert.equal(forms[0][1], '/settings/language');
+  assert.deepEqual(forms.slice(1, 5).map((form) => form[2].match(/name="name" value="([^"]+)"/u)[1]),
     ['changeTrail', 'changeContent', 'liveUpdates', 'mentions']);
-  assert.equal(forms[4][1], '/settings/clear-shadow');
-  assert.match(forms[4][2], /<button type="submit" class="action-link">/u, 'clear remains secondary');
+  assert.equal(forms[5][1], '/settings/clear-shadow');
+  assert.match(forms[5][2], /<button type="submit" class="action-link">/u, 'clear remains secondary');
+  // The language card sits above the features, with both choices, the stored one checked and its two notes.
+  assert.ok(page.body.indexOf('id="settings-language"') < page.body.indexOf('id="settings-features"'));
+  assert.match(page.body, /<h2 id="settings-language-title">Dil<\/h2>/u);
+  assert.deepEqual([...forms[0][2].matchAll(/<input type="radio" name="language" value="([a-z]+)"( checked)?>/gu)]
+    .map((match) => [match[1], Boolean(match[2])]), [['en', true], ['tr', false]]);
+  assert.match(forms[0][2], /<span lang="en">English<\/span>/u);
+  assert.match(forms[0][2], /<span lang="tr">Türkçe<\/span>/u);
+  assert.ok(forms[0][2].includes('Pano sütun adları senin verindir; çevrilmez.'));
+  assert.ok(forms[0][2].includes('Günlük etiketleri ve Türkçe yazım kuralları bu ayarı izler.'));
+  assert.ok(page.body.includes('yeniden başlatma isteyebilir'), 'a change from outside the web may need a restart');
+  assert.ok(forms[0][2].includes(`name="revision" value="${f.revision()}"`));
   assert.match(page.body, /<h2 id="settings-features-title">Özellikler<\/h2>/u);
   assert.match(page.body, /<h2 id="settings-shadow-title">Değişiklik izi deposu<\/h2>/u);
   assert.match(page.body, /<h2 id="settings-danger-title">Tehlikeli işlemler<\/h2>/u);
@@ -305,7 +323,7 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   assert.match(home.body, /<svg class="settings-icon"[^]*?<path fill-rule="evenodd"/u);
   assert.doesNotMatch(page.body, /<style\b|\sstyle=/u, 'no inline styles: the CSP stays as it is');
   const tokens = [...page.body.matchAll(/name="csrf" value="([^"]+)"/gu)].map((match) => match[1]);
-  assert.equal(tokens.length, 5);
+  assert.equal(tokens.length, 6);
   assert.ok(tokens.every((token) => verifyCsrf(key, port, cookie, token)));
   assert.ok(page.body.includes(`name="revision" value="${f.revision()}"`));
   for (const name of ['Değişiklik izi', 'Ne değişti', 'Canlı güncelleme', 'Bağlantısız anmalar',
@@ -318,6 +336,8 @@ test('the built Settings page shows the forms, reflects the state and drops the 
   const saved = await call(f.app, { path: '/settings?saved=liveUpdates', headers });
   assert.match(saved.body, /role="status"[^>]*>Kaydedildi: Canlı güncelleme/u);
   assert.doesNotMatch((await call(f.app, { path: '/settings?saved=%3Cb%3E', headers })).body, /Kaydedildi/u);
+  assert.match((await call(f.app, { path: '/settings?saved=language', headers })).body,
+    /role="status"[^>]*>Kaydedildi: Dil/u);
 
   assert.equal((await f.post({ name: 'liveUpdates', value: 'off' }, { cookie })).status, 303);
   assert.equal((await f.post({ name: 'changeTrail', value: 'off' }, { cookie })).status, 303);
@@ -456,4 +476,165 @@ test('the built Home shows the project picker with a home-projects token and the
   assert.match((await call(f.app, { path: '/', headers })).body, /Ana sayfada gösterilecek proje seçmedin/u);
   // Without a session the page is the sign-in page; the picker never renders a form with an empty token.
   assert.equal((await call(f.app, { path: '/' })).status, 401);
+});
+
+test('the language write stores the code, records the web owner and switches the running interface', async (t) => {
+  const switched = [];
+  const f = fixture(t, { switchLanguage: (language) => switched.push(language) });
+  const path = '/settings/language';
+  const cookie = f.session(), csrf = csrfToken(key, port, cookie);
+  const send = (fields, options = {}) => {
+    f.tick(1000); // stay under five writes per second
+    return f.post(null, { path, cookie, ...options,
+      body: f.form({ csrf, language: 'tr', revision: f.revision(), ...fields }) });
+  };
+  const before = f.stored();
+
+  // Fields are exactly `language` and `revision`.
+  for (const fields of [{ language: 'de' }, { language: 'TR' }, { language: '' }, { language: 'on' },
+    { extra: '1' }, { name: 'language' }, { revision: 'abc' }, { revision: 'A'.repeat(16) }]) {
+    assert.equal((await send(fields)).status, 400, JSON.stringify(fields));
+  }
+  const raw = (body) => {
+    f.tick(1000);
+    return f.post(null, { path, cookie, body });
+  };
+  assert.equal((await raw(`csrf=${csrf}&revision=${f.revision()}`)).status, 400, 'no language');
+  assert.equal((await raw(`csrf=${csrf}&language=tr`)).status, 400, 'no revision');
+  assert.equal((await raw(`csrf=${csrf}&language=tr&language=en&revision=${f.revision()}`)).status, 400, 'repeated');
+
+  // The shared guards: token, session, origin and content type.
+  assert.equal((await raw(`language=tr&revision=${f.revision()}`)).status, 403, 'missing CSRF token');
+  assert.equal((await send({ csrf: csrfToken(key, port, mintCookie(key, port)) })).status, 403);
+  assert.equal((await send({ csrf: csrfToken(key, port, cookie, 'home-projects') })).status, 403, 'another form');
+  assert.equal((await send({}, { headers: { origin: 'http://evil.test' } })).status, 403);
+  assert.equal((await send({}, { headers: { cookie: undefined } })).status, 401);
+  assert.equal((await send({}, { headers: { 'content-type': 'application/json' } })).status, 415);
+  const stale = await send({ revision: '0123456789abcdef' });
+  assert.equal(stale.status, 409);
+  assert.match(stale.body, /sayfayı yenile/u);
+  assert.equal(f.stored(), before, 'nothing was written');
+  assert.deepEqual(readEvents(f.open()), []);
+  assert.deepEqual(switched, [], 'a refused write never switches the interface');
+
+  const done = await send({});
+  assert.equal(done.status, 303);
+  assert.equal(done.headers.location, '/settings?saved=language');
+  assert.equal(loadConfig(f.dataDir).language, 'tr');
+  assert.deepEqual(switched, ['tr']);
+  const events = readEvents(f.open());
+  assert.deepEqual(events.map((event) => [event.op, event.actor, event.before, event.after]),
+    [['config.language', 'web:owner', 'en', 'tr']]);
+  assert.equal(f.settings.view(null).language, 'tr');
+  assert.equal(features(loadConfig(f.dataDir)).mentions, true, 'the features are untouched');
+
+  // Saving the stored value again writes and logs nothing, but still brings the interface in line with the file.
+  const again = await send({});
+  assert.equal(again.status, 303);
+  assert.equal(readEvents(f.open()).length, 1);
+  assert.deepEqual(switched, ['tr', 'tr']);
+  assert.equal(readEvents(f.open()).some((event) => event.op === 'config.external'), false);
+  // GET never writes and the path takes no query or trailing slash.
+  const headers = { cookie: `${cookieName(port)}=${cookie}` };
+  assert.equal((await call(f.app, { path: `${path}?language=en&revision=${f.revision()}`, headers })).status, 404);
+  for (const target of [`${path}/`, `${path}?x=1`]) assert.equal((await send({}, { path: target })).status, 405);
+  assert.equal(loadConfig(f.dataDir).language, 'tr');
+});
+
+test('by default a saved language switches this process, write messages included', async (t) => {
+  const f = fixture(t);
+  const path = '/settings/language';
+  process.env.CAIRN_LANGUAGE = 'en';
+  const refused = await f.post(null, { path, body: 'language=tr' });
+  assert.equal(refused.status, 403);
+  assert.match(refused.body, /<h1>Request refused<\/h1>/u);
+  assert.match(refused.body, /<html lang="en">/u);
+  const cookie = f.session(), csrf = csrfToken(key, port, cookie);
+  const saved = await f.post(null, { path, cookie, body: f.form({ csrf, language: 'tr', revision: f.revision() }) });
+  assert.equal(saved.status, 303);
+  assert.equal(process.env.CAIRN_LANGUAGE, 'tr');
+  const after = await f.post(null, { path, body: 'language=tr' });
+  assert.match(after.body, /<h1>İstek reddedildi<\/h1>/u, 'the small write pages follow at once');
+  assert.match(after.body, /<html lang="tr">/u);
+  // A language set outside the web is not watched: the interface keeps its language until a restart or a save.
+  setLanguage(f.openWrite(), { language: 'en', expectedRevision: f.revision(), actor: 'cli:owner' });
+  assert.equal(process.env.CAIRN_LANGUAGE, 'tr');
+  assert.equal(f.settings.view(null).language, 'en');
+});
+
+test('the built pages are in the new language right after the language POST, without a restart', async (t) => {
+  if (!built) return t.skip('Astro output missing; run npm run build:app to enable integration coverage.');
+  const { handler } = await import('../dist/app/server/entry.mjs');
+  const { createRead } = await import('../server/read.mjs');
+  const { createRenderPool } = await import('../server/render-pool.mjs');
+  const pool = createRenderPool();
+  t.after(() => pool.close());
+  let f;
+  const read = createRead({ open: () => f.open(), render: pool.render });
+  const cairn = read;
+  f = fixture(t, { handler, cairn, locals: { journal: { view: () => ({ state: 'off' }) } } });
+  // A journal day whose body goes through the render pool's worker thread, started before the switch.
+  mkdirSync(join(f.dataDir, 'journal'), { recursive: true });
+  writeFileSync(join(f.dataDir, 'journal/2026-11-08.md'), '## Work\n\nA **bold** step through the worker.\n');
+  const cookie = f.session();
+  const headers = { cookie: `${cookieName(port)}=${cookie}` };
+  const get = (path) => call(f.app, { path, headers });
+  const save = (language) => f.post(null, { path: '/settings/language', cookie,
+    body: f.form({ csrf: csrfToken(key, port, cookie), language, revision: f.revision() }) });
+  const pages = ['/', '/settings', '/board', '/journal/2026-11-08', '/does-not-exist'];
+  const expected = {
+    tr: { title: 'Ayarlar', features: 'Özellikler', notFound: 'Sayfa bulunamadı',
+      serverError: 'Bir şeyler ters gitti', saved: 'Kaydedildi: Dil' },
+    en: { title: 'Settings', features: 'Features', notFound: 'Page not found',
+      serverError: 'Something went wrong', saved: 'Saved: Language' },
+  };
+  const check = async (language, stored = language) => {
+    const text = expected[language];
+    for (const path of pages) {
+      const response = await get(path);
+      assert.match(response.body, new RegExp(`<html lang="${language}"`, 'u'), `${path} in ${language}`);
+      assert.match(response.body, new RegExp(`aria-label="${text.title}"`, 'u'), `${path} shell in ${language}`);
+    }
+    const settings = await get('/settings?saved=language');
+    assert.match(settings.body, new RegExp(`<title>${text.title} · Cairnboard</title>`, 'u'));
+    assert.match(settings.body, new RegExp(`<h2 id="settings-features-title">${text.features}</h2>`, 'u'));
+    assert.match(settings.body, new RegExp(`role="status"[^>]*>${text.saved}`, 'u'));
+    assert.match(settings.body, new RegExp(`name="language" value="${stored}" checked`, 'u'));
+    // A page that throws inside the app answers 500 with the app's own error page, rendered now, in this language.
+    // (/settings reads its view without a catch of its own, so a throw there escapes the page.)
+    const view = f.settings.view;
+    f.settings.view = () => { throw new Error('settings view failed'); };
+    const logged = t.mock.method(console, 'error', () => {});
+    const broken = await get('/settings');
+    logged.mock.restore();
+    f.settings.view = view;
+    assert.equal(broken.status, 500);
+    assert.match(broken.body, new RegExp(`<html lang="${language}"`, 'u'));
+    assert.match(broken.body,
+      new RegExp(`<h1 id="state-title">${text.serverError}</h1>`, 'u'));
+    const missing = await get('/does-not-exist');
+    assert.equal(missing.status, 404);
+    assert.match(missing.body, new RegExp(`<h1 id="state-title">${text.notFound}</h1>`, 'u'));
+    // Markdown is rendered in the worker thread; it carries no interface text, and the page around it follows.
+    const day = await get('/journal/2026-11-08');
+    assert.equal(day.status, 200);
+    assert.match(day.body, /<strong>bold<\/strong> step through the worker/u);
+  };
+
+  // The file's interface language is Turkish while the fresh data folder says English, as after a CLI change.
+  await check('tr', 'en');
+  const first = await save('en');
+  assert.equal(first.status, 303);
+  assert.equal(first.headers.location, '/settings?saved=language');
+  assert.equal(readEvents(f.open()).length, 0, 'the stored value was already English');
+  await check('en');
+  f.tick(1000);
+  assert.equal((await save('tr')).status, 303);
+  assert.equal(loadConfig(f.dataDir).language, 'tr');
+  await check('tr');
+  f.tick(1000);
+  assert.equal((await save('en')).status, 303);
+  await check('en');
+  assert.deepEqual(readEvents(f.open()).map((event) => [event.op, event.before, event.after]),
+    [['config.language', 'en', 'tr'], ['config.language', 'tr', 'en']]);
 });
