@@ -205,6 +205,27 @@ test('quick-note dialog: N shortcut, typing guard, save keeps page, failure keep
     await page.locator('[data-note-dialog-close]').click();
     assert.equal(await dialog.evaluate((el) => el.open), false);
 
+    // FAB opens the dialog and checking Pin creates a note with boolean pinned: true.
+    const fab = page.locator('[data-quick-note-fab]');
+    await fab.waitFor({ state: 'visible' });
+    await fab.click();
+    await page.locator('#note-title').waitFor({ state: 'visible' });
+    await page.locator('#note-title').fill('FAB pinned note');
+    await page.locator('dialog[data-note-dialog] input[name="pinned"]').check();
+    await dialog.getByRole('button', { name: 'Save note' }).click();
+    await page.locator('[data-note-dialog-status] a').waitFor({ state: 'visible' });
+    const fabHref = await page.locator('[data-note-dialog-status] a').getAttribute('href');
+    const fabId = fabHref.slice('/notes/'.length);
+    assert.strictEqual(entity.resolve(env.open(), 'note', fabId).data.pinned, true);
+    await page.keyboard.press('Escape');
+
+    for (const path of ['/board', '/notes', '/search']) {
+      await page.goto(`${origin}${path}`);
+      await page.locator('[data-quick-note-fab]').waitFor({ state: 'visible' });
+    }
+    await page.goto(`${origin}/notes/new`);
+    assert.equal(await page.locator('[data-quick-note-fab]').count(), 0);
+
     assert.deepEqual(errors, [], `unexpected console/page errors: ${errors.join('; ')}`);
   });
 
@@ -226,6 +247,9 @@ test('quick-note dialog and /notes/new work at 375px with axe clean and no overf
   await page.goto(`${origin}/notes`);
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  const mobileFab = await page.locator('[data-quick-note-fab]').boundingBox();
+  assert.ok(mobileFab && mobileFab.width > 0);
+  assert.ok(Math.abs(mobileFab.width - mobileFab.height) <= 2, 'FAB under 40rem should be round icon-only');
 
   await page.keyboard.press('n');
   await page.locator('#note-title').waitFor({ state: 'visible' });
@@ -244,13 +268,13 @@ test('quick-note dialog and /notes/new work at 375px with axe clean and no overf
   await page.waitForURL(new RegExp(`^${origin}/notes/n-[0-9a-hjkmnp-tv-z]{6}$`, 'u'));
   assert.deepEqual(errors, [], `unexpected console/page errors: ${errors.join('; ')}`);
 
-  // Without JavaScript, /notes still leads to /notes/new and saves cleanly.
+  // Without JavaScript, the floating button navigates to /notes/new and saves cleanly.
   const plain = await env.browser.newContext({ javaScriptEnabled: false });
   env.cleanup(() => plain.close());
   const bare = await plain.newPage();
   await bare.goto(loginUrl(env.port, key, instance));
   await bare.goto(`${origin}/notes`);
-  await bare.locator('a[href="/notes/new"]').first().click();
+  await bare.locator('[data-quick-note-fab]').click();
   await bare.waitForURL(`${origin}/notes/new`);
   await bare.locator('#note-title').fill('No-script note');
   await bare.getByRole('button', { name: 'Save note' }).click();

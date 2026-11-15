@@ -3,21 +3,24 @@ import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.mjs';
 import { createGuard } from '../server/guard.mjs';
 import { createNotes } from '../server/notes.mjs';
 import { createWrites } from '../server/writes.mjs';
-import { createRead } from '../server/read.mjs';
+import { createRead, pinnedNotesResult } from '../server/read.mjs';
 import { cookieName, csrfToken, mintCookie, siteHost } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
 import { initDataDir } from '../core/roots.mjs';
 import { readEvents } from '../core/events.mjs';
+import { parseFile } from '../core/frontmatter.mjs';
+import { refresh } from '../core/index.mjs';
 import { renderMarkdown } from '../core/render.mjs';
 import { CairnError } from '../core/errors.mjs';
 import * as entity from '../core/entity.mjs';
+import * as note from '../core/note.mjs';
 import * as project from '../core/project.mjs';
 import { useLanguage } from '../src/i18n/index.mjs';
 import { fixedClock, tempDir } from './support/env.mjs';
@@ -298,3 +301,229 @@ test('GET /notes and /notes/new render form links and submit without scripts in 
   assert.equal(readNote.status, 200);
   assert.match(readNote.body, /Scriptless note/u);
 });
+
+function postPin(env, ref, form, { token = env.csrf, withCookie = true } = {}) {
+  return call(env.app, {
+    method: 'POST',
+    path: `/notes/${ref}/pin`,
+    headers: {
+      ...(withCookie ? { cookie: env.cookieHeader } : {}),
+      origin: `http://${siteHost(key)}:${port}`,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(token === null ? form : { ...form, csrf: token }).toString(),
+  });
+}
+
+test('POST /notes accepts pinned=on as boolean true and rejects invalid pinned values', async (t) => {
+  const env = await setup(t);
+  const pinnedRes = await env.post({ title: 'Pinned quick', body: 'Keep me visible', project: '', pinned: 'on' });
+  assert.equal(pinnedRes.status, 303);
+  const id = String(pinnedRes.headers.location).slice('/notes/'.length);
+  const resolved = entity.resolve(env.open(), 'note', id);
+  const parsed = parseFile(readFileSync(join(env.dir, resolved.path), 'utf8'));
+  assert.strictEqual(parsed.data.pinned, true);
+
+  for (const badPinned of ['', 'off', 'yes', 'true']) {
+    const res = await env.post({ title: 'Bad pinned', body: '', project: '', pinned: badPinned });
+    assert.equal(res.status, 400);
+  }
+  assert.equal(entity.list(env.open(), 'note', { all: true }).length, 1);
+});
+
+test('POST /notes/<ref>/pin toggles boolean pinned on notes with and without id', async (t) => {
+  const env = await setup(t);
+  const withId = note.create(env.openWrite(), { title: 'Has id' }, 'Body', {}).entity;
+
+  const pinRes = await postPin(env, withId.id, { pinned: 'on', revision: withId.revision });
+  assert.equal(pinRes.status, 303);
+  assert.equal(pinRes.headers.location, `/notes/${withId.id}`);
+  const afterPin = entity.resolve(env.open(), 'note', withId.id);
+  assert.strictEqual(parseFile(readFileSync(join(env.dir, afterPin.path), 'utf8')).data.pinned, true);
+
+  const unpinRes = await postPin(env, withId.id, { pinned: 'off', revision: afterPin.revision });
+  assert.equal(unpinRes.status, 303);
+  assert.equal(unpinRes.headers.location, `/notes/${withId.id}`);
+  const afterUnpin = entity.resolve(env.open(), 'note', withId.id);
+  assert.strictEqual(parseFile(readFileSync(join(env.dir, afterUnpin.path), 'utf8')).data.pinned, false);
+
+  const rawPath = join(env.dir, 'notes', 'manual-note.md');
+  mkdirSync(dirname(rawPath), { recursive: true });
+  writeFileSync(rawPath, '---\ntitle: Manual note without id\n---\nHand-written body\n');
+  const writeCtx = env.openWrite();
+  refresh(writeCtx);
+  const noId = note.list(writeCtx).find((item) => item.path === 'notes/manual-note.md');
+  assert.ok(noId);
+  assert.equal(noId.id, null);
+  assert.match(noId.ref, /^n-[0-9a-f]{16}$/u);
+
+  const pinNoId = await postPin(env, noId.ref, { pinned: 'on', revision: noId.revision });
+  assert.equal(pinNoId.status, 303);
+  assert.equal(pinNoId.headers.location, `/notes/${noId.ref}`);
+  const parsedNoId = parseFile(readFileSync(rawPath, 'utf8'));
+  assert.strictEqual(parsedNoId.data.pinned, true);
+  assert.equal(Object.hasOwn(parsedNoId.data, 'id'), false);
+
+  const nextNoId = note.resolve(env.open(), noId.ref);
+  const unpinNoId = await postPin(env, noId.ref, { pinned: 'off', revision: nextNoId.revision });
+  assert.equal(unpinNoId.status, 303);
+  assert.strictEqual(parseFile(readFileSync(rawPath, 'utf8')).data.pinned, false);
+});
+
+test('POST /notes/<ref>/pin enforces revision 409, fields 400, values 400, CSRF 403, missing 404, rule 422',
+  async (t) => {
+  const env = await setup(t);
+  const item = note.create(env.openWrite(), { title: 'Target note' }, 'Text', {}).entity;
+  const staleRev = item.revision;
+  note.update(env.openWrite(), item.id, { pinned: true });
+  const fresh = note.resolve(env.open(), item.id);
+
+  const conflict = await postPin(env, item.id, { pinned: 'off', revision: staleRev });
+  assert.equal(conflict.status, 409);
+
+  const unknownField = await postPin(env, item.id, {
+    pinned: 'off', revision: fresh.revision, next: '/board',
+  });
+  assert.equal(unknownField.status, 400);
+
+  const missingRev = await postPin(env, item.id, { pinned: 'off' });
+  assert.equal(missingRev.status, 400);
+
+  for (const bad of [
+    { pinned: 'yes', revision: fresh.revision },
+    { pinned: '', revision: fresh.revision },
+    { pinned: 'off', revision: 'not-hex' },
+    { pinned: 'off', revision: '0123456789abcdef0' },
+  ]) {
+    const res = await postPin(env, item.id, bad);
+    assert.equal(res.status, 400);
+  }
+
+  const cookie = env.cookieHeader.split('=')[1];
+  for (const token of [null, 'bad-token', csrfToken(key, port, cookie, 'card')]) {
+    const res = await postPin(env, item.id, { pinned: 'off', revision: fresh.revision }, { token });
+    assert.equal(res.status, 403);
+  }
+
+  const noCookie = await postPin(env, item.id, { pinned: 'off', revision: fresh.revision }, { withCookie: false });
+  assert.equal(noCookie.status, 401);
+
+  for (const missingRef of ['n-000000', 'n-0000000000000000']) {
+    const missing = await postPin(env, missingRef, { pinned: 'on', revision: fresh.revision });
+    assert.equal(missing.status, 404);
+  }
+
+  const ruleEnv = await setup(t, { rules: { links: 'error' } });
+  const rulePath = join(ruleEnv.dir, 'notes', 'broken-link.md');
+  mkdirSync(dirname(rulePath), { recursive: true });
+  writeFileSync(rulePath, '---\ntitle: Broken\n---\nSee [[missing-note]].\n');
+  const ruleCtx = ruleEnv.openWrite();
+  refresh(ruleCtx);
+  const broken = note.list(ruleCtx).find((entry) => entry.path === 'notes/broken-link.md');
+  const ruleRes = await postPin(ruleEnv, broken.ref, { pinned: 'on', revision: broken.revision });
+  assert.equal(ruleRes.status, 422);
+  assert.match(ruleRes.body, /links/u);
+});
+
+test('note page renders script-free pin button and survives pinned rail read failure', async (t) => {
+  const env = await setup(t);
+  if (!env.built) return;
+  const item = note.create(env.openWrite(), { title: 'View note' }, 'Body copy', {}).entity;
+
+  const page1 = await call(env.app, { path: `/notes/${item.id}`, headers: { cookie: env.cookieHeader } });
+  assert.equal(page1.status, 200);
+  assert.equal(page1.headers['referrer-policy'], 'same-origin');
+  assert.match(page1.body, new RegExp(`action="/notes/${item.id}/pin"`, 'u'));
+  assert.match(page1.body, /name="pinned" value="on"/u);
+
+  const pinned = await postPin(env, item.id, { pinned: 'on', revision: item.revision });
+  assert.equal(pinned.status, 303);
+
+  const page2 = await call(env.app, { path: `/notes/${item.id}`, headers: { cookie: env.cookieHeader } });
+  assert.equal(page2.status, 200);
+  assert.match(page2.body, /name="pinned" value="off"/u);
+  assert.match(page2.body, /pinned-rail-item/u);
+
+  const failingCairn = createRead({ open: env.open, render: renderMarkdown });
+  failingCairn.pinnedNotes = () => { throw new Error('boom'); };
+  const brokenRailApp = createApp({
+    root: repo,
+    handler: (await import(new URL('../dist/app/server/entry.mjs', import.meta.url))).handler,
+    guard: createGuard({ port, key, instance, writable: () => false }),
+    locals: { cairn: failingCairn, notes: env.notes },
+  });
+  const degraded = await call(brokenRailApp, { path: `/notes/${item.id}`, headers: { cookie: env.cookieHeader } });
+  assert.equal(degraded.status, 200);
+  assert.doesNotMatch(degraded.body, /class="pinned-rail"/u);
+});
+
+test('pinnedNotesResult orders newest first, caps at 30, drops agents project, includes all kinds, strips Markdown',
+  (t) => {
+    const dir = tempDir(t, 'cairn-pinned-read-');
+    const home = tempDir(t, 'cairn-pinned-home-');
+    initDataDir(dir, { language: 'en' });
+    const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
+    const work = project.create(seedCtx, { title: 'Work', tone: 2 }, '', {}).entity;
+    const bots = project.create(seedCtx, { title: 'Bots', tone: 1 }, '', {}).entity;
+    const cfgPath = join(dir, '.cairn', 'config.json');
+    const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
+    cfg.agents = { project: bots.id };
+    writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`);
+
+    note.create(seedCtx, { title: 'Agent pin', project: bots.id, pinned: true }, 'Secret agent note', {});
+    note.create(seedCtx, { title: 'Unpinned note', project: work.id, pinned: false }, 'Not pinned', {});
+
+    const writeAt = (iso, title, extra = {}, body = 'Body') => {
+      const ctxAt = openContext({ dataDir: dir, home, env: {}, clock: fixedClock(iso),
+        mode: 'write', actor: 'cli:test' });
+      return note.create(ctxAt, { title, pinned: true, ...extra }, body, {}).entity;
+    };
+
+    writeAt('2026-11-01T00:00:00Z', 'Pinned 1');
+    writeAt('2026-11-01T00:01:00Z', 'Pinned 2');
+    writeAt('2026-11-01T00:02:00Z', 'Concept one', { kind: 'concept', project: work.id });
+    writeAt('2026-11-01T00:03:00Z', 'Tool one', { kind: 'tool' });
+    writeAt('2026-11-01T00:04:00Z', 'Query one', { kind: 'query' });
+    writeAt('2026-11-01T00:05:00Z', 'Overview one', { kind: 'overview' });
+    for (let i = 3; i <= 27; i += 1) {
+      const mm = String(i + 3).padStart(2, '0');
+      writeAt(`2026-11-01T00:${mm}:00Z`, `Pinned ${i}`);
+    }
+    writeAt(
+      '2026-11-01T01:00:00Z',
+      'Latest markdown note',
+      { project: work.id },
+      [
+        '# Heading line',
+        '',
+        '> Quoted **bold** and *italic* with _under_ and ~~old~~ plus `code`',
+        '',
+        '- [ ] Task [external link](https://example.invalid) and [[wikilink|shown label]] ![pic](a.png)',
+        'Extra padding '.repeat(20),
+      ].join('\n'),
+    );
+
+    const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
+    const res = pinnedNotesResult(readCtx);
+    assert.equal(res.ok, true);
+    assert.equal(res.data.items.length, 30);
+    assert.equal(res.data.items[0].title, 'Latest markdown note');
+    assert.deepEqual(res.data.items[0].project, { id: work.id, title: 'Work', tone: 2 });
+    assert.equal(res.data.items.at(-1).title, 'Concept one');
+    assert.equal(res.data.items.some((item) => item.title === 'Pinned 1'), false);
+    assert.equal(res.data.items.some((item) => item.title === 'Pinned 2'), false);
+    assert.equal(res.data.items.some((item) => item.title === 'Agent pin'), false);
+    assert.equal(res.data.items.some((item) => item.title === 'Unpinned note'), false);
+    assert.equal(res.data.items.some((item) => item.kind === 'concept'), true);
+    assert.equal(res.data.items.some((item) => item.kind === 'tool'), true);
+    assert.equal(res.data.items.some((item) => item.kind === 'query'), true);
+    assert.equal(res.data.items.some((item) => item.kind === 'overview'), true);
+
+    const excerpt = res.data.items[0].excerpt;
+    assert.ok(excerpt.length <= 160);
+    assert.doesNotMatch(excerpt, /[#*`~\[\]>!]/u);
+    assert.match(excerpt, /Heading line/u);
+    assert.match(excerpt, /shown label/u);
+    assert.match(excerpt, /external link/u);
+  });

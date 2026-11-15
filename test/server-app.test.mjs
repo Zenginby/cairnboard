@@ -697,7 +697,7 @@ test('built Search page lists grouped rows, inserts only the snippet HTML and ke
 
   const filtered = await render('/search?q=plan&type=card', { search });
   assert.deepEqual(calls.at(-1), { q: 'plan', type: 'card', limit: 50 });
-  assert.doesNotMatch(filtered.body, /class="search-group"|href="\/notes\//u);
+  assert.doesNotMatch(filtered.body, /class="search-group"|class="search-row" href="\/notes\//u);
   assert.match(filtered.body, /<input type="hidden" name="type" value="card"/u);
   assert.match(filtered.body, /href="\/search\?q=plan&amp;type=card" aria-current="true"/u);
 

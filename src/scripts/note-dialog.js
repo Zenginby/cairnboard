@@ -65,6 +65,14 @@ if (dialog) {
     open();
   });
 
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element) || event.button !== 0 || event.metaKey || event.ctrlKey
+      || event.shiftKey || event.altKey) return;
+    if (!event.target.closest('[data-quick-note-fab]')) return;
+    event.preventDefault();
+    open();
+  });
+
   content.addEventListener('click', (event) => {
     if (!(event.target instanceof Element) || event.button !== 0 || event.metaKey || event.ctrlKey
       || event.shiftKey || event.altKey) return;
@@ -92,8 +100,10 @@ if (dialog) {
       const target = response.url ? new URL(response.url, location.origin) : null;
       if (response.ok && response.redirected && target && target.origin === location.origin
         && target.pathname.startsWith('/notes/') && target.pathname !== '/notes/new') {
+        const pinned = Boolean(form.querySelector('input[name="pinned"]:checked'));
         form.reset();
         showSaved(target.pathname);
+        if (pinned) document.dispatchEvent(new CustomEvent('pinned:refresh'));
         form.querySelector('input[name="title"]')?.focus();
         return;
       }

@@ -39,6 +39,9 @@ that have it, its use count and description. The format, version 1:
 is required per tool; links must start with `https://`, `http://` or `obsidian://`. A file over 1 MB, with another
 version or a broken shape is skipped with a warning. Snapshots are not records: no change trail, search or backup.
 
-**Quick notes.** Press `N` on any page (when not typing in a field or another dialog) to open the quick-note dialog
-and save a Markdown note (`kind: note`) with an optional project link, or open `/notes/new` directly without scripts.
-Saving from the dialog keeps the current page open and links to the saved note; `/notes` also has an Add note link.
+**Quick notes and pinned rail.** Press `N` or click the floating Quick note button on any page (when not typing in a
+field or another dialog) to open the quick-note dialog and save a Markdown note (`kind: note`), optionally linked to a
+project or pinned (`Pin note`), or open `/notes/new` directly without scripts. Saving from the dialog keeps the current
+page open and links to the saved note; `/notes` also has an Add note link. Note pages carry a script-free Pin / Unpin
+button (`POST /notes/<ref>/pin`), and screens 90 rem and wider show a collapsible pinned-notes rail on every page
+(kept in the browser's `localStorage`, defaulting to open) with direct links, row unpin with Undo, and live updates.

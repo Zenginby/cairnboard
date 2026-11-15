@@ -1,11 +1,14 @@
 const region = document.querySelector('[data-live]');
+const railNode = document.querySelector('[data-pinned-panel]');
+const rail = railNode?.dataset?.pinnedPanel !== undefined ? railNode : null;
+const main = region && region !== rail ? region : null;
 const status = document.querySelector('[data-live-status]');
 // Only these fields get their typed value back after a swap; a checkbox or file input keeps the server's.
 const TEXT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'password']);
 const isTextField = (element) => element?.tagName === 'TEXTAREA'
   || (element?.tagName === 'INPUT' && TEXT_TYPES.has(String(element.type || 'text').toLowerCase()));
 
-if (region && status) {
+if ((main || rail) && status) {
   let source, retryTimer, statusTimer, reconcileRequest;
   let failures = 0, refreshing = false, pending = false, retryStep = 0, lastFocus = 0;
   let resume = document.visibilityState !== 'visible';
@@ -34,61 +37,86 @@ if (region && status) {
         const response = await fetch(location.href, { credentials: 'same-origin' });
         if (!response.ok && response.status !== 404) continue;
         const page = new DOMParser().parseFromString(await response.text(), 'text/html');
-        const next = page.querySelector('[data-live]');
+        const next = main ? page.querySelector('[data-live]') : null;
         if (paused()) { held = true; break; }
-        if (!next || document.visibilityState !== 'visible' || source !== connection) continue;
+        if ((main && !next) || document.visibilityState !== 'visible' || source !== connection) continue;
         document.title = page.title;
-        if (region.innerHTML === next.innerHTML) continue;
-        const active = document.activeElement;
-        const focusId = region.contains(active) ? active.id : null;
-        const field = focusId && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
-          ? { value: active.value, start: active.selectionStart, end: active.selectionEnd, text: isTextField(active) }
-          : null;
-        // Keep drafts even after focus moved to another control; hidden tokens and non-text fields stay fresh.
-        const drafts = [...region.querySelectorAll('input, textarea')]
-          .filter((element) => element.id && isTextField(element) && element.value !== element.defaultValue)
-          .map((element) => [element.id, element.value]);
-        // A choice the owner changed but has not sent yet survives too, while its option still exists.
-        const choices = [...region.querySelectorAll('select')]
-          .filter((element) => element.id && [...element.options].some((o) => o.selected !== o.defaultSelected))
-          .map((element) => [element.id, element.value]);
-        const href = region.contains(active) ? active.getAttribute('href') : null;
-        const scroll = [window.scrollX, window.scrollY];
-        const scrollable = [...region.querySelectorAll('*')].filter((element) => element.scrollLeft || element.scrollTop)
-          .map((element) => [element.id, element.className, element.scrollLeft, element.scrollTop]);
-        region.replaceChildren(...next.childNodes);
-        for (const [id, value] of drafts) {
-          const element = document.getElementById(id);
-          if (region.contains(element) && isTextField(element)) element.value = value;
-        }
-        for (const [id, value] of choices) {
-          const element = document.getElementById(id);
-          if (region.contains(element) && element.tagName === 'SELECT'
-            && [...element.options].some((option) => option.value === value)) element.value = value;
-        }
-        // Scripts that fill parts of the region (recent searches on /search) redraw them before focus returns.
-        // (Guarded: test/live-client.test.mjs runs this file against a document without events.)
-        if (typeof CustomEvent === 'function') document.dispatchEvent?.(new CustomEvent('live:updated'));
-        let focus = focusId ? document.getElementById(focusId)
-          : href ? [...region.querySelectorAll('[href]')].find((element) => element.getAttribute('href') === href) : null;
-        if (focus && !region.contains(focus)) focus = null;
-        if (focus) {
-          if (field?.text && isTextField(focus)) {
-            try { focus.value = field.value; } catch { /* Keep the server's value. */ }
+        let swapped = false;
+        if (main && next && main.innerHTML !== next.innerHTML) {
+          swapped = true;
+          const active = document.activeElement;
+          const focusId = main.contains(active) ? active.id : null;
+          const field = focusId && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
+            ? { value: active.value, start: active.selectionStart, end: active.selectionEnd, text: isTextField(active) }
+            : null;
+          // Keep drafts even after focus moved to another control; hidden tokens and non-text fields stay fresh.
+          const drafts = [...main.querySelectorAll('input, textarea')]
+            .filter((element) => element.id && isTextField(element) && element.value !== element.defaultValue)
+            .map((element) => [element.id, element.value]);
+          // A choice the owner changed but has not sent yet survives too, while its option still exists.
+          const choices = [...main.querySelectorAll('select')]
+            .filter((element) => element.id && [...element.options].some((o) => o.selected !== o.defaultSelected))
+            .map((element) => [element.id, element.value]);
+          const href = main.contains(active) ? active.getAttribute('href') : null;
+          const scroll = [window.scrollX, window.scrollY];
+          const scrollable = [...main.querySelectorAll('*')]
+            .filter((element) => element.scrollLeft || element.scrollTop)
+            .map((element) => [element.id, element.className, element.scrollLeft, element.scrollTop]);
+          main.replaceChildren(...next.childNodes);
+          for (const [id, value] of drafts) {
+            const element = document.getElementById(id);
+            if (main.contains(element) && isTextField(element)) element.value = value;
           }
-          focus.focus({ preventScroll: true });
-          if (field) {
-            try { focus.setSelectionRange(field.start, field.end); }
-            catch { /* Some input types do not support selection. */ }
+          for (const [id, value] of choices) {
+            const element = document.getElementById(id);
+            if (main.contains(element) && element.tagName === 'SELECT'
+              && [...element.options].some((option) => option.value === value)) element.value = value;
           }
+          // Scripts that fill parts of the region (recent searches on /search) redraw them before focus returns.
+          // (Guarded: test/live-client.test.mjs runs this file against a document without events.)
+          if (typeof CustomEvent === 'function') document.dispatchEvent?.(new CustomEvent('live:updated'));
+          let focus = focusId ? document.getElementById(focusId)
+            : href ? [...main.querySelectorAll('[href]')]
+              .find((element) => element.getAttribute('href') === href) : null;
+          if (focus && !main.contains(focus)) focus = null;
+          if (focus) {
+            if (field?.text && isTextField(focus)) {
+              try { focus.value = field.value; } catch { /* Keep the server's value. */ }
+            }
+            focus.focus({ preventScroll: true });
+            if (field) {
+              try { focus.setSelectionRange(field.start, field.end); }
+              catch { /* Some input types do not support selection. */ }
+            }
+          }
+          else if (active !== main && !active.isConnected) main.focus({ preventScroll: true });
+          for (const [id, className, left, top] of scrollable) {
+            const element = id ? document.getElementById(id)
+              : [...main.querySelectorAll('*')].find((item) => item.className === className);
+            element?.scrollTo({ left, top, behavior: 'instant' });
+          }
+          window.scrollTo({ left: scroll[0], top: scroll[1], behavior: 'instant' });
         }
-        else if (active !== region && !active.isConnected) region.focus({ preventScroll: true });
-        for (const [id, className, left, top] of scrollable) {
-          const element = id ? document.getElementById(id)
-            : [...region.querySelectorAll('*')].find((item) => item.className === className);
-          element?.scrollTo({ left, top, behavior: 'instant' });
+        const railBody = rail?.querySelector('[data-pinned-body]');
+        const nextBody = page.querySelector?.('[data-pinned-panel] [data-pinned-body]');
+        if (rail && railBody && nextBody && !rail.querySelector('.is-leaving')
+          && railBody.innerHTML !== nextBody.innerHTML) {
+          const active = document.activeElement;
+          const activeRef = railBody.contains(active)
+            ? active.closest?.('[data-pinned-item]')?.dataset?.ref : null;
+          const activeRole = activeRef ? (active.matches?.('[data-pinned-unpin]') ? 'unpin' : 'link') : null;
+          railBody.replaceChildren(...nextBody.childNodes);
+          if (typeof CustomEvent === 'function') document.dispatchEvent?.(new CustomEvent('live:updated'));
+          if (activeRef) {
+            const match = [...railBody.querySelectorAll('[data-pinned-item]')]
+              .find((item) => item.dataset.ref === activeRef);
+            const target = match?.querySelector(activeRole === 'unpin' ? '.pinned-rail-unpin' : '.pinned-rail-link')
+              ?? rail.querySelector('[data-pinned-close]');
+            target?.focus?.({ preventScroll: true });
+          }
+          swapped = true;
         }
-        window.scrollTo({ left: scroll[0], top: scroll[1], behavior: 'instant' });
+        if (!swapped) continue;
         showStatus(status.dataset.updated, true);
       }
     } catch { /* A later change or focus will retry; keep the current page usable. */ }
@@ -119,7 +147,7 @@ if (region && status) {
       failures = retryStep = 0;
       showStatus('');
       // A not-ready page may have missed the one change sent when the data directory appeared.
-      const refresh = refreshOnOpen || Boolean(region.querySelector('[data-not-ready]'));
+      const refresh = refreshOnOpen || Boolean((main ?? rail).querySelector('[data-not-ready]'));
       refreshOnOpen = false;
       void reconcile().then(() => { if (refresh && source === current) void update(); });
     });
@@ -146,7 +174,9 @@ if (region && status) {
       if (source !== current) return;
       try {
         const { kinds } = JSON.parse(event.data);
-        if (kinds.some((kind) => region.dataset.live.split(' ').includes(kind))) void update();
+        const mainKinds = main ? main.dataset.live.split(' ') : [];
+        const railKinds = rail?.dataset.live ? rail.dataset.live.split(' ') : [];
+        if (kinds.some((kind) => mainKinds.includes(kind) || railKinds.includes(kind))) void update();
       } catch { /* Ignore malformed events. */ }
     });
   }

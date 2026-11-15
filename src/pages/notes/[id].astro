@@ -14,11 +14,27 @@ try {
   // Match the API: unexpected failures reach the server log, the page shows only a generic message.
   if (state === 'server') console.error(error);
 }
+const noteCsrf = !state ? Astro.locals.notes?.token?.(Astro.request.headers.get('cookie')) ?? '' : '';
+const noteRef = result?.data.id ?? result?.data.ref;
+const pinned = result?.data.meta.pinned === true;
+const revision = result?.data.revision;
+const canPin = !state && Boolean(noteCsrf && noteRef && revision);
+if (canPin) Astro.response.headers.set('Referrer-Policy', 'same-origin');
 ---
 <AppShell live="note card project journal" current="/notes"
   title={result?.data.content.title || t('type.note')} surface>
+  {canPin && <meta slot="head" name="referrer" content="same-origin" />}
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`} message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'} status={Astro.response.status} /> : <>
     <ReadWarnings codes={result.warnings} />
-    <ReadDocument item={result.data} />
+    <ReadDocument item={result.data}>
+      {canPin && <div slot="actions" class="card-actions card-page-actions">
+        <form class="note-pin-form" method="post" action={`/notes/${encodeURIComponent(noteRef)}/pin`}>
+          <input type="hidden" name="csrf" value={noteCsrf} />
+          <input type="hidden" name="pinned" value={pinned ? 'off' : 'on'} />
+          <input type="hidden" name="revision" value={revision} />
+          <button class="action-link" type="submit">{t(pinned ? 'notes.unpin' : 'notes.pin')}</button>
+        </form>
+      </div>}
+    </ReadDocument>
   </>}
 </AppShell>

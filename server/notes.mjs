@@ -1,14 +1,17 @@
-import { create as createNote } from '../core/note.mjs';
+import * as note from '../core/note.mjs';
 import * as project from '../core/project.mjs';
 import { CairnError } from '../core/errors.mjs';
+import { isNoteKey, normalizeId } from '../core/ids.mjs';
 import { RULE_NAMES } from '../core/rules.mjs';
 import { stripHidden } from '../core/text.mjs';
 import { agentProject } from '../cli/views.mjs';
 import { createWrites } from './writes.mjs';
 
 const MAX_BODY = 256 * 1024;
+const REVISION = /^[0-9a-f]{16}$/iu;
 const bad = (message) => ({ status: 400, title: 'write.badRequestTitle', message });
 const NOT_READY = Object.freeze({ status: 409, title: 'state.notReadyTitle', message: 'noteForm.notReady' });
+const NOT_FOUND = Object.freeze({ status: 404, title: 'write.notFoundTitle', message: 'write.notFound' });
 const notReady = (error) => error instanceof CairnError
   && ['validation', 'not_found', 'format_too_new'].includes(error.code);
 const lines = (text) => text.replace(/\r\n/gu, '\n');
@@ -55,13 +58,17 @@ export function createNotes({ key, port, open, openWrite }) {
     }
   };
 
+  const pinBack = ({ ref }) => ({ href: `/notes/${encodeURIComponent(ref)}`, label: 'noteForm.backToNote' });
+  const pinFailure = (error) => (error.code === 'not_found' ? NOT_FOUND : failure(error));
+
   const routes = [
     { path: '/notes', form: 'note', back, failure, bodyLimit,
       run({ values }) {
-        if (Object.keys(values).some((name) => !['title', 'body', 'project'].includes(name))
+        if (Object.keys(values).some((name) => !['title', 'body', 'project', 'pinned'].includes(name))
           || typeof values.title !== 'string'
           || (values.body !== undefined && typeof values.body !== 'string')
-          || (values.project !== undefined && typeof values.project !== 'string')) {
+          || (values.project !== undefined && typeof values.project !== 'string')
+          || (values.pinned !== undefined && values.pinned !== 'on')) {
           return bad('noteForm.invalidFields');
         }
         const title = values.title.trim();
@@ -72,7 +79,7 @@ export function createNotes({ key, port, open, openWrite }) {
         const { ctx, refusal } = opened();
         if (refusal) return refusal;
         const agents = agentProject(ctx);
-        const fields = { kind: 'note', title };
+        const fields = { kind: 'note', title, ...(values.pinned === 'on' ? { pinned: true } : {}) };
         if (values.project) {
           let resolved;
           try {
@@ -86,8 +93,30 @@ export function createNotes({ key, port, open, openWrite }) {
           if (isAgentProject(agents, resolved)) return bad('noteForm.invalidProject');
           fields.project = resolved.id ?? resolved.ref;
         }
-        const changed = createNote(openWrite(), fields, body, {});
+        const changed = note.create(openWrite(), fields, body, {});
         return `/notes/${encodeURIComponent(changed.entity.id ?? changed.entity.ref)}`;
+      } },
+    { path: /^\/notes\/(?<ref>[Nn]-[0-9A-Za-z]{1,24})\/pin$/u, form: 'note', back: pinBack, failure: pinFailure,
+      bodyLimit: 4096,
+      run({ values, params: { ref: rawRef } }) {
+        if (Object.keys(values).length !== 2 || !Object.hasOwn(values, 'pinned')
+          || !Object.hasOwn(values, 'revision')) {
+          return bad('noteForm.invalidFields');
+        }
+        if (!['on', 'off'].includes(values.pinned)) return bad('noteForm.invalidPinned');
+        if (!REVISION.test(values.revision)) return bad('noteForm.invalidRevision');
+        const ref = isNoteKey(rawRef) ? rawRef : normalizeId(rawRef);
+        if (!ref || !ref.startsWith('n-')) return NOT_FOUND;
+        const { ctx, refusal } = opened();
+        if (refusal) return refusal;
+        let current;
+        try { current = note.resolve(ctx, ref); } catch (error) {
+          if (error instanceof CairnError && error.code === 'not_found') return NOT_FOUND;
+          throw error;
+        }
+        const target = current.id ?? current.ref;
+        note.update(openWrite(), target, { pinned: values.pinned === 'on' }, { ifRevision: values.revision });
+        return `/notes/${encodeURIComponent(target)}`;
       } },
   ];
 
@@ -106,5 +135,5 @@ export function createNotes({ key, port, open, openWrite }) {
     return { state: 'ready', csrf, projects };
   }
 
-  return { routes, view };
+  return { routes, view, token: (cookieHeader) => writes.token(cookieHeader, 'note') };
 }

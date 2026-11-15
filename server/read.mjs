@@ -183,6 +183,7 @@ export function createRead({ open, render = createRenderPool().render }) {
     note(id) { return document('note', id); },
     /** @param {{ project?: string }} [query] */
     async notes(query) { return notesResult(await openRead(), query); },
+    async pinnedNotes() { return pinnedNotesResult(await openRead()); },
     project(id) { return document('project', id); },
     research(id) { return document('research', id); },
     async researchList() { return researchListResult(await openRead()); },
@@ -247,13 +248,24 @@ export function homeOverview(ctx, today = null) {
 const MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/u;
 const JOURNAL_ITEMS = 3;
 
-// Plain one-line text of a Markdown item, for the day preview.
-function plainItem(text) {
+// Plain one-line text of a Markdown body or item, for previews and pinned excerpts.
+function plainText(text, max = 200) {
   const clean = stripHidden(text).text
+    .replace(/!\[([^\]]*)\]\([^)]*\)/gu, '$1')
     .replace(/\[\[([^\]|]*)\|([^\]]*)\]\]/gu, '$2').replace(/\[\[([^\]]*)\]\]/gu, '$1')
-    .replace(/\[([^\]]*)\]\([^)]*\)/gu, '$1').replace(/(\*\*|__|`|\*)/gu, '');
-  return oneLine(clean).slice(0, 200);
+    .replace(/\[([^\]]*)\]\([^)]*\)/gu, '$1')
+    .replace(/^ {0,3}(?:`{3,}|~{3,}).*$/gmu, '')
+    .replace(/^ {0,3}(?:[-*_]\s*){3,}$/gmu, '')
+    .replace(/^ {0,3}(?:>\s?)+/gmu, '')
+    .replace(/^ {0,3}#{1,6}\s+/gmu, '')
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/gmu, '')
+    .replace(/(\*\*|__|~~|`|\*)/gu, '')
+    .replace(/(?<!\p{L})_|_(?!\p{L})/gu, '');
+  const line = oneLine(clean);
+  return Array.from(line).slice(0, max).join('');
 }
+
+export function plainItem(text) { return plainText(text, 200); }
 
 // The jobs' own lines, split like core `sections()` (headings inside fences are not jobs; a `# ` heading ends a job).
 function jobLines(body) {
@@ -526,6 +538,48 @@ function noteTopic(roots, notePath) {
   return oneLine(stripHidden(parts[root.parts.length]).text) || null;
 }
 
+const PINNED_LIMIT = 30;
+const PINNED_EXCERPT = 160;
+
+function listOwnerNotes(ctx) {
+  const projects = projectMap(ctx);
+  const agents = agentProject(ctx);
+  const isAgentNote = (item) => agents !== null && (agents.refs.has(item.data?.project)
+    || (agents.id !== null && projects.get(item.data?.project)?.id === agents.id));
+  return { projects, rawNotes: entity.list(ctx, 'note', { all: true }).filter((item) => !isAgentNote(item)) };
+}
+
+/**
+ * Up to 30 pinned owner notes across all note kinds, leaving out notes linked to the agents project, newest
+ * `updated` first, each with a plain-text excerpt of at most 160 characters for the pinned-notes rail.
+ * @param {*} ctx
+ */
+export function pinnedNotesResult(ctx) {
+  const { projects, rawNotes } = listOwnerNotes(ctx);
+  const pinned = rawNotes.filter((item) => item.data?.pinned === true).sort((a, b) => {
+    const updatedOrder = (Date.parse(b.data?.updated) || 0) - (Date.parse(a.data?.updated) || 0);
+    if (updatedOrder !== 0) return updatedOrder;
+    return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
+  }).slice(0, PINNED_LIMIT);
+  const { data, warnings } = result(ctx, pinned, {}, true);
+  const items = data.items.map((item, at) => {
+    const linked = projects.get(item.content.project) ?? null;
+    const raw = pinned[at];
+    const file = raw ? readFile(ctx, raw.path) : null;
+    const body = item.content.body ?? (file && Buffer.byteLength(file.text) <= 5 * 1024 * 1024
+      ? parseFile(file.text).body : '');
+    return {
+      ref: item.ref,
+      title: item.content.title ?? '',
+      kind: item.meta.kind ?? 'note',
+      revision: item.revision,
+      project: linked ? { id: linked.id, title: linked.title, tone: linked.tone } : null,
+      excerpt: plainText(body, PINNED_EXCERPT),
+    };
+  });
+  return okEnvelope({ items }, [...ctx.warnings, ...warnings]);
+}
+
 /**
  * Every owner note across all note kinds, leaving out notes linked to the agents project. Pinned notes come first,
  * then unpinned notes grouped by folder topic under the schema's notes root (locale order, unassigned last),
@@ -533,11 +587,7 @@ function noteTopic(roots, notePath) {
  * @param {*} ctx @param {{ project?: string }} [query]
  */
 export function notesResult(ctx, { project } = {}) {
-  const projects = projectMap(ctx);
-  const agents = agentProject(ctx);
-  const isAgentNote = (item) => agents !== null && (agents.refs.has(item.data?.project)
-    || (agents.id !== null && projects.get(item.data?.project)?.id === agents.id));
-  const rawNotes = entity.list(ctx, 'note', { all: true }).filter((item) => !isAgentNote(item));
+  const { projects, rawNotes } = listOwnerNotes(ctx);
   const { data, warnings } = result(ctx, rawNotes, {}, true);
   const roots = noteRoots(ctx.schema);
   const collator = new Intl.Collator(uiLanguage(), { sensitivity: 'base', numeric: true });

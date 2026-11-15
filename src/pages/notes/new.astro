@@ -15,7 +15,7 @@ Astro.response.headers.set('Referrer-Policy', 'same-origin');
 const ready = view?.state === 'ready';
 if (view && !ready) Astro.response.status = 409;
 ---
-<AppShell title={t('noteForm.newTitle')} current="/notes" surface>
+<AppShell title={t('noteForm.newTitle')} current="/notes" surface quickNoteFab={false}>
   <meta slot="head" name="referrer" content="same-origin" />
   {ready ? <><header class="screen-heading"><h1>{t('noteForm.newTitle')}</h1></header>
     {/* The quick-note dialog imports this panel; the page itself is the no-script fallback. */}
@@ -33,6 +33,10 @@ if (view && !ready) Astro.response.status = 409;
             <option value="">{t('noteForm.noProject')}</option>
             {view.projects.map((item) => <option value={item.id ?? item.ref}>{item.title}</option>)}
           </select>
+        </label>
+        <label class="quick-pin" for="note-pinned">
+          <input id="note-pinned" type="checkbox" name="pinned" value="on" />
+          <span>{t('noteForm.pin')}</span>
         </label>
         <div class="card-actions card-panel-actions">
           <a class="action-link" href="/notes" data-note-cancel>{t('noteForm.cancel')}</a>

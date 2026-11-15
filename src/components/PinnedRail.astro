@@ -1,0 +1,75 @@
+---
+import { t } from '../i18n/index.mjs';
+
+const { items = [], csrf = '', live = false } = Astro.props;
+const count = String(items.length);
+const showLabel = t('pinned.show').replace('{n}', count);
+---
+<aside
+  class="pinned-rail"
+  data-pinned-panel
+  aria-labelledby="pinned-rail-heading"
+  data-live={live ? 'note project' : undefined}
+  data-pin-error={t('pinned.error')}
+  data-unpinned={t('pinned.unpinned')}
+  data-undo={t('pinned.undo')}
+>
+  <header class="pinned-rail-header">
+    <h2 class="pinned-rail-heading" id="pinned-rail-heading">{t('pinned.heading')}</h2>
+    <span class="pinned-rail-count" data-pinned-count>{count}</span>
+    <button type="button" class="pinned-rail-close" data-pinned-close aria-label={t('pinned.hide')}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+  </header>
+  <div class="pinned-rail-status" role="status" aria-live="polite" data-pinned-status></div>
+  <div class="pinned-rail-body" data-pinned-body>
+    <p class="pinned-rail-empty" data-pinned-empty hidden={items.length > 0}>{t('pinned.empty')}</p>
+    <ul class="pinned-rail-list" data-pinned-list aria-label={t('pinned.label')} hidden={items.length === 0}>
+      {items.map((item) => {
+        const label = item.title || t('home.untitled');
+        const kindKey = `notes.kind.${item.kind}`;
+        return (
+          <li class="pinned-rail-item" data-pinned-item data-ref={item.ref} data-title={label}>
+            <a class="pinned-rail-link" href={`/notes/${encodeURIComponent(item.ref)}`}>
+              <span class="pinned-rail-meta">
+                {item.project && (
+                  <span class={`pinned-rail-dot tone-${item.project.tone ?? 1}`} aria-hidden="true" />
+                )}
+                {item.project && <span class="pinned-rail-project">{item.project.title}</span>}
+                <span class="pinned-rail-kind">{t(kindKey)}</span>
+              </span>
+              <span class="pinned-rail-title">{label}</span>
+              {item.excerpt && <span class="pinned-rail-excerpt">{item.excerpt}</span>}
+            </a>
+            {csrf && (
+              <form
+                class="pinned-rail-form"
+                method="post"
+                action={`/notes/${encodeURIComponent(item.ref)}/pin`}
+                data-pinned-form
+              >
+                <input type="hidden" name="csrf" value={csrf} />
+                <input type="hidden" name="pinned" value="off" />
+                <input type="hidden" name="revision" value={item.revision} />
+                <button
+                  class="pinned-rail-unpin"
+                  type="submit"
+                  aria-label={t('pinned.unpin').replace('{title}', label)}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>
+                </button>
+              </form>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  </div>
+</aside>
+<div class="pinned-rail-dock" role="region" aria-label={t('pinned.label')}>
+  <button type="button" class="pinned-rail-tab" data-pinned-tab data-label={t('pinned.show')} aria-label={showLabel}>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+    <span>{t('pinned.heading')}</span>
+    <span class="pinned-rail-count" data-pinned-tab-count>{count}</span>
+  </button>
+</div>
