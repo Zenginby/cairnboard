@@ -48,3 +48,9 @@ kullanabilirsiniz. Pencereden kaydettiğinizde bulunduğunuz sayfada kalırsın�
 (`POST /notes/<ref>/pin`) yer alır; 90 rem ve daha geniş ekranlarda her sayfada (tarayıcıda `localStorage` içinde
 saklanan, varsayılan olarak açık) katlanabilir bir sabitlenen notlar şeridi, satırdan sabitlemeyi geri almayla kaldırma
 ve canlı güncelleme desteği sunulur.
+
+**Not düzenleme.** Not sayfasındaki Düzenle eylemi betiksiz `/notes/<ref>/edit` formunu açar: başlık, Markdown gövde ve
+proje. Kaydetmek, formun açıldığı sürümle `POST /notes/<ref>` gönderir. Not bu arada başka yerde değiştiyse form
+metniniz korunarak geri gelir (409); `error` düzeyindeki bir yazma kuralı da formu kuralın adıyla döndürür (422), `warn`
+düzeyindeki bir kural kaydı engellemez ve not sayfasında tek bir uyarı satırı gösterir. Genel bakış sayfası, kimliği
+bozuk notlar ve ajan projesinin notlarında Düzenle eylemi yoktur; bunlar dosyalarında düzenlenir.

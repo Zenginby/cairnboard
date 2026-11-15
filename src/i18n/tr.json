@@ -532,6 +532,18 @@
   "noteForm.backToNote": "Nota dön",
   "noteForm.invalidPinned": "Notun sabitlenip sabitlenmeyeceğini seç.",
   "noteForm.invalidRevision": "Notu yenileyip sabitleme durumunu tekrar dene.",
+  "noteEdit.action": "Düzenle",
+  "noteEdit.title": "Notu düzenle",
+  "noteEdit.save": "Değişiklikleri kaydet",
+  "noteEdit.invalidRevision": "Notu yenileyip yeniden düzenle.",
+  "noteEdit.conflictTitle": "Not başka yerde değişti",
+  "noteEdit.conflict":
+    "Not sen açtıktan sonra değişti. Metnin aşağıda; yeniden kaydedersen öbür değişikliğin yerine geçer.",
+  "noteEdit.warning.required": "Kaydedildi. required kuralı uyarıyor: gerekli bir alan eksik.",
+  "noteEdit.warning.sources": "Kaydedildi. sources kuralı uyarıyor: notta ## Kaynaklar bölümü yok.",
+  "noteEdit.warning.links": "Kaydedildi. links kuralı uyarıyor: notta bozuk veya belirsiz bağlantılar var.",
+  "noteEdit.warning.filename":
+    "Kaydedildi. filename kuralı uyarıyor: dosya adı küçük harf, rakam ve tireden oluşmuyor.",
   "pinned.heading": "Sabitlenenler",
   "pinned.label": "Sabitlenen notlar",
   "pinned.hide": "Sabitlenen notları gizle",
