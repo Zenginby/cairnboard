@@ -539,5 +539,6 @@
   "pinned.unpin": "Unpin {title}",
   "pinned.unpinned": "Unpinned “{title}”.",
   "pinned.undo": "Undo",
-  "pinned.error": "Could not update the pin. Try again."
+  "pinned.error": "Could not update the pin. Try again.",
+  "pinned.refreshError": "The pin was updated, but the list could not be refreshed; reload the page."
 }

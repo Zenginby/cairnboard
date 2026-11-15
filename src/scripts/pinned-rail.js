@@ -54,6 +54,16 @@ if (rail && tab) {
     status.textContent = rail.dataset.pinError || '';
   }
 
+  function showUndoError(button) {
+    if (!status) return;
+    const message = status.querySelector('span');
+    if (message && status.contains(button)) {
+      message.textContent = rail.dataset.pinError || '';
+    } else {
+      status.replaceChildren(document.createTextNode(rail.dataset.pinError || ''), button);
+    }
+  }
+
   function showUndo(title) {
     if (!status) return;
     status.replaceChildren();
@@ -67,8 +77,15 @@ if (rail && tab) {
     status.append(message, button);
   }
 
-  const pauseLive = () => { root.dataset.livePaused = 'true'; };
+  let pausedByRail = false;
+  const pauseLive = () => {
+    if (root.dataset.livePaused === 'true') return;
+    root.dataset.livePaused = 'true';
+    pausedByRail = true;
+  };
   const resumeLive = () => {
+    if (!pausedByRail) return;
+    pausedByRail = false;
     delete root.dataset.livePaused;
     document.dispatchEvent(new CustomEvent('live:resume'));
   };
@@ -116,13 +133,15 @@ if (rail && tab) {
       body: new URLSearchParams(data),
     });
     const target = response.url ? new URL(response.url, location.origin) : null;
-    if (!response.ok || !response.redirected || !target || target.origin !== location.origin
-      || !target.pathname.startsWith('/notes/')) {
+    if (!response.redirected || !target || target.origin !== location.origin
+      || !target.pathname.startsWith('/notes/') || target.pathname === '/notes/new') {
       return null;
     }
+    if (!response.ok) return { pageOk: false, csrf: '', revision: '' };
     const page = new DOMParser().parseFromString(await response.text(), 'text/html');
     const form = page.querySelector('.note-pin-form');
     return {
+      pageOk: true,
       csrf: form?.querySelector('input[name="csrf"]')?.value || data.get('csrf') || '',
       revision: form?.querySelector('input[name="revision"]')?.value || '',
     };
@@ -145,9 +164,15 @@ if (rail && tab) {
     const row = form.closest('[data-pinned-item]');
     const submit = form.querySelector('button[type="submit"]');
     if (!row || !submit) return;
-    const nextTarget = row.nextElementSibling?.querySelector('.pinned-rail-link')
-      ?? row.previousElementSibling?.querySelector('.pinned-rail-link')
-      ?? closeButton;
+    const nextRow = row.nextElementSibling ?? row.previousElementSibling;
+    const nextRef = nextRow?.dataset?.ref ?? null;
+    const nextTarget = nextRow?.querySelector('.pinned-rail-link') ?? closeButton;
+    const restoreRow = () => {
+      row.classList.remove('is-leaving');
+      submit.disabled = false;
+      submit.focus({ preventScroll: true });
+      showError();
+    };
     busy = true;
     submit.disabled = true;
     undoState = null;
@@ -159,15 +184,24 @@ if (rail && tab) {
     try {
       const [result] = await Promise.all([postPin(form.action, formData), collapse]);
       if (!result) {
-        row.classList.remove('is-leaving');
-        submit.disabled = false;
-        showError();
+        restoreRow();
         return;
       }
       const ref = row.dataset.ref || '';
       const title = row.dataset.title || '';
       row.remove();
       syncCount();
+      if (!result.pageOk) {
+        const refreshed = await refreshBody(nextRef).catch(() => false);
+        if (refreshed) {
+          if (!nextRef || !rail.contains(document.activeElement)) closeButton?.focus({ preventScroll: true });
+        } else if (nextTarget?.isConnected) {
+          nextTarget.focus({ preventScroll: true });
+        } else {
+          closeButton?.focus({ preventScroll: true });
+        }
+        return;
+      }
       if (result.revision) {
         undoState = { ref, title, action: form.action, csrf: result.csrf, revision: result.revision };
         showUndo(title);
@@ -175,9 +209,7 @@ if (rail && tab) {
       if (nextTarget?.isConnected) nextTarget.focus({ preventScroll: true });
     } catch {
       await collapse;
-      row.classList.remove('is-leaving');
-      submit.disabled = false;
-      showError();
+      restoreRow();
     } finally {
       busy = false;
       resumeLive();
@@ -191,19 +223,23 @@ if (rail && tab) {
     button.disabled = true;
     const pending = undoState;
     try {
-      const data = new URLSearchParams({ csrf: pending.csrf, pinned: 'on', revision: pending.revision });
-      const result = await postPin(pending.action, data);
+      let result = null;
+      try {
+        const data = new URLSearchParams({ csrf: pending.csrf, pinned: 'on', revision: pending.revision });
+        result = await postPin(pending.action, data);
+      } catch {
+        result = null;
+      }
       if (!result) {
         button.disabled = false;
-        showError();
+        showUndoError(button);
+        button.focus({ preventScroll: true });
         return;
       }
       undoState = null;
       if (status) status.textContent = '';
-      await refreshBody(pending.ref);
-    } catch {
-      button.disabled = false;
-      showError();
+      const refreshed = await refreshBody(pending.ref).catch(() => false);
+      if (!refreshed && status) status.textContent = rail.dataset.refreshError || '';
     } finally {
       busy = false;
     }

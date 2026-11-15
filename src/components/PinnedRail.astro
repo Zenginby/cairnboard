@@ -1,5 +1,5 @@
 ---
-import { t } from '../i18n/index.mjs';
+import { t, noteKindLabel } from '../i18n/index.mjs';
 
 const { items = [], csrf = '', live = false } = Astro.props;
 const count = String(items.length);
@@ -13,6 +13,7 @@ const showLabel = t('pinned.show').replace('{n}', count);
   data-pin-error={t('pinned.error')}
   data-unpinned={t('pinned.unpinned')}
   data-undo={t('pinned.undo')}
+  data-refresh-error={t('pinned.refreshError')}
 >
   <header class="pinned-rail-header">
     <h2 class="pinned-rail-heading" id="pinned-rail-heading">{t('pinned.heading')}</h2>
@@ -27,7 +28,6 @@ const showLabel = t('pinned.show').replace('{n}', count);
     <ul class="pinned-rail-list" data-pinned-list aria-label={t('pinned.label')} hidden={items.length === 0}>
       {items.map((item) => {
         const label = item.title || t('home.untitled');
-        const kindKey = `notes.kind.${item.kind}`;
         return (
           <li class="pinned-rail-item" data-pinned-item data-ref={item.ref} data-title={label}>
             <a class="pinned-rail-link" href={`/notes/${encodeURIComponent(item.ref)}`}>
@@ -36,7 +36,7 @@ const showLabel = t('pinned.show').replace('{n}', count);
                   <span class={`pinned-rail-dot tone-${item.project.tone ?? 1}`} aria-hidden="true" />
                 )}
                 {item.project && <span class="pinned-rail-project">{item.project.title}</span>}
-                <span class="pinned-rail-kind">{t(kindKey)}</span>
+                <span class="pinned-rail-kind">{noteKindLabel(item.kind)}</span>
               </span>
               <span class="pinned-rail-title">{label}</span>
               {item.excerpt && <span class="pinned-rail-excerpt">{item.excerpt}</span>}
@@ -54,6 +54,7 @@ const showLabel = t('pinned.show').replace('{n}', count);
                 <button
                   class="pinned-rail-unpin"
                   type="submit"
+                  data-pinned-unpin
                   aria-label={t('pinned.unpin').replace('{title}', label)}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>

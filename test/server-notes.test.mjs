@@ -10,7 +10,7 @@ import { createApp } from '../server/app.mjs';
 import { createGuard } from '../server/guard.mjs';
 import { createNotes } from '../server/notes.mjs';
 import { createWrites } from '../server/writes.mjs';
-import { createRead, pinnedNotesResult } from '../server/read.mjs';
+import { createRead, pinnedNotesResult, plainItem } from '../server/read.mjs';
 import { cookieName, csrfToken, mintCookie, siteHost } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
 import { initDataDir } from '../core/roots.mjs';
@@ -527,3 +527,98 @@ test('pinnedNotesResult orders newest first, caps at 30, drops agents project, i
     assert.match(excerpt, /shown label/u);
     assert.match(excerpt, /external link/u);
   });
+
+test('pinnedNotesResult handles 256 KiB blank and space-newline bodies under 250 ms each', (t) => {
+  for (const [label, body] of [
+    ['newlines', '\n'.repeat(256 * 1024)],
+    ['space-newlines', ' \n'.repeat(128 * 1024)],
+  ]) {
+    const dir = tempDir(t, `cairn-pinned-perf-${label}-`);
+    const home = tempDir(t, `cairn-pinned-perf-home-${label}-`);
+    initDataDir(dir, { language: 'en' });
+    const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
+    note.create(seedCtx, { title: `Blank ${label}`, pinned: true }, body, {});
+    const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
+    const start = performance.now();
+    const res = pinnedNotesResult(readCtx);
+    const elapsed = performance.now() - start;
+    assert.equal(res.data.items.length, 1);
+    assert.equal(res.data.items[0].excerpt, '');
+    assert.ok(elapsed < 250, `${label} took ${elapsed.toFixed(1)} ms`);
+  }
+});
+
+test('plainItem keeps pre-rail journal day preview behavior', () => {
+  assert.equal(
+    plainItem('**Decision:** # keep ~~strike~~ and _under_ with [[page|shown]] plus [link](https://a.test)'),
+    'Decision: # keep ~~strike~~ and _under_ with shown plus link',
+  );
+  assert.equal(plainItem('x'.repeat(250)).length, 200);
+});
+
+test('pinnedNotesResult formats heading, paragraph and Markdown table without separator rows or outer pipes',
+  (t) => {
+    const dir = tempDir(t, 'cairn-pinned-table-');
+    const home = tempDir(t, 'cairn-pinned-table-home-');
+    initDataDir(dir, { language: 'en' });
+    const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
+    note.create(
+      seedCtx,
+      { title: 'Table note', pinned: true },
+      [
+        '# Section Title',
+        '',
+        'Short intro paragraph.',
+        '',
+        '| Alan | Örnek |',
+        '| :--- | ---: |',
+        '| Bir | İki |',
+      ].join('\n'),
+      {},
+    );
+    const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
+    const res = pinnedNotesResult(readCtx);
+    assert.equal(res.data.items[0].excerpt, 'Section Title Short intro paragraph. Alan · Örnek Bir · İki');
+  });
+
+test('PinnedRail falls back to notes.kind.note label for unknown note kinds', async (t) => {
+  const env = await setup(t);
+  if (!env.built) {
+    t.skip('Astro output missing; run npm run build:app to verify built pages.');
+    return;
+  }
+  const rawPath = join(env.dir, 'notes', 'unknown-kind.md');
+  mkdirSync(dirname(rawPath), { recursive: true });
+  writeFileSync(rawPath, '---\nid: n-u00001\ntitle: Unknown kind pin\nkind: custom-kind\npinned: true\n---\nBody\n');
+  refresh(env.openWrite());
+  const page = await call(env.app, { path: '/', headers: { cookie: env.cookieHeader } });
+  assert.equal(page.status, 200);
+  assert.match(page.body, /<span class="pinned-rail-kind">Note<\/span>/u);
+  assert.doesNotMatch(page.body, /notes\.kind\.custom-kind/u);
+  assert.match(page.body, /data-pinned-unpin/u);
+});
+
+test('POST /notes/<ref>/pin refuses notes belonging to the agents project with 400', async (t) => {
+  const env = await setup(t);
+  const agent = project.create(env.openWrite(), { title: 'Bots', status: 'active' }, '', {}).entity;
+  const cfgPath = join(env.dir, '.cairn', 'config.json');
+  const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
+  cfg.agents = { project: agent.id };
+  writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`);
+
+  const byId = note.create(env.openWrite(), { title: 'Agent id note', project: agent.id }, 'Body', {}).entity;
+  const byPath = note.create(
+    env.openWrite(),
+    { title: 'Agent path note', project: `@${agent.path}`, pinned: true },
+    'Body',
+    {},
+  ).entity;
+
+  const pinRes = await postPin(env, byId.id, { pinned: 'on', revision: byId.revision });
+  assert.equal(pinRes.status, 400);
+  assert.strictEqual(entity.resolve(env.open(), 'note', byId.id).data.pinned, false);
+
+  const unpinRes = await postPin(env, byPath.id, { pinned: 'off', revision: byPath.revision });
+  assert.equal(unpinRes.status, 400);
+  assert.strictEqual(entity.resolve(env.open(), 'note', byPath.id).data.pinned, true);
+});

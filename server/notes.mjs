@@ -114,6 +114,15 @@ export function createNotes({ key, port, open, openWrite }) {
           if (error instanceof CairnError && error.code === 'not_found') return NOT_FOUND;
           throw error;
         }
+        const agents = agentProject(ctx);
+        if (agents !== null && current.data?.project) {
+          if (agents.refs.has(current.data.project)) return bad('noteForm.invalidProject');
+          try {
+            if (isAgentProject(agents, project.resolve(ctx, current.data.project))) {
+              return bad('noteForm.invalidProject');
+            }
+          } catch { /* Unknown project reference on the note is not the agents project. */ }
+        }
         const target = current.id ?? current.ref;
         note.update(openWrite(), target, { pinned: values.pinned === 'on' }, { ifRevision: values.revision });
         return `/notes/${encodeURIComponent(target)}`;

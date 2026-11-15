@@ -65,9 +65,19 @@ async function boot(t, { language = 'en', seed = false } = {}) {
   const { handler } = await import(new URL('../dist/app/server/entry.mjs', import.meta.url));
   const notes = createNotes({ key, port, open, openWrite });
   const writes = createWrites({ key, port, routes: notes.routes, limit: 100 });
+  const serverState = { failNoteGet: false };
+  const wrappedHandler = (req, res, ...rest) => {
+    if (serverState.failNoteGet && req.method === 'GET' && /^\/notes\/n-/u.test(req.url || '')) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.end('<h1>Render error</h1>');
+      return;
+    }
+    return handler(req, res, ...rest);
+  };
   const app = createApp({
     root: repo,
-    handler,
+    handler: wrappedHandler,
     guard: createGuard({ port, key, instance, writable: writes.writable }),
     writes: writes.handle,
     api: createApi({ open, render: renderMarkdown, live: () => false }),
@@ -76,7 +86,7 @@ async function boot(t, { language = 'en', seed = false } = {}) {
   server.on('request', app);
 
   cleanup(() => browser.close());
-  return { dir, open, active, port, browser, cleanup };
+  return { dir, open, active, port, browser, cleanup, serverState };
 }
 
 async function axeCheck(page, axeSource) {
@@ -279,4 +289,36 @@ test('quick-note dialog and /notes/new work at 375px with axe clean and no overf
   await bare.locator('#note-title').fill('No-script note');
   await bare.getByRole('button', { name: 'Save note' }).click();
   await bare.waitForURL(new RegExp(`^${origin}/notes/n-[0-9a-hjkmnp-tv-z]{6}$`, 'u'));
+});
+
+test('quick-note dialog reports success with link even when the followed note page fails to render', async (t) => {
+  const env = await boot(t);
+  if (!env) return;
+  const context = await env.browser.newContext({ viewport: { width: 1280, height: 800 } });
+  env.cleanup(() => context.close());
+  const page = await context.newPage();
+  const errors = [];
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('pageerror', (error) => errors.push(error.message));
+
+  const origin = `http://${siteHost(key)}:${env.port}`;
+  await page.goto(loginUrl(env.port, key, instance));
+  await page.waitForURL(`${origin}/`, { timeout: 10_000 });
+
+  env.serverState.failNoteGet = true;
+
+  await page.keyboard.press('n');
+  const dialog = page.locator('[data-note-dialog]');
+  await page.locator('#note-title').waitFor({ state: 'visible' });
+  await page.locator('#note-title').fill('Saved despite 500');
+  await page.locator('#note-body').fill('Body text');
+  await dialog.getByRole('button', { name: 'Save note' }).click();
+
+  await page.locator('[data-note-dialog-status] a').waitFor({ state: 'visible' });
+  assert.match(await page.locator('[data-note-dialog-status]').textContent(), /Note saved\./u);
+  const href = await page.locator('[data-note-dialog-status] a').getAttribute('href');
+  assert.match(href ?? '', /^\/notes\/n-[0-9a-hjkmnp-tv-z]{6}$/u);
+  assert.equal(await page.locator('#note-title').inputValue(), '');
+  assert.equal(entity.resolve(env.open(), 'note', href.slice('/notes/'.length)).title, 'Saved despite 500');
+  assert.ok(errors.length === 1 && /500/u.test(errors[0]), errors.join('\n'));
 });

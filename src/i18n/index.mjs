@@ -11,3 +11,4 @@ export const useLanguage = (language) => { process.env.CAIRN_LANGUAGE = language
 export const t = (key, values = {}) => (dictionaries[uiLanguage()][key] ?? key)
   .replace(/\{(\w+)\}/gu, (whole, name) => (Object.hasOwn(values ?? {}, name) ? String(values[name]) : whole));
 export const warningText = (code) => dictionaries[uiLanguage()][`warnings.${code}`] ?? t('warnings.other');
+export const noteKindLabel = (kind) => dictionaries[uiLanguage()][`notes.kind.${kind}`] ?? t('notes.kind.note');

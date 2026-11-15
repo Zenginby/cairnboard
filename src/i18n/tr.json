@@ -540,5 +540,6 @@
   "pinned.unpin": "{title} sabitlemesini kaldır",
   "pinned.unpinned": "“{title}” sabitlemesi kaldırıldı.",
   "pinned.undo": "Geri al",
-  "pinned.error": "Sabitleme güncellenemedi. Tekrar dene."
+  "pinned.error": "Sabitleme güncellenemedi. Tekrar dene.",
+  "pinned.refreshError": "Sabitleme güncellendi ama liste yenilenemedi; sayfayı yenile."
 }

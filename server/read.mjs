@@ -248,24 +248,41 @@ export function homeOverview(ctx, today = null) {
 const MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/u;
 const JOURNAL_ITEMS = 3;
 
-// Plain one-line text of a Markdown body or item, for previews and pinned excerpts.
-function plainText(text, max = 200) {
+// Plain one-line text of a Markdown item, for the day preview.
+export function plainItem(text) {
   const clean = stripHidden(text).text
-    .replace(/!\[([^\]]*)\]\([^)]*\)/gu, '$1')
     .replace(/\[\[([^\]|]*)\|([^\]]*)\]\]/gu, '$2').replace(/\[\[([^\]]*)\]\]/gu, '$1')
-    .replace(/\[([^\]]*)\]\([^)]*\)/gu, '$1')
-    .replace(/^ {0,3}(?:`{3,}|~{3,}).*$/gmu, '')
-    .replace(/^ {0,3}(?:[-*_]\s*){3,}$/gmu, '')
-    .replace(/^ {0,3}(?:>\s?)+/gmu, '')
-    .replace(/^ {0,3}#{1,6}\s+/gmu, '')
-    .replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/gmu, '')
-    .replace(/(\*\*|__|~~|`|\*)/gu, '')
-    .replace(/(?<!\p{L})_|_(?!\p{L})/gu, '');
-  const line = oneLine(clean);
-  return Array.from(line).slice(0, max).join('');
+    .replace(/\[([^\]]*)\]\([^)]*\)/gu, '$1').replace(/(\*\*|__|`|\*)/gu, '');
+  return oneLine(clean).slice(0, 200);
 }
 
-export function plainItem(text) { return plainText(text, 200); }
+const EXCERPT_SCAN_LIMIT = 4096;
+const TABLE_SEPARATOR_ROW = /^[ \t]*\|?(?:[ \t]*:?-{1,}:?[ \t]*\|)+[ \t]*(?::?-{1,}:?[ \t]*)?\|?[ \t]*$/u;
+
+// Plain one-line excerpt of a Markdown note body, for the pinned-notes rail.
+export function pinnedExcerpt(text, max = PINNED_EXCERPT) {
+  const sample = typeof text === 'string' ? text.slice(0, EXCERPT_SCAN_LIMIT) : '';
+  const stripped = stripHidden(sample).text
+    .replace(/!\[([^\]\r\n]*)\]\([^)\r\n]*\)/gu, '$1')
+    .replace(/\[\[([^\]|\r\n]*)\|([^\]\r\n]*)\]\]/gu, '$2')
+    .replace(/\[\[([^\]\r\n]*)\]\]/gu, '$1')
+    .replace(/\[([^\]\r\n]*)\]\([^)\r\n]*\)/gu, '$1')
+    .replace(/^ {0,3}(?:`{3,}|~{3,})[^\r\n]*$/gmu, '')
+    .replace(/^ {0,3}(?:[-*_][ \t]*){3,}$/gmu, '')
+    .replace(/^ {0,3}(?:>[ \t]?)+/gmu, '')
+    .replace(/^ {0,3}#{1,6}[ \t]+/gmu, '')
+    .replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?/gmu, '');
+  const withoutTables = stripped.split(/\r?\n/u).map((line) => {
+    if (TABLE_SEPARATOR_ROW.test(line)) return '';
+    if (!line.includes('|')) return line;
+    return line.split('|').map((cell) => cell.trim()).filter(Boolean).join(' · ');
+  }).join('\n');
+  const clean = withoutTables
+    .replace(/(\*\*|__|~~|`|\*)/gu, '')
+    .replace(/(?<!\p{L})_|_(?!\p{L})/gu, '');
+  const line = oneLine(clean).replace(/ +/gu, ' ').trim();
+  return Array.from(line).slice(0, max).join('');
+}
 
 // The jobs' own lines, split like core `sections()` (headings inside fences are not jobs; a `# ` heading ends a job).
 function jobLines(body) {
@@ -574,7 +591,7 @@ export function pinnedNotesResult(ctx) {
       kind: item.meta.kind ?? 'note',
       revision: item.revision,
       project: linked ? { id: linked.id, title: linked.title, tone: linked.tone } : null,
-      excerpt: plainText(body, PINNED_EXCERPT),
+      excerpt: pinnedExcerpt(body),
     };
   });
   return okEnvelope({ items }, [...ctx.warnings, ...warnings]);

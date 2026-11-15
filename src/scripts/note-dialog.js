@@ -98,7 +98,7 @@ if (dialog) {
         body: new URLSearchParams(new FormData(form)),
       });
       const target = response.url ? new URL(response.url, location.origin) : null;
-      if (response.ok && response.redirected && target && target.origin === location.origin
+      if (response.redirected && target && target.origin === location.origin
         && target.pathname.startsWith('/notes/') && target.pathname !== '/notes/new') {
         const pinned = Boolean(form.querySelector('input[name="pinned"]:checked'));
         form.reset();

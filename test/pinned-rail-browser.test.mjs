@@ -229,12 +229,14 @@ test('pinned rail layout, breakpoints, pre-paint persistence, Escape, unpin/undo
     await page.waitForFunction(() => document.querySelectorAll('[data-pinned-item]').length === 2);
     assert.strictEqual(parseFile(readFileSync(betaFile, 'utf8')).data.pinned, true);
 
-    // Conflict (409) on unpin keeps the row in place and reports the error in status.
+    // Conflict (409) on unpin keeps the row in place, reports error in status, and restores focus to unpin button.
     note.update(openWrite(), beta.id, { title: 'Beta revised externally' });
-    await page.locator('[data-pinned-item]').first().locator('button[type="submit"]').click();
+    const firstUnpin = page.locator('[data-pinned-item]').first().locator('[data-pinned-unpin]');
+    await firstUnpin.click();
     await page.waitForFunction(() => Boolean(document.querySelector('[data-pinned-status]')?.textContent?.trim()));
     assert.equal(await page.locator('[data-pinned-item]').count(), 2);
     assert.equal(await page.locator('[data-pinned-item].is-leaving').count(), 0);
+    assert.equal(await firstUnpin.evaluate((el) => el === document.activeElement && !el.disabled), true);
     assert.ok(errors.length === 1 && /409/u.test(errors[0]), errors.join('; '));
     errors.length = 0;
 
@@ -310,10 +312,154 @@ test('live updates refresh the pinned rail when an external write pins a note', 
   ]);
   await page.locator('[data-pinned-empty]').waitFor({ state: 'visible' });
 
-  note.create(openWrite(), { title: 'Live pinned note', pinned: true }, 'Synced via watcher', {});
+  const firstLive = note.create(openWrite(), { title: 'Live pinned note', pinned: true }, 'Synced via watcher', {});
   await page.waitForFunction(() => document.querySelectorAll('[data-pinned-item]').length === 1, null,
     { timeout: 15_000 });
   assert.match(await page.locator('[data-pinned-item]').first().innerText(), /Live pinned note/u);
+
+  // Focus on an unpin button returns to that unpin button after a live refresh.
+  const firstId = firstLive.entity.id;
+  await page.locator(`[data-pinned-item][data-ref="${firstId}"] [data-pinned-unpin]`).focus();
+  note.create(openWrite(), { title: 'Second live pin', pinned: true }, 'Second body', {});
+  await page.waitForFunction(() => document.querySelectorAll('[data-pinned-item]').length === 2, null,
+    { timeout: 15_000 });
+  assert.equal(await page.evaluate((ref) => {
+    const active = document.activeElement;
+    return Boolean(active?.matches('[data-pinned-unpin]')
+      && active.closest('[data-pinned-item]')?.dataset.ref === ref);
+  }, firstId), true, 'live refresh must return focus to the same unpin button');
+
   assert.equal(navigations, 1);
   assert.deepEqual(errors, [], `unexpected console/page errors: ${errors.join('; ')}`);
 });
+
+test('pinned rail handles followed-page 500, failed undo retry, failed refresh notice and external livePaused',
+  async (t) => {
+    useLanguage('en');
+    const cleanup = liveCleanup(t);
+    const browser = await launchBrowser(t, cleanup);
+    if (!browser) return;
+
+    const dir = tempDir(t, 'cairn-rail-edge-');
+    const home = tempDir(t, 'cairn-rail-edge-home-');
+    initDataDir(dir, { language: 'en' });
+    const open = () => openContext({ dataDir: dir, home, env: {},
+      clock: fixedClock('2026-11-15T10:00:00Z'), mode: 'read' });
+    const openWrite = () => openContext({ dataDir: dir, home, env: {},
+      clock: fixedClock('2026-11-15T10:00:00Z'), mode: 'write', actor: 'web:owner' });
+    const first = note.create(openWrite(), { title: 'One pin', pinned: true }, 'Body 1', {}).entity;
+    const second = note.create(openWrite(), { title: 'Two pin', pinned: true }, 'Body 2', {}).entity;
+
+    const server = createServer();
+    cleanup(() => { server.closeAllConnections(); return new Promise((done) => server.close(done)); });
+    await new Promise((done) => server.listen(0, '127.0.0.1', done));
+    const { port } = server.address();
+    const { handler } = await import(new URL('../dist/app/server/entry.mjs', import.meta.url));
+    const notes = createNotes({ key, port, open, openWrite });
+    const writes = createWrites({ key, port, routes: notes.routes, limit: 100 });
+    let failNoteGet = false;
+    const wrappedHandler = (req, res, ...rest) => {
+      if (failNoteGet && req.method === 'GET' && /^\/notes\/n-/u.test(req.url || '')) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end('<h1>Note render failed</h1>');
+        return;
+      }
+      return handler(req, res, ...rest);
+    };
+    server.on('request', createApp({
+      root: repo,
+      handler: wrappedHandler,
+      guard: createGuard({ port, key, instance, writable: writes.writable }),
+      writes: writes.handle,
+      api: createApi({ open, render: renderMarkdown, live: () => false }),
+      locals: { cairn: createRead({ open, render: renderMarkdown }), notes, settings: { liveUpdates: () => false } },
+    }));
+
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+    cleanup(() => context.close());
+    const page = await context.newPage();
+    const errors = [];
+    page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+    page.on('pageerror', (error) => errors.push(error.message));
+
+    const origin = `http://${siteHost(key)}:${port}`;
+    await page.goto(loginUrl(port, key, instance));
+    await page.waitForURL(`${origin}/`, { timeout: 10_000 });
+    await page.waitForFunction(() => document.querySelectorAll('[data-pinned-item]').length === 2);
+
+    // 1. Failed undo keeps the Undo button enabled so it can be retried.
+    await page.locator('[data-pinned-item]').first().locator('[data-pinned-unpin]').click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-pinned-item]').length === 1);
+    const undo = page.locator('[data-pinned-undo]');
+    await undo.waitFor({ state: 'visible' });
+
+    let failUndoOnce = true;
+    const undoRoute = async (route) => {
+      if (failUndoOnce && route.request().method() === 'POST') {
+        failUndoOnce = false;
+        await route.fulfill({ status: 503, contentType: 'text/html', body: '<h1>Busy</h1>' });
+        return;
+      }
+      await route.continue();
+    };
+    await page.route(/\/notes\/n-[^/]+\/pin$/u, undoRoute);
+    await undo.click();
+    await page.waitForFunction(() => /Could not update/u
+      .test(document.querySelector('[data-pinned-status]')?.textContent || ''));
+    assert.equal(await undo.isVisible(), true);
+    assert.equal(await undo.isEnabled(), true);
+    await page.unroute(/\/notes\/n-[^/]+\/pin$/u, undoRoute);
+
+    // Retry undo succeeds and restores the item.
+    await undo.click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-pinned-item]').length === 2);
+    assert.ok(errors.length === 1 && /503/u.test(errors[0]), errors.join('; '));
+    errors.length = 0;
+
+    // 2. Unpin preserves external livePaused flag and does not dispatch live:resume.
+    await page.evaluate(() => {
+      window.__resumes = 0;
+      document.addEventListener('live:resume', () => { window.__resumes += 1; });
+      document.documentElement.dataset.livePaused = 'true';
+    });
+    await page.locator('[data-pinned-item]').first().locator('[data-pinned-unpin]').click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-pinned-item]').length === 1);
+    assert.deepEqual(await page.evaluate(() => ({
+      paused: document.documentElement.dataset.livePaused,
+      resumes: window.__resumes,
+    })), { paused: 'true', resumes: 0 });
+    await page.evaluate(() => { delete document.documentElement.dataset.livePaused; });
+
+    // 3. When undo succeeds but refreshing the rail fails, status asks to reload the page.
+    await undo.waitFor({ state: 'visible' });
+    const failHome = async (route) => {
+      if (route.request().method() === 'GET' && new URL(route.request().url()).pathname === '/') {
+        await route.fulfill({ status: 500, contentType: 'text/html', body: '<h1>Refresh error</h1>' });
+        return;
+      }
+      await route.continue();
+    };
+    await page.route(`${origin}/`, failHome);
+    await undo.click();
+    await page.waitForFunction(() => /reload the page/iu
+      .test(document.querySelector('[data-pinned-status]')?.textContent || ''));
+    await page.unroute(`${origin}/`, failHome);
+    assert.equal(await page.locator('[data-pinned-undo]').count(), 0);
+    assert.ok(errors.length === 1 && /500/u.test(errors[0]), errors.join('; '));
+    errors.length = 0;
+
+    // Reload to restore the rail, then test followed note GET 500 on unpin.
+    await page.reload();
+    await page.waitForFunction(() => document.querySelectorAll('[data-pinned-item]').length === 2);
+
+    // 4. Followed note page returning 500 after redirect still counts as unpin success and refreshes rail.
+    failNoteGet = true;
+    await page.locator('[data-pinned-item]').first().locator('[data-pinned-unpin]').click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-pinned-item]').length === 1);
+    failNoteGet = false;
+    assert.equal((await page.locator('[data-pinned-status]').textContent())?.trim(), '');
+    assert.equal(await page.locator('[data-pinned-undo]').count(), 0);
+    assert.ok(first.id !== second.id);
+    assert.ok(errors.length === 1 && /500/u.test(errors[0]), errors.join('; '));
+  });
