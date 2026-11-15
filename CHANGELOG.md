@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Fix pinned-note excerpt stalls on `[` runs, `N` opening a duplicate form on `/notes/new`, `$&` in `{title}`
+  replacements, and overlapping live-update pauses across the board and pinned rail.
+
 ## [0.2.0] - 2026-11-15
 
 - Notes list page at `/notes`: pinned notes first, one section per topic (the folder under the notes root), project

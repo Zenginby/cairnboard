@@ -10,7 +10,7 @@ import { createApp } from '../server/app.mjs';
 import { createGuard } from '../server/guard.mjs';
 import { createNotes } from '../server/notes.mjs';
 import { createWrites } from '../server/writes.mjs';
-import { createRead, pinnedNotesResult, plainItem } from '../server/read.mjs';
+import { createRead, pinnedExcerpt, pinnedNotesResult, plainItem } from '../server/read.mjs';
 import { cookieName, csrfToken, mintCookie, siteHost } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
 import { initDataDir } from '../core/roots.mjs';
@@ -621,4 +621,18 @@ test('POST /notes/<ref>/pin refuses notes belonging to the agents project with 4
   const unpinRes = await postPin(env, byPath.id, { pinned: 'off', revision: byPath.revision });
   assert.equal(unpinRes.status, 400);
   assert.strictEqual(entity.resolve(env.open(), 'note', byPath.id).data.pinned, true);
+});
+
+test('pinnedExcerpt avoids quadratic backtracking on repeated bracket prefixes', () => {
+  for (const [label, body] of [
+    ['open-brackets', '['.repeat(4096)],
+    ['bang-double-brackets', '![['.repeat(1400)],
+    ['bang-brackets', '!['.repeat(2048)],
+  ]) {
+    const start = performance.now();
+    const out = pinnedExcerpt(body);
+    const elapsed = performance.now() - start;
+    assert.ok(out.length <= 160);
+    assert.ok(elapsed < 50, `${label} took ${elapsed.toFixed(1)} ms`);
+  }
 });

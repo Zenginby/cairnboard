@@ -34,6 +34,12 @@ if (dialog) {
 
   async function open() {
     if (document.querySelector('dialog[open]')) return;
+    const inlinePanel = [...document.querySelectorAll('[data-note-panel]')]
+      .find((panel) => !dialog.contains(panel));
+    if (inlinePanel) {
+      inlinePanel.querySelector('input[name="title"]')?.focus();
+      return;
+    }
     opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const id = ++sequence;
     content.replaceChildren();

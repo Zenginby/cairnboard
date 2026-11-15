@@ -463,3 +463,48 @@ test('pinned rail handles followed-page 500, failed undo retry, failed refresh n
     assert.ok(first.id !== second.id);
     assert.ok(errors.length === 1 && /500/u.test(errors[0]), errors.join('; '));
   });
+
+test('pinned rail preserves $& in note titles for unpin aria-label and undo status', async (t) => {
+  useLanguage('en');
+  const cleanup = liveCleanup(t);
+  const browser = await launchBrowser(t, cleanup);
+  if (!browser) return;
+
+  const dir = tempDir(t, 'cairn-rail-dollar-');
+  const home = tempDir(t, 'cairn-rail-dollar-home-');
+  initDataDir(dir, { language: 'en' });
+  const clock = fixedClock('2026-11-15T10:00:00Z');
+  const open = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
+  const openWrite = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'web:owner' });
+  note.create(openWrite(), { title: 'Pay $& now', pinned: true }, 'Details.', {});
+
+  const server = createServer();
+  cleanup(() => { server.closeAllConnections(); return new Promise((done) => server.close(done)); });
+  await new Promise((done) => server.listen(0, '127.0.0.1', done));
+  const { port } = server.address();
+  const { handler } = await import(new URL('../dist/app/server/entry.mjs', import.meta.url));
+  const notes = createNotes({ key, port, open, openWrite });
+  const writes = createWrites({ key, port, routes: notes.routes, limit: 100 });
+  server.on('request', createApp({
+    root: repo,
+    handler,
+    guard: createGuard({ port, key, instance, writable: writes.writable }),
+    writes: writes.handle,
+    api: createApi({ open, render: renderMarkdown, live: () => false }),
+    locals: { cairn: createRead({ open, render: renderMarkdown }), notes, settings: { liveUpdates: () => false } },
+  }));
+
+  const context = await browser.newContext({ viewport: { width: 1500, height: 900 } });
+  cleanup(() => context.close());
+  const page = await context.newPage();
+  const origin = `http://${siteHost(key)}:${port}`;
+  await page.goto(loginUrl(port, key, instance));
+  await page.waitForURL(`${origin}/`, { timeout: 10_000 });
+
+  const unpin = page.locator('[data-pinned-unpin]').first();
+  assert.equal(await unpin.getAttribute('aria-label'), 'Unpin Pay $& now');
+  await unpin.click();
+  await page.waitForFunction(() => /Pay \$& now/u
+    .test(document.querySelector('[data-pinned-status]')?.textContent || ''));
+  assert.match(await page.locator('[data-pinned-status] span').textContent(), /Pay \$& now/u);
+});

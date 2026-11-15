@@ -1,4 +1,6 @@
 // Delegation keeps pointer and keyboard moves working when live updates replace the board.
+import { pauseLive, resumeLive } from './live-pause.js';
+
 const BOARD = '[data-board-draggable]';
 const CARD = '[data-card-id]';
 const CONTROL = '.card-quick, input, select, textarea, button, [contenteditable], [role="button"]';
@@ -15,11 +17,8 @@ const token = (element, name) => getComputedStyle(element).getPropertyValue(name
 const milliseconds = (value) => parseFloat(value) * (value.endsWith('ms') ? 1 : 1000);
 const lessMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
   || Boolean(document.querySelector('[data-motion="less"]'));
-const pause = () => { document.documentElement.dataset.livePaused = 'true'; };
-const resume = () => {
-  delete document.documentElement.dataset.livePaused;
-  document.dispatchEvent(new CustomEvent('live:resume'));
-};
+const pause = () => pauseLive('board-drag');
+const resume = () => resumeLive('board-drag');
 const announce = (text) => { announcement.textContent = text; };
 
 function refreshCounts(board, origin, target, delta) {
@@ -78,8 +77,8 @@ async function move(card, target, before = null, keyboard = false) {
       const claimed = response.status === 409 && page.querySelector('h1')?.textContent === board.dataset.claimedTitle;
       throw new Error(claimed ? board.dataset.moveClaimed : board.dataset.moveFailed);
     }
-    announce(board.dataset.moveAnnouncement.replace('{title}', card.querySelector('h3').textContent)
-      .replace('{column}', target.querySelector('h2').textContent));
+    announce(board.dataset.moveAnnouncement.replace('{title}', () => card.querySelector('h3').textContent)
+      .replace('{column}', () => target.querySelector('h2').textContent));
     card.classList.add('board-card-moved');
     setTimeout(() => card.classList.remove('board-card-moved'),
       milliseconds(token(board, '--motion-duration-highlight')));
