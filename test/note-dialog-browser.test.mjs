@@ -1,0 +1,258 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright-core';
+import { createApp } from '../server/app.mjs';
+import { createApi } from '../server/api.mjs';
+import { createGuard } from '../server/guard.mjs';
+import { createRead } from '../server/read.mjs';
+import { createNotes } from '../server/notes.mjs';
+import { createWrites } from '../server/writes.mjs';
+import { loginUrl, siteHost } from '../server/session.mjs';
+import { openContext } from '../core/context.mjs';
+import { initDataDir } from '../core/roots.mjs';
+import { renderMarkdown } from '../core/render.mjs';
+import * as entity from '../core/entity.mjs';
+import { create as createNote } from '../core/note.mjs';
+import * as project from '../core/project.mjs';
+import { APP_ALLOWLIST, filterAllowed } from '../scripts/lib/design-check/allowlist.mjs';
+import { resolveBrowser } from '../scripts/lib/design-check/config.mjs';
+import { useLanguage } from '../src/i18n/index.mjs';
+import { fixedClock, tempDir } from './support/env.mjs';
+import { liveCleanup, liveUnavailable } from './support/live.mjs';
+
+const repo = fileURLToPath(new URL('..', import.meta.url));
+const key = Buffer.alloc(32, 11);
+const instance = 'run-eeeeeeeeeeeeeeee';
+const clock = fixedClock('2026-11-15T10:00:00Z');
+
+async function boot(t, { language = 'en', seed = false } = {}) {
+  useLanguage(language);
+  const cleanup = liveCleanup(t);
+  if (!existsSync(join(repo, 'dist/app/server/entry.mjs'))) {
+    liveUnavailable(t, 'Astro output missing; run npm run build:app to enable integration coverage.');
+    return null;
+  }
+  let browser;
+  try {
+    const { executablePath } = resolveBrowser('chromium', { downloadedPath: chromium.executablePath() });
+    browser = await chromium.launch({
+      executablePath,
+      headless: true,
+      timeout: 15_000,
+      args: ['--no-proxy-server', '--host-resolver-rules=MAP *.cairnboard.localhost 127.0.0.1'],
+    });
+  } catch (error) {
+    liveUnavailable(t, `Chromium missing: ${error.message}`);
+    return null;
+  }
+  const dir = tempDir(t, 'cairn-note-dialog-');
+  const home = tempDir(t, 'cairn-note-dialog-home-');
+  initDataDir(dir, { language });
+  const open = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
+  const openWrite = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'web:owner' });
+  const active = project.create(openWrite(), { title: 'Garden', status: 'active' }, '', {}).entity;
+  if (seed) createNote(openWrite(), { kind: 'note', title: 'Seed note', project: active.id }, 'Initial text.', {});
+
+  const server = createServer();
+  cleanup(() => new Promise((done) => server.close(done)));
+  await new Promise((done) => server.listen(0, '127.0.0.1', done));
+  const { port } = server.address();
+  const { handler } = await import(new URL('../dist/app/server/entry.mjs', import.meta.url));
+  const notes = createNotes({ key, port, open, openWrite });
+  const writes = createWrites({ key, port, routes: notes.routes, limit: 100 });
+  const app = createApp({
+    root: repo,
+    handler,
+    guard: createGuard({ port, key, instance, writable: writes.writable }),
+    writes: writes.handle,
+    api: createApi({ open, render: renderMarkdown, live: () => false }),
+    locals: { cairn: createRead({ open, render: renderMarkdown }), notes, settings: { liveUpdates: () => false } },
+  });
+  server.on('request', app);
+
+  cleanup(() => browser.close());
+  return { dir, open, active, port, browser, cleanup };
+}
+
+async function axeCheck(page, axeSource) {
+  await page.evaluate(axeSource);
+  const regions = [...new Set(APP_ALLOWLIST.map((item) => item.within))];
+  const found = await page.evaluate(async (regions) => {
+    const result = await window.axe.run(document, { resultTypes: ['violations'] });
+    return result.violations.map(({ id, impact, nodes }) => ({
+      id,
+      impact,
+      nodes: nodes.map((node) => {
+        const element = document.querySelector(node.target[0]);
+        return { within: regions.filter((region) => element?.closest(region)) };
+      }),
+    }));
+  }, regions);
+  return filterAllowed(found);
+}
+
+test('quick-note dialog: N shortcut, typing guard, save keeps page, failure keeps text, Escape restores focus',
+  async (t) => {
+    const env = await boot(t, { seed: true });
+    if (!env) return;
+    const context = await env.browser.newContext({ viewport: { width: 1280, height: 800 } });
+    env.cleanup(() => context.close());
+    const page = await context.newPage();
+    const errors = [];
+    page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+    page.on('pageerror', (error) => errors.push(error.message));
+    const axeSource = await readFile(fileURLToPath(import.meta.resolve('axe-core/axe.min.js')), 'utf8');
+
+    const origin = `http://${siteHost(key)}:${env.port}`;
+    await page.goto(loginUrl(env.port, key, instance));
+    await page.waitForURL(`${origin}/`, { timeout: 10_000 });
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+
+    // Modifier keys do not open the quick-note dialog.
+    const dialog = page.locator('[data-note-dialog]');
+    for (const combo of ['Control+n', 'Alt+n', 'Meta+n']) {
+      await page.keyboard.press(combo);
+      assert.equal(await dialog.evaluate((el) => el.open), false, `${combo} should not open note dialog`);
+    }
+
+    // Typing inside an input, textarea or select does not open the quick-note dialog.
+    await page.goto(`${origin}/search`);
+    await page.locator('#search-query').focus();
+    await page.keyboard.press('n');
+    assert.equal(await dialog.evaluate((el) => el.open), false);
+    assert.equal(await page.locator('#search-query').inputValue(), 'n');
+
+    await page.goto(`${origin}/notes/new`);
+    await page.locator('#note-body').focus();
+    await page.keyboard.press('n');
+    assert.equal(await dialog.evaluate((el) => el.open), false);
+    assert.equal(await page.locator('#note-body').inputValue(), 'n');
+    await page.locator('#note-project').focus();
+    await page.keyboard.press('n');
+    assert.equal(await dialog.evaluate((el) => el.open), false);
+
+    // N does nothing while another dialog is already open.
+    await page.goto(`${origin}/`);
+    await page.locator('[data-search-open]').click();
+    await page.locator('[data-search-dialog]').waitFor({ state: 'visible' });
+    await page.keyboard.press('Escape');
+    await page.locator('[data-search-open]').click();
+    await page.evaluate(() => { document.activeElement?.blur?.(); });
+    await page.keyboard.press('n');
+    assert.equal(await dialog.evaluate((el) => el.open), false);
+    await page.keyboard.press('Escape');
+
+    // Focus an element on /, press N: dialog opens and focuses the title field.
+    const notesTab = page.locator('.app-tabs a[href="/notes"]');
+    await notesTab.focus();
+    await page.keyboard.press('n');
+    await dialog.waitFor({ state: 'visible' });
+    await page.locator('#note-title').waitFor({ state: 'visible' });
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'note-title');
+    assert.deepEqual(await axeCheck(page, axeSource), [], 'open quick-note dialog on desktop: no axe findings');
+
+    // A refused write shows the error message and keeps the typed text.
+    const cfgPath = join(env.dir, '.cairn', 'config.json');
+    const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
+    cfg.rules = { ...(cfg.rules ?? {}), links: 'error' };
+    writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`);
+
+    await page.locator('#note-title').fill('Rule checked note');
+    await page.locator('#note-body').fill('Body kept [[ghost]]');
+    await page.locator('#note-project').selectOption(env.active.id);
+    await dialog.getByRole('button', { name: 'Save note' }).click();
+
+    const status = page.locator('[data-note-dialog-status]');
+    await page.waitForFunction(() => Boolean(document.querySelector('[data-note-dialog-status]')?.textContent?.trim()));
+    assert.match(await status.textContent(), /links/u);
+    assert.equal(await page.locator('#note-title').inputValue(), 'Rule checked note');
+    assert.equal(await page.locator('#note-body').inputValue(), 'Body kept [[ghost]]');
+    assert.equal(await page.locator('#note-project').inputValue(), env.active.id);
+    // The refused 422 write is the only expected console error.
+    assert.ok(errors.length === 1 && /422/u.test(errors[0]), errors.join('\n'));
+    errors.length = 0;
+
+    // Fix the note, save: page URL stays on /, form clears, status links to the created note.
+    await page.locator('#note-body').fill('Body kept without broken link');
+    await dialog.getByRole('button', { name: 'Save note' }).click();
+    await page.locator('[data-note-dialog-status] a').waitFor({ state: 'visible' });
+
+    assert.equal(page.url(), `${origin}/`);
+    assert.equal(await page.locator('#note-title').inputValue(), '');
+    assert.equal(await page.locator('#note-body').inputValue(), '');
+    assert.match(await status.textContent(), /Note saved\./u);
+    const savedHref = await page.locator('[data-note-dialog-status] a').getAttribute('href');
+    assert.match(savedHref ?? '', /^\/notes\/n-[0-9a-hjkmnp-tv-z]{6}$/u);
+    const savedId = savedHref.slice('/notes/'.length);
+    const savedEntity = entity.resolve(env.open(), 'note', savedId);
+    assert.equal(savedEntity.title, 'Rule checked note');
+    assert.equal(savedEntity.data.kind, 'note');
+    assert.equal(savedEntity.data.project, env.active.id);
+
+    // Escape closes the dialog and restores focus to where it was before N.
+    await page.keyboard.press('Escape');
+    assert.equal(await dialog.evaluate((el) => el.open), false);
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('href')), '/notes');
+
+    // Close button also closes.
+    await page.keyboard.press('n');
+    await page.locator('#note-title').waitFor({ state: 'visible' });
+    await page.locator('[data-note-dialog-close]').click();
+    assert.equal(await dialog.evaluate((el) => el.open), false);
+
+    assert.deepEqual(errors, [], `unexpected console/page errors: ${errors.join('; ')}`);
+  });
+
+test('quick-note dialog and /notes/new work at 375px with axe clean and no overflow', async (t) => {
+  const env = await boot(t);
+  if (!env) return;
+  const context = await env.browser.newContext({ viewport: { width: 375, height: 700 } });
+  env.cleanup(() => context.close());
+  const page = await context.newPage();
+  const errors = [];
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('pageerror', (error) => errors.push(error.message));
+  const axeSource = await readFile(fileURLToPath(import.meta.resolve('axe-core/axe.min.js')), 'utf8');
+
+  const origin = `http://${siteHost(key)}:${env.port}`;
+  await page.goto(loginUrl(env.port, key, instance));
+  await page.waitForURL(`${origin}/`, { timeout: 10_000 });
+
+  await page.goto(`${origin}/notes`);
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+
+  await page.keyboard.press('n');
+  await page.locator('#note-title').waitFor({ state: 'visible' });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  assert.deepEqual(await axeCheck(page, axeSource), [], 'open quick-note dialog at 375px: no axe findings');
+  await page.keyboard.press('Escape');
+
+  await page.locator('a[href="/notes/new"]').first().click();
+  await page.waitForURL(`${origin}/notes/new`);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  assert.deepEqual(await axeCheck(page, axeSource), [], '/notes/new at 375px: no axe findings');
+
+  await page.locator('#note-title').fill('Mobile page note');
+  await page.locator('#note-body').fill('Written on narrow screen.');
+  await page.getByRole('button', { name: 'Save note' }).click();
+  await page.waitForURL(new RegExp(`^${origin}/notes/n-[0-9a-hjkmnp-tv-z]{6}$`, 'u'));
+  assert.deepEqual(errors, [], `unexpected console/page errors: ${errors.join('; ')}`);
+
+  // Without JavaScript, /notes still leads to /notes/new and saves cleanly.
+  const plain = await env.browser.newContext({ javaScriptEnabled: false });
+  env.cleanup(() => plain.close());
+  const bare = await plain.newPage();
+  await bare.goto(loginUrl(env.port, key, instance));
+  await bare.goto(`${origin}/notes`);
+  await bare.locator('a[href="/notes/new"]').first().click();
+  await bare.waitForURL(`${origin}/notes/new`);
+  await bare.locator('#note-title').fill('No-script note');
+  await bare.getByRole('button', { name: 'Save note' }).click();
+  await bare.waitForURL(new RegExp(`^${origin}/notes/n-[0-9a-hjkmnp-tv-z]{6}$`, 'u'));
+});

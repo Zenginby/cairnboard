@@ -39,3 +39,8 @@ olduğu, kullanım sayısı ve açıklamasıyla listeler. Biçim, sürüm 1:
 }`. Araç başına
 yalnız `name` zorunludur; bağlantı `https://`, `http://` ya da `obsidian://` ile başlamalıdır. 1 MB'tan büyük, başka
 sürümde ya da bozuk dosya uyarıyla atlanır. Görüntüler kayıt değildir: değişiklik izi, arama ve yedek dışındadır.
+
+**Hızlı notlar.** Herhangi bir sayfada (bir yazı alanında ya da başka bir pencerede değilken) `N` tuşuna basarak
+hızlı not penceresini açabilir, isteğe bağlı bir projeye bağlayarak Markdown not (`kind: note`) ekleyebilir ya da
+betiksiz `/notes/new` sayfasını kullanabilirsiniz. Pencereden kaydettiğinizde bulunduğunuz sayfada kalırsınız ve
+kaydedilen notun bağlantısı görünür; `/notes` sayfasında da Not ekle düğmesi bulunur.

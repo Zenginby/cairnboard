@@ -549,6 +549,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
   line-height: var(--font-body-line-height);
 }
 .card-dialog-status { color: var(--color-text-2); font-size: var(--font-small-size); }
+.card-dialog-status a { color: var(--color-link); text-decoration: underline; text-underline-offset: var(--space-xs); }
 .card-dialog-status:empty { display: none; }
 .card-dialog-status + div:not(:empty) { margin-top: var(--space-md); }
 @media (max-width: 40rem) {

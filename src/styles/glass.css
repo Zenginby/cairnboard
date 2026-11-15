@@ -543,6 +543,7 @@
 [data-theme="cam"] .journal-content a,
 [data-theme="cam"] .document-body a,
 [data-theme="cam"] .settings-dialog-error a,
+[data-theme="cam"] .card-dialog-status a,
 [data-theme="cam"] .project-board-link {
   color: var(--color-link);
   text-decoration: underline;
@@ -556,6 +557,7 @@
   [data-theme="cam"] .journal-content a:hover,
   [data-theme="cam"] .document-body a:hover,
   [data-theme="cam"] .settings-dialog-error a:hover,
+  [data-theme="cam"] .card-dialog-status a:hover,
   [data-theme="cam"] .project-board-link:hover {
     text-decoration-color: var(--color-link);
   }

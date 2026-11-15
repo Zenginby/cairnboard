@@ -1,0 +1,46 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import PageState from '../../components/PageState.astro';
+import { t } from '../../i18n/index.mjs';
+
+let view;
+try {
+  view = await Astro.locals.notes?.view(Astro.request.headers.get('cookie'));
+} catch (error) {
+  console.error(error);
+  Astro.response.status = 500;
+}
+// A form post on localhost needs the page's origin in Referer/Origin; see cards/new.astro.
+Astro.response.headers.set('Referrer-Policy', 'same-origin');
+const ready = view?.state === 'ready';
+if (view && !ready) Astro.response.status = 409;
+---
+<AppShell title={t('noteForm.newTitle')} current="/notes" surface>
+  <meta slot="head" name="referrer" content="same-origin" />
+  {ready ? <><header class="screen-heading"><h1>{t('noteForm.newTitle')}</h1></header>
+    {/* The quick-note dialog imports this panel; the page itself is the no-script fallback. */}
+    <div class="card-panel" data-note-panel>
+      <form class="card-form" method="post" action="/notes">
+        <input type="hidden" name="csrf" value={view.csrf} />
+        <label class="sr-only" for="note-title">{t('noteForm.title')}</label>
+        <input id="note-title" class="card-title-input" name="title" type="text" required maxlength="200"
+          placeholder={t('noteForm.title')} autocomplete="off" />
+        <label class="card-field" for="note-body">{t('noteForm.body')}
+          <textarea id="note-body" name="body" rows="6" placeholder={t('noteForm.bodyPlaceholder')}></textarea>
+        </label>
+        <label class="card-field" for="note-project">{t('noteForm.project')}
+          <select id="note-project" name="project">
+            <option value="">{t('noteForm.noProject')}</option>
+            {view.projects.map((item) => <option value={item.id ?? item.ref}>{item.title}</option>)}
+          </select>
+        </label>
+        <div class="card-actions card-panel-actions">
+          <a class="action-link" href="/notes" data-note-cancel>{t('noteForm.cancel')}</a>
+          <button class="action-link action-primary" type="submit">{t('noteForm.save')}</button>
+        </div>
+      </form>
+    </div></>
+    : <PageState state={view ? view.state : 'error'} title={view ? t('noteForm.newTitle') : t('noteForm.errorTitle')}
+      message={view ? t('noteForm.notReady') : t('noteForm.errorBody')} backHref="/notes"
+      backLabel={t('noteForm.back')} />}
+</AppShell>

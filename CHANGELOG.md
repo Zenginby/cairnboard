@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Quick notes: `POST /notes`, `/notes/new` and a global `N` shortcut dialog let the owner save a note from any page.
 - Settings: a Language card on `/settings` and `cairn config get|set language tr|en` change the data folder's
   language (owner-only, logged as `config.language`). A web save switches the running server at once, without a
   restart; `cairn config --json` includes `language`.

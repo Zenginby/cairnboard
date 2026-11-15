@@ -38,3 +38,7 @@ that have it, its use count and description. The format, version 1:
 }`. Only `name`
 is required per tool; links must start with `https://`, `http://` or `obsidian://`. A file over 1 MB, with another
 version or a broken shape is skipped with a warning. Snapshots are not records: no change trail, search or backup.
+
+**Quick notes.** Press `N` on any page (when not typing in a field or another dialog) to open the quick-note dialog
+and save a Markdown note (`kind: note`) with an optional project link, or open `/notes/new` directly without scripts.
+Saving from the dialog keeps the current page open and links to the saved note; `/notes` also has an Add note link.

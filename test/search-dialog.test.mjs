@@ -15,7 +15,12 @@ test('search dialog renders research labels, counts and destinations', async (t)
   t.after(() => browser.close());
   const page = await browser.newPage();
   const texts = JSON.parse(readFileSync(new URL('../src/i18n/tr.json', import.meta.url), 'utf8'));
+  const typingScript = readFileSync(new URL('../src/scripts/typing.js', import.meta.url), 'utf8');
+  const script = readFileSync(new URL('../src/scripts/search-dialog.js', import.meta.url), 'utf8');
   await page.route('http://localhost/**', (route) => {
+    const { pathname } = new URL(route.request().url());
+    if (pathname === '/typing.js') return route.fulfill({ contentType: 'application/javascript', body: typingScript });
+    if (pathname === '/search-dialog.js') return route.fulfill({ contentType: 'application/javascript', body: script });
     if (route.request().url().includes('/api/search?')) return route.fulfill({ json: { ok: true, data: {
       results: { research: [{ type: 'research', ref: 'r-000001', title: '<b>Study</b>',
         snippetHtml: '<mark>Study</mark>', project: null, column: null, updated: null }] },
@@ -32,8 +37,7 @@ test('search dialog renders research labels, counts and destinations', async (t)
       </dialog></body></html>` });
   });
   await page.goto('http://localhost/');
-  const script = readFileSync(new URL('../src/scripts/search-dialog.js', import.meta.url), 'utf8');
-  await page.addScriptTag({ content: script });
+  await page.addScriptTag({ url: 'http://localhost/search-dialog.js', type: 'module' });
   await page.locator('[data-search-open]').click();
   await page.locator('[data-search-input]').fill('Study');
   const row = page.locator('#search-dialog-research-0');

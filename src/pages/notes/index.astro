@@ -83,8 +83,9 @@ for (const [topic, list] of topics) {
     <>
       <ReadWarnings codes={result?.warnings} />
       <div class="journal-page">
-        <header class="screen-heading">
+        <header class="screen-heading projects-heading-actions">
           <h1>{t('notes.title')}</h1>
+          <a class="action-link" href="/notes/new">{t('noteForm.add')}</a>
         </header>
         {data && data.projects.length > 0 && (
           <form class="journal-filters" method="get" action="/notes">
@@ -111,6 +112,7 @@ for (const [topic, list] of topics) {
         {groups.length === 0 ? (
           <section class="panel projects-empty">
             <p class="empty-copy">{t('notes.empty')}</p>
+            <p class="empty-copy"><a class="action-link" href="/notes/new">{t('noteForm.add')}</a></p>
           </section>
         ) : (
           groups.map((group) => (
