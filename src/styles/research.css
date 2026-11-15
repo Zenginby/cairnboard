@@ -151,6 +151,10 @@
   font-size: var(--font-caption-size);
 }
 
+.row-copy > .research-row-meta {
+  margin-top: var(--space-xs);
+}
+
 .research-date {
   color: var(--color-text-3);
   font-variant-numeric: tabular-nums;

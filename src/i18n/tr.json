@@ -477,5 +477,16 @@
   "tools.colKind": "Tür",
   "tools.colUsage": "Kullanım",
   "tools.colCost": "Maliyet",
-  "tools.otherKind": "Diğer"
+  "tools.otherKind": "Diğer",
+  "notes.title": "Notlar",
+  "notes.filter": "Projeye göre süz",
+  "notes.all": "Tümü",
+  "notes.pinned": "Sabitlenenler",
+  "notes.otherTopic": "Başlıksız",
+  "notes.empty": "Henüz not yok.",
+  "notes.kind.note": "Not",
+  "notes.kind.concept": "Kavram",
+  "notes.kind.tool": "Araç",
+  "notes.kind.query": "Sorgu",
+  "notes.kind.overview": "Genel bakış"
 }
