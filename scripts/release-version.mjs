@@ -82,6 +82,26 @@ export function checkReleaseVersion({ pkg, lock, readme, readmeTr, schema, chang
   return problems;
 }
 
+export function unreleasedEntries(changelog) {
+  if (typeof changelog !== 'string') return 0;
+  const lines = changelog.split(/\r?\n/);
+  const start = lines.indexOf('## [Unreleased]');
+  if (start === -1) return 0;
+  let count = 0;
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith('## ')) break;
+    if (line.startsWith('- ')) count++;
+  }
+  return count;
+}
+
+export function pendingWarning(changelog, version) {
+  const count = unreleasedEntries(changelog);
+  if (!count) return null;
+  return `release pending: ${count} CHANGELOG line(s) under [Unreleased] since ${version}; `
+    + 'follow docs/releasing.md';
+}
+
 function checkTag(version, cwd) {
   const tag = `v${version}`;
   const git = (...args) => execFileSync('git', args, {
@@ -131,11 +151,18 @@ function readJson(path) {
 function main(argv = process.argv.slice(2), cwd = process.cwd()) {
   const flags = new Set(argv);
   for (const flag of flags) {
-    if (flag !== '--tag' && flag !== '--github') {
+    if (flag !== '--tag' && flag !== '--github' && flag !== '--pending') {
       console.error(`Unknown option: ${flag}`);
-      console.error('Usage: release-version.mjs [--tag] [--github]');
+      console.error('Usage: release-version.mjs [--tag] [--github] | --pending');
       return 1;
     }
+  }
+
+  if (flags.has('--pending')) {
+    const warning = pendingWarning(readFileSync(join(cwd, 'CHANGELOG.md'), 'utf8'),
+      readJson(join(cwd, 'package.json')).version);
+    if (warning) console.error(warning);
+    return 0;
   }
 
   const pkg = readJson(join(cwd, 'package.json'));
@@ -158,6 +185,8 @@ function main(argv = process.argv.slice(2), cwd = process.cwd()) {
     return 1;
   }
   console.log(pkg.version);
+  const warning = pendingWarning(changelog, pkg.version);
+  if (warning) console.error(warning);
   return 0;
 }
 

@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkReleaseVersion } from '../scripts/release-version.mjs';
+import { checkReleaseVersion, pendingWarning, unreleasedEntries } from '../scripts/release-version.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const script = join(root, 'scripts/release-version.mjs');
@@ -123,4 +123,21 @@ test('CLI prints version and exits 0 on repository', () => {
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), pkg.version);
+});
+
+test('pending warning counts lines under [Unreleased] only', () => {
+  const released = validInput().changelog;
+  assert.equal(unreleasedEntries(released), 0);
+  assert.equal(pendingWarning(released, '0.2.0'), null);
+  const pending = released.replace('## [Unreleased]\n', '## [Unreleased]\n\n- One.\n  continued.\n- Two.\n');
+  assert.equal(unreleasedEntries(pending), 2);
+  assert.match(pendingWarning(pending, '0.2.0'),
+    /^release pending: 2 CHANGELOG line\(s\) under \[Unreleased\] since 0\.2\.0/);
+  assert.equal(unreleasedEntries(undefined), 0);
+});
+
+test('--pending never fails and stays quiet without unreleased lines', () => {
+  const result = spawnSync(process.execPath, [script, '--pending'], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout, '');
 });

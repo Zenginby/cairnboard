@@ -1,0 +1,4 @@
+#!/bin/sh
+[ "$(git symbolic-ref --short -q HEAD)" = main ] || exit 0
+node --no-warnings "$(git rev-parse --show-toplevel)/scripts/release-version.mjs" --pending
+exit 0

@@ -1,6 +1,8 @@
 # Releasing Cairnboard
 
-A release is not done until the GitHub Release exists.
+A release is not done until the GitHub Release exists. Every merge into `main` with user-visible changes ends with
+one (patch for fixes only, minor for new or changed features); the `post-merge` hook warns while
+`## [Unreleased]` in `CHANGELOG.md` still has lines.
 
 1. Move the `## [Unreleased]` lines in `CHANGELOG.md` into a dated section `## [X.Y.Z] - YYYY-MM-DD`, keeping
    `## [Unreleased]` at the top.
