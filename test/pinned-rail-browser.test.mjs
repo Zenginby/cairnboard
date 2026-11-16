@@ -79,7 +79,7 @@ test('pinned rail layout, breakpoints, pre-paint persistence, Escape, unpin/undo
 
     const dir = tempDir(t, 'cairn-rail-');
     const home = tempDir(t, 'cairn-rail-home-');
-    initDataDir(dir, { language: 'en' });
+    initDataDir(dir, { register: false, language: 'en' });
     const openAt = (iso) => openContext({ dataDir: dir, home, env: {}, clock: fixedClock(iso), mode: 'write',
       actor: 'web:owner' });
     const open = () => openContext({ dataDir: dir, home, env: {}, clock: fixedClock('2026-11-15T10:00:00Z'),
@@ -269,7 +269,7 @@ test('live updates refresh the pinned rail when an external write pins a note', 
 
   const dir = tempDir(t, 'cairn-rail-live-');
   const home = tempDir(t, 'cairn-rail-live-home-');
-  initDataDir(dir, { language: 'en' });
+  initDataDir(dir, { register: false, language: 'en' });
   const open = () => openContext({ dataDir: dir, home, env: {}, mode: 'read' });
   const openWrite = () => openContext({ dataDir: dir, home, mode: 'write', actor: 'agent:test', env: {} });
   const watcher = watch(open());
@@ -342,7 +342,7 @@ test('pinned rail handles followed-page 500, failed undo retry, failed refresh n
 
     const dir = tempDir(t, 'cairn-rail-edge-');
     const home = tempDir(t, 'cairn-rail-edge-home-');
-    initDataDir(dir, { language: 'en' });
+    initDataDir(dir, { register: false, language: 'en' });
     const open = () => openContext({ dataDir: dir, home, env: {},
       clock: fixedClock('2026-11-15T10:00:00Z'), mode: 'read' });
     const openWrite = () => openContext({ dataDir: dir, home, env: {},
@@ -472,7 +472,7 @@ test('pinned rail preserves $& in note titles for unpin aria-label and undo stat
 
   const dir = tempDir(t, 'cairn-rail-dollar-');
   const home = tempDir(t, 'cairn-rail-dollar-home-');
-  initDataDir(dir, { language: 'en' });
+  initDataDir(dir, { register: false, language: 'en' });
   const clock = fixedClock('2026-11-15T10:00:00Z');
   const open = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
   const openWrite = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'web:owner' });
