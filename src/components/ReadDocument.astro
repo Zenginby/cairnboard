@@ -4,7 +4,6 @@ import EntityMeta from './EntityMeta.astro';
 import { t } from '../i18n/index.mjs';
 const { item } = Astro.props;
 const card = item.type === 'card';
-const backlinks = item.meta.backlinks ?? [];
 ---
 <div class:list={['document-layout', { 'has-sidebar': card && item.relatedCards?.length > 0 }]}>
   <article class="document">
@@ -19,17 +18,6 @@ const backlinks = item.meta.backlinks ?? [];
       ? <div class="document-body" set:html={item.content.html} />
       : <p class="document-body plain-body">{item.content.body || item.content.snippet || t('document.empty')}</p>}
     <slot name="after-body" />
-    {!card && <section class="backlinks" aria-labelledby="backlinks-title">
-      <h2 id="backlinks-title">{t('note.backlinks')}</h2>
-      <p class="backlinks-hint">{t('note.backlinksHint')}</p>
-      {backlinks.length ? <ul class="backlink-list">{backlinks.map((link) => {
-        const ref = link.id ?? (link.type === 'note' ? link.ref : null);
-        const href = ref && ['card', 'note'].includes(link.type)
-          ? `/${link.type === 'card' ? 'cards' : 'notes'}/${encodeURIComponent(ref)}` : null;
-        return <li>{href ? <a class="row-title" href={href}>{link.title || t('home.untitled')}</a>
-          : <span>{link.title ?? link.src_path}</span>}</li>;
-      })}</ul> : <p class="empty-copy">{t('note.backlinksEmpty')}</p>}
-    </section>}
   </article>
   {card && item.relatedCards?.length > 0 && <aside class="document-sidebar" aria-labelledby="related-title">
     <h2 id="related-title">{t('card.related')}</h2>

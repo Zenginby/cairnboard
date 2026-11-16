@@ -13,6 +13,9 @@
 - Quick note: the dialog closes after a save and a short toast links to the new note; the title field is a rounded
   field; an "Add link" picker writes `[[name|title]]` links, and the note page explains its "Linked from" list.
 - Pinned rail: each note shows when it was added.
+- Note dialog: pin, edit, delete, open page and close are icons at the top right; the note page no longer lists
+  "Linked from" for now, the "Add link" picker is gone and the note field is labelled as plain text. On the notes
+  page the row buttons sit where the chevron is, on slightly taller rows.
 
 ## [0.2.0] - 2026-11-15
 

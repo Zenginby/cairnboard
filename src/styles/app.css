@@ -695,10 +695,6 @@ a, button { -webkit-tap-highlight-color: transparent; }
   height: 0; margin-block: var(--space-xl); border: 0; border-top: var(--space-hairline) solid var(--color-line);
 }
 .plain-body { white-space: pre-wrap; }
-.backlinks { margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: var(--space-hairline) solid var(--color-line); }
-.backlinks h2 { font-size: var(--font-title-size); }
-.backlink-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--space-search-width)), 1fr)); gap: var(--space-12); list-style: none; margin: var(--space-md) 0 0; padding: 0; }
-.backlink-list li { min-width: 0; padding: var(--space-md); border: var(--space-hairline) solid var(--color-line); border-radius: var(--radius-sm); font-size: var(--font-small-size); overflow-wrap: anywhere; }
 @media (max-width: 50rem) {
   .document-layout.has-sidebar { grid-template-columns: minmax(0, 1fr); }
   .document-layout.has-sidebar .document-sidebar, .document-layout.has-sidebar .document { grid-column: auto; grid-row: auto; }
@@ -1725,15 +1721,6 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
   .pinned-rail-item { transition-property: opacity; }
 }
 
-/* Note forms: "Add link" picker. */
-.note-link { display: grid; gap: var(--space-xs); }
-.note-link-hint, .backlinks-hint {
-  margin: 0;
-  color: var(--color-text-3);
-  font-size: var(--font-small-size);
-  line-height: var(--font-small-line-height);
-}
-.backlinks-hint { margin-top: var(--space-xs); }
 .action-link.action-danger { color: var(--color-danger); }
 .action-link.action-danger:hover { background: var(--color-danger-bg); }
 .note-delete-form, .note-pin-form { display: contents; }
@@ -1741,8 +1728,45 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 
 /* Note dialog: the note page's reading view in the card dialog's frame. */
 .note-view-dialog .document-heading > .eyebrow, .note-view-dialog .document-heading h1 { display: none; }
-.note-view-dialog .document-heading > .card-actions { margin-top: var(--space-sm); }
-.note-view-dialog [data-note-view-page][hidden] { display: none; }
+/* The page's text actions give way to the header's icons in the dialog. */
+.note-view-dialog .document-heading > .card-actions { display: none; }
+.note-view-dialog .settings-dialog-header { align-items: center; gap: var(--space-md); }
+.note-view-dialog .settings-dialog-header h2 { min-width: 0; overflow-wrap: anywhere; }
+.note-view-tools { display: flex; flex: none; align-items: center; gap: var(--space-2xs); margin-inline-start: auto; }
+.note-view-tool {
+  display: inline-grid;
+  place-items: center;
+  width: calc(var(--space-xl) + var(--space-xs));
+  height: calc(var(--space-xl) + var(--space-xs));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+  transition: background-color var(--motion-duration-quick) var(--motion-ease-out),
+    color var(--motion-duration-quick) var(--motion-ease-out);
+}
+.note-view-tool[hidden] { display: none; }
+.note-view-tool svg {
+  width: var(--space-lg);
+  height: var(--space-lg);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.note-view-tool:hover { background: var(--color-surface-inset); color: var(--color-text); }
+.note-view-tool[aria-pressed="true"] { color: var(--color-text); }
+.note-view-tool[aria-pressed="true"] svg { fill: currentColor; }
+.note-view-delete:hover { background: var(--color-danger-bg); color: var(--color-danger); }
+.note-view-tool:focus-visible { outline: var(--space-2xs) solid var(--color-focus); outline-offset: 0; }
+.note-view-tool:disabled { opacity: 0.5; cursor: progress; }
+/* A separator keeps Close apart from the note's own actions. */
+.note-view-tools > [data-note-view-close] { margin-inline-start: var(--space-xs); }
+@media (prefers-reduced-motion: reduce) { .note-view-tool { transition: none; } }
+[data-motion="less"] .note-view-tool { transition: none; }
 
 /* A short confirmation at the bottom of the screen, above the quick-note button. */
 .app-toast {
@@ -1811,23 +1835,23 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 .note-row { align-items: center; }
 .note-row .row-copy { flex: 1; min-width: 0; }
 .note-row-actions { display: flex; flex: none; gap: var(--space-2xs); }
-/* With a pointer the buttons float over the row's end on hover or focus, so titles keep the full width. */
+/* With a pointer the buttons take the place of the row's chevron, on the title line, on hover or focus; the row
+   is a little taller so they fit without covering the text below. */
 @media (hover: hover) {
-  .note-row { position: relative; }
+  .note-row { position: relative; padding-block: calc(var(--space-14) + var(--space-xs)); }
   .note-row-actions {
     position: absolute;
     inset-inline-end: 0;
-    top: 50%;
-    padding: var(--space-2xs);
+    top: calc(var(--space-14) + var(--space-xs) + var(--font-row-size) * var(--font-row-line-height) / 2);
     transform: translateY(-50%);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-box);
     opacity: 0;
     pointer-events: none;
     transition: opacity var(--motion-duration-quick) var(--motion-ease-out);
   }
   .note-row:hover .note-row-actions, .note-row:focus-within .note-row-actions { opacity: 1; pointer-events: auto; }
+  /* Specific enough to beat the glass theme's hover chevron. */
+  .notes-page [data-notes-item] .note-row.summary-row:is(:hover, :focus-within) a.row-title::after { opacity: 0; }
+  .note-row:is(:hover, :focus-within) .row-title { padding-inline-end: calc(var(--space-xl) * 2.4); }
 }
 .note-row-form { display: contents; }
 .note-row-button {
