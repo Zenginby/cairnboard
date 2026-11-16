@@ -268,7 +268,7 @@ Cam is a light theme for Cairnboard: frosted glass boxes over a dithered pixel h
 shadows only; shape, spacing, typography and motion come from the root `DESIGN.md`. The plain color tokens hold the
 opaque fallback used when backdrop blur is missing or the reader asks for reduced transparency or more contrast; the
 `glass-*` tokens hold the translucent layers, and `test/glass-contrast.test.mjs` checks them against every color of
-the scene image.
+the scene: the base image and the cloud, mist and twinkle layers that drift over it (root `DESIGN.md`, Motion).
 
 ## Elevation & Depth
 

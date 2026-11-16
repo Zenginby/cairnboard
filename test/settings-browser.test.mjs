@@ -113,14 +113,35 @@ test('Settings dialog and fallback: switches save, closing reloads, axe and cons
   assert.equal(await dialog.locator('[data-glass-choice]').isVisible(), true, 'the glass choice shows with script');
   const glass = () => page.evaluate(() =>
     [document.documentElement.dataset.glass, localStorage.getItem('cairn-glass')]);
-  await dialog.getByRole('radio', { name: 'Kapalı', exact: true }).check();
+  const glassGroup = dialog.getByRole('radiogroup', { name: 'Cam efekti', exact: true });
+  await glassGroup.getByRole('radio', { name: 'Kapalı', exact: true }).check();
   assert.deepEqual(await glass(), ['off', 'off']);
-  await dialog.getByRole('radio', { name: 'Açık', exact: true }).check();
+  await glassGroup.getByRole('radio', { name: 'Açık', exact: true }).check();
   assert.deepEqual(await glass(), ['on', 'on']);
-  await dialog.getByRole('radio', { name: 'Sisteme uy', exact: true }).check();
+  await glassGroup.getByRole('radio', { name: 'Sisteme uy', exact: true }).check();
   const system = await page.evaluate(() =>
     (matchMedia('(prefers-reduced-transparency: reduce), (prefers-contrast: more)').matches ? 'off' : 'on'));
   assert.deepEqual(await glass(), [system, null]);
+
+  // Background motion is the same kind of choice; the scene's clouds drift only while it resolves to on.
+  const sceneMotion = () => page.evaluate(() => [document.documentElement.dataset.sceneMotion,
+    localStorage.getItem('cairn-scene-motion'),
+    getComputedStyle(document.querySelector('.scene-clouds-far')).animationName,
+    getComputedStyle(document.querySelector('.scene-twinkle-b')).animationName]);
+  const motionGroup = dialog.getByRole('radiogroup', { name: 'Arka plan hareketi', exact: true });
+  assert.deepEqual(await sceneMotion(), ['on', null, 'scene-drift', 'scene-twinkle-b'], 'follows the system at first');
+  await motionGroup.getByRole('radio', { name: 'Kapalı', exact: true }).check();
+  assert.deepEqual(await sceneMotion(), ['off', 'off', 'none', 'none']);
+  assert.deepEqual(await glass(), [system, null], 'the glass choice is untouched');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await motionGroup.getByRole('radio', { name: 'Sisteme uy', exact: true }).check();
+  assert.deepEqual(await sceneMotion(), ['off', null, 'none', 'none'], 'Follow system reads reduced motion');
+  assert.equal(await dialog.locator('[data-scene-motion-system-note]').isVisible(), true);
+  await motionGroup.getByRole('radio', { name: 'Açık', exact: true }).check();
+  assert.deepEqual(await sceneMotion(), ['on', 'on', 'scene-drift', 'scene-twinkle-b']);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await motionGroup.getByRole('radio', { name: 'Sisteme uy', exact: true }).check();
+  assert.deepEqual(await sceneMotion(), ['on', null, 'scene-drift', 'scene-twinkle-b']);
 
   const writeRequest = page.waitForRequest((request) => request.method() === 'POST'
     && request.url() === `${origin}/settings/feature`);
