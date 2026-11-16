@@ -1489,6 +1489,21 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
     max-width: none;
     margin-inline: 0 var(--rail-space);
   }
+  /* Beside the rail the board page still centres on the screen while it fits: the heading and toolbar move right by
+     up to half the rail, and the board carries an empty first track that gives way before its columns do. */
+  :root:not([data-pinned-rail="closed"]) body:has(> .pinned-rail) > main.page-frame:has(> .board) > :not(.board, .sr-only) {
+    --block-width: min(var(--space-content-max), 100%);
+    margin-inline: min((100% + var(--rail-space) - var(--block-width)) / 2, 100% - var(--block-width)) 0;
+  }
+  :root:not([data-pinned-rail="closed"]) body:has(> .pinned-rail) > main.page-frame > .board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :root:not([data-pinned-rail="closed"]) body:has(> .pinned-rail) > main.page-frame > .board::before {
+    content: "";
+    grid-column: 1;
+    width: calc(var(--rail-space) - var(--space-12));
+    max-width: 100%;
+  }
   :root:not([data-pinned-rail="closed"]) body:has(> .pinned-rail) .quick-note-fab,
   :root:not([data-pinned-rail="closed"]) body:has(> .pinned-rail) > .live-status {
     right: calc(var(--pinned-rail-width) + var(--space-md) * 2 + env(safe-area-inset-right, 0px));

@@ -376,9 +376,9 @@ duration-highlight: 700ms
 duration-theme-reveal: 800ms
 duration-pulse: 2400ms
 duration-scene-twinkle: 6000ms
-duration-scene-drift-near: 360000ms
-duration-scene-mist: 540000ms
-duration-scene-drift-far: 720000ms
+duration-scene-drift-near: 720000ms
+duration-scene-mist: 1080000ms
+duration-scene-drift-far: 1440000ms
 stagger-max-items: 5
 ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1)
 ease-out: ease-out
@@ -389,7 +389,7 @@ ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1)
 ease-spring: linear(0, 0.038, 0.125, 0.233, 0.345, 0.451, 0.547, 0.63, 0.701, 0.76, 0.809, 0.849, 0.881, 0.906, 0.927, 0.943, 0.956, 0.966, 0.973, 0.979, 0.984, 0.988, 0.991, 0.993, 1)
 ease-spring-bouncy: linear(0, 0.051, 0.17, 0.319, 0.471, 0.611, 0.73, 0.826, 0.899, 0.952, 0.988, 1.01, 1.023, 1.028, 1.028, 1.026, 1.022, 1.018, 1.013, 1.01, 1.007, 1.004, 1.002, 1.001, 1)
 ease-spring-fallback: cubic-bezier(0.22, 1, 0.36, 1)
-ease-scene-drift: steps(360)
+ease-scene-drift: steps(720)
 ease-scene-twinkle: step-end
 distance-lift-card: 2px
 distance-lift: 3px

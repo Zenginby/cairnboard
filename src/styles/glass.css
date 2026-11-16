@@ -57,13 +57,14 @@
   background-color: var(--color-canvas);
 }
 
-/* The 360x540 picture, at least 760px wide and centred. Layers are placed in scene pixels (n / 360, n / 540). */
+/* The 720x540 picture, at least 1520px wide and centred, so a scene pixel is never smaller than about two screen
+   pixels and a wide screen still shows the hills and the lake. Layers are placed in scene pixels (n / 540). */
 [data-theme="cam"] .scene-stage {
   position: absolute;
   top: 0;
-  left: min(0px, (100% - 760px) / 2);
-  width: max(100%, 760px);
-  aspect-ratio: 2 / 3;
+  left: min(0px, (100% - 1520px) / 2);
+  width: max(100%, 1520px);
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   background: var(--scene-image) 0 0 / 100% 100% no-repeat;
   image-rendering: pixelated;
@@ -77,7 +78,7 @@
   image-rendering: pixelated;
 }
 
-/* A strip repeats its 360px image, so sliding the image one full width returns to the start. */
+/* A strip repeats its 720px image, so sliding the image one full width returns to the start. */
 [data-theme="cam"] :is(.scene-clouds-far, .scene-clouds-near, .scene-mist) {
   width: 200%;
   background-repeat: repeat-x;
@@ -114,7 +115,7 @@
 
 /* Background motion: on only with data-scene-motion="on" (theme-boot.js, from Settings or the system's reduced
    motion). Steps keep the pixels whole and leave seconds between repaints under the glass. The strips slide their
-   background rather than a transform: at a width that is not a multiple of 360px a transform lands between
+   background rather than a transform: at a width that is not a multiple of 720px a transform lands between
    pixels and blurs the edges. */
 [data-theme="cam"][data-scene-motion="on"]:not([data-motion="less"]) .scene-clouds-far {
   animation: scene-drift var(--motion-duration-scene-drift-far) var(--motion-ease-scene-drift) infinite;
