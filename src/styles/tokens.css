@@ -175,6 +175,10 @@
   --motion-duration-highlight: 700ms;
   --motion-duration-theme-reveal: 800ms;
   --motion-duration-pulse: 2400ms;
+  --motion-duration-scene-twinkle: 6000ms;
+  --motion-duration-scene-drift-near: 360000ms;
+  --motion-duration-scene-mist: 540000ms;
+  --motion-duration-scene-drift-far: 720000ms;
   --motion-stagger-max-items: 5;
   --motion-ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-out: ease-out;
@@ -185,6 +189,8 @@
   --motion-ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-spring-bouncy: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-spring-fallback: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-scene-drift: steps(360);
+  --motion-ease-scene-twinkle: step-end;
   --motion-distance-lift-card: 2px;
   --motion-distance-lift: 3px;
   --motion-distance-micro: 4px;

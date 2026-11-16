@@ -53,6 +53,16 @@ design/prototypes/yon-c/assets/inter-ext.woff2
 design/prototypes/yon-taban/assets/inter.woff2
 design/prototypes/yon-taban/assets/inter-ext.woff2
 # Scene backgrounds behind the app (generated pixel art).
+src/styles/scene/cam-dark-clouds-far.png
+src/styles/scene/cam-dark-clouds-near.png
+src/styles/scene/cam-dark-mist.png
+src/styles/scene/cam-dark-twinkle-a.png
+src/styles/scene/cam-dark-twinkle-b.png
 src/styles/scene/cam-dark.png
+src/styles/scene/cam-light-clouds-far.png
+src/styles/scene/cam-light-clouds-near.png
+src/styles/scene/cam-light-mist.png
+src/styles/scene/cam-light-twinkle-a.png
+src/styles/scene/cam-light-twinkle-b.png
 src/styles/scene/cam-light.png
 docs/images/logo.png

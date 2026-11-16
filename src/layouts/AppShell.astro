@@ -53,6 +53,15 @@ if (noteCsrf) Astro.response.headers.set('Referrer-Policy', 'same-origin');
     <slot name="head" />
   </head>
   <body class:list={{ 'surface-page': surface }} data-search-page={searchPage || undefined}>
+    <div class="scene" aria-hidden="true">
+      <div class="scene-stage">
+        <div class="scene-layer scene-clouds-far"></div>
+        <div class="scene-layer scene-clouds-near"></div>
+        <div class="scene-layer scene-mist"></div>
+        <div class="scene-layer scene-twinkle-a"></div>
+        <div class="scene-layer scene-twinkle-b"></div>
+      </div>
+    </div>
     <a class="skip-link action-link" href="#main">{t('shell.skip')}</a>
     <header class="app-shell" data-tab-count={tabs.length}>
       <div class="shell-top-row">
@@ -275,6 +284,7 @@ if (noteCsrf) Astro.response.headers.set('Referrer-Policy', 'same-origin');
     </dialog>
     <script src="../scripts/theme-toggle.js"></script>
     <script src="../scripts/glass-choice.js"></script>
+    <script src="../scripts/scene-motion-choice.js"></script>
     <script src="../scripts/shell-tabs.js"></script>
     {liveUpdates && <script is:inline type="module" src={liveScript}></script>}
     <script src="../scripts/search-dialog.js"></script>

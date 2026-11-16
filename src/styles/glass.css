@@ -2,6 +2,11 @@
 
 [data-theme="cam"] {
   --scene-image: url("./scene/cam-light.png");
+  --scene-clouds-far: url("./scene/cam-light-clouds-far.png");
+  --scene-clouds-near: url("./scene/cam-light-clouds-near.png");
+  --scene-mist: url("./scene/cam-light-mist.png");
+  --scene-twinkle-a: url("./scene/cam-light-twinkle-a.png");
+  --scene-twinkle-b: url("./scene/cam-light-twinkle-b.png");
   --glass-blur: 18px;
   --glass-saturate: 165%;
   --project-wash-strength: 14%;
@@ -9,6 +14,11 @@
 
 [data-theme="cam"][data-mode="dark"] {
   --scene-image: url("./scene/cam-dark.png");
+  --scene-clouds-far: url("./scene/cam-dark-clouds-far.png");
+  --scene-clouds-near: url("./scene/cam-dark-clouds-near.png");
+  --scene-mist: url("./scene/cam-dark-mist.png");
+  --scene-twinkle-a: url("./scene/cam-dark-twinkle-a.png");
+  --scene-twinkle-b: url("./scene/cam-dark-twinkle-b.png");
   --glass-blur: 20px;
   --glass-saturate: 155%;
   --project-wash-strength: 9%;
@@ -17,31 +27,121 @@
 @media (prefers-color-scheme: dark) {
   [data-theme="cam"]:not([data-mode="light"]) {
     --scene-image: url("./scene/cam-dark.png");
+    --scene-clouds-far: url("./scene/cam-dark-clouds-far.png");
+    --scene-clouds-near: url("./scene/cam-dark-clouds-near.png");
+    --scene-mist: url("./scene/cam-dark-mist.png");
+    --scene-twinkle-a: url("./scene/cam-dark-twinkle-a.png");
+    --scene-twinkle-b: url("./scene/cam-dark-twinkle-b.png");
     --glass-blur: 20px;
     --glass-saturate: 155%;
     --project-wash-strength: 9%;
   }
 }
 
-/* Fixed viewport scene layer; below the image height the page continues in --color-canvas. */
+/* Fixed viewport scene (AppShell.astro's .scene); below the picture the page continues in --color-canvas. */
 [data-theme="cam"] body,
 [data-theme="cam"] body.surface-page {
   background-color: var(--color-canvas);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-[data-theme="cam"] body::before {
-  content: "";
+.scene { display: none; }
+
+[data-theme="cam"] .scene {
+  display: block;
   position: fixed;
   inset: 0;
   z-index: -1;
+  overflow: hidden;
   pointer-events: none;
   background-color: var(--color-canvas);
-  background-image: var(--scene-image);
-  background-size: max(100%, 760px) auto;
-  background-position: center top;
-  background-repeat: no-repeat;
+}
+
+/* The 360x540 picture, at least 760px wide and centred. Layers are placed in scene pixels (n / 360, n / 540). */
+[data-theme="cam"] .scene-stage {
+  position: absolute;
+  top: 0;
+  left: min(0px, (100% - 760px) / 2);
+  width: max(100%, 760px);
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  background: var(--scene-image) 0 0 / 100% 100% no-repeat;
   image-rendering: pixelated;
+}
+
+[data-theme="cam"] .scene-layer {
+  position: absolute;
+  left: 0;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+}
+
+/* A strip repeats its 360px image, so sliding the image one full width returns to the start. */
+[data-theme="cam"] :is(.scene-clouds-far, .scene-clouds-near, .scene-mist) {
+  width: 200%;
+  background-repeat: repeat-x;
+  background-size: 50% 100%;
+}
+
+[data-theme="cam"] :is(.scene-clouds-far, .scene-clouds-near) {
+  top: calc(100% * 88 / 540);
+  height: calc(100% * 76 / 540);
+}
+
+[data-theme="cam"] .scene-clouds-far { background-image: var(--scene-clouds-far); }
+[data-theme="cam"] .scene-clouds-near { background-image: var(--scene-clouds-near); }
+
+[data-theme="cam"] .scene-mist {
+  top: calc(100% * 228 / 540);
+  height: calc(100% * 40 / 540);
+  background-image: var(--scene-mist);
+}
+
+[data-theme="cam"] :is(.scene-twinkle-a, .scene-twinkle-b) {
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+[data-theme="cam"] .scene-twinkle-a { background-image: var(--scene-twinkle-a); }
+
+/* Standing still, only the first set of stars and glints shows. */
+[data-theme="cam"] .scene-twinkle-b {
+  background-image: var(--scene-twinkle-b);
+  opacity: 0;
+}
+
+/* Background motion: on only with data-scene-motion="on" (theme-boot.js, from Settings or the system's reduced
+   motion). Steps keep the pixels whole and leave seconds between repaints under the glass. The strips slide their
+   background rather than a transform: at a width that is not a multiple of 360px a transform lands between
+   pixels and blurs the edges. */
+[data-theme="cam"][data-scene-motion="on"]:not([data-motion="less"]) .scene-clouds-far {
+  animation: scene-drift var(--motion-duration-scene-drift-far) var(--motion-ease-scene-drift) infinite;
+}
+
+[data-theme="cam"][data-scene-motion="on"]:not([data-motion="less"]) .scene-clouds-near {
+  animation: scene-drift var(--motion-duration-scene-drift-near) var(--motion-ease-scene-drift) infinite;
+}
+
+[data-theme="cam"][data-scene-motion="on"]:not([data-motion="less"]) .scene-mist {
+  animation: scene-drift var(--motion-duration-scene-mist) var(--motion-ease-scene-drift) infinite reverse;
+}
+
+[data-theme="cam"][data-scene-motion="on"]:not([data-motion="less"]) .scene-twinkle-a {
+  animation: scene-twinkle-a var(--motion-duration-scene-twinkle) var(--motion-ease-scene-twinkle) infinite;
+}
+
+[data-theme="cam"][data-scene-motion="on"]:not([data-motion="less"]) .scene-twinkle-b {
+  animation: scene-twinkle-b var(--motion-duration-scene-twinkle) var(--motion-ease-scene-twinkle) infinite;
+}
+
+@keyframes scene-drift { from { background-position-x: 100%; } to { background-position-x: 0%; } }
+@keyframes scene-twinkle-a { 0% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes scene-twinkle-b { 0% { opacity: 0; } 50%, 100% { opacity: 1; } }
+
+@media print {
+  [data-theme="cam"] .scene { display: none; }
 }
 
 /* Without data-glass="on" (set by theme-boot.js) or backdrop blur, surfaces keep the opaque fallback tokens. */

@@ -288,7 +288,8 @@ never carry meaning on their own. Status colors (`done`, `doing`, `planned`, `ur
 Glass layers (`glass-surface`, `glass-surface-inset`, `glass-surface-inset-2`, `glass-material`, `glass-pill-bg`,
 `glass-pill-indicator`, `glass-column`, `glass-card`, `glass-row-hover`, with `glass-rim` and `glass-highlight` for
 the edge light) exist in every theme. In an opaque theme they repeat the plain tokens; in the Cam theme they are
-translucent and sit over the theme's scene image (`src/styles/scene/`, built by `npm run design:scene`), while the
+translucent and sit over the theme's scene (`src/styles/scene/`, a base image and its cloud, mist and twinkle layers,
+built by `npm run design:scene`), while the
 plain tokens keep the opaque fallback for missing backdrop blur, reduced transparency and more contrast.
 
 ## Copy
@@ -354,6 +355,15 @@ Theme changes reveal the new palette as a circle growing from the control that c
 the root, `clip-path` from radius 0 to the farthest corner, `duration-theme-reveal` with `ease-out-quart`). During it nothing else transitions, and without view
 transition support, with reduced motion or with "Motion: less" the theme changes instantly.
 
+The ambient scene behind a glass theme is the one place that loops with keyframes. Its clouds and mist drift
+sideways one scene pixel at a time (`ease-scene-drift`, one full turn per `duration-scene-drift-far`,
+`duration-scene-drift-near` or `duration-scene-mist`), and two sets of stars and lake glints take turns
+(`duration-scene-twinkle`, `ease-scene-twinkle`, no fade). The strips slide `background-position` (a transform
+would land between pixels and blur the picture) and the twinkle switches `opacity`; a step comes every second or
+two, nothing in front of the scene moves with it, and it runs only with `data-scene-motion="on"`: the reader's "Background motion" choice
+in Settings, which follows the system's reduced motion unless they pick on or off. "Motion: less" always stops it.
+When it is off the scene is the same picture, standing still.
+
 ```yaml
 duration-stagger: 40ms
 duration-press: 120ms
@@ -365,6 +375,10 @@ duration-very-slow: 500ms
 duration-highlight: 700ms
 duration-theme-reveal: 800ms
 duration-pulse: 2400ms
+duration-scene-twinkle: 6000ms
+duration-scene-drift-near: 360000ms
+duration-scene-mist: 540000ms
+duration-scene-drift-far: 720000ms
 stagger-max-items: 5
 ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1)
 ease-out: ease-out
@@ -375,6 +389,8 @@ ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1)
 ease-spring: linear(0, 0.038, 0.125, 0.233, 0.345, 0.451, 0.547, 0.63, 0.701, 0.76, 0.809, 0.849, 0.881, 0.906, 0.927, 0.943, 0.956, 0.966, 0.973, 0.979, 0.984, 0.988, 0.991, 0.993, 1)
 ease-spring-bouncy: linear(0, 0.051, 0.17, 0.319, 0.471, 0.611, 0.73, 0.826, 0.899, 0.952, 0.988, 1.01, 1.023, 1.028, 1.028, 1.026, 1.022, 1.018, 1.013, 1.01, 1.007, 1.004, 1.002, 1.001, 1)
 ease-spring-fallback: cubic-bezier(0.22, 1, 0.36, 1)
+ease-scene-drift: steps(360)
+ease-scene-twinkle: step-end
 distance-lift-card: 2px
 distance-lift: 3px
 distance-micro: 4px
@@ -411,6 +427,6 @@ front matter so their contrast is checked in every theme.
 - Don't animate layout properties (width, height, top, left) or start anything from `scale(0)`.
 - Don't put a box inside a box on document pages.
 - Don't add theme-specific shapes or motion; a theme is colors and shadows only. The one exception is Cam's
-  `src/styles/glass.css`: the scene layer, backdrop blur and edge light, glass bands that keep text off the scene,
+  `src/styles/glass.css`: the scene layer and its slow drift, backdrop blur and edge light, glass bands that keep text off the scene,
   and its chevron links. It switches glass on only with `data-glass="on"` (set by `theme-boot.js` from the reader's
   Settings choice, or from their system's reduced transparency and contrast) and where backdrop blur is supported.

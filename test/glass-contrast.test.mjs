@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
@@ -52,7 +52,8 @@ function contrast(a, b) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-// Unique colors of an 8-bit RGB or RGBA PNG without interlacing (what scripts/scene-build.mjs writes).
+// Unique colors of an 8-bit RGB or RGBA PNG without interlacing (what scripts/scene-build.mjs writes). Transparent
+// pixels are skipped; a half-transparent one would blend with the layer below into a color this test cannot see.
 export function pngColors(buffer) {
   let offset = 8;
   let width; let height; let channels;
@@ -89,9 +90,19 @@ export function pngColors(buffer) {
   }
   const colors = new Map();
   for (let i = 0; i < pixels.length; i += channels) {
+    if (channels === 4 && pixels[i + 3] === 0) continue;
+    if (channels === 4 && pixels[i + 3] !== 255) throw new Error('scene layer pixels must be opaque or transparent');
     colors.set((pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2], [pixels[i], pixels[i + 1], pixels[i + 2]]);
   }
   return [...colors.values()];
+}
+
+// The base image and every layer glass.css moves over it (clouds, mist, twinkle).
+function sceneColors(mode) {
+  const files = readdirSync(sceneDir).filter((name) => new RegExp(`^cam-${mode}(?:-[a-z-]+)?\\.png$`, 'u').test(name));
+  const colors = new Map(files.flatMap((name) => pngColors(readFileSync(new URL(name, sceneDir))))
+    .map((rgb) => [rgb.join(), rgb]));
+  return { files, colors: [...colors.values()] };
 }
 
 const themes = (await readDesignSources(root)).map(parseDesign);
@@ -103,13 +114,15 @@ test('only themes with a scene image use translucent glass backgrounds', () => {
   for (const { file } of glassThemes) {
     const mode = basename(file, '.md').endsWith('-dark') ? 'dark' : 'light';
     assert.ok(existsSync(new URL(`cam-${mode}.png`, sceneDir)), `${file}: scene image cam-${mode}.png is missing`);
+    assert.deepEqual(sceneColors(mode).files.sort(), ['', '-clouds-far', '-clouds-near', '-mist', '-twinkle-a',
+      '-twinkle-b'].map((layer) => `cam-${mode}${layer}.png`).sort(), `${file}: scene layers`);
   }
 });
 
 for (const theme of glassThemes) {
   test(`${theme.file}: text on glass keeps 4.5:1 over every scene color`, () => {
     const mode = basename(theme.file, '.md').endsWith('-dark') ? 'dark' : 'light';
-    const scene = pngColors(readFileSync(new URL(`cam-${mode}.png`, sceneDir)));
+    const scene = sceneColors(mode).colors;
     const token = (ref) => parseColor(theme.colors[ref.replace(/^\{colors\.|\}$/gu, '')]);
     const pairs = Object.values(theme.components)
       .filter(({ backgroundColor, textColor }) => textColor && /^\{colors\.glass-/u.test(backgroundColor))
