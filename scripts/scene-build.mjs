@@ -1,5 +1,5 @@
 // Scene images for the Cam theme: a dithered pixel highland horizon with a cairn, dependency-free (node:zlib).
-// Writes src/styles/scene/cam-<mode>.png (the 360x540 base) and the layers glass.css moves over it:
+// Writes src/styles/scene/cam-<mode>.png (the 720x540 base) and the layers glass.css moves over it:
 // cam-<mode>-clouds-far.png, -clouds-near.png and -mist.png (strips that tile sideways) and -twinkle-a.png,
 // -twinkle-b.png (stars and lake glints that take turns). Layer pixels are fully opaque or fully transparent.
 // Run with `npm run design:scene`; test/glass-contrast.test.mjs checks the glass tokens against every pixel color.
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const WIDTH = 360;
+const WIDTH = 720;
 const HEIGHT = 540;
 
 const BAYER_4 = [
@@ -252,7 +252,7 @@ function generateScene(mode, seed) {
   const stars = new Set();
   if (isDark) {
     const rand = rng(1);
-    for (let i = 0; i < 64; i++) {
+    for (let i = 0; i < 128; i++) {
       stars.add(`${Math.floor(rand() * WIDTH)},${6 + Math.floor(rand() * 82)}`);
     }
   }
@@ -275,18 +275,26 @@ function generateScene(mode, seed) {
   const midPines = pineProfile(rng(2), [
     { from: 20, to: 92, count: 14, minH: 4, maxH: 8 },
     { from: 168, to: 232, count: 11, minH: 4, maxH: 7 },
+    { from: 352, to: 398, count: 8, minH: 4, maxH: 7 },
+    { from: 470, to: 556, count: 15, minH: 4, maxH: 8 },
+    { from: 640, to: 704, count: 11, minH: 4, maxH: 7 },
   ]);
   const nearPines = pineProfile(rng(3), [
     { from: 0, to: 58, count: 9, minH: 7, maxH: 13 },
     { from: 120, to: 196, count: 12, minH: 6, maxH: 12 },
-    { from: 318, to: 359, count: 6, minH: 7, maxH: 12 },
+    { from: 286, to: 344, count: 9, minH: 7, maxH: 12 },
+    { from: 500, to: 586, count: 13, minH: 6, maxH: 13 },
+    { from: 668, to: 719, count: 8, minH: 7, maxH: 12 },
   ]);
   const shorePines = pineProfile(rng(4), [
-    { from: 0, to: 70, count: 8, minH: 10, maxH: 20 },
-    { from: 232, to: 359, count: 13, minH: 9, maxH: 19 },
+    { from: 0, to: 96, count: 11, minH: 10, maxH: 20 },
+    { from: 214, to: 300, count: 9, minH: 9, maxH: 17 },
+    { from: 452, to: 540, count: 9, minH: 9, maxH: 18 },
+    { from: 628, to: 719, count: 11, minH: 10, maxH: 20 },
   ]);
+  // The sun or moon and the cairn stand toward the sides: the middle of a wide screen is covered by the page.
   // Boulders beside the cairn
-  for (const [cx, h, hw] of [[258, 4, 4], [296, 3, 3], [303, 2, 2]]) {
+  for (const [cx, h, hw] of [[628, 4, 4], [668, 3, 3], [675, 2, 2], [92, 3, 3], [398, 4, 4], [407, 2, 2]]) {
     for (let dx = -hw; dx <= hw; dx++) {
       const rise = Math.abs(dx) === hw ? h - 1 : h;
       if (rise > nearPines[cx + dx]) nearPines[cx + dx] = rise;
@@ -294,7 +302,7 @@ function generateScene(mode, seed) {
   }
 
   // The cairn stands on the near ridge; a smaller one marks the path on the ridge behind.
-  const cairnX = 278;
+  const cairnX = 648;
   const cairn = cairnPixels(cairnX, Math.floor(ridgeNearY(cairnX)) + 1, [
     { hw: 11, h: 5, xs: 0 },
     { hw: 9, h: 4, xs: -1 },
@@ -304,7 +312,7 @@ function generateScene(mode, seed) {
     { hw: 3, h: 2, xs: 1 },
     { hw: 2, h: 2, xs: 0 },
   ], cairnDark, cairnLit);
-  const farCairnX = 118;
+  const farCairnX = 590;
   const farCairn = cairnPixels(farCairnX, Math.floor(ridgeMidY(farCairnX)), [
     { hw: 4, h: 2, xs: 0 },
     { hw: 3, h: 2, xs: -1 },
@@ -312,11 +320,11 @@ function generateScene(mode, seed) {
     { hw: 1, h: 1, xs: 0 },
   ], cairnDark, cairnLit);
 
-  const disc = { x: 64, y: 116, r: 9 };
+  const disc = { x: 62, y: 112, r: 9 };
   const tufts = new Set();
   {
     const rand = rng(5);
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 180; i++) {
       const tx = 2 + Math.floor(rand() * (WIDTH - 4));
       const ty = 350 + Math.floor(rand() * (HEIGHT - 356));
       tufts.add(`${tx - 1},${ty}`).add(`${tx},${ty - 1}`).add(`${tx + 1},${ty}`);
@@ -400,21 +408,25 @@ function generateScene(mode, seed) {
     return layer;
   };
   const cloudsFar = cloudLayer(rng(6), [
-    { cx: 52, cy: 110, count: 5, scale: 0.8 },
-    { cx: 172, cy: 104, count: 4, scale: 0.72 },
-    { cx: 292, cy: 108, count: 6, scale: 0.85 },
+    { cx: 132, cy: 110, count: 5, scale: 0.8 },
+    { cx: 262, cy: 104, count: 4, scale: 0.72 },
+    { cx: 418, cy: 106, count: 5, scale: 0.8 },
+    { cx: 548, cy: 110, count: 6, scale: 0.85 },
+    { cx: 664, cy: 103, count: 4, scale: 0.72 },
   ]);
   const cloudsNear = cloudLayer(rng(7), [
-    { cx: 112, cy: 138, count: 6, scale: 1.12 },
-    { cx: 236, cy: 132, count: 5, scale: 0.95 },
-    { cx: 338, cy: 142, count: 4, scale: 0.88 },
+    { cx: 178, cy: 138, count: 6, scale: 1.12 },
+    { cx: 318, cy: 144, count: 4, scale: 0.88 },
+    { cx: 462, cy: 136, count: 6, scale: 1.08 },
+    { cx: 596, cy: 142, count: 5, scale: 0.95 },
+    { cx: 676, cy: 140, count: 4, scale: 0.8 },
   ]);
 
   // Mist: long thin wisps over the far shore of the lake
   const mist = makeLayer(MIST_TOP, MIST_HEIGHT);
   {
     const rand = rng(8);
-    const wisps = Array.from({ length: 7 }, () => ({
+    const wisps = Array.from({ length: 14 }, () => ({
       x: rand() * WIDTH,
       y: MIST_TOP + 9 + rand() * (MIST_HEIGHT - 18),
       rx: 34 + rand() * 40,
@@ -437,11 +449,11 @@ function generateScene(mode, seed) {
   const twinkle = (rand) => {
     const layer = makeLayer(0, HEIGHT);
     if (isDark) {
-      for (let i = 0; i < 22; i++) {
+      for (let i = 0; i < 44; i++) {
         layer.set(Math.floor(rand() * WIDTH), 6 + Math.floor(rand() * 82), starColor);
       }
     }
-    for (let i = 0, placed = 0; i < 400 && placed < 34; i++) {
+    for (let i = 0, placed = 0; i < 800 && placed < 68; i++) {
       const gx = Math.floor(rand() * (WIDTH - 4));
       const gy = 252 + Math.floor(rand() * 70);
       const length = 2 + Math.floor(rand() * 2);

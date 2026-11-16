@@ -5,6 +5,8 @@
 - Cam scene: more detail (pines, a larger cairn, rocks, a lake with the sun or moon reflected) and slow background
   motion: clouds and mist drift, stars and lake glints take turns. Settings > Appearance gains "Background motion"
   (follow system, on, off), kept per browser; it stands still with reduced motion.
+- Board: with the pinned rail open, the board stays centred on the screen while it fits, instead of on the space
+  left of the rail.
 - Release process: `docs/releasing.md` checklist and `npm run release:verify` version consistency check.
 - Fix pinned-note excerpt stalls on `[` runs, `N` opening a duplicate form on `/notes/new`, `$&` in `{title}`
   replacements, and overlapping live-update pauses across the board and pinned rail.
