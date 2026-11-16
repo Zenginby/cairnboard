@@ -15,7 +15,7 @@ const card = item.type === 'card';
       <slot name="actions" />
     </header>
     {item.content.html != null
-      ? <div class="document-body" set:html={item.content.html} />
+      ? <div class:list={['document-body', { 'note-body': !card }]} set:html={item.content.html} />
       : <p class="document-body plain-body">{item.content.body || item.content.snippet || t('document.empty')}</p>}
     <slot name="after-body" />
   </article>
