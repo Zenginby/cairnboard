@@ -1728,6 +1728,9 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 
 /* Note dialog: the note page's reading view in the card dialog's frame. */
 .note-view-dialog .document-heading > .eyebrow, .note-view-dialog .document-heading h1 { display: none; }
+/* A note is written as plain text: each line it was typed on stays its own line. */
+.note-body p { white-space: pre-line; }
+
 /* The page's text actions give way to the header's icons in the dialog. */
 .note-view-dialog .document-heading > .card-actions { display: none; }
 .note-view-dialog .settings-dialog-header { align-items: center; gap: var(--space-md); }

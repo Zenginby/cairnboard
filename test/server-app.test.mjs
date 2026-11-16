@@ -345,7 +345,7 @@ for (const [vault, loosePath] of [['plain', 'Ideas/Spark.md'], ['daily', 'Archiv
         const page = await inProcess(app, `/notes/${ref}`);
         assert.equal(page.status, 200, ref);
         headers(page);
-        assert.match(page.body, /class="document-body"/u);
+        assert.match(page.body, /class="document-body note-body"/u);
       }
       const identified = await inProcess(app, '/notes/n-000001');
       const backlink = listed.json.data.items.find((item) => item.path === 'notes/loose.md');

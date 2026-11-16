@@ -16,6 +16,7 @@
 - Note dialog: pin, edit, delete, open page and close are icons at the top right; the note page no longer lists
   "Linked from" for now, the "Add link" picker is gone and the note field is labelled as plain text. On the notes
   page the row buttons sit where the chevron is, on slightly taller rows.
+- Notes keep each typed line on its own line when read; a blank line still starts a new paragraph.
 
 ## [0.2.0] - 2026-11-15
 
