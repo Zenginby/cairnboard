@@ -1,6 +1,7 @@
 ---
 import { t, uiLanguage } from '../i18n/index.mjs';
-const { item, updated = false } = Astro.props;
+// `dateOnly`: just the updated line, which a note shows at the end of its body.
+const { item, updated = false, dateOnly = false } = Astro.props;
 const { meta, content, project, column } = item;
 const priority = ['urgent', 'important', 'low'].includes(meta.priority) ? meta.priority : null;
 const status = ['active', 'paused', 'archived'].includes(meta.status) ? meta.status : null;
@@ -13,7 +14,10 @@ const dateText = (value) => (uiLanguage() === 'en'
   : value.toLocaleDateString('tr-TR', { timeZone: 'UTC' }));
 const date = updated && meta.updated && !Number.isNaN(Date.parse(meta.updated)) ? new Date(meta.updated) : null;
 ---
-<div class="entity-meta">
+{dateOnly ? date && <p class="entity-updated">
+  {t('document.updated')}: <time datetime={meta.updated}>{dateText(date)}</time>
+</p>
+  : <div class="entity-meta">
   {column && <span class:list={['chip', `status-${role}`]}>{column.label}</span>}
   {!column && status && <span class="chip">{t(`status.${status}`)}</span>}
   {priority && <span class:list={['chip', `priority-${priority}`]}>{t(`priority.${priority}`)}</span>}
@@ -21,4 +25,4 @@ const date = updated && meta.updated && !Number.isNaN(Date.parse(meta.updated)) 
   {assignee && <span>{t('document.assignee')}: {assignee}</span>}
   {meta.acceptance?.total > 0 && <span class="acceptance-count">{meta.acceptance.done}/{meta.acceptance.total} {t('home.progress')}</span>}
   {date && <span>{t('document.updated')}: <time datetime={meta.updated}>{dateText(date)}</time></span>}
-</div>
+</div>}

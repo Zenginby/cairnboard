@@ -10,13 +10,14 @@ const card = item.type === 'card';
     <header class="document-heading">
       <p class="eyebrow">{t(card ? 'type.card' : 'type.note')}</p>
       <h1>{item.content.title || t('home.untitled')}</h1>
-      <EntityMeta item={item} updated />
+      <EntityMeta item={item} updated={card} />
       {card && <CardStatus content={item.content} />}
       <slot name="actions" />
     </header>
     {item.content.html != null
       ? <div class:list={['document-body', { 'note-body': !card }]} set:html={item.content.html} />
       : <p class="document-body plain-body">{item.content.body || item.content.snippet || t('document.empty')}</p>}
+    {!card && <EntityMeta item={item} updated dateOnly />}
     <slot name="after-body" />
   </article>
   {card && item.relatedCards?.length > 0 && <aside class="document-sidebar" aria-labelledby="related-title">
