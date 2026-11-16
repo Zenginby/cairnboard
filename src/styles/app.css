@@ -578,6 +578,14 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .entity-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-sm); margin-top: var(--space-md); color: var(--color-text-3); font-size: var(--font-caption-size); overflow-wrap: anywhere; }
 .entity-meta > * { min-width: 0; max-width: 100%; }
 .entity-meta .chip { max-width: 100%; }
+.entity-meta:empty { display: none; }
+/* A note's last update sits at the bottom right, under its text. */
+.entity-updated {
+  margin: var(--space-lg) 0 0;
+  color: var(--color-text-3);
+  font-size: var(--font-caption-size);
+  text-align: end;
+}
 .project-chip { background: var(--project-wash); color: var(--project-ink); }
 .status-doing { background: var(--color-doing-bg); color: var(--color-doing); }
 .status-done { background: var(--color-done-bg); color: var(--color-done); }
@@ -1735,7 +1743,35 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 .note-view-dialog .document-heading > .card-actions { display: none; }
 .note-view-dialog .settings-dialog-header { align-items: center; gap: var(--space-md); }
 .note-view-dialog .settings-dialog-header h2 { min-width: 0; overflow-wrap: anywhere; }
-.note-view-tools { display: flex; flex: none; align-items: center; gap: var(--space-2xs); margin-inline-start: auto; }
+/* Pin, edit and delete sit right under the header line, at the right. */
+.note-view-toolbar {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-lg) 0;
+}
+.note-view-toolbar[hidden] { display: none; }
+/* The toolbar's buttons are a size larger; edit and delete also say what they do. */
+.note-view-toolbar .note-view-tool {
+  width: calc(var(--space-xl) + var(--space-md));
+  height: calc(var(--space-xl) + var(--space-md));
+}
+.note-view-toolbar .note-view-tool svg {
+  width: calc(var(--space-lg) + var(--space-2xs));
+  height: calc(var(--space-lg) + var(--space-2xs));
+}
+.note-view-toolbar .note-view-labelled {
+  display: inline-flex;
+  gap: var(--space-xs);
+  width: auto;
+  padding-inline: var(--space-14) var(--space-md);
+  font-size: var(--font-ui-size);
+  font-weight: var(--font-ui-weight);
+  text-decoration: none;
+}
+.note-view-toolbar .note-view-edit { background: var(--color-focus-bg); }
+.note-view-toolbar .note-view-delete { background: var(--color-danger-bg); }
 .note-view-tool {
   display: inline-grid;
   place-items: center;
@@ -1763,11 +1799,23 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 .note-view-tool:hover { background: var(--color-surface-inset); color: var(--color-text); }
 .note-view-tool[aria-pressed="true"] { color: var(--color-text); }
 .note-view-tool[aria-pressed="true"] svg { fill: currentColor; }
+/* Edit and delete carry their own colours so they read apart at a glance. */
+.note-view-edit { color: var(--color-link); }
+.note-view-edit:hover { background: var(--color-focus-bg); color: var(--color-link); }
+.note-view-delete { color: var(--color-danger); }
 .note-view-delete:hover { background: var(--color-danger-bg); color: var(--color-danger); }
+
+/* The delete question, centred and themed like the other dialogs. */
+.settings-dialog.confirm-dialog {
+  width: min(calc(var(--space-search-width) * 1.5), calc(100vw - var(--space-md) * 2));
+  padding: var(--space-lg);
+}
+.confirm-dialog-text { margin: 0; color: var(--color-text); font-size: var(--font-body-size);
+  line-height: var(--font-body-line-height); }
+.confirm-dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); margin-top: var(--space-lg); }
+.confirm-dialog-danger { background: var(--color-danger); color: var(--color-on-accent); }
 .note-view-tool:focus-visible { outline: var(--space-2xs) solid var(--color-focus); outline-offset: 0; }
 .note-view-tool:disabled { opacity: 0.5; cursor: progress; }
-/* A separator keeps Close apart from the note's own actions. */
-.note-view-tools > [data-note-view-close] { margin-inline-start: var(--space-xs); }
 @media (prefers-reduced-motion: reduce) { .note-view-tool { transition: none; } }
 [data-motion="less"] .note-view-tool { transition: none; }
 

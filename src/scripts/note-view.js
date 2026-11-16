@@ -2,6 +2,7 @@
 // modified click still opens it): the dialog fetches it, imports its `[data-note-view-panel]` and posts its pin and
 // delete forms with fetch. Edit leaves for the edit page.
 import { toast } from './toast.js';
+import { ask } from './confirm-dialog.js';
 
 const dialog = document.querySelector('[data-note-view]');
 const NOTE = /^\/notes\/([Nn]-[0-9A-Za-z]{1,24})$/u;
@@ -21,11 +22,17 @@ document.addEventListener('live:updated', () => showDelete());
 document.addEventListener('submit', (event) => {
   const form = event.target;
   if (!(form instanceof HTMLFormElement) || !form.matches('[data-note-delete]')) return;
+  // The answer comes back later: hold this submit, and send the form again once the owner says yes.
+  if (form.dataset.confirmed === 'yes') { delete form.dataset.confirmed; return; }
   const question = (form.dataset.confirm || '').replace('{title}', () => noteTitleOf(form));
-  if (question && !window.confirm(question)) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-  }
+  if (!question) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  ask(question).then((yes) => {
+    if (!yes || !form.isConnected) return;
+    form.dataset.confirmed = 'yes';
+    form.requestSubmit();
+  });
 }, true);
 
 if (dialog) {
@@ -33,7 +40,7 @@ if (dialog) {
   const body = dialog.querySelector('[data-note-view-body]');
   const content = dialog.querySelector('[data-note-view-content]');
   const status = dialog.querySelector('[data-note-view-status]');
-  const pageLink = dialog.querySelector('[data-note-view-page]');
+  const toolbar = dialog.querySelector('[data-note-view-toolbar]');
   const pinTool = dialog.querySelector('[data-note-view-pin]');
   const editTool = dialog.querySelector('[data-note-view-edit]');
   const deleteTool = dialog.querySelector('[data-note-view-delete]');
@@ -51,8 +58,14 @@ if (dialog) {
     editTool.hidden = !edit;
     if (edit) editTool.href = edit.getAttribute('href');
     deleteTool.hidden = !panelForm('[data-note-delete]');
+    toolbar.hidden = pinTool.hidden && editTool.hidden && deleteTool.hidden;
   };
-  const hideTools = () => { pinTool.hidden = true; editTool.hidden = true; deleteTool.hidden = true; };
+  const hideTools = () => {
+    pinTool.hidden = true;
+    editTool.hidden = true;
+    deleteTool.hidden = true;
+    toolbar.hidden = true;
+  };
   pinTool.addEventListener('click', () => panelForm('.note-pin-form')?.requestSubmit());
   deleteTool.addEventListener('click', () => panelForm('[data-note-delete]')?.requestSubmit());
   const closeButton = dialog.querySelector('[data-note-view-close]');
@@ -75,15 +88,13 @@ if (dialog) {
   };
 
   /** Shows a fetched note page's panel; false when the page has none. */
-  const show = (html, url) => {
+  const show = (html) => {
     const panel = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-note-view-panel]');
     if (!panel) return false;
     content.replaceChildren(document.importNode(panel, true));
     showDelete(content);
     const title = panel.querySelector('.document-heading h1')?.textContent?.trim();
     heading.textContent = title || heading.dataset.fallback || '';
-    pageLink.href = url;
-    pageLink.hidden = false;
     syncTools();
     say('');
     body.scrollTop = 0;
@@ -94,7 +105,6 @@ if (dialog) {
     const id = ++sequence;
     body.setAttribute('aria-busy', 'true');
     content.replaceChildren();
-    pageLink.hidden = true;
     hideTools();
     heading.textContent = heading.dataset.fallback || '';
     say(status.dataset.loading);
@@ -102,7 +112,7 @@ if (dialog) {
       const response = await fetchPage(url);
       const html = await response.text();
       if (id !== sequence || !dialog.open) return;
-      if (!response.ok || !show(html, url)) say(messageOf(html) || status.dataset.error);
+      if (!response.ok || !show(html)) say(messageOf(html) || status.dataset.error);
     } catch {
       if (id === sequence && dialog.open) say(status.dataset.error);
     } finally {
@@ -122,7 +132,7 @@ if (dialog) {
     if (event.defaultPrevented || !(event.target instanceof Element) || event.button !== 0 || event.metaKey
       || event.ctrlKey || event.shiftKey || event.altKey) return;
     const link = event.target.closest('a[href]');
-    if (!link || link.target || link.hasAttribute('download') || link.matches('[data-note-view-page]')) return;
+    if (!link || link.target || link.hasAttribute('download')) return;
     // A form's own links (Cancel on the edit page) leave the page as written.
     if (link.closest('form, .card-panel')) return;
     const url = noteUrl(link.href);
@@ -159,7 +169,7 @@ if (dialog) {
         return;
       }
       if (!deleting && response.ok && response.redirected && target && noteUrl(target.href)
-        && show(html, target.pathname)) {
+        && show(html)) {
         if (pinnedChange) document.dispatchEvent(new CustomEvent('pinned:refresh'));
         document.dispatchEvent(new CustomEvent('notes:changed'));
         return;
