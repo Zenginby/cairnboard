@@ -360,9 +360,9 @@ sideways one scene pixel at a time (`ease-scene-drift`, one full turn per `durat
 `duration-scene-drift-near` or `duration-scene-mist`), and two sets of stars and lake glints take turns
 (`duration-scene-twinkle`, `ease-scene-twinkle`, no fade). The strips slide `background-position` (a transform
 would land between pixels and blur the picture) and the twinkle switches `opacity`; a step comes every second or
-two, nothing in front of the scene moves with it, and it runs only with `data-scene-motion="on"`: the reader's "Background motion" choice
-in Settings, which follows the system's reduced motion unless they pick on or off. "Motion: less" always stops it.
-When it is off the scene is the same picture, standing still.
+two, nothing in front of the scene moves with it, and it runs only with `data-scene-motion="on"`: the reader's
+"Background motion" choice in Settings, which follows the system's reduced motion unless they pick on or off.
+"Motion: less" always stops it. When it is off the scene is the same picture, standing still.
 
 ```yaml
 duration-stagger: 40ms
@@ -427,6 +427,7 @@ front matter so their contrast is checked in every theme.
 - Don't animate layout properties (width, height, top, left) or start anything from `scale(0)`.
 - Don't put a box inside a box on document pages.
 - Don't add theme-specific shapes or motion; a theme is colors and shadows only. The one exception is Cam's
-  `src/styles/glass.css`: the scene layer and its slow drift, backdrop blur and edge light, glass bands that keep text off the scene,
-  and its chevron links. It switches glass on only with `data-glass="on"` (set by `theme-boot.js` from the reader's
-  Settings choice, or from their system's reduced transparency and contrast) and where backdrop blur is supported.
+  `src/styles/glass.css`: the scene layer and its slow drift, backdrop blur and edge light, glass bands that keep text
+  off the scene, and its chevron links. It switches glass on only with `data-glass="on"` (set by `theme-boot.js` from
+  the reader's Settings choice, or from their system's reduced transparency and contrast) and where backdrop blur is
+  supported.

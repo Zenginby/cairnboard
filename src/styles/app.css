@@ -1491,7 +1491,8 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
   }
   /* Beside the rail the board page still centres on the screen while it fits: the heading and toolbar move right by
      up to half the rail, and the board carries an empty first track that gives way before its columns do. */
-  :root:not([data-pinned-rail="closed"]) body:has(> .pinned-rail) > main.page-frame:has(> .board) > :not(.board, .sr-only) {
+  :root:not([data-pinned-rail="closed"]) body:has(> .pinned-rail)
+    > main.page-frame:has(> .board) > :not(.board, .sr-only) {
     --block-width: min(var(--space-content-max), 100%);
     margin-inline: min((100% + var(--rail-space) - var(--block-width)) / 2, 100% - var(--block-width)) 0;
   }
