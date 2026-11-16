@@ -877,15 +877,3 @@ test('POST /notes/<ref>/delete refuses a stale revision, extra fields, missing C
   assert.equal(existsSync(join(env.dir, overview.path)), true);
 });
 
-test('the note form offers notes and projects to link, by wiki link name, never the note itself', async (t) => {
-  const env = await setup(t);
-  project.create(env.openWrite(), { title: 'Garden', status: 'active' }, '', {});
-  const item = note.create(env.openWrite(), { title: 'Seeds' }, 'Body', {}).entity;
-  note.create(env.openWrite(), { title: 'Soil' }, 'Body', {});
-  const view = env.notes.view(env.cookieHeader);
-  assert.deepEqual(view.links.notes.map((entry) => entry.title), ['Seeds', 'Soil']);
-  assert.deepEqual(view.links.projects.map((entry) => entry.title), ['Garden']);
-  assert.equal(view.links.notes[0].name, item.path.replace(/^.*\//u, '').replace(/\.md$/u, ''));
-  const edit = env.notes.editView(env.cookieHeader, item.id);
-  assert.deepEqual(edit.links.notes.map((entry) => entry.title), ['Soil']);
-});

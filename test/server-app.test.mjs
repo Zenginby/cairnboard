@@ -354,7 +354,8 @@ for (const [vault, loosePath] of [['plain', 'Ideas/Spark.md'], ['daily', 'Archiv
       assert.equal(external.status, 200);
       assert.match(external.body, /Loose backlink/u);
       assert.ok(identified.body.includes(`class="wikilink" href="/notes/${backlink.ref}"`));
-      assert.ok(identified.body.includes(`class="row-title" href="/notes/${backlink.ref}"`));
+      // The note page lists no backlinks for now.
+      assert.ok(!identified.body.includes('class="backlinks"'));
       for (const invalid of ['n-0000000000000000', 'n-ABCDEF0123456789', 'n-123', 'n-../',
         'n-%2e%2e%2f', 'n-%252e%252e%252f', 'n-%5c..%5c', 'n-%00', `@${loosePath}`]) {
         assert.equal((await inProcess(app, `/notes/${invalid}`)).status, 404, invalid);
@@ -429,10 +430,11 @@ test('built Board, Card and Note routes use injected data, safe states and exter
         assert.match(response.body, /Working column/u);
         assert.match(response.body, /href="\/cards\/c-000002"[^>]*>Related card/u);
       } else {
-        for (const title of ['Backlink card', 'Backlink note', 'Journal source', 'Project source', 'notes/unresolved.md']) assert.ok(response.body.includes(title), title);
-        assert.match(response.body, /href="\/notes\/n-000002"/u);
-        assert.match(response.body, /href="\/cards\/c-000002"/u);
-        assert.doesNotMatch(response.body, /href="\/(?:journal|projects)\//u);
+        // The note page lists no backlinks for now.
+        for (const title of ['Backlink card', 'Backlink note', 'Journal source', 'Project source']) {
+          assert.ok(!response.body.includes(title), title);
+        }
+        assert.doesNotMatch(response.body, /class="backlinks"/u);
         assert.doesNotMatch(response.body, /document-sidebar/u);
       }
     }
@@ -453,7 +455,7 @@ test('built Board, Card and Note routes use injected data, safe states and exter
       return result;
     } });
     assert.equal(escaped.status, 200);
-    assert.ok((escaped.body.match(/&lt;img src=x onerror=attack\(1\)&gt;/gu) ?? []).length >= (method === 'note' ? 5 : 3));
+    assert.ok((escaped.body.match(/&lt;img src=x onerror=attack\(1\)&gt;/gu) ?? []).length >= 3);
     assert.doesNotMatch(escaped.body, /<img\b/u);
 
     const notReady = await render(path, createRead({ open: () => { throw new Error('/private/data missing'); } }));

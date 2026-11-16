@@ -34,6 +34,27 @@ if (dialog) {
   const content = dialog.querySelector('[data-note-view-content]');
   const status = dialog.querySelector('[data-note-view-status]');
   const pageLink = dialog.querySelector('[data-note-view-page]');
+  const pinTool = dialog.querySelector('[data-note-view-pin]');
+  const editTool = dialog.querySelector('[data-note-view-edit]');
+  const deleteTool = dialog.querySelector('[data-note-view-delete]');
+  const panelForm = (selector) => content.querySelector(selector);
+  /** The header icons stand in for the panel's own actions, which the dialog hides. */
+  const syncTools = () => {
+    const pin = panelForm('.note-pin-form');
+    const pinned = pin?.querySelector('input[name="pinned"]')?.value === 'off';
+    pinTool.hidden = !pin;
+    pinTool.setAttribute('aria-pressed', String(pinned));
+    const pinLabel = (pinned ? pinTool.dataset.unpin : pinTool.dataset.pin) || '';
+    pinTool.setAttribute('aria-label', pinLabel);
+    pinTool.title = pinLabel;
+    const edit = content.querySelector('.document-heading a[href$="/edit"]');
+    editTool.hidden = !edit;
+    if (edit) editTool.href = edit.getAttribute('href');
+    deleteTool.hidden = !panelForm('[data-note-delete]');
+  };
+  const hideTools = () => { pinTool.hidden = true; editTool.hidden = true; deleteTool.hidden = true; };
+  pinTool.addEventListener('click', () => panelForm('.note-pin-form')?.requestSubmit());
+  deleteTool.addEventListener('click', () => panelForm('[data-note-delete]')?.requestSubmit());
   const closeButton = dialog.querySelector('[data-note-view-close]');
   let opener = null;
   let sequence = 0;
@@ -63,6 +84,7 @@ if (dialog) {
     heading.textContent = title || heading.dataset.fallback || '';
     pageLink.href = url;
     pageLink.hidden = false;
+    syncTools();
     say('');
     body.scrollTop = 0;
     return true;
@@ -73,6 +95,7 @@ if (dialog) {
     body.setAttribute('aria-busy', 'true');
     content.replaceChildren();
     pageLink.hidden = true;
+    hideTools();
     heading.textContent = heading.dataset.fallback || '';
     say(status.dataset.loading);
     try {
@@ -120,7 +143,7 @@ if (dialog) {
     if (writing) return;
     const deleting = form.matches('[data-note-delete]');
     const pinnedChange = form.matches('.note-pin-form');
-    const submit = form.querySelector('button[type="submit"]');
+    const submit = deleting ? deleteTool : pinTool;
     writing = true;
     if (submit) submit.disabled = true;
     try {
@@ -158,6 +181,8 @@ if (dialog) {
     if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) dialog.close();
   });
   dialog.addEventListener('close', () => {
+    // The close event arrives a moment later; a note opened again meanwhile stays.
+    if (dialog.open) return;
     sequence++;
     content.replaceChildren();
     say('');

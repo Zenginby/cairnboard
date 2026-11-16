@@ -1,6 +1,5 @@
 // Global quick-note dialog (`N` key). The `/notes/new` page stays the script-free fallback.
 import { typing } from './typing.js';
-import { showLinks } from './note-link.js';
 import { toast } from './toast.js';
 
 const dialog = document.querySelector('[data-note-dialog]');
@@ -50,7 +49,6 @@ if (dialog) {
       }
       status.textContent = '';
       content.replaceChildren(document.importNode(panel, true));
-      showLinks(content);
       content.querySelector('input[name="title"]')?.focus();
     } catch {
       if (id === sequence && dialog.open) status.textContent = status.dataset.error || '';
