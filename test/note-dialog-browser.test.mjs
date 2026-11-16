@@ -52,7 +52,7 @@ async function boot(t, { language = 'en', seed = false } = {}) {
   }
   const dir = tempDir(t, 'cairn-note-dialog-');
   const home = tempDir(t, 'cairn-note-dialog-home-');
-  initDataDir(dir, { language });
+  initDataDir(dir, { register: false, language });
   const open = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
   const openWrite = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'web:owner' });
   const active = project.create(openWrite(), { title: 'Garden', status: 'active' }, '', {}).entity;

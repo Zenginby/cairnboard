@@ -61,7 +61,7 @@ async function setup(t, { language = 'en', rules, agentsProject } = {}) {
   useLanguage(language);
   const dir = tempDir(t, 'cairn-notes-route-');
   const home = tempDir(t, 'cairn-notes-home-');
-  initDataDir(dir, { language });
+  initDataDir(dir, { register: false, language });
   if (rules || agentsProject) {
     const cfgPath = join(dir, '.cairn', 'config.json');
     const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
@@ -204,7 +204,7 @@ test('POST /notes handles conflicts (409), validation (400), notReady (409) and 
   async (t) => {
     const dir = tempDir(t, 'cairn-notes-err-');
     const home = tempDir(t, 'cairn-notes-err-home-');
-    initDataDir(dir, { language: 'en' });
+    initDataDir(dir, { register: false, language: 'en' });
     const cookie = mintCookie(key, port);
     const csrf = csrfToken(key, port, cookie, 'note');
     const postWith = (notes) => {
@@ -462,7 +462,7 @@ test('pinnedNotesResult orders newest first, caps at 30, drops agents project, i
   (t) => {
     const dir = tempDir(t, 'cairn-pinned-read-');
     const home = tempDir(t, 'cairn-pinned-home-');
-    initDataDir(dir, { language: 'en' });
+    initDataDir(dir, { register: false, language: 'en' });
     const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
     const work = project.create(seedCtx, { title: 'Work', tone: 2 }, '', {}).entity;
     const bots = project.create(seedCtx, { title: 'Bots', tone: 1 }, '', {}).entity;
@@ -535,7 +535,7 @@ test('pinnedNotesResult handles 256 KiB blank and space-newline bodies under 250
   ]) {
     const dir = tempDir(t, `cairn-pinned-perf-${label}-`);
     const home = tempDir(t, `cairn-pinned-perf-home-${label}-`);
-    initDataDir(dir, { language: 'en' });
+    initDataDir(dir, { register: false, language: 'en' });
     const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
     note.create(seedCtx, { title: `Blank ${label}`, pinned: true }, body, {});
     const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
@@ -560,7 +560,7 @@ test('pinnedNotesResult formats heading, paragraph and Markdown table without se
   (t) => {
     const dir = tempDir(t, 'cairn-pinned-table-');
     const home = tempDir(t, 'cairn-pinned-table-home-');
-    initDataDir(dir, { language: 'en' });
+    initDataDir(dir, { register: false, language: 'en' });
     const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
     note.create(
       seedCtx,
