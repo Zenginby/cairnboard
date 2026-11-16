@@ -1,0 +1,23 @@
+---
+import { t } from '../i18n/index.mjs';
+
+// "Add link": a script-only picker that writes `[[name|title]]` into the note body. It has no name, so the form
+// never posts it; without script the field stays hidden and links are typed by hand.
+const { links, target = 'note-body', id = 'note-link' } = Astro.props;
+const notes = links?.notes ?? [];
+const projects = links?.projects ?? [];
+---
+{(notes.length > 0 || projects.length > 0) && <div class="note-link" data-note-link={target} hidden>
+  <label class="card-field" for={id}>{t('noteForm.link')}
+    <select id={id} aria-describedby={`${id}-hint`}>
+      <option value="">{t('noteForm.linkChoose')}</option>
+      {notes.length > 0 && <optgroup label={t('noteForm.linkNotes')}>
+        {notes.map((item) => <option value={item.name} data-title={item.title}>{item.title}</option>)}
+      </optgroup>}
+      {projects.length > 0 && <optgroup label={t('noteForm.linkProjects')}>
+        {projects.map((item) => <option value={item.name} data-title={item.title}>{item.title}</option>)}
+      </optgroup>}
+    </select>
+  </label>
+  <p class="note-link-hint" id={`${id}-hint`}>{t('noteForm.linkHint')}</p>
+</div>}

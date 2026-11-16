@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.mjs';
@@ -826,4 +826,66 @@ test('an unchanged edit leaves a lone carriage return alone; a changed project m
     revision: item.revision });
   assert.equal(moved.status, 400);
   assert.equal(readFileSync(join(env.dir, item.path), 'utf8'), before);
+});
+
+function postDelete(env, ref, form, { token = env.csrf } = {}) {
+  return call(env.app, {
+    method: 'POST',
+    path: `/notes/${ref}/delete`,
+    headers: {
+      cookie: env.cookieHeader,
+      origin: `http://${siteHost(key)}:${port}`,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(token === null ? form : { ...form, csrf: token }).toString(),
+  });
+}
+
+test('POST /notes/<ref>/delete moves the note to the trash and goes back to the notes list', async (t) => {
+  const env = await setup(t);
+  const item = note.create(env.openWrite(), { title: 'Old idea' }, 'Body', {}).entity;
+  if (env.built) {
+    const page = await getPage(env, `/notes/${item.id}`);
+    assert.match(page.body, new RegExp(`action="/notes/${item.id}/delete"`, 'u'));
+    assert.match(page.body, /data-note-view-panel/u);
+    const list = await getPage(env, '/notes');
+    assert.match(list.body, new RegExp(`action="/notes/${item.id}/delete"`, 'u'));
+    assert.match(list.body, new RegExp(`action="/notes/${item.id}/pin"`, 'u'));
+    assert.match(list.body, /data-notes-search/u);
+    assert.equal(list.headers['referrer-policy'], 'same-origin');
+  }
+  const res = await postDelete(env, item.id, { revision: item.revision });
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.location, '/notes?deleted=1');
+  assert.equal(existsSync(join(env.dir, item.path)), false);
+  assert.equal(readdirSync(join(env.dir, '.cairn', 'trash')).some((name) => name.endsWith('old-idea.md')), true);
+  assert.equal(readEvents(env.open()).at(-1).actor, 'web:owner');
+});
+
+test('POST /notes/<ref>/delete refuses a stale revision, extra fields, missing CSRF and refused notes', async (t) => {
+  const env = await setup(t);
+  const item = note.create(env.openWrite(), { title: 'Keep me' }, 'Body', {}).entity;
+  const overview = note.create(env.openWrite(), { kind: 'overview', title: 'Overview' }, 'Map', {}).entity;
+  assert.equal((await postDelete(env, item.id, { revision: '0000000000000000' })).status, 409);
+  assert.equal((await postDelete(env, item.id, { revision: item.revision, title: 'x' })).status, 400);
+  assert.equal((await postDelete(env, item.id, { revision: 'nope' })).status, 400);
+  assert.equal((await postDelete(env, item.id, { revision: item.revision }, { token: null })).status, 403);
+  assert.equal((await postDelete(env, 'n-zzzzzz', { revision: item.revision })).status, 404);
+  assert.equal((await postDelete(env, overview.id, { revision: overview.revision })).status, 404);
+  assert.equal(existsSync(join(env.dir, item.path)), true);
+  assert.equal(existsSync(join(env.dir, overview.path)), true);
+});
+
+test('the note form offers notes and projects to link, by wiki link name, never the note itself', async (t) => {
+  const env = await setup(t);
+  project.create(env.openWrite(), { title: 'Garden', status: 'active' }, '', {});
+  const item = note.create(env.openWrite(), { title: 'Seeds' }, 'Body', {}).entity;
+  note.create(env.openWrite(), { title: 'Soil' }, 'Body', {});
+  const view = env.notes.view(env.cookieHeader);
+  assert.deepEqual(view.links.notes.map((entry) => entry.title), ['Seeds', 'Soil']);
+  assert.deepEqual(view.links.projects.map((entry) => entry.title), ['Garden']);
+  assert.equal(view.links.notes[0].name, item.path.replace(/^.*\//u, '').replace(/\.md$/u, ''));
+  const edit = env.notes.editView(env.cookieHeader, item.id);
+  assert.deepEqual(edit.links.notes.map((entry) => entry.title), ['Soil']);
 });

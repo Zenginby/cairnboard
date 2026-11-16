@@ -1,6 +1,7 @@
 ---
 import AppShell from '../../../layouts/AppShell.astro';
 import PageState from '../../../components/PageState.astro';
+import NoteLinks from '../../../components/NoteLinks.astro';
 import { t } from '../../../i18n/index.mjs';
 
 let view;
@@ -47,6 +48,7 @@ const noteHref = item ? `/notes/${encodeURIComponent(item.ref)}` : '/notes';
           <textarea id="note-body" name="body" rows="14"
             placeholder={t('noteForm.bodyPlaceholder')}>{`\n${body}`}</textarea>
         </label>
+        <NoteLinks links={view.links} />
         <label class="card-field" for="note-project">{t('noteForm.project')}
           <select id="note-project" name="project">
             <option value="" selected={!project}>{t('noteForm.noProject')}</option>

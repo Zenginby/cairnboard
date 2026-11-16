@@ -33,6 +33,8 @@ const ruleWarning = !state && RULE_NAMES.includes(warned) ? warned : null;
   {state ? <PageState title={state === 'notReady' ? 'state.notReadyTitle' : `error.${state}Title`} message={state === 'notReady' ? 'state.notReadyBody' : `error.${state}Body`} init={state === 'notReady'} status={Astro.response.status} /> : <>
     <ReadWarnings codes={result.warnings} />
     {ruleWarning && <p class="warnings" role="status">{t(`noteEdit.warning.${ruleWarning}`)}</p>}
+    {/* The note dialog (note-view.js) imports this panel; the page is the no-script fallback. */}
+    <div class="note-view-panel" data-note-view-panel>
     <ReadDocument item={result.data}>
       {canPin && <div slot="actions" class="card-actions card-page-actions">
         <form class="note-pin-form" method="post" action={`/notes/${encodeURIComponent(noteRef)}/pin`}>
@@ -43,7 +45,16 @@ const ruleWarning = !state && RULE_NAMES.includes(warned) ? warned : null;
         </form>
         {canEdit && <a class="action-link"
           href={`/notes/${encodeURIComponent(noteRef)}/edit`}>{t('noteEdit.action')}</a>}
+        {/* Delete asks first, so it shows only with script (note-view.js); without it the CLI deletes. */}
+        {canEdit && <form class="note-delete-form" method="post" hidden
+          action={`/notes/${encodeURIComponent(noteRef)}/delete`}
+          data-note-delete data-confirm={t('noteDelete.confirm')}>
+          <input type="hidden" name="csrf" value={noteCsrf} />
+          <input type="hidden" name="revision" value={revision} />
+          <button class="action-link action-danger" type="submit">{t('noteDelete.action')}</button>
+        </form>}
       </div>}
     </ReadDocument>
+    </div>
   </>}
 </AppShell>
