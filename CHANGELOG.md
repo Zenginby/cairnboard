@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-16
+
 - Cam scene: more detail (pines, a larger cairn, rocks, a lake with the sun or moon reflected) and slow background
   motion: clouds and mist drift, stars and lake glints take turns. Settings > Appearance gains "Background motion"
   (follow system, on, off), kept per browser; it stands still with reduced motion.
