@@ -187,16 +187,16 @@ test('quick-note dialog: N shortcut, typing guard, save keeps page, failure keep
     assert.ok(errors.length === 1 && /422/u.test(errors[0]), errors.join('\n'));
     errors.length = 0;
 
-    // Fix the note, save: page URL stays on /, form clears, status links to the created note.
+    // Fix the note, save: page URL stays on /, the dialog closes and a toast links to the created note.
     await page.locator('#note-body').fill('Body kept without broken link');
     await dialog.getByRole('button', { name: 'Save note' }).click();
-    await page.locator('[data-note-dialog-status] a').waitFor({ state: 'visible' });
+    const toast = page.locator('[data-app-toast]');
+    await toast.locator('a').waitFor({ state: 'visible' });
 
     assert.equal(page.url(), `${origin}/`);
-    assert.equal(await page.locator('#note-title').inputValue(), '');
-    assert.equal(await page.locator('#note-body').inputValue(), '');
-    assert.match(await status.textContent(), /Note saved\./u);
-    const savedHref = await page.locator('[data-note-dialog-status] a').getAttribute('href');
+    assert.equal(await dialog.evaluate((el) => el.open), false);
+    assert.match(await toast.textContent(), /Note saved\./u);
+    const savedHref = await toast.locator('a').getAttribute('href');
     assert.match(savedHref ?? '', /^\/notes\/n-[0-9a-hjkmnp-tv-z]{6}$/u);
     const savedId = savedHref.slice('/notes/'.length);
     const savedEntity = entity.resolve(env.open(), 'note', savedId);
@@ -204,10 +204,12 @@ test('quick-note dialog: N shortcut, typing guard, save keeps page, failure keep
     assert.equal(savedEntity.data.kind, 'note');
     assert.equal(savedEntity.data.project, env.active.id);
 
-    // Escape closes the dialog and restores focus to where it was before N.
+    // Saving gave focus back to where it was before N; Escape closes a reopened dialog.
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('href')), '/notes');
+    await page.keyboard.press('n');
+    await page.locator('#note-title').waitFor({ state: 'visible' });
     await page.keyboard.press('Escape');
     assert.equal(await dialog.evaluate((el) => el.open), false);
-    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('href')), '/notes');
 
     // Close button also closes.
     await page.keyboard.press('n');
@@ -223,11 +225,10 @@ test('quick-note dialog: N shortcut, typing guard, save keeps page, failure keep
     await page.locator('#note-title').fill('FAB pinned note');
     await page.locator('dialog[data-note-dialog] input[name="pinned"]').check();
     await dialog.getByRole('button', { name: 'Save note' }).click();
-    await page.locator('[data-note-dialog-status] a').waitFor({ state: 'visible' });
-    const fabHref = await page.locator('[data-note-dialog-status] a').getAttribute('href');
+    await dialog.waitFor({ state: 'hidden' });
+    const fabHref = await page.locator('[data-app-toast] a').getAttribute('href');
     const fabId = fabHref.slice('/notes/'.length);
     assert.strictEqual(entity.resolve(env.open(), 'note', fabId).data.pinned, true);
-    await page.keyboard.press('Escape');
 
     for (const path of ['/board', '/notes', '/search']) {
       await page.goto(`${origin}${path}`);
@@ -314,11 +315,11 @@ test('quick-note dialog reports success with link even when the followed note pa
   await page.locator('#note-body').fill('Body text');
   await dialog.getByRole('button', { name: 'Save note' }).click();
 
-  await page.locator('[data-note-dialog-status] a').waitFor({ state: 'visible' });
-  assert.match(await page.locator('[data-note-dialog-status]').textContent(), /Note saved\./u);
-  const href = await page.locator('[data-note-dialog-status] a').getAttribute('href');
+  await page.locator('[data-app-toast] a').waitFor({ state: 'visible' });
+  assert.match(await page.locator('[data-app-toast]').textContent(), /Note saved\./u);
+  const href = await page.locator('[data-app-toast] a').getAttribute('href');
   assert.match(href ?? '', /^\/notes\/n-[0-9a-hjkmnp-tv-z]{6}$/u);
-  assert.equal(await page.locator('#note-title').inputValue(), '');
+  assert.equal(await page.locator('[data-note-dialog]').evaluate((el) => el.open), false);
   assert.equal(entity.resolve(env.open(), 'note', href.slice('/notes/'.length)).title, 'Saved despite 500');
   assert.ok(errors.length === 1 && /500/u.test(errors[0]), errors.join('\n'));
 });

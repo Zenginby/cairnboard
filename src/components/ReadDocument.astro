@@ -21,6 +21,7 @@ const backlinks = item.meta.backlinks ?? [];
     <slot name="after-body" />
     {!card && <section class="backlinks" aria-labelledby="backlinks-title">
       <h2 id="backlinks-title">{t('note.backlinks')}</h2>
+      <p class="backlinks-hint">{t('note.backlinksHint')}</p>
       {backlinks.length ? <ul class="backlink-list">{backlinks.map((link) => {
         const ref = link.id ?? (link.type === 'note' ? link.ref : null);
         const href = ref && ['card', 'note'].includes(link.type)

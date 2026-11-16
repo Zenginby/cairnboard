@@ -1,5 +1,7 @@
 // Global quick-note dialog (`N` key). The `/notes/new` page stays the script-free fallback.
 import { typing } from './typing.js';
+import { showLinks } from './note-link.js';
+import { toast } from './toast.js';
 
 const dialog = document.querySelector('[data-note-dialog]');
 
@@ -17,15 +19,6 @@ if (dialog) {
     const parts = [...(main?.querySelectorAll('h1, h2, p') ?? [])].map((node) => node.textContent.trim())
       .filter(Boolean).slice(0, 2);
     return parts.join(' — ');
-  };
-
-  const showSaved = (href) => {
-    status.replaceChildren();
-    status.append(document.createTextNode(`${status.dataset.saved || 'Saved.'} `));
-    const link = document.createElement('a');
-    link.href = href;
-    link.textContent = status.dataset.open || 'Open note';
-    status.append(link);
   };
 
   const close = () => {
@@ -57,6 +50,7 @@ if (dialog) {
       }
       status.textContent = '';
       content.replaceChildren(document.importNode(panel, true));
+      showLinks(content);
       content.querySelector('input[name="title"]')?.focus();
     } catch {
       if (id === sequence && dialog.open) status.textContent = status.dataset.error || '';
@@ -107,10 +101,11 @@ if (dialog) {
       if (response.redirected && target && target.origin === location.origin
         && target.pathname.startsWith('/notes/') && target.pathname !== '/notes/new') {
         const pinned = Boolean(form.querySelector('input[name="pinned"]:checked'));
-        form.reset();
-        showSaved(target.pathname);
         if (pinned) document.dispatchEvent(new CustomEvent('pinned:refresh'));
-        form.querySelector('input[name="title"]')?.focus();
+        // Saved: the dialog closes and the confirmation, with a link to the note, stays on the page.
+        writing = false;
+        close();
+        toast(status.dataset.saved || 'Saved.', { href: target.pathname, label: status.dataset.open || 'Open note' });
         return;
       }
       const text = messageOf(await response.text());

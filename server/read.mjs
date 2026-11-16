@@ -592,6 +592,7 @@ export function pinnedNotesResult(ctx) {
       revision: item.revision,
       project: linked ? { id: linked.id, title: linked.title, tone: linked.tone } : null,
       excerpt: pinnedExcerpt(body),
+      created: item.meta.created ?? null,
     };
   });
   return okEnvelope({ items }, [...ctx.warnings, ...warnings]);
@@ -620,9 +621,14 @@ export function notesResult(ctx, { project } = {}) {
         title: item.content.title ?? '',
         kind: item.meta.kind ?? 'note',
         pinned: item.meta.pinned === true,
+        revision: item.revision,
+        // The note routes refuse the overview page and notes whose identity needs repair (see server/notes.mjs).
+        editable: raw.data?.kind !== 'overview' && !raw.warnings?.includes('duplicate_id')
+          && !(raw.id === null && Object.hasOwn(raw.data ?? {}, 'id')),
         topic: noteTopic(roots, raw.path),
         project: linked ? { id: linked.id, title: linked.title, tone: linked.tone } : null,
         updated: item.meta.updated ?? null,
+        created: item.meta.created ?? null,
       },
     };
   });

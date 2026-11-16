@@ -1,9 +1,14 @@
 ---
-import { t, noteKindLabel } from '../i18n/index.mjs';
+import { t, noteKindLabel, uiLanguage } from '../i18n/index.mjs';
 
 const { items = [], csrf = '', live = false } = Astro.props;
 const count = String(items.length);
 const showLabel = t('pinned.show').replace('{n}', count);
+const dateFormat = new Intl.DateTimeFormat(uiLanguage(), { day: 'numeric', month: 'short', year: 'numeric' });
+const added = (iso) => {
+  const parsed = typeof iso === 'string' && iso ? new Date(iso) : null;
+  return parsed && !Number.isNaN(parsed.getTime()) ? dateFormat.format(parsed) : null;
+};
 ---
 <aside
   class="pinned-rail"
@@ -40,6 +45,8 @@ const showLabel = t('pinned.show').replace('{n}', count);
               </span>
               <span class="pinned-rail-title">{label}</span>
               {item.excerpt && <span class="pinned-rail-excerpt">{item.excerpt}</span>}
+              {added(item.created) && <time class="pinned-rail-date" datetime={item.created}>
+                {t('pinned.created').replace('{date}', () => added(item.created))}</time>}
             </a>
             {csrf && (
               <form

@@ -7,6 +7,12 @@
   replacements, and overlapping live-update pauses across the board and pinned rail.
 - Notes: edit a note from its page (`/notes/<ref>/edit`, `POST /notes/<ref>`), script-free, with stale-revision and
   write-rule refusals returning the form with the text kept.
+- Notes: a note link opens the note in a dialog (pin, edit, delete, open page); delete moves the note to the data
+  folder's trash (`POST /notes/<ref>/delete`, with a confirm step). The notes page gains a title search, side-by-side
+  topic columns and pin/delete buttons on each row.
+- Quick note: the dialog closes after a save and a short toast links to the new note; the title field is a rounded
+  field; an "Add link" picker writes `[[name|title]]` links, and the note page explains its "Linked from" list.
+- Pinned rail: each note shows when it was added.
 
 ## [0.2.0] - 2026-11-15
 

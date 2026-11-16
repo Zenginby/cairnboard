@@ -3,6 +3,8 @@ import * as project from '../core/project.mjs';
 import { CairnError } from '../core/errors.mjs';
 import { isNoteKey, normalizeId } from '../core/ids.mjs';
 import { RULE_NAMES } from '../core/rules.mjs';
+import { resolver, rows, targetRevisions } from '../core/index.mjs';
+import { uiLanguage } from '../src/i18n/index.mjs';
 import { stripHidden } from '../core/text.mjs';
 import { agentProject } from '../cli/views.mjs';
 import { createWrites } from './writes.mjs';
@@ -39,9 +41,22 @@ const noteRef = (rawRef) => {
   return ref && ref.startsWith('n-') ? ref : null;
 };
 const EDIT_PATH = /^\/notes\/(?<ref>[Nn]-[0-9A-Za-z]{1,24})$/u;
+const DELETE_PATH = /^\/notes\/(?<ref>[Nn]-[0-9A-Za-z]{1,24})\/delete$/u;
 /** The fixed overview page and notes whose identity needs repair (a shared or invalid id) are edited in files. */
 const fixedOrBroken = (current) => current.kind === 'overview' || current.warnings.includes('duplicate_id')
   || (current.id === null && Object.hasOwn(current.data ?? {}, 'id'));
+/** A wiki link name for each file: its bare name, or its folder path when another page shares that name. */
+const linkNames = (ctx, items) => {
+  // The link resolver sees every link target, ignored Markdown included; the page rows are the fallback.
+  let paths;
+  try { paths = [...targetRevisions(ctx).keys()]; } catch { paths = rows(ctx).map((row) => row.path); }
+  const resolve = resolver(paths);
+  return items.map((item) => {
+    const stem = item.path.replace(/^.*\//u, '').replace(/\.md$/iu, '');
+    const name = resolve(stem).target_path === item.path ? stem : item.path.replace(/\.md$/iu, '');
+    return { name, title: item.title || stem };
+  });
+};
 /** A front matter value as a form field carries it; a missing one is the empty choice. */
 const stored = (value) => (value === undefined || value === null ? '' : String(value));
 
@@ -211,6 +226,28 @@ export function createNotes({ key, port, open, openWrite }) {
           .find((rule) => RULE_NAMES.includes(rule));
         return warned ? `${address}?warning=${warned}` : address;
       } },
+    // Delete moves the note file to the data folder's trash (`cairn trash restore` brings it back).
+    { path: DELETE_PATH, form: 'note', back: pinBack, failure: pinFailure, bodyLimit: 4096,
+      run({ values, params: { ref: rawRef } }) {
+        if (Object.keys(values).length !== 1 || !Object.hasOwn(values, 'revision')) {
+          return bad('noteForm.invalidFields');
+        }
+        if (!REVISION.test(values.revision)) return bad('noteDelete.invalidRevision');
+        const { ctx, refusal } = opened();
+        if (refusal) return refusal;
+        const found = editable(ctx, rawRef);
+        if (found.refusal) return found.refusal;
+        const target = found.current.id ?? found.current.ref;
+        try {
+          note.remove(openWrite(), target, { ifRevision: values.revision });
+        } catch (error) {
+          if (error instanceof CairnError && error.code === 'conflict') {
+            return { status: 409, title: 'noteDelete.conflictTitle', message: 'noteDelete.conflict' };
+          }
+          throw error;
+        }
+        return '/notes?deleted=1';
+      } },
   ];
 
   /**
@@ -243,7 +280,7 @@ export function createNotes({ key, port, open, openWrite }) {
     const agents = agentProject(ctx);
     const active = ({ data }) => data.status === undefined || data.status === 'active';
     const projects = project.list(ctx).filter((item) => active(item) && !isAgentProject(agents, item));
-    return { state: 'ready', csrf, projects };
+    return { state: 'ready', csrf, projects, links: linkTargets(ctx, agents) };
   }
 
   /** What the edit page shows; any note the edit route refuses is `notFound` here. */
@@ -261,8 +298,21 @@ export function createNotes({ key, port, open, openWrite }) {
     // The note's own project stays selectable as it is, so saving leaves it alone.
     const projects = project.list(ctx).filter((item) => (active(item) && !isAgentProject(agents, item))
       || item.id === chosen || item.ref === chosen);
-    return { state: 'ready', csrf, projects, project: chosen,
+    return { state: 'ready', csrf, projects, project: chosen, links: linkTargets(ctx, agents, current.path),
       note: { ref: current.id ?? current.ref, title: current.title, body: current.body, revision: current.revision } };
+  }
+
+  /** Notes and projects the note form's "Add link" picker offers, by title; agents notes and the note itself are
+   * left out. */
+  function linkTargets(ctx, agents, self = null) {
+    const collator = new Intl.Collator(uiLanguage(), { sensitivity: 'base', numeric: true });
+    const byTitle = (a, b) => collator.compare(a.title, b.title);
+    const notes = note.list(ctx, { all: true })
+      .filter((item) => item.path !== self && !belongsToAgents(ctx, agents, item));
+    const projects = project.list(ctx).filter((item) => !isAgentProject(agents, item));
+    // Names are unique across every page the link resolver sees; notes and projects share that space here.
+    const named = linkNames(ctx, [...notes, ...projects]);
+    return { notes: named.slice(0, notes.length).sort(byTitle), projects: named.slice(notes.length).sort(byTitle) };
   }
 
   /** Whether the note page offers Edit for this ref. */
