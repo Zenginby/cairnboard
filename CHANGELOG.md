@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Update Astro to 7.4.12 and the Node adapter to 11.1.13 to address the image endpoint path traversal advisory.
+
 ## [0.3.0] - 2026-11-16
 
 - Cam scene: more detail (pines, a larger cairn, rocks, a lake with the sun or moon reflected) and slow background
