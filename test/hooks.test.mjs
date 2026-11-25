@@ -284,6 +284,38 @@ test('a branch update that merges history the remote already has scans only its 
   assert.equal(result.status, 0, result.stderr);
 });
 
+// Builds a repo whose origin already advertises a commit by another identity, then adds a clean local commit.
+function mergedElsewhere(t) {
+  const s = sandbox(t);
+  const base = s.git('rev-parse', 'HEAD').stdout.trim();
+  s.env.GIT_AUTHOR_EMAIL = 'other@example.com'; // cairn-scan:allow-fixture
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'merged elsewhere').status, 0);
+  delete s.env.GIT_AUTHOR_EMAIL;
+  const bare = join(s.dir, 'remote.git');
+  assert.equal(spawnSync('git', ['clone', '-q', '--bare', s.repo, bare], { env: s.env }).status, 0);
+  s.git('remote', 'add', 'origin', bare);
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'mine').status, 0);
+  return { s, input: refInput(s).replace(/0{40}\n$/, `${base}\n`) };
+}
+
+test('exclusions come from the push destination, not the fetch remote', (t) => {
+  const { s, input } = mergedElsewhere(t);
+  const target = join(s.dir, 'push-target.git');
+  assert.equal(spawnSync('git', ['init', '-q', '--bare', target], { env: s.env }).status, 0);
+  const result = spawnSync(process.execPath, [join(s.repo, 'security', 'hook.mjs'), 'push', target],
+    { cwd: s.repo, env: s.env, input, encoding: 'utf8' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /identity/);
+});
+
+test('grafts make the push hook refuse', (t) => {
+  const { s, input } = mergedElsewhere(t);
+  writeFileSync(join(s.repo, '.git', 'info', 'grafts'), `${s.git('rev-parse', 'HEAD').stdout.trim()}\n`);
+  const result = hook(s, 'push', { input });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /grafts or shallow history/);
+});
+
 test('an advertised commit missing locally does not drop the other exclusions', (t) => {
   const s = sandbox(t);
   assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'zorblax').status, 0);

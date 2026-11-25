@@ -1,6 +1,6 @@
 // Git hook entry point. Fails closed: any read error or missing configuration blocks the operation.
 // Usage: node security/hook.mjs staged | commit-msg <file> | push   (push reads git's stdin ref lines)
-import { readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { loadDenylist } from './denylist.mjs';
 import { annotatedTags, git, gitBuffer } from './git.mjs';
 import { GITHUB_COMMITTER } from './rules.mjs';
@@ -71,6 +71,20 @@ function staged(ctx) {
   return findings;
 }
 
+// Grafts and shallow history rewrite local ancestry (replace refs are already ignored: see git.mjs), so neither the
+// outgoing range nor the exclusions can be trusted: the push is refused, as release-check refuses them.
+function rewrittenAncestry() {
+  if (git(['rev-parse', '--is-shallow-repository']).trim() === 'true') return true;
+  try {
+    lstatSync(git(['rev-parse', '--git-path', 'info/grafts']).trim());
+    return true;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    return false;
+  }
+}
+
+// `remote` is the push destination URL from pre-push's second argument, so a separate pushurl is honoured.
 function advertisedCommits(remote) {
   try {
     const hashes = git(['ls-remote', '--', remote]).split('\n').filter(Boolean).map((line) => line.split('\t')[0]);
@@ -91,6 +105,7 @@ function advertisedCommits(remote) {
 }
 
 function outgoing(ctx, refLines, remote) {
+  if (rewrittenAncestry()) stop('grafts or shallow history: the outgoing commits cannot be verified', 2);
   const findings = [];
   let exclusions;
   let allowed;
