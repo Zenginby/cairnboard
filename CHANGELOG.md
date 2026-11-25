@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Security scan: Dependabot's sign-off address and GitHub compare links in commit messages are no longer reported.
+
 ## [0.3.0] - 2026-11-16
 
 - Cam scene: more detail (pines, a larger cairn, rocks, a lake with the sun or moon reflected) and slow background

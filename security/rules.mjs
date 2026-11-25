@@ -2,7 +2,8 @@ const emailDomains = new Set(['example.com', 'users.noreply.github.com']);
 // Public bot identities that appear in commit trailers.
 // GitHub's own committer identity on commits it creates (web merges); it never appears as an author.
 export const GITHUB_COMMITTER = 'noreply@github.com';
-const emailAddresses = new Set(['noreply@anthropic.com', GITHUB_COMMITTER]);
+// support@github.com is the public address in Dependabot's Signed-off-by trailer.
+const emailAddresses = new Set(['noreply@anthropic.com', GITHUB_COMMITTER, 'support@github.com']);
 // GitHub no-reply identity as it appears in folded (dot-free) form inside the interim hook script.
 const foldedNoreply = /^\d+\+[a-z0-9-]+@users$/i;
 const placeholderUsers = new Set(['user', 'you', 'example']);
@@ -41,6 +42,8 @@ export const RULES = {
     line = line.replace(/^([+ -]?\s*-?\s*uses:\s+[\w.-]+\/[\w./-]+)@[0-9a-f]{40}(?=\s|$)/, '$1');
     // Git's own commit references ("This reverts commit <sha>.", "cherry picked from commit <sha>") are public hashes.
     line = line.replace(/\bcommit [0-9a-f]{40}\b/gi, 'commit');
+    // GitHub compare links (Dependabot release notes) name two public commits.
+    line = line.replace(/(https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/compare\/)[0-9a-f]{40}\.\.\.[0-9a-f]{40}\b/gi, '$1');
     if (/sha256/i.test(line) && !/[0-9a-f]{65,}/i.test(line) && /\b[0-9a-f]{64}\b/.test(line)
       && ![...line.matchAll(/[A-Za-z0-9+/_-]{32,}={0,2}/g)].some(([v]) => !/^[0-9a-f]{64}$/.test(v) && !/^sha(?:1|256|384|512)-/.test(v))) return false;
     const tokens = line.matchAll(/(?:sha(?:1|256|384|512)-)?[A-Za-z0-9+/_-]{32,}={0,2}/g);
