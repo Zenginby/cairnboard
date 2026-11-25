@@ -11,6 +11,7 @@
 - Make the packaged web build portable across operating systems and keep build-machine paths out of it.
 - Forward directed interrupts to the launched server and use a consistent home for data and server state.
 - Stop the launched server when the terminal closes and force it to stop on a second Ctrl-C.
+- Security scan: Dependabot's sign-off address and GitHub compare links in commit messages are no longer reported.
 
 ## [0.3.0] - 2026-11-16
 
