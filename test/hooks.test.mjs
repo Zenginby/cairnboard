@@ -270,18 +270,21 @@ test('push excludes history actually advertised by the remote without tracking r
 });
 
 test('a branch update that merges history the remote already has scans only its own commits', (t) => {
-  const s = sandbox(t);
-  const base = s.git('rev-parse', 'HEAD').stdout.trim();
-  s.env.GIT_AUTHOR_EMAIL = 'other@example.com'; // cairn-scan:allow-fixture
-  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'merged elsewhere').status, 0);
-  delete s.env.GIT_AUTHOR_EMAIL;
-  const bare = join(s.dir, 'remote.git');
-  assert.equal(spawnSync('git', ['clone', '-q', '--bare', s.repo, bare], { env: s.env }).status, 0);
-  s.git('remote', 'add', 'origin', bare);
-  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'mine').status, 0);
-  const input = refInput(s).replace(/0{40}\n$/, `${base}\n`);
+  const { s, input } = mergedElsewhere(t);
   const result = hook(s, 'push', { input });
   assert.equal(result.status, 0, result.stderr);
+});
+
+test('an update is scanned in full when the queried remote does not show the reported tip', (t) => {
+  const { s, input } = mergedElsewhere(t);
+  // The queried repository shows feature somewhere else than the tip git push reported (as after a URL rewrite).
+  const bare = join(s.dir, 'remote.git');
+  const moved = spawnSync('git', ['--git-dir', bare, 'update-ref', 'refs/heads/feature', 'refs/heads/main'],
+    { env: s.env });
+  assert.equal(moved.status, 0);
+  const result = hook(s, 'push', { input });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /identity/);
 });
 
 // Builds a repo whose origin already advertises a commit by another identity, then adds a clean local commit.
@@ -293,9 +296,12 @@ function mergedElsewhere(t) {
   delete s.env.GIT_AUTHOR_EMAIL;
   const bare = join(s.dir, 'remote.git');
   assert.equal(spawnSync('git', ['clone', '-q', '--bare', s.repo, bare], { env: s.env }).status, 0);
+  // The remote's feature branch is still at base; main already carries the other identity's commit.
+  const feature = spawnSync('git', ['--git-dir', bare, 'update-ref', 'refs/heads/feature', base], { env: s.env });
+  assert.equal(feature.status, 0);
   s.git('remote', 'add', 'origin', bare);
   assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'mine').status, 0);
-  return { s, input: refInput(s).replace(/0{40}\n$/, `${base}\n`) };
+  return { s, input: refInput(s, 'refs/heads/feature').replace(/0{40}\n$/, `${base}\n`) };
 }
 
 test('exclusions come from the push destination, not the fetch remote', (t) => {

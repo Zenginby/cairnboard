@@ -14,7 +14,8 @@
 - Update Astro to 7.4.12 and the Node adapter to 11.1.13 to address the image endpoint path traversal advisory.
 - Security scan: Dependabot's sign-off address and GitHub compare links in commit messages are no longer reported.
 - Push hook: a branch update that merges history the remote already has, or a remote that advertises pull request
-  refs we never fetched, no longer re-scans published commits.
+  refs we never fetched, no longer re-scans published commits. Exclusions come from the push destination and are
+  used for an update only when it shows the reported tip; grafts and shallow history make the hook refuse.
 
 ## [0.3.0] - 2026-11-16
 

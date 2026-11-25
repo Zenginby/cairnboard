@@ -76,7 +76,8 @@ function staged(ctx) {
 function rewrittenAncestry() {
   if (git(['rev-parse', '--is-shallow-repository']).trim() === 'true') return true;
   try {
-    lstatSync(git(['rev-parse', '--git-path', 'info/grafts']).trim());
+    // Strip only Git's own newline: GIT_GRAFT_FILE may name a path with surrounding spaces.
+    lstatSync(git(['rev-parse', '--git-path', 'info/grafts']).replace(/\r?\n$/u, ''));
     return true;
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
@@ -84,12 +85,18 @@ function rewrittenAncestry() {
   }
 }
 
-// `remote` is the push destination URL from pre-push's second argument, so a separate pushurl is honoured.
-function advertisedCommits(remote) {
+// `remote` is the push destination URL from pre-push's second argument, so a separate pushurl is honoured. Returns the
+// advertised ref tips and the advertised commits we have locally.
+function advertised(remote) {
+  const none = { refs: new Map(), commits: [] };
   try {
-    const hashes = git(['ls-remote', '--', remote]).split('\n').filter(Boolean).map((line) => line.split('\t')[0]);
-    return [...new Set(hashes)].flatMap((hash) => {
+    const refs = new Map();
+    for (const line of git(['ls-remote', '--', remote]).split('\n').filter(Boolean)) {
+      const [hash, ref] = line.split('\t');
       if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(hash)) throw new Error('invalid object id');
+      refs.set(ref, hash);
+    }
+    const commits = [...new Set(refs.values())].flatMap((hash) => {
       // GitHub also advertises refs/pull/*; an object we never fetched cannot be in the outgoing range, so skip it
       // instead of dropping every exclusion.
       try {
@@ -98,9 +105,10 @@ function advertisedCommits(remote) {
         return [];
       }
     });
+    return { refs, commits };
   } catch {
-    // Unavailable remotes or objects we do not have locally: scan the full history.
-    return [];
+    // Unavailable remotes: scan the full history.
+    return none;
   }
 }
 
@@ -114,9 +122,12 @@ function outgoing(ctx, refLines, remote) {
     if (ZERO.test(localSha)) continue; // branch deletion
     const file = `push ref #${index + 1}`;
     // History the remote already advertises (other branches, merged pull requests) was published before; an update
-    // that merges it in only sends its own commits.
-    const range = [localSha, '--not', ...(ZERO.test(remoteSha) ? [] : [remoteSha]),
-      ...(exclusions ??= advertisedCommits(remote))];
+    // that merges it in only sends its own commits. For an update the queried repository must show the ref at the tip
+    // git push reported, or it may not be the destination (URL rewrites) and nothing beyond that tip is excluded.
+    exclusions ??= advertised(remote);
+    const update = !ZERO.test(remoteSha);
+    const trusted = !update || exclusions.refs.get(remoteRef) === remoteSha;
+    const range = [localSha, '--not', ...(update ? [remoteSha] : []), ...(trusted ? exclusions.commits : [])];
     const log = blankAllowedBinaries(git(['-c', 'core.quotePath=false', 'log', '-p', '--text', '--no-textconv', '--no-ext-diff', '--no-color', '--diff-merges=first-parent', `--format=${COMMIT_MARK}%n%an <%ae>%n%cn <%ce>%n%w(0,4,4)%B%w(0,0,0)`, ...range]), allowed ??= allowedBinaries());
     // Messages are indented (%w) so a message line can never pass for a diff header and unlock the fixture marker.
     findings.push(...scanLines(log, fixtureLines(log), { ...ctx, file }));
