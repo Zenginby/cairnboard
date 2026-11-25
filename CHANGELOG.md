@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Update Astro to 7.4.12 and the Node adapter to 11.1.13 to address the image endpoint path traversal advisory.
 - Security scan: Dependabot's sign-off address and GitHub compare links in commit messages are no longer reported.
 
 ## [0.3.0] - 2026-11-16
