@@ -122,6 +122,14 @@ test('git commit references in messages are not tokens; a bare 40-hex value stil
   assert.deepEqual(rules('key e8b987e9fef9a07bcb8ec04a99336ae436dc8513'), ['token']); // cairn-scan:allow-fixture
 });
 
+test('Dependabot trailers and compare links are public', () => {
+  const rules = (line) => scanText(line, { file: 'x' }).map((f) => f.rule);
+  assert.deepEqual(rules('Signed-off-by: dependabot[bot] <support@github.com>'), []);
+  const sha = 'a1d282b36b6f3519aa1f3fc636f609c47dddb294'; // cairn-scan:allow-fixture
+  assert.deepEqual(rules(`- [Commits](https://github.com/actions/x/compare/${sha}...${sha})`), []);
+  assert.deepEqual(rules(`https://example.org/compare/${sha}...${sha}`), ['token']); // cairn-scan:allow-fixture
+});
+
 test('identifier filter does not hide alternating letter-digit tokens', () => {
   assert.deepEqual(scanText('x7k2m9qz4f-p3w8r1t6y0-a9s2d5f8g1h4', { file: 'x' }).map((f) => f.rule), ['token']); // gitleaks:allow (fake test token) cairn-scan:allow-fixture
 });
