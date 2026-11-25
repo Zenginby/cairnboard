@@ -12,6 +12,8 @@ test('package.json is publishable, ESM, MIT, Node >= 22.23.4 with exactly pinned
   assert.equal(p.engines.node, '>=22.23.4');
   assert.equal(p.license, 'MIT');
   assert.ok(Array.isArray(p.files));
+  assert.ok(!p.files.includes('scripts/build-app.mjs'));
+  assert.ok(!Object.hasOwn(p.scripts, 'prepack'));
   assert.deepEqual(p.dependencies, { '@astrojs/node': '11.1.9', astro: '7.4.5', chokidar: '5.0.0',
     'rehype-sanitize': '6.0.0', 'rehype-stringify': '10.0.1', 'remark-gfm': '4.0.1',
     'remark-parse': '11.0.0', 'remark-rehype': '11.1.2', unified: '11.0.5', yaml: '2.9.1' });
@@ -37,8 +39,8 @@ test('app builds disable telemetry before importing Astro and never invoke its b
   const setting = source.indexOf("process.env.ASTRO_TELEMETRY_DISABLED = '1'");
   const importing = source.indexOf("await import('astro')");
   assert.ok(setting >= 0 && importing > setting);
-  assert.doesNotMatch(source, /^import\s/mu);
-  assert.match(source, /const \{ build \} = await import\('astro'\);\s*await build\(outDir \? \{ outDir \} : \{\}\);/u);
+  assert.doesNotMatch(source, /^import(?!\s*\().*['"]astro['"]/mu);
+  assert.ok(source.indexOf('await build(', importing) > importing);
 });
 
 test('license and readme', () => {

@@ -1,11 +1,12 @@
 import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { once } from 'node:events';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as fs from '../core/fsx.mjs';
 import { cliInvocation, packageVersion } from '../core/agent.mjs';
-import { findDataDir, initDataDir } from '../core/roots.mjs';
+import { findDataDir, initDataDir, stateDir } from '../core/roots.mjs';
 import { runCli } from './support/cli.mjs';
 import { tempDir } from './support/env.mjs';
 
@@ -60,8 +61,9 @@ test('bundle is standalone, matches source schema and runs from quoted Unicode p
 
 function launcher(t, { built = true, cached = false } = {}) {
   const cwd = tempDir(t), home = tempDir(t);
-  const installed = cached ? join(cwd, '_npx', 'cache', 'node_modules', 'cairnboard') : join(cwd, 'cairnboard');
+  const installed = cached ? join(cwd, '_npx', cached, 'node_modules', 'cairnboard') : join(cwd, 'cairnboard');
   const dist = join(installed, 'dist');
+  const server = join(installed, 'server/start.mjs');
   fs.mkdirSync(dist, { recursive: true });
   for (const name of ['cairn.mjs', 'cairnboard.mjs', 'cairn-main.mjs']) {
     fs.copyFileSync(join(root, 'dist', name), join(dist, name));
@@ -71,7 +73,7 @@ function launcher(t, { built = true, cached = false } = {}) {
     fs.mkdirSync(join(dist, 'app/server'), { recursive: true });
     fs.writeFileSync(join(dist, 'app/server/entry.mjs'), '');
     fs.mkdirSync(join(installed, 'server'));
-    fs.writeFileSync(join(installed, 'server/start.mjs'), `
+    fs.writeFileSync(server, `
 console.log(JSON.stringify({ data: process.env.CAIRN_DATA, args: process.argv.slice(2) }));
 process.exitCode = 23;
 `);
@@ -84,7 +86,7 @@ process.exitCode = 23;
       env: { ...process.env, HOME: home, USERPROFILE: home, CAIRN_DATA: undefined, CAIRN_ACTOR: undefined,
         XDG_STATE_HOME: undefined, LOCALAPPDATA: undefined, ...env } });
   };
-  return { cwd, home, path: join(home, 'Cairn'), run };
+  return { cwd, home, path: join(home, 'Cairn'), run, server, executable: join(dist, 'cairn.mjs') };
 }
 
 const childOutput = (result) => JSON.parse(result.stdout.trimEnd().split('\n').at(-1));
@@ -157,9 +159,71 @@ test('start prefers an explicit data path and does not register it as the defaul
   assert.deepEqual(fs.readdirSync(home), []);
 });
 
+test('start ignores an empty HOME and shares the fallback home and state directory with the server', (t) => {
+  const { cwd, home, path, run, server } = launcher(t);
+  const roots = new URL('../core/roots.mjs', import.meta.url).href;
+  fs.writeFileSync(server, `
+import { homedir } from 'node:os';
+import { stateDir } from ${JSON.stringify(roots)};
+console.log(JSON.stringify({ home: homedir(), state: stateDir(), path: process.env.CAIRN_DATA }));
+`);
+  const started = run(['start'], { env: { HOME: '' } });
+  assert.equal(started.status, 0, started.stderr);
+  assert.deepEqual(childOutput(started), { home, state: stateDir({ home, env: {} }), path });
+  assert.deepEqual(findDataDir({ home, env: {} }), { path, source: 'state' });
+  assert.equal(fs.existsSync(join(cwd, 'Cairn')), false);
+});
+
+test('server home can fall back to the OS account with both home variables empty', () => {
+  const source = new URL('../cli/commands/start.mjs', import.meta.url).href;
+  const script = `
+import assert from 'node:assert/strict';
+import { homedir, userInfo } from 'node:os';
+import { serverHome } from ${JSON.stringify(source)};
+assert.equal(serverHome(process.env), homedir() || userInfo().homedir);
+`;
+  execFileSync(process.execPath, ['--input-type=module', '--eval', script], {
+    env: { ...process.env, HOME: '', USERPROFILE: '' }, timeout: 10_000,
+  });
+});
+
+for (const target of ['directed', 'process group']) {
+  test(`start forwards ${target} SIGINT to the server once`, {
+    skip: process.platform === 'win32', timeout: 10_000,
+  }, async (t) => {
+    const { home, executable, server } = launcher(t);
+    fs.writeFileSync(server, `
+let count = 0;
+const deadline = setTimeout(() => { process.exitCode = 99; }, 5000);
+process.on('SIGINT', () => {
+  if (++count === 1) setTimeout(() => {
+    clearTimeout(deadline);
+    process.exitCode = count === 1 ? 23 : 99;
+  }, 350);
+});
+console.log('ready');
+`);
+    const child = spawn(process.execPath, [executable, 'start', '--no-open', '--data', home], {
+      detached: true, stdio: ['ignore', 'pipe', 'inherit'],
+    });
+    const closed = once(child, 'close');
+    try {
+      const [line] = await Promise.race([once(child.stdout, 'data'), closed]);
+      assert.equal(String(line).trim(), 'ready');
+      process.kill(target === 'directed' ? child.pid : -child.pid, 'SIGINT');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      process.kill(target === 'directed' ? child.pid : -child.pid, 'SIGINT');
+      assert.deepEqual(await closed, [23, null]);
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+      await closed;
+    }
+  });
+}
+
 test('agent setup from an npx cache exits 2 before previewing or writing skills and hooks', (t) => {
-  const { home, run } = launcher(t, { cached: true });
-  for (const args of [['install'], ['install', '--hooks'], ['check']]) {
+  const { home, run } = launcher(t, { cached: '0123456789abcdef' });
+  for (const args of [['install'], ['install', '--hooks'], ['check'], ['print']]) {
     const result = run(['agent', ...args, '--json']);
     assert.equal(result.status, 2, result.stdout + result.stderr);
     const { error } = JSON.parse(result.stdout);
@@ -168,4 +232,11 @@ test('agent setup from an npx cache exits 2 before previewing or writing skills 
     assert.equal(result.stderr, '');
     assert.deepEqual(fs.readdirSync(home), []);
   }
+});
+
+test('agent print works from a checkout with an ancestor named _npx', (t) => {
+  const { run } = launcher(t, { cached: 'worktrees' });
+  const result = run(['agent', 'print', '--json']);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(JSON.parse(result.stdout).data, /cairn\.mjs/u);
 });

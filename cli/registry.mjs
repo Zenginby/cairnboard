@@ -25,7 +25,7 @@ import { evaluateHook, hookOutput } from '../core/hook.mjs';
 import { mentions, linkMention } from '../core/mentions.mjs';
 import { prepareChanges, runChanges } from './commands/changes.mjs';
 import { configCommands, readConfiguredFeatures } from './commands/config.mjs';
-import { runStart } from './commands/start.mjs';
+import { runStart, serverHome } from './commands/start.mjs';
 
 /** @typedef {{ data: unknown, warnings?: string[], exit?: number, stdout?: string }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
@@ -317,7 +317,7 @@ read('open', 'Open the running web interface.', [], {}, async (ctx, args, opts, 
   const { isAlive, readServerState } = await import('../server/state.mjs');
   const { stateDir } = await import('../core/roots.mjs');
   const { loginUrl, sessionKey } = await import('../server/session.mjs');
-  const where = { env: io.env, home: io.env.HOME ?? io.env.USERPROFILE };
+  const where = { env: io.env, home: serverHome(io.env) };
   const state = readServerState(where);
   // A record left by a crashed server must not send a login token to whatever took its port.
   if (!state || !Number.isSafeInteger(state.port) || typeof state.instance !== 'string' || !(io.isAlive ?? isAlive)(state.pid)) {

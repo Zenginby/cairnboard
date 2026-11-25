@@ -44,6 +44,10 @@ export function agentCommands(commands) {
       } },
     { name: 'agent print', summary: 'Print a short AGENTS.md fragment.', args: [], options: {},
       mode: 'read', needsData: false, dangerous: false,
-      run: () => ({ data: renderAgentsMd({ version: packageVersion, invocation: cliInvocation(repoRoot, platform()), commands }) }) },
+      run: () => {
+        requireStableAgentRoot();
+        const invocation = cliInvocation(repoRoot, platform());
+        return { data: renderAgentsMd({ version: packageVersion, invocation, commands }) };
+      } },
   ];
 }

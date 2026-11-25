@@ -28,7 +28,10 @@ export function cliInvocation(root, platform = process.platform) {
 }
 
 export function requireStableAgentRoot(root = repoRoot) {
-  if (resolve(root).split(sep).includes('_npx')) {
+  const path = resolve(root);
+  const parts = (process.platform === 'win32' ? path.toLowerCase() : path).split(sep);
+  const [cache, hash, modules, name] = parts.slice(-4);
+  if (cache === '_npx' && /^[a-f0-9]{16}$/u.test(hash) && modules === 'node_modules' && name === 'cairnboard') {
     throw new CairnError('usage',
       'Agent setup needs a stable CLI path. Install globally (npm i -g cairnboard), then run cairn agent install.');
   }

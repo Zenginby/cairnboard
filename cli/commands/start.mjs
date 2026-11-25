@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdirSync, statSync } from 'node:fs';
-import { constants, homedir } from 'node:os';
+import { constants, homedir, userInfo } from 'node:os';
 import { join, resolve } from 'node:path';
 import { repoRoot } from '../../core/agent.mjs';
 import { loadConfig } from '../../core/config.mjs';
@@ -10,6 +10,11 @@ import { realRoot } from '../../core/paths.mjs';
 import { findDataDir, initDataDir } from '../../core/roots.mjs';
 import { oneLine } from '../../core/text.mjs';
 import { clean } from '../output.mjs';
+
+export function serverHome(env) {
+  // On POSIX, os.homedir() can return the empty HOME it inherited.
+  return env.HOME || env.USERPROFILE || homedir() || userInfo().homedir;
+}
 
 function initDefault(path, settings, language, stdout) {
   let created = true;
@@ -42,8 +47,9 @@ export async function runStart(ctx, args, opts, io) {
     throw new CairnError('validation', 'The web app is missing. Build it first with npm run build:app.');
   }
 
-  const home = io.env.HOME ?? io.env.USERPROFILE ?? homedir();
-  const env = { ...io.env, ...(io.env.CAIRN_DATA ? { CAIRN_DATA: resolve(io.cwd, io.env.CAIRN_DATA) } : {}) };
+  const home = serverHome(io.env);
+  const env = { ...io.env, HOME: home, USERPROFILE: home,
+    ...(io.env.CAIRN_DATA ? { CAIRN_DATA: resolve(io.cwd, io.env.CAIRN_DATA) } : {}) };
   const settings = { home, env };
   const found = findDataDir({ ...settings, flag: opts.data && resolve(io.cwd, opts.data) });
   if (found.source === 'default') {
@@ -51,10 +57,18 @@ export async function runStart(ctx, args, opts, io) {
     initDefault(found.path, settings, language, io.stdout);
   }
 
+  // A separate POSIX process group ensures that only the launcher gets terminal Ctrl-C.
+  // On Windows both share the console and Node's child.kill() would forcibly terminate the server.
+  const detached = process.platform !== 'win32';
   const child = spawn(process.execPath, [join(repoRoot, 'server/start.mjs'), ...(opts['no-open'] ? ['--no-open'] : [])],
-    { cwd: io.cwd, env: { ...env, CAIRN_DATA: found.path }, stdio: 'inherit' });
-  // Terminal Ctrl-C already reaches both processes. A directed SIGTERM needs forwarding.
-  const interrupt = () => {};
+    { cwd: io.cwd, env: { ...env, CAIRN_DATA: found.path }, stdio: 'inherit', detached });
+  let interrupted = false;
+  const interrupt = () => {
+    if (detached && !interrupted) {
+      interrupted = true;
+      child.kill('SIGINT');
+    }
+  };
   const terminate = () => child.kill('SIGTERM');
   process.on('SIGINT', interrupt);
   process.on('SIGTERM', terminate);

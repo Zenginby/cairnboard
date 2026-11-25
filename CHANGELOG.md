@@ -6,6 +6,11 @@
 
 - Start Cairnboard with `npx cairnboard`, or install it globally for daily use and agent setup.
 
+### Fixed
+
+- Make the packaged web build portable across operating systems and keep build-machine paths out of it.
+- Forward directed interrupts to the launched server and use a consistent home for data and server state.
+
 ## [0.3.0] - 2026-11-16
 
 - Cam scene: more detail (pines, a larger cairn, rocks, a lake with the sun or moon reflected) and slow background

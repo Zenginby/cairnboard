@@ -112,8 +112,9 @@ cairn agent print
 `--target claude` selects only the first; `--target agents` selects the second (Codex, Gemini CLI,
 Cursor and Antigravity desktop). `--target antigravity-cli` selects
 `~/.gemini/antigravity-cli/skills/`, writing `cairnboard/SKILL.md` there. Repeat `--target` to select several.
-The generated skill contains the quoted full CLI path. For a stable path, `agent install` and `agent check`
-require a global install when run from the `npx` cache. Reinstall the skill after moving or updating the CLI.
+The generated skill contains the quoted full CLI path. For a stable path, `agent install`, `agent check`,
+and `agent print` require a global install when run from the `npx` cache.
+Reinstall the skill after moving or updating the CLI.
 `agent check` reports installed versions and path validity. `agent print` prints a fragment you can
 copy into a project's `AGENTS.md`; it does not edit that file.
 Generated skills must fit within 24 KB of UTF-8 text. If a long clone path makes them exceed that

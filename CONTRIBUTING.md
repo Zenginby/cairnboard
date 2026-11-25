@@ -18,7 +18,8 @@ npm start
 `cairn` and `cairnboard` to your PATH.
 
 Run `npm run test:pack` to build, pack and install the npm package in temporary directories and check that it starts.
-For a tarball alone, use `npm pack --ignore-scripts=false` to enable `prepack` for that command.
+To pack and verify existing build output, use `npm run test:pack -- --pack cairnboard.tgz`.
+To check an existing tarball, use `npm run test:pack -- --tarball cairnboard.tgz`.
 
 ## Checks and conventions
 
