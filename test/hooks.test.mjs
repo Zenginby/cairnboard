@@ -269,6 +269,39 @@ test('push excludes history actually advertised by the remote without tracking r
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('a branch update that merges history the remote already has scans only its own commits', (t) => {
+  const s = sandbox(t);
+  const base = s.git('rev-parse', 'HEAD').stdout.trim();
+  s.env.GIT_AUTHOR_EMAIL = 'other@example.com'; // cairn-scan:allow-fixture
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'merged elsewhere').status, 0);
+  delete s.env.GIT_AUTHOR_EMAIL;
+  const bare = join(s.dir, 'remote.git');
+  assert.equal(spawnSync('git', ['clone', '-q', '--bare', s.repo, bare], { env: s.env }).status, 0);
+  s.git('remote', 'add', 'origin', bare);
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'mine').status, 0);
+  const input = refInput(s).replace(/0{40}\n$/, `${base}\n`);
+  const result = hook(s, 'push', { input });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('an advertised commit missing locally does not drop the other exclusions', (t) => {
+  const s = sandbox(t);
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'zorblax').status, 0);
+  const bare = join(s.dir, 'remote.git');
+  assert.equal(spawnSync('git', ['clone', '-q', '--bare', s.repo, bare], { env: s.env }).status, 0);
+  const tree = s.git('rev-parse', 'HEAD^{tree}').stdout.trim();
+  const extra = spawnSync('git', ['--git-dir', bare, '-c', 'user.name=t', '-c', 'user.email=t@example.com',
+    'commit-tree', tree, '-m', 'remote'], { env: s.env, encoding: 'utf8' });
+  assert.equal(extra.status, 0, extra.stderr);
+  const ref = spawnSync('git', ['--git-dir', bare, 'update-ref', 'refs/pull/1/head', extra.stdout.trim()],
+    { env: s.env });
+  assert.equal(ref.status, 0);
+  s.git('remote', 'add', 'origin', bare);
+  assert.equal(s.git('commit', '-q', '--allow-empty', '--no-verify', '-m', 'clean').status, 0);
+  const result = hook(s, 'push', { input: refInput(s) });
+  assert.equal(result.status, 0, result.stderr);
+});
+
 for (const role of ['author', 'committer']) {
   for (const email of ['other@example.com', '']) {
     test(`push rejects ${email ? 'unapproved' : 'empty'} ${role} identities throughout the range`, (t) => {

@@ -13,6 +13,8 @@
 - Stop the launched server when the terminal closes and force it to stop on a second Ctrl-C.
 - Update Astro to 7.4.12 and the Node adapter to 11.1.13 to address the image endpoint path traversal advisory.
 - Security scan: Dependabot's sign-off address and GitHub compare links in commit messages are no longer reported.
+- Push hook: a branch update that merges history the remote already has, or a remote that advertises pull request
+  refs we never fetched, no longer re-scans published commits.
 
 ## [0.3.0] - 2026-11-16
 

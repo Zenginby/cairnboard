@@ -74,9 +74,15 @@ function staged(ctx) {
 function advertisedCommits(remote) {
   try {
     const hashes = git(['ls-remote', '--', remote]).split('\n').filter(Boolean).map((line) => line.split('\t')[0]);
-    return [...new Set(hashes)].map((hash) => {
+    return [...new Set(hashes)].flatMap((hash) => {
       if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(hash)) throw new Error('invalid object id');
-      return git(['rev-parse', '--verify', `${hash}^{commit}`]).trim();
+      // GitHub also advertises refs/pull/*; an object we never fetched cannot be in the outgoing range, so skip it
+      // instead of dropping every exclusion.
+      try {
+        return [git(['rev-parse', '--verify', '--quiet', `${hash}^{commit}`]).trim()];
+      } catch {
+        return [];
+      }
     });
   } catch {
     // Unavailable remotes or objects we do not have locally: scan the full history.
@@ -92,7 +98,10 @@ function outgoing(ctx, refLines, remote) {
     const [, localSha, remoteRef, remoteSha] = line.split(' ');
     if (ZERO.test(localSha)) continue; // branch deletion
     const file = `push ref #${index + 1}`;
-    const range = ZERO.test(remoteSha) ? [localSha, '--not', ...(exclusions ??= advertisedCommits(remote))] : [`${remoteSha}..${localSha}`];
+    // History the remote already advertises (other branches, merged pull requests) was published before; an update
+    // that merges it in only sends its own commits.
+    const range = [localSha, '--not', ...(ZERO.test(remoteSha) ? [] : [remoteSha]),
+      ...(exclusions ??= advertisedCommits(remote))];
     const log = blankAllowedBinaries(git(['-c', 'core.quotePath=false', 'log', '-p', '--text', '--no-textconv', '--no-ext-diff', '--no-color', '--diff-merges=first-parent', `--format=${COMMIT_MARK}%n%an <%ae>%n%cn <%ce>%n%w(0,4,4)%B%w(0,0,0)`, ...range]), allowed ??= allowedBinaries());
     // Messages are indented (%w) so a message line can never pass for a diff header and unlock the fixture marker.
     findings.push(...scanLines(log, fixtureLines(log), { ...ctx, file }));
