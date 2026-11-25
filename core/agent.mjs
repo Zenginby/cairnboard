@@ -1,4 +1,4 @@
-import { dirname, isAbsolute, join, posix, resolve, win32 } from 'node:path';
+import { dirname, isAbsolute, join, posix, resolve, sep, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as fs from './fsx.mjs';
 import { CairnError } from './errors.mjs';
@@ -25,6 +25,16 @@ export function cliInvocation(root, platform = process.platform) {
   }
   const path = (platform === 'win32' ? win32 : posix).join(root, 'dist', 'cairn.mjs');
   return `node "${platform === 'win32' ? path : path.replace(/["$`\\]/gu, '\\$&')}"`;
+}
+
+export function requireStableAgentRoot(root = repoRoot) {
+  const path = resolve(root);
+  const parts = (process.platform === 'win32' ? path.toLowerCase() : path).split(sep);
+  const [cache, hash, modules, name] = parts.slice(-4);
+  if (cache === '_npx' && /^[a-f0-9]{16}$/u.test(hash) && modules === 'node_modules' && name === 'cairnboard') {
+    throw new CairnError('usage',
+      'Agent setup needs a stable CLI path. Install globally (npm i -g cairnboard), then run cairn agent install.');
+  }
 }
 
 function fill(template, values) {
@@ -135,6 +145,7 @@ function writeDiff(stderr, before, text, safe) {
 }
 
 export function prepareInstall({ home, repoRoot: root = repoRoot, targets, commands, stderr, features = undefined }) {
+  requireStableAgentRoot(root);
   const names = selected(targets);
   if (!fs.statSync(join(root, 'dist/cairn.mjs'), { throwIfNoEntry: false })?.isFile()) {
     throw new CairnError('validation', 'Build the CLI first: npm run build:cli');

@@ -12,7 +12,7 @@ test('cairn open reports a missing server with the usual envelope and a nonzero 
     const response = await run(['open', '--json'], { home });
     assert.equal(response.code, 3);
     assert.deepEqual(response.json, { v: 1, ok: false,
-      error: { code: 'not_found', message: 'Cairnboard is not running; start it with npm start.' }, warnings: [] });
+      error: { code: 'not_found', message: 'Cairnboard is not running; start it with cairn start.' }, warnings: [] });
   }
 });
 

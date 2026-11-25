@@ -51,28 +51,29 @@ flowchart LR
 Requires Node.js ≥ 22.23.4.
 
 ```sh
-git clone https://github.com/Zenginby/cairnboard.git
-cd cairnboard
-npm ci
-npm run build:cli
-node dist/cairn.mjs init ~/Cairn --language en --actor owner
-npm start
+npx cairnboard
 ```
 
-`init` creates the data folder and remembers it. `npm start` builds the web interface, starts it on your machine
-only and opens your browser with a one-time sign-in link. Later, `node dist/cairn.mjs open` reopens a running
-instance (or `cairn open` after `npm link`).
+On first run Cairnboard creates and remembers `~/Cairn`, starts the local server, and opens your browser with a
+one-time sign-in link.
 
-Already have an Obsidian vault? `node dist/cairn.mjs init --detect "./vault" --dry-run --actor owner`
-previews how its folders would map,
-without touching your notes. See [CLI](docs/cli.md).
+For daily use and agent setup, install globally:
+
+```sh
+npm i -g cairnboard
+cairnboard
+```
+
+Use `cairn open` to reopen a running instance. To choose a data folder, run `cairn start --data <path>`.
+Already have an Obsidian vault? Preview how its folders would map with
+`cairn init --detect "./vault" --dry-run --actor owner`. See [CLI](docs/cli.md).
 
 ## Use it with your agent
 
 Install the Cairnboard skill for your agents (run it yourself; it asks for confirmation):
 
 ```sh
-node dist/cairn.mjs agent install
+cairn agent install
 ```
 
 The skill teaches the agent the workflow (it calls the CLI by its full path):

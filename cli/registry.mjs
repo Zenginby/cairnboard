@@ -25,8 +25,9 @@ import { evaluateHook, hookOutput } from '../core/hook.mjs';
 import { mentions, linkMention } from '../core/mentions.mjs';
 import { prepareChanges, runChanges } from './commands/changes.mjs';
 import { configCommands, readConfiguredFeatures } from './commands/config.mjs';
+import { runStart, serverHome } from './commands/start.mjs';
 
-/** @typedef {{ data: unknown, warnings?: string[], exit?: number }} Result */
+/** @typedef {{ data: unknown, warnings?: string[], exit?: number, stdout?: string }} Result */
 /** @typedef {{ name: string, summary: string, args: string[], options: Record<string,
  * { type: 'string'|'boolean', multiple?: boolean, short?: string, summary: string }>, mode: 'read'|'write',
  * actor?: boolean, agentVisible?: boolean, writeOption?: string,
@@ -305,16 +306,22 @@ read('doctor', 'Inspect data without migration or recovery.', [], {}, (ctx, args
   return { data: { checks }, exit: checks.every((check) => check.ok) ? 0 : 5 };
 }, false);
 
+commands.push({
+  name: 'start', summary: 'Start the local web interface.', args: [],
+  options: { 'no-open': boolean('Do not open the browser.'), language: string('First-run language: en or tr.') },
+  mode: 'read', actor: false, agentVisible: false, needsData: false, dangerous: false, run: runStart,
+});
+
 read('open', 'Open the running web interface.', [], {}, async (ctx, args, opts, io) => {
   // Loaded on demand so other commands never load the browser launcher.
   const { isAlive, readServerState } = await import('../server/state.mjs');
   const { stateDir } = await import('../core/roots.mjs');
   const { loginUrl, sessionKey } = await import('../server/session.mjs');
-  const where = { env: io.env, home: io.env.HOME ?? io.env.USERPROFILE };
+  const where = { env: io.env, home: serverHome(io.env) };
   const state = readServerState(where);
   // A record left by a crashed server must not send a login token to whatever took its port.
   if (!state || !Number.isSafeInteger(state.port) || typeof state.instance !== 'string' || !(io.isAlive ?? isAlive)(state.pid)) {
-    throw new CairnError('not_found', 'Cairnboard is not running; start it with npm start.');
+    throw new CairnError('not_found', 'Cairnboard is not running; start it with cairn start.');
   }
   const opener = io.openBrowser ?? (await import('../server/open-browser.mjs')).openLogin;
   // The token is a secret for 60 s: it goes to the browser through a private file, never to stdout, stderr,

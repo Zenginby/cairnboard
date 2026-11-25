@@ -12,7 +12,9 @@ export function nodeAtLeast(version, min = MIN_NODE) {
 }
 
 export async function checkRuntime({ nodeVersion = process.versions.node, sqlite = () => import('node:sqlite') } = {}) {
-  const unsupported = () => new CairnError('runtime_unsupported', `Cairnboard needs Node ${MIN_NODE.join('.')} or newer with SQLite FTS5 (found ${nodeVersion}).`);
+  const unsupported = () => new CairnError('runtime_unsupported',
+    `Cairnboard needs Node ${MIN_NODE.join('.')} or newer with SQLite FTS5 (found ${nodeVersion}). ` +
+    'Upgrade at https://nodejs.org.');
   if (!nodeAtLeast(nodeVersion)) throw unsupported();
 
   try {

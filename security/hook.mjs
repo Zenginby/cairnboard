@@ -1,6 +1,6 @@
 // Git hook entry point. Fails closed: any read error or missing configuration blocks the operation.
 // Usage: node security/hook.mjs staged | commit-msg <file> | push   (push reads git's stdin ref lines)
-import { readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { loadDenylist } from './denylist.mjs';
 import { annotatedTags, git, gitBuffer } from './git.mjs';
 import { GITHUB_COMMITTER } from './rules.mjs';
@@ -71,20 +71,49 @@ function staged(ctx) {
   return findings;
 }
 
-function advertisedCommits(remote) {
+// Grafts and shallow history rewrite local ancestry (replace refs are already ignored: see git.mjs), so neither the
+// outgoing range nor the exclusions can be trusted: the push is refused, as release-check refuses them.
+function rewrittenAncestry() {
+  if (git(['rev-parse', '--is-shallow-repository']).trim() === 'true') return true;
   try {
-    const hashes = git(['ls-remote', '--', remote]).split('\n').filter(Boolean).map((line) => line.split('\t')[0]);
-    return [...new Set(hashes)].map((hash) => {
+    // Strip only Git's own newline: GIT_GRAFT_FILE may name a path with surrounding spaces.
+    lstatSync(git(['rev-parse', '--git-path', 'info/grafts']).replace(/\r?\n$/u, ''));
+    return true;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    return false;
+  }
+}
+
+// `remote` is the push destination URL from pre-push's second argument, so a separate pushurl is honoured. Returns the
+// advertised ref tips and the advertised commits we have locally.
+function advertised(remote) {
+  const none = { refs: new Map(), commits: [] };
+  try {
+    const refs = new Map();
+    for (const line of git(['ls-remote', '--', remote]).split('\n').filter(Boolean)) {
+      const [hash, ref] = line.split('\t');
       if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(hash)) throw new Error('invalid object id');
-      return git(['rev-parse', '--verify', `${hash}^{commit}`]).trim();
+      refs.set(ref, hash);
+    }
+    const commits = [...new Set(refs.values())].flatMap((hash) => {
+      // GitHub also advertises refs/pull/*; an object we never fetched cannot be in the outgoing range, so skip it
+      // instead of dropping every exclusion.
+      try {
+        return [git(['rev-parse', '--verify', '--quiet', `${hash}^{commit}`]).trim()];
+      } catch {
+        return [];
+      }
     });
+    return { refs, commits };
   } catch {
-    // Unavailable remotes or objects we do not have locally: scan the full history.
-    return [];
+    // Unavailable remotes: scan the full history.
+    return none;
   }
 }
 
 function outgoing(ctx, refLines, remote) {
+  if (rewrittenAncestry()) stop('grafts or shallow history: the outgoing commits cannot be verified', 2);
   const findings = [];
   let exclusions;
   let allowed;
@@ -92,7 +121,13 @@ function outgoing(ctx, refLines, remote) {
     const [, localSha, remoteRef, remoteSha] = line.split(' ');
     if (ZERO.test(localSha)) continue; // branch deletion
     const file = `push ref #${index + 1}`;
-    const range = ZERO.test(remoteSha) ? [localSha, '--not', ...(exclusions ??= advertisedCommits(remote))] : [`${remoteSha}..${localSha}`];
+    // History the remote already advertises (other branches, merged pull requests) was published before; an update
+    // that merges it in only sends its own commits. For an update the queried repository must show the ref at the tip
+    // git push reported, or it may not be the destination (URL rewrites) and nothing beyond that tip is excluded.
+    exclusions ??= advertised(remote);
+    const update = !ZERO.test(remoteSha);
+    const trusted = !update || exclusions.refs.get(remoteRef) === remoteSha;
+    const range = [localSha, '--not', ...(update ? [remoteSha] : []), ...(trusted ? exclusions.commits : [])];
     const log = blankAllowedBinaries(git(['-c', 'core.quotePath=false', 'log', '-p', '--text', '--no-textconv', '--no-ext-diff', '--no-color', '--diff-merges=first-parent', `--format=${COMMIT_MARK}%n%an <%ae>%n%cn <%ce>%n%w(0,4,4)%B%w(0,0,0)`, ...range]), allowed ??= allowedBinaries());
     // Messages are indented (%w) so a message line can never pass for a diff header and unlock the fixture marker.
     findings.push(...scanLines(log, fixtureLines(log), { ...ctx, file }));

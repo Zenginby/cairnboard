@@ -16,6 +16,16 @@ one (patch for fixes only, minor for new or changed features); the `post-merge` 
 5. Commit the release with message `Release X.Y.Z`.
 6. Create an annotated tag: `git tag -a vX.Y.Z -m "Release X.Y.Z"`.
 7. Push the branch and tag (only with maintainer approval).
-8. Create the GitHub Release (only with maintainer approval) with a short hand-written summary, not a CHANGELOG dump:
+8. The maintainer prepares and publishes the npm package after approval. The repository disables npm lifecycle scripts,
+   so run these in order from the release checkout and publish only after the smoke test passes:
+
+   ```sh
+   npm run build:cli
+   npm run build:app
+   npm run test:pack
+   npm publish --access public
+   ```
+
+9. Create the GitHub Release (only with maintainer approval) with a short hand-written summary, not a CHANGELOG dump:
    `gh release create vX.Y.Z --verify-tag --title "Cairnboard X.Y.Z" --notes-file <file>`.
-9. Finish with `npm run release:verify -- --tag --github`.
+10. Finish with `npm run release:verify -- --tag --github`.
