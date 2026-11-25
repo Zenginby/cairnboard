@@ -12,8 +12,10 @@ import { oneLine } from '../../core/text.mjs';
 import { clean } from '../output.mjs';
 
 export function serverHome(env) {
-  // On POSIX, os.homedir() can return the empty HOME it inherited.
-  return env.HOME || env.USERPROFILE || homedir() || userInfo().homedir;
+  // On POSIX, os.homedir() can return the empty HOME it inherited; on Windows it throws when USERPROFILE is empty.
+  let home = env.HOME || env.USERPROFILE;
+  try { home ||= homedir(); } catch { /* fall back to the account database below */ }
+  return home || userInfo().homedir;
 }
 
 function initDefault(path, settings, language, stdout) {

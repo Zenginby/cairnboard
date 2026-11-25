@@ -181,7 +181,9 @@ test('server home can fall back to the OS account with both home variables empty
 import assert from 'node:assert/strict';
 import { homedir, userInfo } from 'node:os';
 import { serverHome } from ${JSON.stringify(source)};
-assert.equal(serverHome(process.env), homedir() || userInfo().homedir);
+let expected;
+try { expected = homedir(); } catch { /* Windows throws with USERPROFILE empty */ }
+assert.equal(serverHome(process.env), expected || userInfo().homedir);
 `;
   execFileSync(process.execPath, ['--input-type=module', '--eval', script], {
     env: { ...process.env, HOME: '', USERPROFILE: '' }, timeout: 10_000,
@@ -271,7 +273,10 @@ test('agent setup from an npx cache exits 2 before previewing or writing skills 
     const { error } = JSON.parse(result.stdout);
     assert.equal(error.code, 'usage');
     assert.match(error.message, /npm i -g cairnboard.*cairn agent install/u);
-    assert.equal(result.stderr, '');
+    // Node 22 prints an ExperimentalWarning for SQLite; anything else on stderr is a failure.
+    const stderr = result.stderr.split(/\r?\n/u)
+      .filter((line) => line && !/ExperimentalWarning|--trace-warnings/u.test(line));
+    assert.deepEqual(stderr, []);
     assert.deepEqual(fs.readdirSync(home), []);
   }
 });
