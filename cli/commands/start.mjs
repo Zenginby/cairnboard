@@ -62,21 +62,35 @@ export async function runStart(ctx, args, opts, io) {
   const detached = process.platform !== 'win32';
   const child = spawn(process.execPath, [join(repoRoot, 'server/start.mjs'), ...(opts['no-open'] ? ['--no-open'] : [])],
     { cwd: io.cwd, env: { ...env, CAIRN_DATA: found.path }, stdio: 'inherit', detached });
-  let interrupted = false;
-  const interrupt = () => {
-    if (detached && !interrupted) {
-      interrupted = true;
-      child.kill('SIGINT');
+  const forceStop = () => {
+    if (!child.pid || child.exitCode !== null || child.signalCode !== null) return;
+    try {
+      if (detached) process.kill(-child.pid, 'SIGKILL');
+      else child.kill('SIGKILL');
+    } catch (error) {
+      if (error.code !== 'ESRCH') throw error;
     }
   };
+  let interrupted = false;
+  const interrupt = () => {
+    if (!detached) return;
+    if (interrupted) process.exit(130); // The exit handler kills the server and its group.
+    interrupted = true;
+    child.kill('SIGINT');
+  };
   const terminate = () => child.kill('SIGTERM');
+  process.on('exit', forceStop);
   process.on('SIGINT', interrupt);
   process.on('SIGTERM', terminate);
+  if (detached) process.on('SIGHUP', terminate);
   try {
     const [code, signal] = await once(child, 'exit');
     return { data: null, stdout: '', exit: code ?? 128 + constants.signals[signal] };
   } finally {
     process.off('SIGINT', interrupt);
     process.off('SIGTERM', terminate);
+    if (detached) process.off('SIGHUP', terminate);
+    process.off('exit', forceStop);
+    forceStop();
   }
 }

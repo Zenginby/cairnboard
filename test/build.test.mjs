@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { join, dirname } from 'node:path';
+import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import * as fs from '../core/fsx.mjs';
 import { cliInvocation, packageVersion } from '../core/agent.mjs';
@@ -187,12 +188,31 @@ assert.equal(serverHome(process.env), homedir() || userInfo().homedir);
   });
 });
 
+const posixSignals = { skip: process.platform === 'win32', timeout: 10_000 };
+
+async function runSignalServer(t, script, check) {
+  const { home, executable, server } = launcher(t);
+  fs.writeFileSync(server, script);
+  const child = spawn(process.execPath, [executable, 'start', '--no-open', '--data', home], {
+    detached: true, stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  const closed = once(child, 'close');
+  const output = createInterface({ input: child.stdout });
+  const lines = output[Symbol.asyncIterator]();
+  try {
+    assert.equal((await lines.next()).value, 'ready');
+    await check(child, lines);
+    return await closed;
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+    await closed;
+    output.close();
+  }
+}
+
 for (const target of ['directed', 'process group']) {
-  test(`start forwards ${target} SIGINT to the server once`, {
-    skip: process.platform === 'win32', timeout: 10_000,
-  }, async (t) => {
-    const { home, executable, server } = launcher(t);
-    fs.writeFileSync(server, `
+  test(`start forwards a ${target} SIGINT to the server once`, posixSignals, async (t) => {
+    const result = await runSignalServer(t, `
 let count = 0;
 const deadline = setTimeout(() => { process.exitCode = 99; }, 5000);
 process.on('SIGINT', () => {
@@ -202,24 +222,46 @@ process.on('SIGINT', () => {
   }, 350);
 });
 console.log('ready');
-`);
-    const child = spawn(process.execPath, [executable, 'start', '--no-open', '--data', home], {
-      detached: true, stdio: ['ignore', 'pipe', 'inherit'],
+`, (child) => {
+      process.kill(target === 'directed' ? child.pid : -child.pid, 'SIGINT');
     });
-    const closed = once(child, 'close');
-    try {
-      const [line] = await Promise.race([once(child.stdout, 'data'), closed]);
-      assert.equal(String(line).trim(), 'ready');
-      process.kill(target === 'directed' ? child.pid : -child.pid, 'SIGINT');
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      process.kill(target === 'directed' ? child.pid : -child.pid, 'SIGINT');
-      assert.deepEqual(await closed, [23, null]);
-    } finally {
-      if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
-      await closed;
-    }
+    assert.deepEqual(result, [23, null]);
   });
 }
+
+test('start forwards SIGHUP as SIGTERM and waits for the server to exit', posixSignals, async (t) => {
+  const result = await runSignalServer(t, `
+const deadline = setTimeout(() => { process.exitCode = 99; }, 5000);
+process.on('SIGTERM', () => {
+  clearTimeout(deadline);
+  setTimeout(() => {
+    console.log('stopped');
+    process.exitCode = 23;
+  }, 100);
+});
+console.log('ready');
+`, async (child, lines) => {
+    child.kill('SIGHUP');
+    assert.equal((await lines.next()).value, 'stopped');
+  });
+  assert.deepEqual(result, [23, null]);
+});
+
+test('a second SIGINT kills the hung server and its process group and exits 130', posixSignals, async (t) => {
+  // A surviving descendant keeps stdout open and prints a line before its fallback exit.
+  const worker = "setTimeout(() => console.log('worker survived'), 5000); console.log('ready');";
+  const result = await runSignalServer(t, `
+import { spawn } from 'node:child_process';
+process.on('SIGINT', () => console.log('interrupted'));
+spawn(process.execPath, ['--eval', ${JSON.stringify(worker)}], { stdio: 'inherit' });
+`, async (child, lines) => {
+    child.kill('SIGINT');
+    assert.equal((await lines.next()).value, 'interrupted');
+    child.kill('SIGINT');
+    assert.equal((await lines.next()).done, true);
+  });
+  assert.deepEqual(result, [130, null]);
+});
 
 test('agent setup from an npx cache exits 2 before previewing or writing skills and hooks', (t) => {
   const { home, run } = launcher(t, { cached: '0123456789abcdef' });
