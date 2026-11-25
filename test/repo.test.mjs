@@ -14,7 +14,7 @@ test('package.json is publishable, ESM, MIT, Node >= 22.23.4 with exactly pinned
   assert.ok(Array.isArray(p.files));
   assert.ok(!p.files.includes('scripts/build-app.mjs'));
   assert.ok(!Object.hasOwn(p.scripts, 'prepack'));
-  assert.deepEqual(p.dependencies, { '@astrojs/node': '11.1.13', astro: '7.4.12', chokidar: '5.0.0',
+  assert.deepEqual(p.dependencies, { '@astrojs/node': '11.1.14', astro: '7.4.13', chokidar: '5.0.0',
     'rehype-sanitize': '6.0.0', 'rehype-stringify': '10.0.1', 'remark-gfm': '4.0.1',
     'remark-parse': '11.0.0', 'remark-rehype': '11.1.2', unified: '11.0.5', yaml: '2.9.1' });
   assert.deepEqual(p.devDependencies, {
