@@ -8,7 +8,8 @@ function unsupported(version) {
     assert.ok(error instanceof CairnError);
     assert.equal(error.code, 'runtime_unsupported');
     assert.equal(error.exit, 5);
-    assert.equal(error.message, `Cairnboard needs Node 22.23.4 or newer with SQLite FTS5 (found ${version}).`);
+    assert.equal(error.message, `Cairnboard needs Node 22.23.4 or newer with SQLite FTS5 (found ${version}). ` +
+      'Upgrade at https://nodejs.org.');
     return true;
   };
 }

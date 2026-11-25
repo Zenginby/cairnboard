@@ -4,9 +4,10 @@ import { readFileSync } from 'node:fs';
 
 const oku = (yol) => readFileSync(new URL(`../${yol}`, import.meta.url), 'utf8');
 
-test('package.json is private, ESM, MIT, Node >= 22.23.4 with exactly pinned dependencies', () => {
+test('package.json is publishable, ESM, MIT, Node >= 22.23.4 with exactly pinned dependencies', () => {
   const p = JSON.parse(oku('package.json'));
-  assert.equal(p.private, true);
+  assert.equal(Object.hasOwn(p, 'private'), false);
+  assert.deepEqual(p.bin, { cairn: 'dist/cairn.mjs', cairnboard: 'dist/cairnboard.mjs' });
   assert.equal(p.type, 'module');
   assert.equal(p.engines.node, '>=22.23.4');
   assert.equal(p.license, 'MIT');

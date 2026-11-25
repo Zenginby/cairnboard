@@ -21,12 +21,14 @@ function sources(dir) {
     .map((entry) => join(entry.parentPath, entry.name));
 }
 
-test('core and cli never spawn processes, open sockets or fetch', () => {
+test('core and cli keep process launch in start and leave networking to the server', () => {
   const violations = [];
   for (const file of ['core', 'cli'].flatMap((dir) => sources(join(repo, dir)))) {
+    const name = relative(repo, file).replaceAll('\\', '/');
     readFileSync(file, 'utf8').split(/\r?\n/u).forEach((line, i) => {
+      if (name === 'cli/commands/start.mjs' && line === "import { spawn } from 'node:child_process';") return;
       if (FORBIDDEN.some((pattern) => pattern.test(line))) {
-        violations.push(`${relative(repo, file).replaceAll('\\', '/')}:${i + 1}`);
+        violations.push(`${name}:${i + 1}`);
       }
     });
   }

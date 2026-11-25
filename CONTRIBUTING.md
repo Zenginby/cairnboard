@@ -1,6 +1,27 @@
 # Contributing
 
-- Run `npm run hooks:install` right after cloning; commits are scanned before they are created.
+## Development setup
+
+Requires Node.js ≥ 22.23.4.
+
+```sh
+git clone https://github.com/Zenginby/cairnboard.git
+cd cairnboard
+npm run hooks:install
+npm ci
+npm run build:cli
+node dist/cairn.mjs init ~/Cairn --language en --actor owner
+npm start
+```
+
+`npm start` builds and starts the web interface. Run `node dist/cairn.mjs` for CLI help or `npm link` to add
+`cairn` and `cairnboard` to your PATH.
+
+Run `npm run test:pack` to build, pack and install the npm package in temporary directories and check that it starts.
+For a tarball alone, use `npm pack --ignore-scripts=false` to enable `prepack` for that command.
+
+## Checks and conventions
+
 - Code, file, data-key and command names are English; user-facing text lives in `src/i18n/`.
 - Run `npm run check:types` to check JavaScript types in `core/` without emitting files.
 - Run `npm run check:style` to check changed lines against the Git base (override with `-- --base <ref>`).

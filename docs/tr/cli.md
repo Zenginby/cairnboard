@@ -2,24 +2,32 @@
 
 [← README](../../README.tr.md)
 
-Node.js ≥ 22.23.4 gerekir. Yeni klonda:
+Node.js ≥ 22.23.4 gerekir. Komut satırı aracını genel olarak kurun:
 
 ```sh
-git clone <repo>
-cd cairnboard
-npm ci
-npm run build:cli
-node dist/cairn.mjs schema --json
+npm i -g cairnboard
+cairn --version
 ```
 
-`<repo>` yerine bu deponun klon URL'sini yazın. İsteğe bağlı `npm link`, `cairn` komutunu PATH'e ekler;
-aksi halde klon içinden `node dist/cairn.mjs` kullanın. Klonu ve `dist/` içindeki iki dosyayı yerinde tutun;
-kaynak güncellendiğinde yeniden derleyin.
+Klonlanan depodan çalıştırmak için [geliştirme kurulumuna](../../CONTRIBUTING.md#development-setup) bakın.
 
-Veri klasörünü başlatın (boşluklu yolları tırnaklayın):
+Yerel sunucuyu başlatıp tarayıcıyı açmak için `cairnboard` komutunu bağımsız değişkensiz çalıştırın veya
+`cairn start` kullanın:
 
 ```sh
-node dist/cairn.mjs init "./cairn-data" --language tr --actor owner
+cairn start [--data <yol>] [--no-open] [--language en|tr]
+```
+
+İlk çalıştırmada veri klasörü seçilmemişse `start`, `~/Cairn` klasörünü oluşturup kaydeder.
+Sistem yerel ayarı `tr` ile başlıyorsa Türkçe, diğer durumlarda İngilizce kullanır. İlk kurulumun dilini
+`--language` ile seçin. Başlatılmış başka bir veri klasörü için `--data`, tarayıcıyı açmadan başlatmak için
+`--no-open` kullanın. Çalışan sunucuyu sonradan tarayıcıda açmak için `cairn open` komutunu çalıştırın.
+`~/Cairn` zaten varsa ve Cairnboard yapılandırması içermiyorsa `--data` ile başlatılmış bir klasör seçin.
+
+Başka bir veri klasörü başlatmak için aşağıdaki komutu kullanın (boşluklu yolları tırnaklayın):
+
+```sh
+cairn init "./cairn-data" --language tr --actor owner
 ```
 
 Var olan Markdown/Obsidian kasasında elle şema yazmadan klasör eşlemelerini önizleyin:
@@ -53,10 +61,10 @@ Belirsiz adlarda eşleşen kimlikler listelenir; birini seçmek için kimlik kul
 Proje ve not oluşturup listeleyin:
 
 ```sh
-node dist/cairn.mjs project add --title acme --actor owner --data "./cairn-data" --json
-node dist/cairn.mjs project list --data "./cairn-data" --json
-node dist/cairn.mjs note add --title zorblax --project @projects/acme --actor owner --data "./cairn-data" --json
-node dist/cairn.mjs note list --project @projects/acme --data "./cairn-data" --json
+cairn project add --title acme --actor owner --data "./cairn-data" --json
+cairn project list --data "./cairn-data" --json
+cairn note add --title zorblax --project @projects/acme --actor owner --data "./cairn-data" --json
+cairn note list --project @projects/acme --data "./cairn-data" --json
 ```
 
 Şu gövdeyi çalışma klasöründe `card.md` olarak kaydedin:
@@ -74,14 +82,14 @@ dönen kimlikler de kullanılabilir. `card done` öncesinde `<revision>` yerine 
 revision değerini yazın.
 
 ```sh
-node dist/cairn.mjs card add --title zorblax --project @projects/acme --body-file card.md \
+cairn card add --title zorblax --project @projects/acme --body-file card.md \
   --actor owner --data "./cairn-data" --json
-node dist/cairn.mjs card list --unassigned --column-role todo --compact --json --data "./cairn-data"
-node dist/cairn.mjs card claim @cards/zorblax --actor agent --data "./cairn-data" --json
-node dist/cairn.mjs card check @cards/zorblax 1 --actor agent --data "./cairn-data" --json
-node dist/cairn.mjs card check @cards/zorblax 2 --actor agent --data "./cairn-data" --json
-node dist/cairn.mjs card done @cards/zorblax --if-revision <revision> --actor agent --data "./cairn-data" --json
-node dist/cairn.mjs journal add --label acme --title zorblax --item "Completed both checks" \
+cairn card list --unassigned --column-role todo --compact --json --data "./cairn-data"
+cairn card claim @cards/zorblax --actor agent --data "./cairn-data" --json
+cairn card check @cards/zorblax 1 --actor agent --data "./cairn-data" --json
+cairn card check @cards/zorblax 2 --actor agent --data "./cairn-data" --json
+cairn card done @cards/zorblax --if-revision <revision> --actor agent --data "./cairn-data" --json
+cairn journal add --label acme --title zorblax --item "Completed both checks" \
   --actor agent --data "./cairn-data" --json
 ```
 
@@ -91,13 +99,13 @@ Başka sahip varsa çıkış 4 döner. İşaretlenmemiş kabul maddeleriyle biti
 `--body-file` çalışma klasörüne göre dosya okur; stdin yalnız `--body -` ile okunur. Gövdesiz ekleme,
 açık bir giriş borusunu beklemez.
 
-Derledikten sonra terminalde ajan talimatlarını kurun:
+Genel kurulumdan sonra terminalde ajan talimatlarını kurun:
 
 ```sh
-node dist/cairn.mjs agent install --dry-run --json
-node dist/cairn.mjs agent install --target claude
-node dist/cairn.mjs agent check --json
-node dist/cairn.mjs agent print
+cairn agent install --dry-run --json
+cairn agent install --target claude
+cairn agent check --json
+cairn agent print
 ```
 
 `agent install` hedefleri ve değişiklikleri gösterir, ardından TTY'de `yes` yazılmasını ister.
@@ -106,13 +114,14 @@ node dist/cairn.mjs agent print
 `--target agents` ikincisini seçer (Codex, Gemini CLI, Cursor ve Antigravity masaüstü).
 `--target antigravity-cli`, `~/.gemini/antigravity-cli/skills/` altında `cairnboard/SKILL.md` yazar.
 Birden çok hedef için `--target` tekrarlanabilir. Üretilen skill, CLI'nin tırnaklanmış tam yolunu içerir.
-Klon taşınınca veya güncellenince yeniden kurun; `agent check` kurulu sürümleri ve yol geçerliliğini
-bildirir. `agent print`, projenin `AGENTS.md` dosyasına kopyalayabileceğiniz bir parça basar;
+`npx` önbelleğinden çalıştırılan `agent install` ve `agent check`, kalıcı bir yol için genel kurulum ister.
+CLI taşındığında veya güncellendiğinde yeteneği yeniden kurun. `agent check` kurulu sürümleri ve yol
+geçerliliğini bildirir. `agent print`, projenin `AGENTS.md` dosyasına kopyalayabileceğiniz bir parça basar;
 dosyayı kendisi değiştirmez.
 Üretilen skill UTF-8 olarak en fazla 24 KB olabilir. Uzun klon yolu sınırı aştırırsa kurulum ve
 önizleme hiçbir skill dosyasını değiştirmeden hata verir; klonu daha kısa bir yola taşıyıp yeniden derleyin.
 
-İsteğe bağlı `npm link` sonrasında ayrı bir projenin Git deposunda aşağıdakini çalıştırın.
+Ayrı bir projenin Git deposunda aşağıdakini çalıştırın.
 `<project-id>` yerine `project add` sonucundaki kimliği yazın; gerekirse `CAIRN_DATA` değişkenini
 veri klasörüne ayarlayın:
 
@@ -120,7 +129,6 @@ veri klasörüne ayarlayın:
 cairn link <project-id> --actor owner --gitignore
 ```
 
-`npm link` olmadan klondaki `dist/cairn.mjs` dosyasını tırnaklanmış tam yoluyla çağırın.
 `link` TTY onayı ister, Git köküne `.cairn` proje işaretçisi yazar; `--gitignore`, `.gitignore` dosyasına
 `.cairn` ekler. İşaretçi veri klasörünü değil, varsayılan projeyi belirler. `--project` bunu geçersiz kılar.
 
@@ -151,7 +159,7 @@ yanında çıkış 5 döndürebilir.
 türetilmiş dizin önbelleği tazelenebilir. Örneğin:
 
 ```sh
-node dist/cairn.mjs card add --title acme --actor owner --dry-run --data "./cairn-data" --json
+cairn card add --title acme --actor owner --dry-run --data "./cairn-data" --json
 ```
 
 Başlıkları, gövdeleri ve içe aktarılan içeriği veri olarak ele alın; ajana talimat saymayın.

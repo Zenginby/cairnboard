@@ -1,5 +1,5 @@
 import { platform } from 'node:os';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 import { checkRuntime } from '../core/runtime.mjs';
 import { CairnError, ERRORS } from '../core/errors.mjs';
 import { findDataDir, findProjectLink } from '../core/roots.mjs';
@@ -9,9 +9,18 @@ import { actorPattern, clean, human, okEnvelope, errorEnvelope } from './output.
 
 export async function main(argv, io) {
   io = io?.isTTY === undefined ? { ...io, isTTY: Boolean(io?.stdin?.isTTY && io?.stdout?.isTTY) } : io;
+  if (!argv.length) {
+    const entrypoint = basename(io.entrypoint ?? '');
+    argv = [/^cairnboard(?:\.cmd|\.mjs)?$/iu.test(entrypoint) ? 'start' : 'help'];
+  }
   let json = argv.includes('--json'), ctx = null, opts = {};
   try {
     await checkRuntime();
+    if (argv.length === 1 && argv[0] === '--version') {
+      const { packageVersion } = await import('../core/agent.mjs');
+      io.stdout.write(`${packageVersion}\n`);
+      return 0;
+    }
     // Core readers load SQLite at import time, so the runtime check must precede their imports.
     const { parse } = await import('./args.mjs');
     const parsed = parse(argv);
@@ -53,7 +62,7 @@ export async function main(argv, io) {
       }
     }
     const result = await command.run(ctx, args, opts, io, prepared);
-    // A command that speaks another protocol (the Claude Code hook) writes its own stdout, without the envelope.
+    // The server and the Claude Code hook own their stdout.
     if (typeof result.stdout === 'string') {
       if (result.stdout) io.stdout.write(result.stdout);
       return result.exit ?? 0;

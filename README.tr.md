@@ -53,28 +53,29 @@ flowchart LR
 Node.js ≥ 22.23.4 gerekir.
 
 ```sh
-git clone https://github.com/Zenginby/cairnboard.git
-cd cairnboard
-npm ci
-npm run build:cli
-node dist/cairn.mjs init ~/Cairn --language tr --actor owner
-npm start
+npx cairnboard
 ```
 
-`init` veri klasörünü oluşturur ve hatırlar. `npm start` web arayüzünü derler, yalnız bu bilgisayarda başlatır ve
-tarayıcınızı tek kullanımlık bir giriş bağlantısıyla açar. Sonra çalışan sunucuyu `node dist/cairn.mjs open` ile
-yeniden açarsınız (`npm link` yaptıysanız `cairn open`).
+Cairnboard ilk çalıştırmada `~/Cairn` klasörünü oluşturup kaydeder, yerel sunucuyu başlatır ve tarayıcınızı
+tek kullanımlık bir giriş bağlantısıyla açar.
 
-Var olan bir Obsidian kasanız mı var? `node dist/cairn.mjs init --detect "./kasa" --dry-run --actor owner`
-klasörlerin nasıl eşleneceğini
-notlarınıza dokunmadan gösterir. Bkz. [CLI](docs/tr/cli.md).
+Günlük kullanım ve ajan kurulumu için genel kurulum yapın:
+
+```sh
+npm i -g cairnboard
+cairnboard
+```
+
+Çalışan arayüzü `cairn open` ile yeniden açın. Veri klasörünü seçmek için `cairn start --data <yol>` kullanın.
+Var olan bir Obsidian kasanız mı var? `cairn init --detect "./kasa" --dry-run --actor owner` komutuyla
+klasör eşlemelerini önizleyin. Bkz. [CLI](docs/tr/cli.md).
 
 ## Ajanınızla kullanın
 
 Cairnboard yeteneğini ajanlarınıza kurun (kendiniz çalıştırın; onay ister):
 
 ```sh
-node dist/cairn.mjs agent install
+cairn agent install
 ```
 
 Yetenek ajana iş akışını öğretir (komut satırı aracını tam yoluyla çağırır):

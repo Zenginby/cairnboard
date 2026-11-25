@@ -15,15 +15,19 @@ await build({
     __CAIRN_AGENTS__: JSON.stringify(text('agents/agents-md-template.md')),
   },
   footer: { js: `process.exitCode = await main(process.argv.slice(2), {
+  entrypoint: process.argv[1],
   stdin: process.stdin, stdout: process.stdout, stderr: process.stderr,
   env: process.env, cwd: process.cwd(), isTTY: process.stdin.isTTY === true && process.stderr.isTTY === true,
 });` },
 });
-const entry = new URL('../dist/cairn.mjs', import.meta.url);
-writeFileSync(entry, `#!/usr/bin/env node
+// npm's Windows shims pass the target path, so each name needs its own entry point.
+for (const name of ['cairn', 'cairnboard']) {
+  const entry = new URL(`../dist/${name}.mjs`, import.meta.url);
+  writeFileSync(entry, `#!/usr/bin/env node
 import * as module from 'node:module';
 
 module.enableCompileCache?.();
 await import('./cairn-main.mjs');
 `);
-chmodSync(entry, 0o755);
+  chmodSync(entry, 0o755);
+}

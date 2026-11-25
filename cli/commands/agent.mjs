@@ -1,6 +1,9 @@
 import { platform } from 'node:os';
 import { resolve } from 'node:path';
-import { checkAgents, cliInvocation, hookStatus, prepareHook, prepareInstall, packageVersion, renderAgentsMd, repoRoot } from '../../core/agent.mjs';
+import {
+  checkAgents, cliInvocation, hookStatus, prepareHook, prepareInstall, packageVersion,
+  renderAgentsMd, repoRoot, requireStableAgentRoot,
+} from '../../core/agent.mjs';
 import { readConfiguredFeatures } from './config.mjs';
 
 export function agentCommands(commands) {
@@ -35,7 +38,10 @@ export function agentCommands(commands) {
       } },
     { name: 'agent check', summary: 'Check installed agent skill versions and CLI paths.', args: [], options: {},
       mode: 'read', needsData: false, dangerous: false,
-      run: (ctx, args, opts, io) => ({ data: [...checkAgents({ home: home(io) }), hookEntry(io)] }) },
+      run: (ctx, args, opts, io) => {
+        requireStableAgentRoot();
+        return { data: [...checkAgents({ home: home(io) }), hookEntry(io)] };
+      } },
     { name: 'agent print', summary: 'Print a short AGENTS.md fragment.', args: [], options: {},
       mode: 'read', needsData: false, dangerous: false,
       run: () => ({ data: renderAgentsMd({ version: packageVersion, invocation: cliInvocation(repoRoot, platform()), commands }) }) },

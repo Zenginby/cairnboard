@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Start Cairnboard with `npx cairnboard`, or install it globally for daily use and agent setup.
+
 ## [0.3.0] - 2026-11-16
 
 - Cam scene: more detail (pines, a larger cairn, rocks, a lake with the sun or moon reflected) and slow background

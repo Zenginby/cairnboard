@@ -3299,6 +3299,67 @@
       "dangerous": false
     },
     {
+      "name": "start",
+      "summary": "Start the local web interface.",
+      "args": [],
+      "options": {
+        "help": {
+          "type": "boolean",
+          "summary": "Show command help.",
+          "short": "h"
+        },
+        "json": {
+          "type": "boolean",
+          "summary": "Return a JSON envelope."
+        },
+        "compact": {
+          "type": "boolean",
+          "summary": "Return one line per item."
+        },
+        "data": {
+          "type": "string",
+          "summary": "Use this data directory."
+        },
+        "project": {
+          "type": "string",
+          "summary": "Select a project by id, path, title or alias (case-insensitive exact name)."
+        },
+        "actor": {
+          "type": "string",
+          "summary": "Name the write actor."
+        },
+        "dry-run": {
+          "type": "boolean",
+          "summary": "Preview without writing."
+        },
+        "if-revision": {
+          "type": "string",
+          "summary": "Require this revision for a write."
+        },
+        "raw": {
+          "type": "boolean",
+          "summary": "Keep hidden characters."
+        },
+        "max-bytes": {
+          "type": "string",
+          "summary": "Limit body bytes (default: 65536)."
+        },
+        "no-open": {
+          "type": "boolean",
+          "summary": "Do not open the browser."
+        },
+        "language": {
+          "type": "string",
+          "summary": "First-run language: en or tr."
+        }
+      },
+      "mode": "read",
+      "needsData": false,
+      "dangerous": false,
+      "actor": false,
+      "agentVisible": false
+    },
+    {
       "name": "open",
       "summary": "Open the running web interface.",
       "args": [],

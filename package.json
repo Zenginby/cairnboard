@@ -2,9 +2,15 @@
   "name": "cairnboard",
   "version": "0.3.0",
   "description": "Local project board, notes and journal for developers working with coding agents.",
-  "private": true,
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zenginby/cairnboard.git"
+  },
+  "homepage": "https://github.com/Zenginby/cairnboard#readme",
+  "bugs": "https://github.com/Zenginby/cairnboard/issues",
+  "keywords": ["project-board", "markdown", "journal", "local-first", "coding-agents"],
   "engines": {
     "node": ">=22.23.4"
   },
@@ -15,11 +21,13 @@
     "cli/",
     "server/",
     "agents/",
+    "scripts/build-app.mjs",
     "README.md",
     "LICENSE"
   ],
   "bin": {
-    "cairn": "dist/cairn.mjs"
+    "cairn": "dist/cairn.mjs",
+    "cairnboard": "dist/cairnboard.mjs"
   },
   "scripts": {
     "design:build": "node scripts/design-build.mjs",
@@ -34,10 +42,12 @@
     "build:app": "node scripts/build-app.mjs",
     "start": "node server/start.mjs --build",
     "build:cli": "node scripts/build-cli.mjs",
+    "prepack": "npm run build:cli && npm run build:app",
     "bench:cli": "node scripts/bench-cli.mjs",
     "bench:reconcile": "node scripts/bench-reconcile.mjs",
     "cairn": "node cli/cairn.mjs",
     "test": "node --test \"test/**/*.test.mjs\"",
+    "test:pack": "node scripts/pack-smoke.mjs",
     "test:live": "node scripts/test-live.mjs",
     "hooks:install": "git config core.hooksPath security/hooks",
     "dev:doctor": "node security/doctor.mjs",
