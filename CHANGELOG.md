@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-26
+
 ### Fixed
 
 - `agent install --target antigravity-cli` writes the skill to `~/.gemini/config/skills/`, where the Antigravity CLI
