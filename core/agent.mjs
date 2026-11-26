@@ -15,7 +15,8 @@ const agentsTemplate = typeof __CAIRN_AGENTS__ === 'undefined'
 export const TARGETS = {
   claude: { path: '~/.claude/skills/cairnboard/SKILL.md', actor: 'claude' },
   agents: { path: '~/.agents/skills/cairnboard/SKILL.md', actor: null },
-  'antigravity-cli': { path: ['~/.gemini', 'antigravity-cli/skills', 'cairnboard/SKILL.md'].join('/'), actor: 'antigravity' },
+  // The Antigravity CLI reads machine-wide skills from ~/.gemini/config/skills/.
+  'antigravity-cli': { path: '~/.gemini/config/skills/cairnboard/SKILL.md', actor: 'antigravity' },
 };
 
 export function cliInvocation(root, platform = process.platform) {
@@ -193,7 +194,14 @@ export function installAgent(options) {
 
 export function checkAgents({ home = process.env.HOME ?? process.env.USERPROFILE } = {}) {
   return Object.keys(TARGETS).map((target) => {
-    const path = targetPath(home, target), text = readSkill(path);
+    let path;
+    try { path = targetPath(home, target); }
+    catch (error) {
+      // One unsafe destination (such as a symlinked ~/.gemini/config) must not hide the other targets' results.
+      if (error?.code !== 'unsafe_path') throw error;
+      return { target, installed: null, current: packageVersion, invocationOk: false, ok: false, error: error.message };
+    }
+    const text = readSkill(path);
     const installed = text?.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n<!-- cairnboard-skill ([^\s<>]+) -->\r?\n/u)?.[1] ?? null;
     const match = text?.match(/^node "((?:\\.|[^"\r\n])*)" /mu);
     const invocationPath = match && (process.platform === 'win32' ? match[1] : match[1].replace(/\\(["$`\\])/gu, '$1'));

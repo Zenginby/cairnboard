@@ -112,7 +112,8 @@ cairn agent print
 `--target` verilmezse `~/.claude/skills/cairnboard/SKILL.md` ve
 `~/.agents/skills/cairnboard/SKILL.md` dosyalarına yazar. `--target claude` yalnız ilkini,
 `--target agents` ikincisini seçer (Codex, Gemini CLI, Cursor ve Antigravity masaüstü).
-`--target antigravity-cli`, `~/.gemini/antigravity-cli/skills/` altında `cairnboard/SKILL.md` yazar.
+`--target antigravity-cli`, Antigravity CLI'nin makine geneli yetenek klasörü `~/.gemini/config/skills/`
+altında `cairnboard/SKILL.md` yazar.
 Birden çok hedef için `--target` tekrarlanabilir. Üretilen skill, CLI'nin tırnaklanmış tam yolunu içerir.
 `npx` önbelleğinden çalıştırılan `agent install`, `agent check` ve `agent print`, kalıcı bir yol için
 genel kurulum ister.

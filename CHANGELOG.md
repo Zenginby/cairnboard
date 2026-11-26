@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `agent install --target antigravity-cli` writes the skill to `~/.gemini/config/skills/`, where the Antigravity CLI
+  reads machine-wide skills. A copy under the old `~/.gemini/antigravity-cli/skills/` path can be deleted.
+- `agent check` reports an unsafe destination, such as a symlinked `~/.gemini/config`, on that target alone instead
+  of failing the whole check.
+
 ## [0.4.0] - 2026-11-26
 
 ### Added
