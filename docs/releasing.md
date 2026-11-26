@@ -50,3 +50,5 @@ waiting for users. A release with any minor-level line is a minor release.
 9. Create the GitHub Release (only with maintainer approval) with a short hand-written summary, not a CHANGELOG dump:
    `gh release create vX.Y.Z --verify-tag --title "Cairnboard X.Y.Z" --notes-file <file>`.
 10. Finish with `npm run release:verify -- --tag --github`.
+11. Review `ROADMAP.md`: remove what shipped (it is in the CHANGELOG now), update **Now** and **Next** and their
+    issues, and set `Last reviewed` to the new version.

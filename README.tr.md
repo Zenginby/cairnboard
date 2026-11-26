@@ -122,7 +122,7 @@ ajan yeteneğini kurma) onay ister ve bilinen bir kodlama ajanı kabuğunda çal
 - [CLI](docs/tr/cli.md): kurulum, veri klasörü, ajan iş akışı, JSON çıktısı ve çıkış kodları
 - [Wiki](docs/tr/wiki.md): bağlam paketi, kaynak alma, denetim, anmalar, Claude Code kancası
 - [Ayarlar](docs/tr/ayarlar.md): değişiklik izi, farklar, canlı güncelleme, anmalar
-- [Değişiklik günlüğü](CHANGELOG.md) · [Katkı](CONTRIBUTING.md) · [Tasarım](DESIGN.md)
+- [Yol haritası](ROADMAP.md) · [Değişiklik günlüğü](CHANGELOG.md) · [Katkı](CONTRIBUTING.md) · [Tasarım](DESIGN.md)
 
 ## Lisans
 
