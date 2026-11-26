@@ -51,7 +51,7 @@ jobs:
             echo "Tag $TAG is not on main" >&2
             exit 1
           fi
-          if npm view cairnboard versions --json | node -e 'process.exit(JSON.parse(require("fs").readFileSync(0, "utf8")).includes(process.argv[1]) ? 0 : 1)' "$version"; then
+          if npm view cairnboard versions --json | grep -Fq "\"$version\""; then
             echo "Version $version is already on npm" >&2
             exit 1
           fi
