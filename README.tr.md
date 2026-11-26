@@ -22,7 +22,7 @@ dosyalarından oluşan tek bir klasörde tutar; ajanınıza bir komut satırı a
 ilerlemesini yazar ve yaptığını günlüğe kaydeder. Cairnboard ajan başlatmaz; ajanınız kendi terminalinde
 çalışır ve panoyu ortak durum olarak kullanır.
 
-**Durum:** erken sürüm (0.3.0), geliştirme sürüyor. Pano, wiki, günlük, web arayüzü ve komut satırı aracı
+**Durum:** erken sürüm (0.4.0), geliştirme sürüyor. Pano, wiki, günlük, web arayüzü ve komut satırı aracı
 çalışıyor; dosya biçimleri değişebilir. Arayüz, veri klasörünün diline göre Türkçe ya da İngilizce açılır
 (`init --language tr|en`). Görseller İngilizce örnek veriyle çekildi.
 

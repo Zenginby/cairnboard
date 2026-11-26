@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-26
+
 ### Added
 
 - Start Cairnboard with `npx cairnboard`, or install it globally for daily use and agent setup.
