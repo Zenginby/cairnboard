@@ -1,8 +1,27 @@
 # Releasing Cairnboard
 
-A release is not done until the GitHub Release exists. Every merge into `main` with user-visible changes ends with
-one (patch for fixes only, minor for new or changed features); the `post-merge` hook warns while
-`## [Unreleased]` in `CHANGELOG.md` still has lines.
+A release is not done until the GitHub Release exists. The `post-merge` hook warns while `## [Unreleased]` in
+`CHANGELOG.md` still has lines.
+
+## Choosing the version
+
+Choose the version by the size of the change, judged from the `## [Unreleased]` lines as a whole:
+
+| Change | Version | Example |
+|---|---|---|
+| Bug fix, small improvement, docs, security patch | patch (0.4.0 → 0.4.1) | the skill folder for the Antigravity CLI |
+| A new feature or command users will notice | minor (0.4.0 → 0.5.0) | `npx cairnboard`, configurable fields |
+| Before 1.0: a change that breaks the file format or the CLI | minor, with a `### Breaking` section in the CHANGELOG | a data format change |
+| After 1.0: a breaking change | major | |
+
+A small adjustment to an existing screen or command is a patch, not a feature.
+
+## When to release
+
+Release when changes have collected, not after every merge. Release promptly when a fix or security patch is
+waiting for users. A release with any minor-level line is a minor release.
+
+## Steps
 
 1. Move the `## [Unreleased]` lines in `CHANGELOG.md` into a dated section `## [X.Y.Z] - YYYY-MM-DD`, keeping
    `## [Unreleased]` at the top.
