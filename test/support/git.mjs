@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 export function isolatedGitEnv(home) {
@@ -23,12 +24,26 @@ function run(cwd, args) {
   });
 }
 
-export function makeRepo({ home }) {
-  const cwd = mkdtempSync(join(home, 'repo-'));
+let templateRepo = null;
+
+function baseRepo() {
+  if (templateRepo) return templateRepo;
+  const base = mkdtempSync(join(tmpdir(), 'cairn-git-tpl-'));
+  const cwd = mkdtempSync(join(base, 'repo-'));
   run(cwd, ['init', '-q', '-b', 'main']);
   run(cwd, ['config', 'user.name', 't']);
   run(cwd, ['config', 'user.email', 't@users.noreply.github.com']);
   commit(cwd, { 'README.md': '# acme\n' }, 'init');
+  process.once('exit', () => {
+    try { rmSync(base, { recursive: true, force: true }); } catch {}
+  });
+  templateRepo = cwd;
+  return cwd;
+}
+
+export function makeRepo({ home }) {
+  const cwd = mkdtempSync(join(home, 'repo-'));
+  cpSync(baseRepo(), cwd, { recursive: true });
   return cwd;
 }
 
