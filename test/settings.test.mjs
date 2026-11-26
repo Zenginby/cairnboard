@@ -5,7 +5,6 @@ import { openSync } from 'node:fs';
 import * as fs from '../core/fsx.mjs';
 import { features, loadConfig } from '../core/config.mjs';
 import { openContext } from '../core/context.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { readEvents } from '../core/events.mjs';
 import { revision, write } from '../core/store.mjs';
 import { readShadow, recordShadow, shadowBytes } from '../core/shadow.mjs';
@@ -13,13 +12,13 @@ import { changeDiff, listChanges, reconcileBeforeRun, reconcileExternal } from '
 import { mentions, linkMention } from '../core/mentions.mjs';
 import { checkConfigDrift, clearShadow, readSettings, setFeature, setHomeProjects,
   setLanguage } from '../core/settings.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 import { lockName, withLock } from '../core/lock.mjs';
 
 function fixture(t) {
   const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-08T12:00:00Z');
-  initDataDir(root, { home, env: {}, clock });
+  seedDataDir(root, { home, env: {}, clock });
   const open = () => openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'cli:owner' });
   const ctx = open();
   const put = (path, bytes) => {

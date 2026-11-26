@@ -4,7 +4,6 @@ import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import * as fs from '../core/fsx.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { exportBoard } from '../core/export.mjs';
 import { lockName } from '../core/lock.mjs';
@@ -13,13 +12,13 @@ import { writeMany } from '../core/store.mjs';
 import { readShadow, shadowBytes } from '../core/shadow.mjs';
 import { readEvents } from '../core/events.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 import { runCli, spawnCli } from './support/cli.mjs';
 
 function fixture(t, initialized = true) {
   const home = tempDir(t), data = tempDir(t), cwd = tempDir(t);
   const clock = fixedClock('2026-11-01T12:00:00Z');
-  if (initialized) initDataDir(data, { home, env: {}, clock });
+  if (initialized) seedDataDir(data, { home, env: {}, clock });
   const opts = { home, data, cwd, clock };
   const put = (path, text) => {
     fs.mkdirSync(dirname(join(data, path)), { recursive: true });

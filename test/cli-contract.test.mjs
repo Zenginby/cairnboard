@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import * as fs from '../core/fsx.mjs';
 import { initDataDir, writeProjectLink } from '../core/roots.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 import { runCli, spawnCli } from './support/cli.mjs';
 import { parse } from '../cli/args.mjs';
 import { commands } from '../cli/registry.mjs';
@@ -17,7 +17,7 @@ import { CairnError, ERRORS } from '../core/errors.mjs';
 function fixture(t, initialized = true) {
   const home = tempDir(t), data = tempDir(t), cwd = tempDir(t);
   const clock = fixedClock('2026-11-01T12:00:00Z');
-  if (initialized) initDataDir(data, { home, env: {}, clock });
+  if (initialized) seedDataDir(data, { home, env: {}, clock });
   const opts = { home, data, cwd, clock };
   const put = (path, text) => {
     fs.mkdirSync(dirname(join(data, path)), { recursive: true });

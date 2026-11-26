@@ -17,8 +17,8 @@ import { lint } from '../core/lint.mjs';
 import { wikiIndex } from '../core/wiki.mjs';
 import { codeFile } from '../core/code-drift.mjs';
 import { ingest, MAX_INPUT } from '../core/ingest.mjs';
-import { initDataDir, recordRepo } from '../core/roots.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { recordRepo } from '../core/roots.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 
 const clock = fixedClock('2026-11-01T12:00:00Z');
@@ -26,7 +26,7 @@ const concept = (body = '# Topic\n', extra = '') => `---\nkind: concept\ntags: [
 
 function fixture(t, entries = {}, preset = 'default') {
   const data = tempDir(t), home = tempDir(t);
-  initDataDir(data, { home, env: {}, clock, preset });
+  seedDataDir(data, { home, env: {}, clock, preset });
   const put = (path, text) => {
     fs.mkdirSync(dirname(join(data, path)), { recursive: true });
     fs.writeFileSync(join(data, path), text);

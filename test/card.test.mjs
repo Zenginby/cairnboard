@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import * as fs from '../core/fsx.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { parseFile } from '../core/frontmatter.mjs';
 import { readFile, revision } from '../core/store.mjs';
@@ -13,11 +12,11 @@ import * as entity from '../core/entity.mjs';
 import { keyBetween } from '../core/position.mjs';
 import { columnFor, effectiveColumn, listCards, addCard, moveCard, claimCard,
   releaseCard, commentCard, checkCard, doneCard } from '../core/card.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
 function fixture(t) {
   const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(root, { home, env: {}, clock });
+  seedDataDir(root, { home, env: {}, clock });
   return openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'cli:acme' });
 }
 

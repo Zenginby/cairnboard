@@ -2,18 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { defaultConfig, loadConfig } from '../core/config.mjs';
 import { boardView, homeView } from '../cli/views.mjs';
 import { createRead } from '../server/read.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 
 const ARCHIVE = { key: 'archive', label: 'Archive', role: 'done', hidden: true };
 
 function fixture(t, agents = { project: 'p-000009' }) { // `null`: no agents setting
   const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+  seedDataDir(data, { home, env: {}, clock });
   const file = join(data, '.cairn', 'config.json');
   const config = JSON.parse(readFileSync(file, 'utf8'));
   config.columns.push(ARCHIVE);

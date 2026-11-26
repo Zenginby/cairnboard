@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import * as fs from '../core/fsx.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { readEvents } from '../core/events.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
@@ -11,12 +10,12 @@ import { revision } from '../core/store.mjs';
 import { main } from '../cli/main.mjs';
 import { commands } from '../cli/registry.mjs';
 import { cliInvocation, prepareInstall, renderSkill } from '../core/agent.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 
 function fixture(t) {
   const home = tempDir(t), data = tempDir(t), clock = fixedClock('2026-11-08T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+  seedDataDir(data, { home, env: {}, clock });
   const put = (path, text) => {
     fs.mkdirSync(dirname(join(data, path)), { recursive: true });
     fs.writeFileSync(join(data, path), text);

@@ -2,9 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import * as fs from '../core/fsx.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { mentions, linkMention } from '../core/mentions.mjs';
 import { lockName } from '../core/lock.mjs';
@@ -13,7 +12,7 @@ import { readEvents } from '../core/events.mjs';
 function fixture(t) {
   const home = tempDir(t), data = tempDir(t);
   const clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+  seedDataDir(data, { home, env: {}, clock });
   const ctx = openContext({ mode: 'write', dataDir: data, home, env: {}, clock, actor: 'cli:acme' });
   const put = (path, text) => {
     fs.mkdirSync(dirname(join(data, path)), { recursive: true });

@@ -2,17 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { readFile, write, writeMany } from '../core/store.mjs';
 import { latestUndoable, undo } from '../core/history.mjs';
 import { appendEvent, readEvents } from '../core/events.mjs';
 import { list } from '../core/trash.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
 function fixture(t) {
   const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(root, { home, env: {}, clock });
+  seedDataDir(root, { home, env: {}, clock });
   return openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'agent:acme' });
 }
 

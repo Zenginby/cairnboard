@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { readFile, recover, write, writeMany } from '../core/store.mjs';
 import { undo } from '../core/history.mjs';
@@ -12,11 +11,11 @@ import { readEvents } from '../core/events.mjs';
 import { lockName, withLock } from '../core/lock.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
 import { shadowBytes } from '../core/shadow.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
 function fixture(t) {
   const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(root, { home, env: {}, clock });
+  seedDataDir(root, { home, env: {}, clock });
   return openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'agent:acme' });
 }
 const names = (ctx, dir) => readdirSync(join(ctx.root, '.cairn', dir));

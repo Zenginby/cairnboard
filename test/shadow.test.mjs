@@ -3,17 +3,16 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { revision } from '../core/store.mjs';
 import { readShadow, recordShadow, shadowBytes, shadowEntry } from '../core/shadow.mjs';
 import { filesystemPathKey } from '../core/paths.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
 
 function fixture(t) {
   const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(root, { home, env: {}, clock });
+  seedDataDir(root, { home, env: {}, clock });
   return openContext({ mode: 'write', dataDir: root, home, env: {}, clock });
 }
 
