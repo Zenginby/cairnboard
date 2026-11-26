@@ -44,6 +44,8 @@ waiting for users. A release with any minor-level line is a minor release.
    The npm package trusts only this workflow file and the `npm` GitHub environment, which accepts `v*` tags and
    `main`. Renaming the file or the environment breaks publishing until the trusted publisher on npmjs.com is
    recreated.
+   A tag push runs the workflow file from the tagged commit, so the `Release tags` ruleset lets only repository
+   admins create, move or delete `v*` tags.
 
 9. Create the GitHub Release (only with maintainer approval) with a short hand-written summary, not a CHANGELOG dump:
    `gh release create vX.Y.Z --verify-tag --title "Cairnboard X.Y.Z" --notes-file <file>`.
