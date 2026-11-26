@@ -1,6 +1,8 @@
-import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { writeFileAtomic } from '../../core/fsx.mjs';
+import { checkedPath } from '../../core/paths.mjs';
 import { initDataDir, stateDir } from '../../core/roots.mjs';
 
 export { fixedClock } from '../../core/clock.mjs';
@@ -18,9 +20,12 @@ export function tempDir(t, prefix = 'cairn-') {
 
 // Clones one real initDataDir output per (language, preset) in this process so repeated fixture setup skips redundant
 // directory and file fsyncs. Tests covering initDataDir itself still call initDataDir directly.
+// initDataDir only seeds static config and ignore rules, so the template has no clock-dependent data or IDs.
 const initTemplates = new Map();
 
 export function seedDataDir(path, { language = 'en', preset = 'default', home, env = {}, register = true } = {}) {
+  if (![true, false, 'if-unset'].includes(register)) throw new TypeError('Unsupported seedDataDir register mode.');
+  if (register !== false && !home) throw new TypeError('seedDataDir registration requires an explicit home.');
   const key = `${language}:${preset}`;
   let template = initTemplates.get(key);
   if (!template) {
@@ -38,9 +43,11 @@ export function seedDataDir(path, { language = 'en', preset = 'default', home, e
   }
   mkdirSync(path, { recursive: true });
   cpSync(template, path, { recursive: true });
-  if (home && register !== false) {
+  if (register !== false) {
     const state = stateDir({ env, home });
+    if (register === 'if-unset' && existsSync(join(state, 'state.json'))) return;
     mkdirSync(state, { recursive: true, mode: 0o700 });
-    writeFileSync(join(state, 'state.json'), JSON.stringify({ data: realpathSync(path) }));
+    writeFileAtomic(checkedPath(realpathSync(state), 'state.json'), JSON.stringify({ data: realpathSync(path) }),
+      undefined, { durable: false });
   }
 }

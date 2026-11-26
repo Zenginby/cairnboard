@@ -6,6 +6,7 @@ import * as fs from '../core/fsx.mjs';
 import { openContext } from '../core/context.mjs';
 import { readEvents } from '../core/events.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
+import { stateDir } from '../core/roots.mjs';
 import { revision } from '../core/store.mjs';
 import { main } from '../cli/main.mjs';
 import { commands } from '../cli/registry.mjs';
@@ -32,6 +33,25 @@ function tree(root, prefix = '') {
     return stat.isDirectory() ? tree(root, path) : [[path, fs.readFileSync(join(root, path), 'utf8')]];
   });
 }
+
+test('seedDataDir registers the first path only with if-unset and writes private state', (t) => {
+  const home = tempDir(t), first = tempDir(t), second = tempDir(t);
+  const env = {};
+  const state = join(stateDir({ home, env }), 'state.json');
+  const registered = () => JSON.parse(fs.readFileSync(state, 'utf8')).data;
+
+  seedDataDir(first, { home, env, register: false });
+  assert.equal(fs.existsSync(state), false);
+  seedDataDir(first, { home, env, register: 'if-unset' });
+  assert.equal(registered(), first);
+  seedDataDir(second, { home, env, register: 'if-unset' });
+  assert.equal(registered(), first);
+  if (process.platform !== 'win32') fs.chmodSync(state, 0o644);
+  seedDataDir(second, { home, env, register: true });
+  assert.equal(registered(), second);
+  if (process.platform !== 'win32') assert.equal(fs.statSync(state).mode & 0o777, 0o600);
+  assert.throws(() => seedDataDir(first, { home, env, register: 'unknown' }), TypeError);
+});
 
 test('cairn config and config get report defaults and validate feature names', async (t) => {
   const f = fixture(t);

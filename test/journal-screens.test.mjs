@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,7 @@ import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 process.env.CAIRN_LANGUAGE = 'tr';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+const clock = fixedClock('2026-11-18T12:00:00Z');
 
 // Real Node request/response objects let the test run without permission to bind a socket.
 async function inProcess(app, path) {
@@ -53,9 +54,8 @@ function jobsOf(date) {
   ];
 }
 
-function populateFixture(data, home, days) {
-  const clock = fixedClock('2026-11-18T12:00:00Z');
-  seedDataDir(data, { home, env: {}, clock });
+function populateFixture(data, days) {
+  seedDataDir(data, { register: false });
   mkdirSync(join(data, 'projects'), { recursive: true });
   for (const [id, title, tone] of [[ALPHA, 'Alpha project', 2], [BETA, 'Beta project', 5]]) {
     writeFileSync(join(data, `projects/${id}.md`),
@@ -70,42 +70,43 @@ function populateFixture(data, home, days) {
       + '- third\n- fourth item\n').join('\n');
     writeFileSync(join(data, `journal/${date}.md`), `---\ndate: ${date}\n${summary}---\n${jobs}`);
   }
-  const open = () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock });
-  return { open, data };
+}
+
+function fixtureOpen(data, home) {
+  return () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock });
 }
 
 function fixture(t, { days = DATES } = {}) {
-  return populateFixture(tempDir(t), tempDir(t), days);
+  const data = tempDir(t);
+  populateFixture(data, days);
+  return { open: fixtureOpen(data, tempDir(t)), data };
 }
 
-let sharedBase = null;
+let template = null;
 let sharedPool = null;
 let sharedHandler = null;
-let sharedGet = null;
 
 before(async () => {
-  sharedBase = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-journal-scr-')));
-  const data = join(sharedBase, 'data'), home = join(sharedBase, 'home');
-  mkdirSync(data);
-  mkdirSync(home);
-  const { open } = populateFixture(data, home, DATES);
   if (existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+    template = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-journal-scr-')));
+    populateFixture(template, DATES);
     ({ handler: sharedHandler } = await import('../dist/app/server/entry.mjs'));
     sharedPool = createRenderPool();
-    const app = createApp({ root, guard, handler: sharedHandler,
-      locals: { cairn: createRead({ open, render: sharedPool.render }) } });
-    sharedGet = (path) => inProcess(app, path);
   }
 });
 
 after(async () => {
   await sharedPool?.close();
-  if (sharedBase) rmSync(sharedBase, { recursive: true, force: true });
+  if (template) rmSync(template, { recursive: true, force: true });
 });
 
 async function page(t, open) {
   if (!sharedHandler) return t.skip('Astro output missing; run build:app.');
-  if (!open) return sharedGet;
+  if (!open) {
+    const data = tempDir(t);
+    cpSync(template, data, { recursive: true });
+    open = fixtureOpen(data, tempDir(t));
+  }
   const app = createApp({ root, guard, handler: sharedHandler,
     locals: { cairn: createRead({ open, render: sharedPool.render }) } });
   return (path) => inProcess(app, path);

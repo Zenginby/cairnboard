@@ -1,4 +1,4 @@
-import { after, test } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createServer, IncomingMessage, request, ServerResponse } from 'node:http';
@@ -282,9 +282,6 @@ function externalAssets(html) {
   }
 }
 
-let sharedPool = null;
-after(() => sharedPool?.close());
-
 for (const [vault, loosePath] of [['plain', 'Ideas/Spark.md'], ['daily', 'Archive/Old.md'],
   ['tagged', 'Topics/Loose.md']]) {
   for (const preset of ['default', 'tr-wiki']) {
@@ -333,8 +330,9 @@ for (const [vault, loosePath] of [['plain', 'Ideas/Spark.md'], ['daily', 'Archiv
       }
 
       const open = () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock, preset });
-      sharedPool ??= createRenderPool();
-      const cairn = createRead({ open, render: sharedPool.render });
+      const pool = createRenderPool();
+      t.after(() => pool.close());
+      const cairn = createRead({ open, render: pool.render });
       const app = createApp({ root, guard, handler, locals: { cairn } });
       const response = await inProcess(app, '/');
       assert.equal(response.status, 200);

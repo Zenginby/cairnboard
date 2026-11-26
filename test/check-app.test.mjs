@@ -40,7 +40,7 @@ test('app pages are picked from the data, in a fixed order, and --only narrows t
   assert.deepEqual(pages[6], { name: 'search-dialog', path: '/', interaction: 'search-dialog' });
   assert.deepEqual(pages[7], { name: 'not-found', path: MISSING_PATH, status: 404 });
   assert.deepEqual(pages[8], { name: 'signed-out', path: '/', status: 401, auth: false });
-  assert.deepEqual(selectAppPages(ctx), pages, 'selection is deterministic');
+  assert.deepEqual(selectAppPages(sample(t)), pages, 'selection is deterministic');
   assert.deepEqual(selectAppPages(ctx, 'board'), [pages[1]]);
   assert.deepEqual(selectAppPages(ctx, 'search-dialog'), [pages[6]], 'the dialog steps run on their own');
   assert.throws(() => selectAppPages(ctx, 'nope'), /Unknown page: nope/);

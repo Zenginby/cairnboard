@@ -491,10 +491,15 @@ test('pinnedNotesResult orders newest first, caps at 30, drops agents project, i
       const file = kind === 'overview' ? 'wiki/overview.md' : `${folder}/note-${seq}.md`;
       put(file, { id, title, kind, pinned: true, updated: iso, ...extra }, body);
     };
+    const createAt = (iso, title, extra = {}, body = 'Body') => {
+      const ctxAt = openContext({ dataDir: dir, home, env: {}, clock: fixedClock(iso),
+        mode: 'write', actor: 'cli:test' });
+      note.create(ctxAt, { title, pinned: true, ...extra }, body, {});
+    };
 
     writeAt('2026-11-01T00:00:00Z', 'Pinned 1');
-    writeAt('2026-11-01T00:01:00Z', 'Pinned 2');
-    writeAt('2026-11-01T00:02:00Z', 'Concept one', { kind: 'concept', project: work.id });
+    createAt('2026-11-01T00:01:00Z', 'Pinned 2');
+    createAt('2026-11-01T00:02:00Z', 'Concept one', { kind: 'concept', project: work.id });
     writeAt('2026-11-01T00:03:00Z', 'Tool one', { kind: 'tool' });
     writeAt('2026-11-01T00:04:00Z', 'Query one', { kind: 'query' });
     writeAt('2026-11-01T00:05:00Z', 'Overview one', { kind: 'overview' });
@@ -502,7 +507,7 @@ test('pinnedNotesResult orders newest first, caps at 30, drops agents project, i
       const mm = String(i + 3).padStart(2, '0');
       writeAt(`2026-11-01T00:${mm}:00Z`, `Pinned ${i}`);
     }
-    writeAt(
+    createAt(
       '2026-11-01T01:00:00Z',
       'Latest markdown note',
       { project: work.id },
@@ -540,7 +545,16 @@ test('pinnedNotesResult orders newest first, caps at 30, drops agents project, i
     assert.match(excerpt, /external link/u);
   });
 
-test('pinnedNotesResult handles 256 KiB blank and space-newline bodies; their excerpt takes under 250 ms', (t) => {
+test('256 KiB blank pinned notes take under 250 ms to excerpt and under 2000 ms to read', (t) => {
+  const bestOfThree = (run) => {
+    let elapsed = Infinity;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const start = performance.now();
+      run();
+      elapsed = Math.min(elapsed, performance.now() - start);
+    }
+    return elapsed;
+  };
   for (const [label, body] of [
     ['newlines', '\n'.repeat(256 * 1024)],
     ['space-newlines', ' \n'.repeat(128 * 1024)],
@@ -551,19 +565,14 @@ test('pinnedNotesResult handles 256 KiB blank and space-newline bodies; their ex
     const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
     note.create(seedCtx, { title: `Blank ${label}`, pinned: true }, body, {});
     const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
+    // The first call opens and refreshes the index. The full read still does disk work on later calls.
     const res = pinnedNotesResult(readCtx);
     assert.equal(res.data.items.length, 1);
     assert.equal(res.data.items[0].excerpt, '');
-    // Time only the excerpt, which is where a quadratic pattern would hide: the full result also reads files and the
-    // search index, and that disk work alone passes 250 ms under the parallel suite. Best of three against CPU noise;
-    // a quadratic regression on 256 KiB still takes seconds every time.
-    let elapsed = Infinity;
-    for (let run = 0; run < 3; run += 1) {
-      const start = performance.now();
-      pinnedExcerpt(body);
-      elapsed = Math.min(elapsed, performance.now() - start);
-    }
-    assert.ok(elapsed < 250, `${label} took ${elapsed.toFixed(1)} ms`);
+    const excerptMs = bestOfThree(() => pinnedExcerpt(body));
+    assert.ok(excerptMs < 250, `${label} excerpt took ${excerptMs.toFixed(1)} ms`);
+    const resultMs = bestOfThree(() => pinnedNotesResult(readCtx));
+    assert.ok(resultMs < 2000, `${label} full result took ${resultMs.toFixed(1)} ms`);
   }
 });
 

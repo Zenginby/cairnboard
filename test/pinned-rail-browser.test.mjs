@@ -5,7 +5,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright-core';
 import { createApp } from '../server/app.mjs';
 import { createApi } from '../server/api.mjs';
 import { createEvents } from '../server/events.mjs';
@@ -22,9 +21,9 @@ import * as entity from '../core/entity.mjs';
 import * as note from '../core/note.mjs';
 import * as project from '../core/project.mjs';
 import { APP_ALLOWLIST, filterAllowed } from '../scripts/lib/design-check/allowlist.mjs';
-import { resolveBrowser } from '../scripts/lib/design-check/config.mjs';
 import { useLanguage } from '../src/i18n/index.mjs';
 import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
+import { launchLiveChromium } from './support/live-browser.mjs';
 import { liveCleanup, liveUnavailable } from './support/live.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
@@ -39,17 +38,7 @@ before(async () => {
     browserUnavailable = 'Astro output missing; run npm run build:app to enable browser coverage.';
     return;
   }
-  try {
-    const { executablePath } = resolveBrowser('chromium', { downloadedPath: chromium.executablePath() });
-    sharedBrowser = await chromium.launch({
-      executablePath,
-      headless: true,
-      timeout: 15_000,
-      args: ['--no-proxy-server', '--host-resolver-rules=MAP *.cairnboard.localhost 127.0.0.1'],
-    });
-  } catch (error) {
-    browserUnavailable = `Chromium missing: ${error.message}`;
-  }
+  ({ browser: sharedBrowser, unavailable: browserUnavailable } = await launchLiveChromium());
 });
 
 after(async () => {
