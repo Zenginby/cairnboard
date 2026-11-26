@@ -120,7 +120,7 @@ agent skill) ask for confirmation and refuse to run inside a known coding-agent 
 - [CLI](docs/cli.md): install, data folder, agent workflow, JSON output and exit codes
 - [Wiki](docs/wiki.md): context packs, ingesting sources, lint and checks, mentions, Claude Code hook
 - [Settings](docs/settings.md): change trail, diffs, live updates, mentions
-- [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Design](DESIGN.md)
+- [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Design](DESIGN.md)
 
 ## License
 
