@@ -13,13 +13,12 @@ import { createGuard, guard } from '../server/guard.mjs';
 import { createRead, DataNotReadyError, notesResult } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
 import { loginUrl, siteHost } from '../server/session.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { isNoteKey } from '../core/ids.mjs';
 import { useLanguage } from '../src/i18n/index.mjs';
 import { APP_ALLOWLIST, filterAllowed } from '../scripts/lib/design-check/allowlist.mjs';
 import { resolveBrowser } from '../scripts/lib/design-check/config.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { liveCleanup, liveUnavailable } from './support/live.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -50,7 +49,7 @@ function setupFixture(t, { empty = false, singleKind = false, preset = 'default'
   const data = tempDir(t);
   const home = tempDir(t);
   const clock = fixedClock('2026-11-18T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+  seedDataDir(data, { home, env: {}, clock });
   const cfgPath = join(data, '.cairn/config.json');
   const existing = JSON.parse(readFileSync(cfgPath, 'utf8'));
   const patch = preset === 'tr-wiki'

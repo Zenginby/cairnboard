@@ -13,12 +13,11 @@ import { createGuard, guard } from '../server/guard.mjs';
 import { createRead } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
 import { loginUrl, siteHost } from '../server/session.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { APP_ALLOWLIST, filterAllowed } from '../scripts/lib/design-check/allowlist.mjs';
 import { resolveBrowser } from '../scripts/lib/design-check/config.mjs';
 import { filterBoardCards } from '../src/scripts/board-filter.js';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { liveCleanup, liveUnavailable } from './support/live.mjs';
 // The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
 // explicitly, the way the server does at start.
@@ -91,7 +90,7 @@ function fixture(t) {
   const dataDir = tempDir(t);
   const home = tempDir(t);
   const clock = fixedClock('2026-11-10T12:00:00Z');
-  initDataDir(dataDir, { home, env: {}, clock });
+  seedDataDir(dataDir, { home, env: {}, clock });
   const configFile = join(dataDir, '.cairn/config.json');
   const config = JSON.parse(readFileSync(configFile, 'utf8'));
   config.agents = { project: 'p-agent1' };

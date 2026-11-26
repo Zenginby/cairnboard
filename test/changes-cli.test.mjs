@@ -2,11 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdirSync, readdirSync, truncateSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
 import { readEvents } from '../core/events.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 import { changesView } from '../cli/views.mjs';
 import { changeDiff } from '../core/changes.mjs';
@@ -14,7 +13,7 @@ import { __setFsHooks } from '../core/fsx.mjs';
 
 function fixture(t) {
   const home = tempDir(t), data = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+  seedDataDir(data, { home, env: {}, clock });
   mkdirSync(join(data, 'notes'));
   const ctx = openContext({ mode: 'write', dataDir: data, home, env: {}, clock });
   const put = (name, bytes) => writeFileSync(join(data, `notes/${name}.md`), bytes);

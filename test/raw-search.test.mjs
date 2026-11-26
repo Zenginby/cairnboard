@@ -3,17 +3,16 @@ import assert from 'node:assert/strict';
 import { mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { openIndex, refresh, rows, search } from '../core/index.mjs';
 import { runCli } from './support/cli.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
 const clock = fixedClock('2026-11-01T12:00:00Z');
 
 function setup(t) {
   const home = tempDir(t), root = tempDir(t);
-  initDataDir(root, { home, env: {}, clock });
+  seedDataDir(root, { home, env: {}, clock });
   const ctx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'cli:acme' });
   return { home, root, ctx };
 }

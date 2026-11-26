@@ -2,10 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import * as fs from '../core/fsx.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { openIndex, refresh, rows, search, backlinks } from '../core/index.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { EventEmitter } from 'node:events';
 import { watch } from '../core/watch.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
@@ -18,7 +17,7 @@ const TABLES = ['files', 'links', 'targets', 'journal_entries', 'catalog', 'fts'
 function setup(t) {
   const home = tempDir(t), root = tempDir(t);
   const opts = { home, env: {}, clock: fixedClock('2026-11-01T12:00:00Z') };
-  initDataDir(root, opts);
+  seedDataDir(root, opts);
   return { root, open: () => openContext({ ...opts, mode: 'write', dataDir: root, actor: 'cli:acme' }) };
 }
 

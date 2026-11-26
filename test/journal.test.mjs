@@ -3,17 +3,16 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import * as fs from '../core/fsx.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { readFile } from '../core/store.mjs';
 import { readEvents } from '../core/events.mjs';
 import { parseFile } from '../core/frontmatter.mjs';
 import { addEntry, show, list, entries } from '../core/journal.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
 function fixture(t, preset = 'default') {
   const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(root, { home, env: {}, clock, preset });
+  seedDataDir(root, { home, env: {}, clock, preset });
   return openContext({ mode: 'write', dataDir: root, home, env: {}, clock });
 }
 

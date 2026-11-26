@@ -1,15 +1,16 @@
-import { test } from 'node:test';
+import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter, once } from 'node:events';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
 import { dirname, join } from 'node:path';
-import { mkdirSync, openSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, rmSync,
+  symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import { __setFsHooks } from '../core/fsx.mjs';
 import * as entity from '../core/entity.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { openIndex } from '../core/index.mjs';
 import { watch } from '../core/watch.mjs';
@@ -19,7 +20,7 @@ import { createApi } from '../server/api.mjs';
 import { createGuard, CSP } from '../server/guard.mjs';
 import { cookieName, mintCookie, siteHost } from '../server/session.mjs';
 import { homeView, boardView } from '../cli/views.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 
 const port = 4330, key = Buffer.alloc(32, 7), instance = 'run-aaaaaaaaaaaaaaaa';
@@ -53,13 +54,18 @@ async function request(app, path, { method = 'GET', signedIn = true } = {}) {
   return { status: res.statusCode, headers, body, json: body.startsWith('{') ? JSON.parse(body) : null };
 }
 
-function fixture(t) {
-  const home = tempDir(t), data = tempDir(t), root = tempDir(t);
-  const clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+let apiTemplate = null;
+
+before(() => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-api-tpl-')));
+  const data = join(base, 'data'), home = join(base, 'home'), clock = fixedClock('2026-11-01T12:00:00Z');
+  mkdirSync(data);
+  mkdirSync(home);
+  seedDataDir(data, { home, env: {}, clock, register: false });
   const put = (path, fields, body = '') => {
     mkdirSync(dirname(join(data, path)), { recursive: true });
-    writeFileSync(join(data, path), `---\n${Object.entries(fields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n')}\n---\n${body}`);
+    const front = Object.entries(fields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n');
+    writeFileSync(join(data, path), `---\n${front}\n---\n${body}`);
   };
   put('projects/alpha.md', { id: 'p-000001', title: 'Alpha', status: 'active' });
   put('notes/quick.md', { id: 'n-000001', title: 'Quick', kind: 'note', pinned: true }, 'Quick body');
@@ -67,6 +73,22 @@ function fixture(t) {
   put('cards/work.md', { id: 'c-000001', title: 'Work', project: 'p-000001', column: 'doing', position: 'a1', priority: 'important' },
     'Full body [[quick|Quick note]] and [[2026-11-01|Today]] and [[missing]].');
   put('journal/2026-11-01.md', { date: '2026-11-01' }, '## Work\n- Entry');
+  apiTemplate = { base, data };
+});
+
+after(() => {
+  if (apiTemplate) rmSync(apiTemplate.base, { recursive: true, force: true });
+});
+
+function fixture(t) {
+  const home = tempDir(t), data = tempDir(t), root = tempDir(t);
+  const clock = fixedClock('2026-11-01T12:00:00Z');
+  cpSync(apiTemplate.data, data, { recursive: true });
+  const put = (path, fields, body = '') => {
+    mkdirSync(dirname(join(data, path)), { recursive: true });
+    const front = Object.entries(fields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n');
+    writeFileSync(join(data, path), `---\n${front}\n---\n${body}`);
+  };
   const open = () => openContext({ mode: 'read', dataDir: data, home, env: {}, clock });
   const appFor = (api = createApi({ open })) => createApp({ root, api,
     guard: createGuard({ port, key, instance }), handler: () => assert.fail('API must not reach Astro') });
@@ -343,7 +365,7 @@ test('board retains position order, falls back for unknown columns, and limits d
 
 test('home uses title order to break featured ties and returns null when projects or today are absent', (t) => {
   const home = tempDir(t), data = tempDir(t);
-  initDataDir(data, { home, env: {} });
+  seedDataDir(data, { home, env: {} });
   const ctx = openContext({ mode: 'read', dataDir: data, home, env: {} });
   assert.deepEqual(homeView(ctx).data, { pinned: [], recentNotes: [], openCards: [], journal: null, projects: [],
     featuredProject: null, journalCount: 0 });

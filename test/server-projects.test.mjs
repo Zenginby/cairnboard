@@ -10,10 +10,9 @@ import { createCards } from '../server/cards.mjs';
 import { createWrites } from '../server/writes.mjs';
 import { cookieName, csrfToken, mintCookie, siteHost } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { readEvents } from '../core/events.mjs';
 import * as project from '../core/project.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
 const port = 4333, key = Buffer.alloc(32, 8), instance = 'run-dddddddddddddddd';
 const site = `${siteHost(key)}:${port}`;
@@ -37,7 +36,7 @@ async function call(app, { method = 'GET', path, headers = {}, body }) {
 
 function fixture(t) {
   const dataDir = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-08T12:00:00Z');
-  initDataDir(dataDir, { home, env: {}, clock });
+  seedDataDir(dataDir, { home, env: {}, clock });
   const options = { dataDir, home, env: {}, clock };
   const open = () => openContext({ mode: 'read', ...options });
   const openWrite = () => openContext({ mode: 'write', ...options, actor: 'web:owner' });

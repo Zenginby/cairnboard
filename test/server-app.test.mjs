@@ -11,11 +11,10 @@ import { createApp } from '../server/app.mjs';
 import { guard, CSP } from '../server/guard.mjs';
 import { createRead } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { defaultConfig } from '../core/config.mjs';
 import { PRESETS } from '../core/presets.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 // The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
 // explicitly, the way the server does at start.
@@ -623,7 +622,7 @@ test('built Card and Note insert only sanitized Markdown from the reader', async
   }
   const { handler } = await import('../dist/app/server/entry.mjs');
   const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+  seedDataDir(data, { home, env: {}, clock });
   for (const [folder, id] of [['cards', 'c-000001'], ['notes', 'n-000001']]) {
     mkdirSync(join(data, folder), { recursive: true });
     writeFileSync(join(data, folder, 'page.md'), `---\nid: ${id}\ntitle: Read page\n---\n## Safe heading\n\n- [x] Finished\n\n<script>bodyAttack(1)</script>`);

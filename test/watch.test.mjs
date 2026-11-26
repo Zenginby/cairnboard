@@ -8,12 +8,11 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { watch } from '../core/watch.mjs';
 import { rows, refresh } from '../core/index.mjs';
 import { openContext } from '../core/context.mjs';
-import { initDataDir } from '../core/roots.mjs';
-import { tempDir } from './support/env.mjs';
+import { seedDataDir, tempDir } from './support/env.mjs';
 
 function fixture(t, fake = false, options = {}) {
   const root = tempDir(t), home = tempDir(t);
-  initDataDir(root, { home, env: {} });
+  seedDataDir(root, { home, env: {} });
   const put = (path, text = '---\nid: c-000001\ntitle: Work\ncolumn: planned\n---\n') => {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), text);

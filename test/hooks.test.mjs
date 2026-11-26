@@ -1,4 +1,4 @@
-import { test as baseTest } from 'node:test';
+import { after, before, test as baseTest } from 'node:test';
 
 // The sandbox builds a POSIX PATH and fake gitleaks shell script; Git for Windows runs the real hooks with its own sh.
 const test = process.platform === 'win32' ? baseTest.skip : baseTest;
@@ -12,11 +12,33 @@ import { isolatedGitEnv, makeRepo, commit } from './support/git.mjs';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
+let templateBase = null;
+let templateRepo = null;
+
+before(() => {
+  if (process.platform === 'win32') return;
+  templateBase = mkdtempSync(join(tmpdir(), 'hooks-tpl-'));
+  templateRepo = makeRepo({ home: templateBase });
+  cpSync(join(repoRoot, 'security'), join(templateRepo, 'security'), { recursive: true });
+  for (const h of ['pre-commit', 'commit-msg', 'pre-push']) {
+    chmodSync(join(templateRepo, 'security', 'hooks', h), 0o755);
+  }
+  commit(templateRepo, {}, 'base');
+  spawnSync('git', ['config', 'core.hooksPath', 'security/hooks'], {
+    cwd: templateRepo, env: isolatedGitEnv(templateBase), encoding: 'utf8',
+  });
+});
+
+after(() => {
+  if (templateBase) rmSync(templateBase, { recursive: true, force: true });
+});
+
 // A throwaway repository wired to this repository's hooks, with a fake gitleaks on PATH.
 function sandbox(t, { gitleaks = 'ok', denylist = 'zorblax\n' } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'hooks-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const repo = makeRepo({ home: dir });
+  const repo = join(dir, 'repo');
+  cpSync(templateRepo, repo, { recursive: true });
   const bin = join(dir, 'bin');
   mkdirSync(bin);
   if (gitleaks === 'ok' || gitleaks === 'leak') {
@@ -31,10 +53,6 @@ function sandbox(t, { gitleaks = 'ok', denylist = 'zorblax\n' } = {}) {
     CAIRN_DENYLIST: denylist === null ? '' : list,
   };
   const git = (...args) => spawnSync('git', args, { cwd: repo, env, encoding: 'utf8' });
-  cpSync(join(repoRoot, 'security'), join(repo, 'security'), { recursive: true });
-  for (const h of ['pre-commit', 'commit-msg', 'pre-push']) chmodSync(join(repo, 'security', 'hooks', h), 0o755);
-  commit(repo, {}, 'base');
-  git('config', 'core.hooksPath', 'security/hooks');
   const change = (file, content, message = 'change') => {
     writeFileSync(join(repo, file), content);
     git('add', '-A');

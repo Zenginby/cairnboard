@@ -13,14 +13,13 @@ import { createGuard, guard } from '../server/guard.mjs';
 import { createRead } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
 import { loginUrl, siteHost } from '../server/session.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { checkData } from '../core/doctor.mjs';
 import { hasToolSnapshots, mergeTools, parseSnapshot, readToolSnapshots } from '../core/tools.mjs';
 import { filterTools } from '../src/scripts/tools-filter.js';
 import { APP_ALLOWLIST, filterAllowed } from '../scripts/lib/design-check/allowlist.mjs';
 import { resolveBrowser } from '../scripts/lib/design-check/config.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { liveCleanup, liveUnavailable } from './support/live.mjs';
 // The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
 // explicitly, the way the server does at start.
@@ -49,7 +48,7 @@ function fixture(t, files = { 'north.json': NORTH, 'south.json': SOUTH }) {
   const data = tempDir(t);
   const home = tempDir(t);
   const clock = fixedClock('2026-11-14T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+  seedDataDir(data, { home, env: {}, clock });
   const dir = join(data, '.cairn/tools');
   if (files) mkdirSync(dir, { recursive: true });
   for (const [name, body] of Object.entries(files ?? {})) {

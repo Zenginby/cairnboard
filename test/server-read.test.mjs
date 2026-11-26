@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, openSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
 import { homeView, boardView, showView } from '../cli/views.mjs';
@@ -13,11 +12,11 @@ import { createRenderPool } from '../server/render-pool.mjs';
 import tr from '../src/i18n/tr.json' with { type: 'json' };
 import en from '../src/i18n/en.json' with { type: 'json' };
 import { t as translate, uiLanguage, useLanguage } from '../src/i18n/index.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 
 function fixture(t, body) {
   const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+  seedDataDir(data, { home, env: {}, clock });
   mkdirSync(join(data, 'notes'), { recursive: true });
   writeFileSync(join(data, 'notes/pinned.md'), '---\nid: n-000001\ntitle: Pinned title\npinned: true\n---\nA note.');
   if (body !== undefined) {
@@ -161,7 +160,7 @@ test('t() fills {name} placeholders and leaves unknown ones as written', (t) => 
 
 function documentFixture(t) {
   const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+  seedDataDir(data, { home, env: {}, clock });
   const put = (path, fields, body = '') => {
     mkdirSync(dirname(join(data, path)), { recursive: true });
     writeFileSync(join(data, path), `---\n${Object.entries(fields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n')}\n---\n${body}`);

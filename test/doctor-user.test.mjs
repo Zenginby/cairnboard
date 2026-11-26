@@ -2,16 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import * as fs from '../core/fsx.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { refresh } from '../core/index.mjs';
 import { checkData } from '../core/doctor.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 
 function fixture(t) {
   const home = tempDir(t), dataDir = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(dataDir, { home, env: {}, clock });
+  seedDataDir(dataDir, { home, env: {}, clock });
   const opts = { dataDir, home, env: {}, clock };
   return { ...opts, opts, config: join(dataDir, '.cairn/config.json'), check: () => checkData(opts) };
 }

@@ -1,30 +1,41 @@
-import { test } from 'node:test';
+import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const script = fileURLToPath(new URL('../scripts/check-style.mjs', import.meta.url));
 const long = 'x'.repeat(121);
+let templateRoot = null;
 
-function repository(t) {
-  const root = mkdtempSync(join(tmpdir(), 'style-check-'));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
-  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
-  const write = (path, text) => {
-    mkdirSync(dirname(join(root, path)), { recursive: true });
-    writeFileSync(join(root, path), text);
-  };
+before(() => {
+  templateRoot = mkdtempSync(join(tmpdir(), 'style-check-tpl-'));
+  const git = (...args) => execFileSync('git', args, { cwd: templateRoot, encoding: 'utf8' }).trim();
   git('init', '--initial-branch=main');
   git('config', 'user.name', 'Test Runner');
   git('config', 'user.email', 'runner@example.com');
   git('config', 'core.autocrlf', 'false');
   git('config', 'commit.gpgsign', 'false');
-  write('old.mjs', `${long}\nconst value = 1;\n`);
+  writeFileSync(join(templateRoot, 'old.mjs'), `${long}\nconst value = 1;\n`);
   git('add', '.');
   git('commit', '-qm', 'Initial fixture');
+});
+
+after(() => {
+  if (templateRoot) rmSync(templateRoot, { recursive: true, force: true });
+});
+
+function repository(t) {
+  const root = mkdtempSync(join(tmpdir(), 'style-check-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  cpSync(templateRoot, root, { recursive: true });
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  const write = (path, text) => {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  };
   const run = (args = ['--base', 'main'], env = {}) => {
     const result = spawnSync(process.execPath, [script, ...args], {
       cwd: root, encoding: 'utf8', env: { ...process.env, CAIRN_STYLE_BASE: '', ...env },

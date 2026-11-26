@@ -2,19 +2,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, readdirSync, renameSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { readFile, revision, write, writeMany } from '../core/store.mjs';
 import { readEvents } from '../core/events.mjs';
 import { lockName } from '../core/lock.mjs';
 import { __setFsHooks } from '../core/fsx.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
 function fixture(t) {
   const root = tempDir(t);
   const home = tempDir(t);
   const clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(root, { home, env: {}, clock });
+  seedDataDir(root, { home, env: {}, clock });
   return openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'agent:acme' });
 }
 const names = (ctx, dir) => readdirSync(join(ctx.root, '.cairn', dir));

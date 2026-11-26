@@ -9,9 +9,8 @@ import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.mjs';
 import { guard } from '../server/guard.mjs';
 import { createRead } from '../server/read.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 // The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
 // explicitly, the way the server does at start.
 process.env.CAIRN_LANGUAGE = 'tr';
@@ -34,7 +33,7 @@ async function render(cairn) {
 
 function fixture(t) {
   const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-12-10T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+  seedDataDir(data, { home, env: {}, clock });
   const path = join(data, '.cairn/config.json');
   const config = JSON.parse(readFileSync(path, 'utf8'));
   config.columns = [{ key: 'queue', label: 'Queue', role: 'todo' },

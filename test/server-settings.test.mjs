@@ -13,12 +13,11 @@ import { createSettings } from '../server/settings.mjs';
 import { createWrites } from '../server/writes.mjs';
 import { cookieName, csrfToken, mintCookie, siteHost, verifyCsrf } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { readEvents } from '../core/events.mjs';
 import { features, loadConfig } from '../core/config.mjs';
 import { readSettings, setFeature, setLanguage } from '../core/settings.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 // The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
 // explicitly, the way the server does at start.
 process.env.CAIRN_LANGUAGE = 'tr';
@@ -50,7 +49,7 @@ async function call(app, { method = 'GET', path = '/', headers = {}, body, lengt
 
 function fixture(t, { handler, cairn, switchLanguage, locals = {} } = {}) {
   const dataDir = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-08T12:00:00Z');
-  initDataDir(dataDir, { home, env: {}, clock });
+  seedDataDir(dataDir, { home, env: {}, clock });
   const options = { dataDir, home, env: {}, clock };
   const open = () => openContext({ mode: 'read', ...options });
   const openWrite = () => openContext({ mode: 'write', ...options, actor: 'web:owner' });

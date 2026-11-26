@@ -1,19 +1,24 @@
-import { test } from 'node:test';
+import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, openSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, openSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { __setFsHooks } from '../core/fsx.mjs';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import * as index from '../core/index.mjs';
 import { projectMap } from '../server/read.mjs';
 import { WEB_SEARCH_TYPES, snippetHtml, searchView } from '../server/search.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 
-function fixture(t) {
-  const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+let searchTemplate = null;
+
+before(() => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-search-tpl-')));
+  const data = join(base, 'data'), home = join(base, 'home'), clock = fixedClock('2026-11-01T12:00:00Z');
+  mkdirSync(data);
+  mkdirSync(home);
+  seedDataDir(data, { home, env: {}, clock, register: false });
   const put = (path, fields, body = '') => {
     mkdirSync(dirname(join(data, path)), { recursive: true });
     const front = Object.entries(fields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n');
@@ -27,6 +32,21 @@ function fixture(t) {
   put('notes/attack.md', { id: 'n-000001', title: 'Attack \uE000title\uE001' }, '<img src=x onerror=1> \uE000 plan');
   put('notes/plain.md', { id: 'n-000002', title: 'Plain <b>note</b>' }, 'A plan & more');
   put('notes/other.md', { id: 'n-000003', title: 'Other' }, 'Nothing here');
+  searchTemplate = { base, data };
+});
+
+after(() => {
+  if (searchTemplate) rmSync(searchTemplate.base, { recursive: true, force: true });
+});
+
+function fixture(t) {
+  const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
+  cpSync(searchTemplate.data, data, { recursive: true });
+  const put = (path, fields, body = '') => {
+    mkdirSync(dirname(join(data, path)), { recursive: true });
+    const front = Object.entries(fields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n');
+    writeFileSync(join(data, path), `---\n${front}\n---\n${body}`);
+  };
   const reopen = () => {
     const ctx = openContext({ mode: 'read', dataDir: data, home, env: {}, clock });
     return { ctx, projects: projectMap(ctx) };

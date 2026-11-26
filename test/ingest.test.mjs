@@ -3,14 +3,13 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { ingest } from '../core/ingest.mjs';
 import { recover } from '../core/store.mjs';
 import { list as trashList } from '../core/trash.mjs';
 import { readEvents } from '../core/events.mjs';
 import { runCli, spawnCli } from './support/cli.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
 const clock = fixedClock('2026-11-01T12:00:00Z');
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -19,7 +18,7 @@ const TODO = (path) => [`write a short source summary in ${path}`, 'update only 
 
 function setup(t, preset = 'default') {
   const home = tempDir(t), data = tempDir(t);
-  initDataDir(data, { home, env: {}, clock, preset });
+  seedDataDir(data, { home, env: {}, clock, preset });
   const run = (args, extra = {}) => runCli([...args, '--json'], { home, data, clock, ...extra });
   const open = () => openContext({ mode: 'write', dataDir: data, home, env: {}, clock, actor: 'cli:codex' });
   return { home, data, run, open };

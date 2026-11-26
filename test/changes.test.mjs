@@ -4,7 +4,6 @@ import { existsSync, fstatSync as fsStat, mkdirSync, openSync as fsOpen, readFil
   readFileSync, readdirSync, renameSync, rmSync,
   symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
 import { recover, revision, write, writeMany } from '../core/store.mjs';
 import { appendEvent, readEvents } from '../core/events.mjs';
@@ -14,12 +13,12 @@ import { changeDiff, listChanges, reconcileBeforeRun, reconcileExternal } from '
 import { __setFsHooks } from '../core/fsx.mjs';
 import { lockName, withLock } from '../core/lock.mjs';
 import { filesystemPathKey } from '../core/paths.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 
 function fixture(t) {
   const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
-  initDataDir(root, { home, env: {}, clock });
+  seedDataDir(root, { home, env: {}, clock });
   const ctx = openContext({ mode: 'write', dataDir: root, home, env: {}, clock, actor: 'agent:acme' });
   const put = (path, bytes) => {
     mkdirSync(dirname(join(root, path)), { recursive: true });

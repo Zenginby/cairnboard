@@ -1,9 +1,11 @@
-import { test } from 'node:test';
+import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync,
+  writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.mjs';
@@ -14,7 +16,6 @@ import { createWrites } from '../server/writes.mjs';
 import { createRead } from '../server/read.mjs';
 import { cookieName, csrfToken, mintCookie, siteHost, verifyCsrf } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { readEvents } from '../core/events.mjs';
 import { renderMarkdown } from '../core/render.mjs';
 import { acceptanceItems } from '../core/frontmatter.mjs';
@@ -23,7 +24,7 @@ import { CairnError } from '../core/errors.mjs';
 import { resolve, update } from '../core/entity.mjs';
 import { addCard, claimCard, listCards } from '../core/card.mjs';
 import * as project from '../core/project.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 // The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
 // explicitly, the way the server does at start.
 process.env.CAIRN_LANGUAGE = 'tr';
@@ -50,9 +51,10 @@ async function call(app, { method = 'GET', path, headers = {}, body }) {
   return { status: res.statusCode, headers: res.getHeaders(), body: output.slice(output.indexOf('\r\n\r\n') + 4) };
 }
 
-function fixture(t, { handler } = {}) {
+function fixture(t, { handler, sourceDir } = {}) {
   const dataDir = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-08T12:00:00Z');
-  initDataDir(dataDir, { home, env: {}, clock });
+  if (sourceDir) cpSync(sourceDir, dataDir, { recursive: true });
+  else seedDataDir(dataDir, { home, env: {}, clock });
   const options = { dataDir, home, env: {}, clock };
   const open = () => openContext({ mode: 'read', ...options });
   let writeCalls = 0, writeError;
@@ -243,11 +245,30 @@ test('the built card form has its session token, selected column and active proj
     }
   });
 
-function actionFixture(t, options) {
-  const f = fixture(t, options);
-  const body = '# Plan\n\n## Acceptance\n\n- [ ] Choose books\n- [x] Read the list\n\n## Comments\n\n- Earlier note\n';
-  const added = addCard(f.openWrite(), { title: 'Reading plan', column: f.column }, body);
-  const id = added.entity.id;
+const actionBody = '# Plan\n\n## Acceptance\n\n- [ ] Choose books\n- [x] Read the list\n\n'
+  + '## Comments\n\n- Earlier note\n';
+let actionTemplate = null;
+
+before(() => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-cards-tpl-')));
+  const dataDir = join(base, 'data'), home = join(base, 'home');
+  const clock = fixedClock('2026-11-08T12:00:00Z');
+  seedDataDir(dataDir, { home, env: {}, clock, register: false });
+  const options = { dataDir, home, env: {}, clock };
+  const column = openContext({ mode: 'read', ...options }).config.columns[1].key;
+  const added = addCard(openContext({ mode: 'write', ...options, actor: 'web:owner' }),
+    { title: 'Reading plan', column }, actionBody);
+  actionTemplate = { base, dataDir, id: added.entity.id };
+});
+
+after(() => {
+  if (actionTemplate) rmSync(actionTemplate.base, { recursive: true, force: true });
+});
+
+function actionFixture(t, options = {}) {
+  const f = fixture(t, { ...options, sourceDir: actionTemplate.dataDir });
+  const body = actionBody;
+  const id = actionTemplate.id;
   const current = () => resolve(f.open(), 'card', id);
   const edit = () => ({ title: 'Revised plan', project: '', priority: '', now: '', next: '', needs: '', body,
     revision: current().revision });
