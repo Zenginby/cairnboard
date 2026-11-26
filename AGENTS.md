@@ -10,6 +10,8 @@
 - Before any UI work, read `DESIGN.md`; never hand-write colors, spacing, radii, durations or easings; run `npm run design:build` after editing `DESIGN.md` or `design/themes/`.
 - Every user-visible change adds a line under `## [Unreleased]` in `CHANGELOG.md` in the same commit.
 - Releases follow `docs/releasing.md`.
-- A merge into `main` that brings user-visible changes ends with a release: a patch version for fixes only, a minor
-  version when it adds or changes features. Ask the maintainer before pushing the release and creating the GitHub
-  Release. The `post-merge` hook and `npm run release:verify` warn while `## [Unreleased]` still has lines.
+- Pick the version by the size of the change (see "Choosing the version" in `docs/releasing.md`): patch for fixes,
+  small improvements, docs and security patches; minor for a feature users will notice or, before 1.0, a breaking
+  change. Release when changes have collected, not after every merge; release a pending fix or security patch
+  promptly. Ask the maintainer before pushing the release and creating the GitHub Release. The `post-merge` hook and
+  `npm run release:verify` warn while `## [Unreleased]` still has lines.
