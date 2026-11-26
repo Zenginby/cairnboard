@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
@@ -16,7 +16,6 @@ import { createWrites } from '../server/writes.mjs';
 import { cookieName, loginUrl, mintCookie, siteHost } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
 import { parseFile } from '../core/frontmatter.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { renderMarkdown } from '../core/render.mjs';
 import { watch } from '../core/watch.mjs';
 import * as entity from '../core/entity.mjs';
@@ -25,32 +24,42 @@ import * as project from '../core/project.mjs';
 import { APP_ALLOWLIST, filterAllowed } from '../scripts/lib/design-check/allowlist.mjs';
 import { resolveBrowser } from '../scripts/lib/design-check/config.mjs';
 import { useLanguage } from '../src/i18n/index.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { liveCleanup, liveUnavailable } from './support/live.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
 const key = Buffer.alloc(32, 13);
 const instance = 'run-ffffffffffffffff';
 
-async function launchBrowser(t, cleanup) {
+let sharedBrowser = null;
+let browserUnavailable = null;
+
+before(async () => {
   if (!existsSync(join(repo, 'dist/app/server/entry.mjs'))) {
-    liveUnavailable(t, 'Astro output missing; run npm run build:app to enable browser coverage.');
-    return null;
+    browserUnavailable = 'Astro output missing; run npm run build:app to enable browser coverage.';
+    return;
   }
   try {
     const { executablePath } = resolveBrowser('chromium', { downloadedPath: chromium.executablePath() });
-    const browser = await chromium.launch({
+    sharedBrowser = await chromium.launch({
       executablePath,
       headless: true,
       timeout: 15_000,
       args: ['--no-proxy-server', '--host-resolver-rules=MAP *.cairnboard.localhost 127.0.0.1'],
     });
-    cleanup(() => browser.close());
-    return browser;
   } catch (error) {
-    liveUnavailable(t, `Chromium missing: ${error.message}`);
-    return null;
+    browserUnavailable = `Chromium missing: ${error.message}`;
   }
+});
+
+after(async () => {
+  await sharedBrowser?.close();
+});
+
+async function launchBrowser(t) {
+  if (sharedBrowser) return sharedBrowser;
+  liveUnavailable(t, browserUnavailable ?? 'Chromium unavailable.');
+  return null;
 }
 
 async function axeCheck(page, axeSource) {
@@ -79,7 +88,7 @@ test('pinned rail layout, breakpoints, pre-paint persistence, Escape, unpin/undo
 
     const dir = tempDir(t, 'cairn-rail-');
     const home = tempDir(t, 'cairn-rail-home-');
-    initDataDir(dir, { register: false, language: 'en' });
+    seedDataDir(dir, { register: false, language: 'en' });
     const openAt = (iso) => openContext({ dataDir: dir, home, env: {}, clock: fixedClock(iso), mode: 'write',
       actor: 'web:owner' });
     const open = () => openContext({ dataDir: dir, home, env: {}, clock: fixedClock('2026-11-15T10:00:00Z'),
@@ -269,7 +278,7 @@ test('live updates refresh the pinned rail when an external write pins a note', 
 
   const dir = tempDir(t, 'cairn-rail-live-');
   const home = tempDir(t, 'cairn-rail-live-home-');
-  initDataDir(dir, { register: false, language: 'en' });
+  seedDataDir(dir, { register: false, language: 'en' });
   const open = () => openContext({ dataDir: dir, home, env: {}, mode: 'read' });
   const openWrite = () => openContext({ dataDir: dir, home, mode: 'write', actor: 'agent:test', env: {} });
   const watcher = watch(open());
@@ -342,7 +351,7 @@ test('pinned rail handles followed-page 500, failed undo retry, failed refresh n
 
     const dir = tempDir(t, 'cairn-rail-edge-');
     const home = tempDir(t, 'cairn-rail-edge-home-');
-    initDataDir(dir, { register: false, language: 'en' });
+    seedDataDir(dir, { register: false, language: 'en' });
     const open = () => openContext({ dataDir: dir, home, env: {},
       clock: fixedClock('2026-11-15T10:00:00Z'), mode: 'read' });
     const openWrite = () => openContext({ dataDir: dir, home, env: {},
@@ -472,7 +481,7 @@ test('pinned rail preserves $& in note titles for unpin aria-label and undo stat
 
   const dir = tempDir(t, 'cairn-rail-dollar-');
   const home = tempDir(t, 'cairn-rail-dollar-home-');
-  initDataDir(dir, { register: false, language: 'en' });
+  seedDataDir(dir, { register: false, language: 'en' });
   const clock = fixedClock('2026-11-15T10:00:00Z');
   const open = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
   const openWrite = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'web:owner' });

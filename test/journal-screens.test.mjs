@@ -1,18 +1,18 @@
-import { test } from 'node:test';
+import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.mjs';
 import { guard } from '../server/guard.mjs';
 import { createRead, journalMonthResult } from '../server/read.mjs';
 import { createRenderPool } from '../server/render-pool.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { openContext } from '../core/context.mjs';
-import { tempDir, fixedClock } from './support/env.mjs';
+import { tempDir, fixedClock, seedDataDir } from './support/env.mjs';
 // The pages below are asserted in Turkish. The interface falls back to English, so this file sets the language
 // explicitly, the way the server does at start.
 process.env.CAIRN_LANGUAGE = 'tr';
@@ -53,9 +53,9 @@ function jobsOf(date) {
   ];
 }
 
-function fixture(t, { days = DATES } = {}) {
-  const data = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-18T12:00:00Z');
-  initDataDir(data, { home, env: {}, clock });
+function populateFixture(data, home, days) {
+  const clock = fixedClock('2026-11-18T12:00:00Z');
+  seedDataDir(data, { home, env: {}, clock });
   mkdirSync(join(data, 'projects'), { recursive: true });
   for (const [id, title, tone] of [[ALPHA, 'Alpha project', 2], [BETA, 'Beta project', 5]]) {
     writeFileSync(join(data, `projects/${id}.md`),
@@ -74,12 +74,40 @@ function fixture(t, { days = DATES } = {}) {
   return { open, data };
 }
 
+function fixture(t, { days = DATES } = {}) {
+  return populateFixture(tempDir(t), tempDir(t), days);
+}
+
+let sharedBase = null;
+let sharedPool = null;
+let sharedHandler = null;
+let sharedGet = null;
+
+before(async () => {
+  sharedBase = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-journal-scr-')));
+  const data = join(sharedBase, 'data'), home = join(sharedBase, 'home');
+  mkdirSync(data);
+  mkdirSync(home);
+  const { open } = populateFixture(data, home, DATES);
+  if (existsSync(join(root, 'dist/app/server/entry.mjs'))) {
+    ({ handler: sharedHandler } = await import('../dist/app/server/entry.mjs'));
+    sharedPool = createRenderPool();
+    const app = createApp({ root, guard, handler: sharedHandler,
+      locals: { cairn: createRead({ open, render: sharedPool.render }) } });
+    sharedGet = (path) => inProcess(app, path);
+  }
+});
+
+after(async () => {
+  await sharedPool?.close();
+  if (sharedBase) rmSync(sharedBase, { recursive: true, force: true });
+});
+
 async function page(t, open) {
-  if (!existsSync(join(root, 'dist/app/server/entry.mjs'))) return t.skip('Astro output missing; run build:app.');
-  const { handler } = await import('../dist/app/server/entry.mjs');
-  const pool = createRenderPool();
-  t.after(() => pool.close());
-  const app = createApp({ root, guard, handler, locals: { cairn: createRead({ open, render: pool.render }) } });
+  if (!sharedHandler) return t.skip('Astro output missing; run build:app.');
+  if (!open) return sharedGet;
+  const app = createApp({ root, guard, handler: sharedHandler,
+    locals: { cairn: createRead({ open, render: sharedPool.render }) } });
   return (path) => inProcess(app, path);
 }
 
@@ -91,7 +119,7 @@ const expectedCounts = (month, project) => new Map(DATES.filter((date) => date.s
   .filter(([, count]) => count > 0));
 
 test('every recorded day answers 200; unrecorded and malformed dates answer 404', async (t) => {
-  const get = await page(t, fixture(t).open);
+  const get = await page(t);
   if (!get) return;
   assert.ok(DATES.length >= 28);
   for (const date of DATES) {
@@ -109,7 +137,7 @@ test('every recorded day answers 200; unrecorded and malformed dates answer 404'
 });
 
 test('the month view marks exactly the recorded days with the right counts and a chip narrows them', async (t) => {
-  const get = await page(t, fixture(t).open);
+  const get = await page(t);
   if (!get) return;
   // No month in the URL: the month of the newest recorded day.
   const open = await get('/journal');
@@ -150,7 +178,7 @@ test('the month view marks exactly the recorded days with the right counts and a
 });
 
 test('the preview shows summary, titles, label badges, the day link and respects the project chip', async (t) => {
-  const get = await page(t, fixture(t).open);
+  const get = await page(t);
   if (!get) return;
   const date = '2026-11-12';
   const preview = await get(`/journal?month=2026-11&day=${date}`);
@@ -185,7 +213,7 @@ test('the preview shows summary, titles, label badges, the day link and respects
 });
 
 test('previous and next on the day page skip unrecorded days; it lists and links its jobs', async (t) => {
-  const get = await page(t, fixture(t).open);
+  const get = await page(t);
   if (!get) return;
   const middle = await get('/journal/2026-10-03');
   assert.match(middle.body, /href="\/journal\/2026-10-02"[^>]*rel="prev"/u);

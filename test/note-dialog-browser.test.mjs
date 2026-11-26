@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -14,7 +14,6 @@ import { createNotes } from '../server/notes.mjs';
 import { createWrites } from '../server/writes.mjs';
 import { loginUrl, siteHost } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { renderMarkdown } from '../core/render.mjs';
 import * as entity from '../core/entity.mjs';
 import { create as createNote } from '../core/note.mjs';
@@ -22,7 +21,7 @@ import * as project from '../core/project.mjs';
 import { APP_ALLOWLIST, filterAllowed } from '../scripts/lib/design-check/allowlist.mjs';
 import { resolveBrowser } from '../scripts/lib/design-check/config.mjs';
 import { useLanguage } from '../src/i18n/index.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { liveCleanup, liveUnavailable } from './support/live.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
@@ -30,29 +29,42 @@ const key = Buffer.alloc(32, 11);
 const instance = 'run-eeeeeeeeeeeeeeee';
 const clock = fixedClock('2026-11-15T10:00:00Z');
 
-async function boot(t, { language = 'en', seed = false } = {}) {
-  useLanguage(language);
-  const cleanup = liveCleanup(t);
+let sharedBrowser = null;
+let browserUnavailable = null;
+
+before(async () => {
   if (!existsSync(join(repo, 'dist/app/server/entry.mjs'))) {
-    liveUnavailable(t, 'Astro output missing; run npm run build:app to enable integration coverage.');
-    return null;
+    browserUnavailable = 'Astro output missing; run npm run build:app to enable integration coverage.';
+    return;
   }
-  let browser;
   try {
     const { executablePath } = resolveBrowser('chromium', { downloadedPath: chromium.executablePath() });
-    browser = await chromium.launch({
+    sharedBrowser = await chromium.launch({
       executablePath,
       headless: true,
       timeout: 15_000,
       args: ['--no-proxy-server', '--host-resolver-rules=MAP *.cairnboard.localhost 127.0.0.1'],
     });
   } catch (error) {
-    liveUnavailable(t, `Chromium missing: ${error.message}`);
+    browserUnavailable = `Chromium missing: ${error.message}`;
+  }
+});
+
+after(async () => {
+  await sharedBrowser?.close();
+});
+
+async function boot(t, { language = 'en', seed = false } = {}) {
+  useLanguage(language);
+  const cleanup = liveCleanup(t);
+  if (!sharedBrowser) {
+    liveUnavailable(t, browserUnavailable ?? 'Chromium unavailable.');
     return null;
   }
+  const browser = sharedBrowser;
   const dir = tempDir(t, 'cairn-note-dialog-');
   const home = tempDir(t, 'cairn-note-dialog-home-');
-  initDataDir(dir, { register: false, language });
+  seedDataDir(dir, { register: false, language });
   const open = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
   const openWrite = () => openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'web:owner' });
   const active = project.create(openWrite(), { title: 'Garden', status: 'active' }, '', {}).entity;
@@ -85,7 +97,6 @@ async function boot(t, { language = 'en', seed = false } = {}) {
   });
   server.on('request', app);
 
-  cleanup(() => browser.close());
   return { dir, open, active, port, browser, cleanup, serverState };
 }
 

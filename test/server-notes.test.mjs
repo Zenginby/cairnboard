@@ -13,7 +13,6 @@ import { createWrites } from '../server/writes.mjs';
 import { createRead, pinnedExcerpt, pinnedNotesResult, plainItem } from '../server/read.mjs';
 import { cookieName, csrfToken, mintCookie, siteHost } from '../server/session.mjs';
 import { openContext } from '../core/context.mjs';
-import { initDataDir } from '../core/roots.mjs';
 import { readEvents } from '../core/events.mjs';
 import { parseFile } from '../core/frontmatter.mjs';
 import { refresh } from '../core/index.mjs';
@@ -23,7 +22,7 @@ import * as entity from '../core/entity.mjs';
 import * as note from '../core/note.mjs';
 import * as project from '../core/project.mjs';
 import { useLanguage } from '../src/i18n/index.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
 const port = 4321;
@@ -61,7 +60,7 @@ async function setup(t, { language = 'en', rules, agentsProject } = {}) {
   useLanguage(language);
   const dir = tempDir(t, 'cairn-notes-route-');
   const home = tempDir(t, 'cairn-notes-home-');
-  initDataDir(dir, { register: false, language });
+  seedDataDir(dir, { register: false, language });
   if (rules || agentsProject) {
     const cfgPath = join(dir, '.cairn', 'config.json');
     const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
@@ -204,7 +203,7 @@ test('POST /notes handles conflicts (409), validation (400), notReady (409) and 
   async (t) => {
     const dir = tempDir(t, 'cairn-notes-err-');
     const home = tempDir(t, 'cairn-notes-err-home-');
-    initDataDir(dir, { register: false, language: 'en' });
+    seedDataDir(dir, { register: false, language: 'en' });
     const cookie = mintCookie(key, port);
     const csrf = csrfToken(key, port, cookie, 'note');
     const postWith = (notes) => {
@@ -462,22 +461,35 @@ test('pinnedNotesResult orders newest first, caps at 30, drops agents project, i
   (t) => {
     const dir = tempDir(t, 'cairn-pinned-read-');
     const home = tempDir(t, 'cairn-pinned-home-');
-    initDataDir(dir, { register: false, language: 'en' });
-    const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
-    const work = project.create(seedCtx, { title: 'Work', tone: 2 }, '', {}).entity;
-    const bots = project.create(seedCtx, { title: 'Bots', tone: 1 }, '', {}).entity;
+    seedDataDir(dir, { register: false, language: 'en' });
+    const put = (rel, fields, body = 'Body') => {
+      const full = join(dir, rel);
+      mkdirSync(dirname(full), { recursive: true });
+      const front = Object.entries(fields).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n');
+      writeFileSync(full, `---\n${front}\n---\n${body}\n`);
+    };
+    const work = { id: 'p-wrk001' };
+    const bots = { id: 'p-bts001' };
+    put('projects/work.md', { id: work.id, title: 'Work', status: 'active', tone: 2 }, '');
+    put('projects/bots.md', { id: bots.id, title: 'Bots', status: 'active', tone: 1 }, '');
     const cfgPath = join(dir, '.cairn', 'config.json');
     const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
     cfg.agents = { project: bots.id };
     writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`);
 
-    note.create(seedCtx, { title: 'Agent pin', project: bots.id, pinned: true }, 'Secret agent note', {});
-    note.create(seedCtx, { title: 'Unpinned note', project: work.id, pinned: false }, 'Not pinned', {});
+    put('notes/agent-pin.md', { id: 'n-agnt01', title: 'Agent pin', kind: 'note', project: bots.id, pinned: true,
+      updated: '2026-11-15T10:00:00.000Z' }, 'Secret agent note');
+    put('notes/unpinned.md', { id: 'n-npn001', title: 'Unpinned note', kind: 'note', project: work.id, pinned: false,
+      updated: '2026-11-15T10:00:00.000Z' }, 'Not pinned');
 
+    let seq = 0;
     const writeAt = (iso, title, extra = {}, body = 'Body') => {
-      const ctxAt = openContext({ dataDir: dir, home, env: {}, clock: fixedClock(iso),
-        mode: 'write', actor: 'cli:test' });
-      return note.create(ctxAt, { title, pinned: true, ...extra }, body, {}).entity;
+      const id = `n-p${String(++seq).padStart(5, '0')}`;
+      const kind = extra.kind ?? 'note';
+      const folder = kind === 'concept' ? 'wiki/concepts' : kind === 'tool' ? 'wiki/tools'
+        : kind === 'query' ? 'wiki/queries' : kind === 'overview' ? 'wiki' : 'notes';
+      const file = kind === 'overview' ? 'wiki/overview.md' : `${folder}/note-${seq}.md`;
+      put(file, { id, title, kind, pinned: true, updated: iso, ...extra }, body);
     };
 
     writeAt('2026-11-01T00:00:00Z', 'Pinned 1');
@@ -535,7 +547,7 @@ test('pinnedNotesResult handles 256 KiB blank and space-newline bodies under 250
   ]) {
     const dir = tempDir(t, `cairn-pinned-perf-${label}-`);
     const home = tempDir(t, `cairn-pinned-perf-home-${label}-`);
-    initDataDir(dir, { register: false, language: 'en' });
+    seedDataDir(dir, { register: false, language: 'en' });
     const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
     note.create(seedCtx, { title: `Blank ${label}`, pinned: true }, body, {});
     const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
@@ -560,22 +572,24 @@ test('pinnedNotesResult formats heading, paragraph and Markdown table without se
   (t) => {
     const dir = tempDir(t, 'cairn-pinned-table-');
     const home = tempDir(t, 'cairn-pinned-table-home-');
-    initDataDir(dir, { register: false, language: 'en' });
-    const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
-    note.create(
-      seedCtx,
-      { title: 'Table note', pinned: true },
-      [
-        '# Section Title',
-        '',
-        'Short intro paragraph.',
-        '',
-        '| Alan | Örnek |',
-        '| :--- | ---: |',
-        '| Bir | İki |',
-      ].join('\n'),
-      {},
-    );
+    seedDataDir(dir, { register: false, language: 'en' });
+    mkdirSync(join(dir, 'notes'), { recursive: true });
+    writeFileSync(join(dir, 'notes', 'table-note.md'), [
+      '---',
+      'id: n-tb1001',
+      'title: Table note',
+      'kind: note',
+      'pinned: true',
+      '---',
+      '# Section Title',
+      '',
+      'Short intro paragraph.',
+      '',
+      '| Alan | Örnek |',
+      '| :--- | ---: |',
+      '| Bir | İki |',
+      '',
+    ].join('\n'));
     const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
     const res = pinnedNotesResult(readCtx);
     assert.equal(res.data.items[0].excerpt, 'Section Title Short intro paragraph. Alan · Örnek Bir · İki');

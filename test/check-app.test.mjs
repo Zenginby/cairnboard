@@ -20,16 +20,17 @@ function sample(t) {
 }
 
 test('app pages are picked from the data, in a fixed order, and --only narrows them', (t) => {
-  const pages = selectAppPages(sample(t));
+  const ctx = sample(t);
+  const pages = selectAppPages(ctx);
   assert.deepEqual(pages.map((page) => page.name),
     ['home', 'board', 'card', 'note', 'search', 'search-empty', 'search-dialog', 'not-found', 'signed-out',
       'settings', 'cards-new', 'card-edit', 'agents', 'projects', 'project', 'journal', 'journal-day']);
   assert.match(pages[14].path, /^\/projects\/p-[0-9a-z]+$/u);
   assert.deepEqual(pages[15], { name: 'journal', path: '/journal' });
   assert.deepEqual(pages[16], { name: 'journal-day', path: '/journal/2026-11-06' });
-  assert.deepEqual(selectAppPages(sample(t), 'card-edit'),
+  assert.deepEqual(selectAppPages(ctx, 'card-edit'),
     [{ name: 'card-edit', path: `${pages[2].path}/edit` }]);
-  assert.deepEqual(selectAppPages(sample(t), 'cards-new'),
+  assert.deepEqual(selectAppPages(ctx, 'cards-new'),
     [{ name: 'cards-new', path: '/cards/new' }]);
   assert.match(pages[2].path, /^\/cards\/c-[0-9a-z]+$/u);
   assert.match(pages[3].path, /^\/notes\/n-[0-9a-z]+$/u);
@@ -39,10 +40,10 @@ test('app pages are picked from the data, in a fixed order, and --only narrows t
   assert.deepEqual(pages[6], { name: 'search-dialog', path: '/', interaction: 'search-dialog' });
   assert.deepEqual(pages[7], { name: 'not-found', path: MISSING_PATH, status: 404 });
   assert.deepEqual(pages[8], { name: 'signed-out', path: '/', status: 401, auth: false });
-  assert.deepEqual(selectAppPages(sample(t)), pages, 'selection is deterministic');
-  assert.deepEqual(selectAppPages(sample(t), 'board'), [pages[1]]);
-  assert.deepEqual(selectAppPages(sample(t), 'search-dialog'), [pages[6]], 'the dialog steps run on their own');
-  assert.throws(() => selectAppPages(sample(t), 'nope'), /Unknown page: nope/);
+  assert.deepEqual(selectAppPages(ctx), pages, 'selection is deterministic');
+  assert.deepEqual(selectAppPages(ctx, 'board'), [pages[1]]);
+  assert.deepEqual(selectAppPages(ctx, 'search-dialog'), [pages[6]], 'the dialog steps run on their own');
+  assert.throws(() => selectAppPages(ctx, 'nope'), /Unknown page: nope/);
 });
 
 

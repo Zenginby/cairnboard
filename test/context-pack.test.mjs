@@ -1,11 +1,11 @@
-import { test } from 'node:test';
+import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { openContext } from '../core/context.mjs';
 import { buildContext, formatContext } from '../core/context-pack.mjs';
-import { fixedClock, tempDir } from './support/env.mjs';
-import { initDataDir } from '../core/roots.mjs';
+import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 import { runCli } from './support/cli.mjs';
 import { reconcileExternal } from '../core/changes.mjs';
 import { appendEvent, readEvents } from '../core/events.mjs';
@@ -39,7 +39,7 @@ async function full(t) {
     assert.equal(r.code, 0, `${args.join(' ')} ${r.stdout}${r.stderr}`);
     return r.json.data;
   };
-  initDataDir(data, { home, env: {}, clock: clock() });
+  seedDataDir(data, { home, env: {}, clock: clock() });
   return { data, home, run, opts };
 }
 
@@ -149,12 +149,28 @@ test('a project without a status field counts as active', (t) => {
   assert.match(text(pack, 'projects') ?? '', /Yeni/u);
 });
 
-function ownerFixture(t) {
-  const data = tempDir(t), home = tempDir(t);
-  initDataDir(data, { home, env: {}, clock: clock() });
+let ownerTemplate = null;
+
+before(() => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-ctx-tpl-')));
+  const data = join(base, 'data'), home = join(base, 'home');
+  mkdirSync(data);
+  mkdirSync(home);
+  seedDataDir(data, { home, env: {}, clock: clock(), register: false });
   mkdirSync(join(data, 'notes'));
   const ctx = openContext({ mode: 'write', dataDir: data, home, env: {}, clock: clock(), actor: 'cli:acme' });
   reconcileExternal(ctx);
+  ownerTemplate = { base, data };
+});
+
+after(() => {
+  if (ownerTemplate) rmSync(ownerTemplate.base, { recursive: true, force: true });
+});
+
+function ownerFixture(t) {
+  const data = tempDir(t), home = tempDir(t);
+  cpSync(ownerTemplate.data, data, { recursive: true });
+  const ctx = openContext({ mode: 'write', dataDir: data, home, env: {}, clock: clock(), actor: 'cli:acme' });
   const edit = (name) => {
     writeFileSync(join(data, `notes/${name}.md`), `# ${name}`);
     reconcileExternal(ctx);
