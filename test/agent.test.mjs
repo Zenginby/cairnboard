@@ -82,7 +82,8 @@ test('install previews, writes only selected skill folders and reports unchanged
   assert.match(stderr, /-Old/u);
   assert.match(stderr, /\+---/u);
   assert.equal(fs.readFileSync(path, 'utf8'), 'Old\n');
-  installAgent({ ...options, targets: ['antigravity-cli'] });
+  const [antigravity] = installAgent({ ...options, targets: ['antigravity-cli'] });
+  assert.match(antigravity.path.replaceAll('\\', '/'), /\/\.gemini\/config\/skills\/cairnboard\/SKILL\.md$/u);
   assert.equal(checkAgents(f).find(({ target }) => target === 'antigravity-cli').ok, true);
 });
 
@@ -188,6 +189,20 @@ test('symlinks below the agent root are rejected without touching destinations',
   }
   assert.throws(() => installAgent({ ...f, targets: ['agents'] }), { code: 'unsafe_path' });
   assert.equal(fs.readFileSync(other, 'utf8'), 'Keep\n');
+});
+
+test('a symlinked ~/.gemini/config fails only the Antigravity check', (t) => {
+  const f = fixture(t), outside = tempDir(t);
+  fs.mkdirSync(join(f.home, '.gemini'));
+  if (!dirLink(t, outside, join(f.home, '.gemini/config'))) return;
+  assert.throws(() => installAgent({ ...f, targets: ['antigravity-cli'] }), { code: 'unsafe_path' });
+  installAgent({ ...f, targets: ['claude'] });
+  const results = checkAgents({ home: f.home });
+  assert.equal(results.find(({ target }) => target === 'claude').ok, true);
+  const antigravity = results.find(({ target }) => target === 'antigravity-cli');
+  assert.equal(antigravity.ok, false);
+  assert.match(antigravity.error, /symlink/u);
+  assert.deepEqual(files(outside), []);
 });
 
 test('doctor treats skills as optional and reports stale or broken installations', (t) => {

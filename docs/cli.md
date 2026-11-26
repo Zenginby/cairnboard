@@ -110,8 +110,8 @@ cairn agent print
 `agent install` shows its destinations and changes, then requires typing `yes` in a TTY. Without
 `--target` it writes `~/.claude/skills/cairnboard/SKILL.md` and `~/.agents/skills/cairnboard/SKILL.md`.
 `--target claude` selects only the first; `--target agents` selects the second (Codex, Gemini CLI,
-Cursor and Antigravity desktop). `--target antigravity-cli` selects
-`~/.gemini/antigravity-cli/skills/`, writing `cairnboard/SKILL.md` there. Repeat `--target` to select several.
+Cursor and Antigravity desktop). `--target antigravity-cli` selects `~/.gemini/config/skills/`, the Antigravity
+CLI's machine-wide skills folder, writing `cairnboard/SKILL.md` there. Repeat `--target` to select several.
 The generated skill contains the quoted full CLI path. For a stable path, `agent install`, `agent check`,
 and `agent print` require a global install when run from the `npx` cache.
 Reinstall the skill after moving or updating the CLI.
