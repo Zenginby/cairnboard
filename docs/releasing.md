@@ -34,16 +34,18 @@ waiting for users. A release with any minor-level line is a minor release.
 4. Run `npm run release:check` and verify it is clean before anything is pushed.
 5. Commit the release with message `Release X.Y.Z`.
 6. Create an annotated tag: `git tag -a vX.Y.Z -m "Release X.Y.Z"`.
-7. Push the branch and tag (only with maintainer approval).
-8. The maintainer prepares and publishes the npm package after approval. The repository disables npm lifecycle scripts,
-   so run these in order from the release checkout and publish only after the smoke test passes:
+7. Push the branch, then the tag (only with maintainer approval).
+8. Pushing the tag starts the `Publish` workflow (`.github/workflows/publish.yml`). It checks that the tag is on
+   `main`, matches the version files and is not yet on npm, builds the package, runs the pack smoke test and publishes
+   with npm trusted publishing: no npm token is stored anywhere. Watch it with `gh run watch` and check the result
+   with `npm view cairnboard version`. To publish an existing tag again after a failed run, start the workflow by hand:
+   `gh workflow run publish.yml --ref main -f tag=vX.Y.Z`.
 
-   ```sh
-   npm run build:cli
-   npm run build:app
-   npm run test:pack
-   npm publish --access public
-   ```
+   The npm package trusts only this workflow file and the `npm` GitHub environment, which accepts `v*` tags and
+   `main`. Renaming the file or the environment breaks publishing until the trusted publisher on npmjs.com is
+   recreated.
+   A tag push runs the workflow file from the tagged commit, so the `Release tags` ruleset lets only repository
+   admins create, move or delete `v*` tags.
 
 9. Create the GitHub Release (only with maintainer approval) with a short hand-written summary, not a CHANGELOG dump:
    `gh release create vX.Y.Z --verify-tag --title "Cairnboard X.Y.Z" --notes-file <file>`.
