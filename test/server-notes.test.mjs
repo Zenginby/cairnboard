@@ -540,7 +540,7 @@ test('pinnedNotesResult orders newest first, caps at 30, drops agents project, i
     assert.match(excerpt, /external link/u);
   });
 
-test('pinnedNotesResult handles 256 KiB blank and space-newline bodies under 250 ms each', (t) => {
+test('pinnedNotesResult handles 256 KiB blank and space-newline bodies; their excerpt takes under 250 ms', (t) => {
   for (const [label, body] of [
     ['newlines', '\n'.repeat(256 * 1024)],
     ['space-newlines', ' \n'.repeat(128 * 1024)],
@@ -551,11 +551,18 @@ test('pinnedNotesResult handles 256 KiB blank and space-newline bodies under 250
     const seedCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'write', actor: 'cli:test' });
     note.create(seedCtx, { title: `Blank ${label}`, pinned: true }, body, {});
     const readCtx = openContext({ dataDir: dir, home, env: {}, clock, mode: 'read' });
-    const start = performance.now();
     const res = pinnedNotesResult(readCtx);
-    const elapsed = performance.now() - start;
     assert.equal(res.data.items.length, 1);
     assert.equal(res.data.items[0].excerpt, '');
+    // Time only the excerpt, which is where a quadratic pattern would hide: the full result also reads files and the
+    // search index, and that disk work alone passes 250 ms under the parallel suite. Best of three against CPU noise;
+    // a quadratic regression on 256 KiB still takes seconds every time.
+    let elapsed = Infinity;
+    for (let run = 0; run < 3; run += 1) {
+      const start = performance.now();
+      pinnedExcerpt(body);
+      elapsed = Math.min(elapsed, performance.now() - start);
+    }
     assert.ok(elapsed < 250, `${label} took ${elapsed.toFixed(1)} ms`);
   }
 });
