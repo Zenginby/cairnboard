@@ -5,6 +5,9 @@
 ### Added
 
 - Rename, hide, show, and reorder columns and change the claim lease from Board in Settings.
+- Keep the top bar in place while scrolling as floating controls over a transparent bar with a soft top-edge fade.
+  Controls use frosted glass when the Cam glass setting is on, opaque pills when off, and a solid bar under reduced
+  transparency; the measured height still leaves room for in-page links and side panels.
 
 ### Changed
 

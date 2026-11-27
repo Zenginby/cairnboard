@@ -203,6 +203,7 @@
   --motion-blur-small: 2px;
   --motion-blur-medium: 3px;
   --motion-blur-large: 8px;
+  --motion-blur-edge: 14px;
   --motion-blur-material: 20px;
   --motion-saturate-material: 180%;
 }

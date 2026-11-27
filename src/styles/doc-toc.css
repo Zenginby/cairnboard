@@ -91,8 +91,8 @@
 @media (min-width: 64rem) {
   .doc-toc {
     position: sticky;
-    top: calc(var(--space-header-height) + var(--space-md));
-    max-height: calc(100vh - var(--space-header-height) - var(--space-md) * 2);
+    top: var(--shell-scroll-offset);
+    max-height: calc(100vh - var(--shell-scroll-offset) - var(--space-md));
     overflow: auto;
     overscroll-behavior: contain;
   }

@@ -21,6 +21,9 @@
   max-width: 100%;
   overflow: auto;
   max-height: 80vh;
+  /* Keep row links clear of the sticky heading inside this scroll container. */
+  scroll-padding-top: calc(var(--font-label-size) * var(--font-body-line-height) + var(--space-sm) * 2 +
+    var(--space-hairline));
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-box);
@@ -63,10 +66,7 @@
   color: var(--color-text-3);
   font-variant-numeric: tabular-nums;
 }
-.tools-row {
-  scroll-margin-top: calc(var(--space-header-height) + var(--space-md));
-  min-height: var(--space-xl);
-}
+.tools-row { min-height: var(--space-xl); }
 .tools-row:hover > * { background: var(--color-surface-inset); }
 .tools-row:target > * { background: var(--color-focus-bg); }
 .tools-cell-name { min-width: 14rem; max-width: 28rem; font-weight: 400; }

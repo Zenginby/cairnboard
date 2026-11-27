@@ -403,6 +403,7 @@ scale-enter: 0.96
 blur-small: 2px
 blur-medium: 3px
 blur-large: 8px
+blur-edge: 14px
 blur-material: 20px
 saturate-material: 180%
 ```

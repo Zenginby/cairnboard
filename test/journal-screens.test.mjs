@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -118,6 +119,77 @@ const dayButtons = (html) => new Map([...html.matchAll(
 const expectedCounts = (month, project) => new Map(DATES.filter((date) => date.startsWith(month))
   .map((date) => [date, jobsOf(date).filter((job) => !project || job.project === project).length])
   .filter(([, count]) => count > 0));
+
+test('the built shell is sticky and leaves room for fragment targets', async (t) => {
+  const get = await page(t);
+  if (!get) return;
+  const { body, status } = await get('/journal');
+  assert.equal(status, 200);
+  assert.match(body, /<header class="app-shell"[\s>]/u);
+  const styles = [...body.matchAll(/<link rel="stylesheet" href="(\/_astro\/[^"]+\.css)"/gu)]
+    .map(([, href]) => readFileSync(join(root, 'dist/app/client', href), 'utf8')).join('\n');
+  assert.match(styles, /\.app-shell\s*\{[^}]*\bposition:\s*sticky\s*;/u);
+  assert.match(styles, /\.app-shell\s*\{[^}]*[;{]\s*top:\s*0\s*[;}]/u);
+  assert.match(styles, /\.app-shell\s*\{[^}]*\bpointer-events:\s*none\b/u);
+  // Every control in the bar takes pointer events back, the tab strip included (it scrolls sideways).
+  assert.match(styles, /\.app-shell\s*:is\([^)]*\.app-tabs[^)]*\)\s*\{[^}]*pointer-events:\s*auto/u);
+  assert.doesNotMatch(styles, /\.app-tabs\s*\{[^}]*pointer-events:\s*none/u);
+  assert.match(styles, /\.app-shell\s*\{[^}]*\bisolation:\s*isolate\b/u);
+  assert.match(styles, /\.app-shell\s*\{[^}]*\bpointer-events:\s*none\b/u);
+  assert.doesNotMatch(styles, /\[data-glass="?on"?\]\s+\.app-shell\s*\{[^}]*\bbackdrop-filter:/u);
+  assert.match(styles, /\.app-shell::?before\s*\{[^}]*\bz-index:\s*-1\b/u);
+  assert.match(styles, /\.app-shell::?before\s*\{[^}]*\bpointer-events:\s*none\b/u);
+  assert.match(styles, /\.app-shell::?before\s*\{[^}]*var\(--color-canvas\)/u);
+  const glass = '\\[data-theme="?cam"?\\]\\[data-glass="?on"?\\]';
+  assert.match(styles,
+    new RegExp(`${glass}\\s+\\.app-shell::?before\\s*\\{[^}]*blur\\(var\\(--motion-blur-edge\\)\\)`, 'u'));
+  assert.match(styles,
+    new RegExp(`${glass}\\s+\\.app-shell::?before\\s*\\{[^}]*mask-image:\\s*linear-gradient\\(`, 'u'));
+  const shellItems = '\\.brand,\\s*\\.app-tabs,\\s*\\.shell-search,\\s*\\.shell-icon,\\s*\\.theme-toggle';
+  assert.match(styles,
+    new RegExp(`\\.app-shell\\s+:is\\(${shellItems}\\)\\s*\\{[^}]*\\bpointer-events:\\s*auto\\b`, 'u'));
+  assert.match(styles, /\.brand\s*\{[^}]*\bborder-radius:\s*var\(--radius-full\)/u);
+  assert.match(styles, /\.brand\s*\{[^}]*\bbackground:\s*var\(--color-pill-bg\)/u);
+  // Bar controls keep the shared glass pill surface, so the current-tab indicator stays distinct from its track.
+  assert.doesNotMatch(styles, /\.app-shell\s*\{[^}]*--color-pill-bg:/u);
+  assert.match(styles, new RegExp(
+    `${glass}\\s+\\.brand,[^{]*\\.theme-toggle\\s*\\{[^}]*`
+    + 'blur\\(var\\(--motion-blur-material\\)\\)\\s*saturate\\(var\\(--motion-saturate-material\\)\\)', 'u'));
+  const reduced = styles.match(
+    /@media\s*\(prefers-reduced-transparency:\s*reduce\)\s*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/u)?.[0] ?? '';
+  assert.match(reduced, /\.app-shell\s*\{[^}]*background-color:\s*var\(--color-canvas\)\s*!important/u);
+  assert.match(reduced, /\.app-shell::?before\s*\{[^}]*display:\s*none\s*!important/u);
+  assert.match(reduced, /\.theme-toggle\)\s*\{[^}]*backdrop-filter:\s*none\s*!important/u);
+  assert.match(styles,
+    /:root\s*\{[^}]*\bscroll-padding-top:\s*calc\(var\(--shell-scroll-offset\)\s*\+\s*var\(--space-md\)\)/u);
+  assert.match(styles, /--shell-scroll-offset:\s*calc\(var\(--shell-height\)\s*\+\s*var\(--space-md\)\)/u);
+  assert.match(styles, /\bdoc-toc\s*\{[^}]*\btop:\s*var\(--shell-scroll-offset\)/u);
+  assert.doesNotMatch(styles, /\.(?:document-body|journal-day-job)[^{}]*\{[^}]*\bscroll-margin-top:/u);
+
+  const shellScript = [...body.matchAll(/<script[^>]*\bsrc="(\/_astro\/[^"]+\.js)"/gu)]
+    .map(([, href]) => readFileSync(join(root, 'dist/app/client', href), 'utf8'))
+    .find((code) => code.includes('--shell-height'));
+  assert.ok(shellScript, 'the measuring script is served externally');
+  const header = {};
+  const updates = [];
+  let resize;
+  runInNewContext(shellScript, {
+    document: {
+      documentElement: { style: { setProperty: (...args) => updates.push(args) } },
+      querySelector: (selector) => selector === '.app-shell' ? header : null,
+    },
+    ResizeObserver: class {
+      constructor(callback) { resize = callback; }
+      observe(element, { box }) {
+        assert.equal(element, header);
+        assert.equal(box, 'border-box');
+      }
+    },
+  });
+  resize([{ borderBoxSize: [{ blockSize: 69 }] }]);
+  resize([{ borderBoxSize: [{ blockSize: 118.5 }] }]);
+  assert.deepEqual(updates, [['--shell-height', '69px'], ['--shell-height', '118.5px']]);
+});
 
 test('every recorded day answers 200; unrecorded and malformed dates answer 404', async (t) => {
   const get = await page(t);
