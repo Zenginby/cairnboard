@@ -4,7 +4,7 @@ import { closeSync, existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, 
 import { join } from 'node:path';
 import { tempDir } from './support/env.mjs';
 import { checkedPath, openForAppend, openForRead, readChecked, realRoot, safeRelative, samePath } from '../core/paths.mjs';
-import { __setFsHooks, writeFileAtomic } from '../core/fsx.mjs';
+import { __setFsHooks, __setTestFsync, writeFileAtomic } from '../core/fsx.mjs';
 
 const fixture = (t) => tempDir(t, 'cairn-data-');
 
@@ -153,6 +153,8 @@ test('openForAppend creates private files, appends and refuses swapped parents',
 });
 
 test('atomic writes flush the parent directory after renaming', (t) => {
+  __setTestFsync(false);
+  t.after(() => __setTestFsync());
   const root = realRoot(fixture(t));
   const synced = [];
   t.after(() => __setFsHooks({}));

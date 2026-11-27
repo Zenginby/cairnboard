@@ -100,6 +100,44 @@ test('repository local user.email is the default allowed identity', () => {
   assert.equal(proc.status, 0, proc.stdout + proc.stderr);
 });
 
+test('release combines the staged noreply list, local email and extra identities', () => {
+  const cwd = makeRepo();
+  const listed = '123+guest[bot]@users.noreply.github.com';
+  const extra = 'extra@example.com';
+  run(cwd, 'commit', '-q', '--allow-empty', '--author', `Guest <${listed}>`, '-m', 'guest');
+  run(cwd, 'commit', '-q', '--allow-empty', '--author', `Extra <${extra}>`, '-m', 'extra');
+  mkdirSync(join(cwd, 'security'));
+  const file = 'security/identity-allowlist.txt';
+  writeFileSync(join(cwd, file), `# reviewed\n\n${listed}\n`);
+  const env = { CAIRN_DENYLIST: denylist, CAIRN_ALLOW_IDENTITIES: extra };
+  const untracked = runCli(cwd, env);
+  assert.equal(untracked.status, 1);
+  assert.equal(untracked.stdout.trim().split('\n').length, 1);
+  assert.match(untracked.stdout, /identity/);
+  run(cwd, 'add', file);
+  writeFileSync(join(cwd, file), 'ignored@example.com\n');
+  const staged = runCli(cwd, env);
+  assert.equal(staged.status, 0, staged.stdout + staged.stderr);
+  const restricted = join(cwd, 'denylist.txt');
+  writeFileSync(restricted, `${listed}\n`);
+  const denied = runCli(cwd, { ...env, CAIRN_DENYLIST: restricted });
+  assert.equal(denied.status, 1);
+  assert.match(denied.stdout, /denylist:0/);
+});
+
+test('release rejects an invalid staged identity by line number without echoing it', () => {
+  const cwd = makeRepo();
+  const address = 'private@example.com';
+  mkdirSync(join(cwd, 'security'));
+  const file = 'security/identity-allowlist.txt';
+  writeFileSync(join(cwd, file), `# reviewed\n\n${address}\n`);
+  run(cwd, 'add', file);
+  const result = runCli(cwd, { CAIRN_DENYLIST: denylist });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /security\/identity-allowlist\.txt:3 /);
+  assert.ok(!(result.stdout + result.stderr).includes(address));
+});
+
 test('root commit listed in CAIRN_PRIVATE_ROOTS is reported', () => {
   const cwd = makeRepo();
   const root = run(cwd, 'rev-list', '--max-parents=0', 'HEAD').trim();
@@ -214,6 +252,7 @@ test('annotated tagger names and emails are scanned', () => {
   run(cwd, 'config', 'user.name', 'Zorblax');
   run(cwd, 'config', 'user.email', 'dev@corp.test'); // cairn-scan:allow-fixture
   run(cwd, 'tag', '-a', 'v0', '-m', 'about acme');
+  run(cwd, 'config', 'user.email', 't@users.noreply.github.com');
   const result = check(cwd);
   assert.ok(result.findings.some((f) => f.file.startsWith('tag#') && f.rule === 'identity'));
   assert.ok(result.findings.some((f) => f.file.startsWith('tag#') && f.rule === 'denylist:0'));

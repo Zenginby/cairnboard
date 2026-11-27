@@ -8,6 +8,7 @@ import { ingest } from '../core/ingest.mjs';
 import { recover } from '../core/store.mjs';
 import { list as trashList } from '../core/trash.mjs';
 import { readEvents } from '../core/events.mjs';
+import { __setTestFsync } from '../core/fsx.mjs';
 import { runCli, spawnCli } from './support/cli.mjs';
 import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
@@ -234,10 +235,12 @@ test('undo moves both files to the trash; raw files stay otherwise untouchable',
 });
 
 test('a crash recovers both files together', async (t) => {
+  __setTestFsync(false);
+  t.after(() => __setTestFsync());
   for (const point of ['after-check', 'before-rename', 'after-rename']) {
     const f = setup(t);
     const crashed = await spawnCli(['ingest', '--title', 'Acme', '--body', '-', '--date', '2026-10-30', '--actor', 'codex', '--json'],
-      { home: f.home, data: f.data, stdin: 'crash', env: { CAIRN_TEST_CRASH: point } });
+      { home: f.home, data: f.data, stdin: 'crash', env: { CAIRN_TEST_CRASH: point, CAIRN_TEST_NO_FSYNC: '0' } });
     assert.notEqual(crashed.code, 0, point);
     const ctx = f.open();
     const present = ['raw/2026-10-30-acme.md', 'research/acme.md'].map((path) => existsSync(join(f.data, path)));

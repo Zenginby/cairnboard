@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadDenylist } from './denylist.mjs';
 import { annotatedTags, git, gitBuffer } from './git.mjs';
+import { envIdentities, InvalidIdentityList, loadIdentities } from './identities.mjs';
 import { GITHUB_COMMITTER } from './rules.mjs';
 import { fixtureLines, formatFindings, scanLines, scanText } from './scan.mjs';
 
@@ -30,6 +31,15 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
   const { terms } = loadDenylist(denylistPath);
   const findings = [];
   const errors = [];
+  let identities;
+  try {
+    identities = loadIdentities({ cwd, extra: allowIdentities });
+  } catch (error) {
+    errors.push(error instanceof InvalidIdentityList ? error.message : 'identity allowlist: failed');
+    return { findings, errors };
+  }
+  // Keep the existing denylist exemptions. The indexed list applies only to Git identities.
+  if (!allowIdentities.length && identities.local) allowIdentities = [identities.local];
   const allowed = new Set();
   const current = new Set();
   const scan = (text, file, fixtures = false) => findings.push(...scanText(text, { file, terms, allowIdentities, fixtures }));
@@ -98,7 +108,7 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
       for (const line of [2, 4]) {
         const email = rest[line - 1]?.trim();
         if (line === 4 && email === GITHUB_COMMITTER) continue;
-        if (email !== undefined && !allowIdentities.includes(email)) findings.push({ file, line, rule: 'identity' });
+        if (email !== undefined && !identities.allowed.has(email)) findings.push({ file, line, rule: 'identity' });
       }
     }
     const names = git(['log', '--exclude=refs/notes/*', '--all', '--format=', '--name-only', '-z', '--diff-merges=first-parent'], { cwd });
@@ -115,7 +125,7 @@ export function releaseCheck({ cwd, denylistPath, privateRoots = [], allowIdenti
       for (const tag of annotatedTags(ref, { cwd })) {
         scan(tag.text, file);
         findings.push(...scanText(tag.signature, { file, terms, allowIdentities, patterns: false }));
-        if (!allowIdentities.includes(tag.email)) findings.push({ file, line: 2, rule: 'identity' });
+        if (!identities.allowed.has(tag.email)) findings.push({ file, line: 2, rule: 'identity' });
       }
     }
     for (const ref of refs.filter((r) => r.startsWith('refs/notes/'))) {
@@ -180,21 +190,13 @@ function main() {
   }
   const cwd = process.cwd();
   const list = (value) => (value ?? '').split(',').map((item) => item.trim()).filter(Boolean);
-  let allowIdentities = list(env.CAIRN_ALLOW_IDENTITIES);
-  if (!allowIdentities.length) {
-    try {
-      allowIdentities = list(git(['config', '--local', '--get', 'user.email'], { cwd }));
-    } catch {
-      allowIdentities = [];
-    }
-  }
   let result;
   try {
     result = releaseCheck({
       cwd,
       denylistPath: env.CAIRN_DENYLIST,
       privateRoots: list(env.CAIRN_PRIVATE_ROOTS),
-      allowIdentities,
+      allowIdentities: envIdentities(),
       github: process.argv.includes('--github'),
     });
   } catch (error) {

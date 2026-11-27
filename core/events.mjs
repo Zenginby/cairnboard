@@ -210,7 +210,7 @@ export function appendEvent(ctx, input) {
     const fd = openForAppend(ctx.root, `.cairn/events/${month}.jsonl`);
     try {
       fs.writeFileSync(fd, line(seq));
-      fs.fsyncSync(fd);
+      fs.syncFile(fd);
     } finally {
       fs.closeSync(fd);
     }

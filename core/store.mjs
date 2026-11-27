@@ -86,7 +86,7 @@ function createTemp(ctx, rel, bytes) {
     | (fs.constants.O_NOFOLLOW ?? 0), 0o600);
   try {
     fs.writeFileSync(fd, bytes);
-    fs.fsyncSync(fd);
+    fs.syncFile(fd);
   } finally {
     fs.closeSync(fd);
   }

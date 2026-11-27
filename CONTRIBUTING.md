@@ -27,6 +27,8 @@ To check an existing tarball, use `npm run test:pack -- --tarball cairnboard.tgz
 - Run `npm run check:types` to check JavaScript types in `core/` without emitting files.
 - Run `npm run check:style` to check changed lines against the Git base (override with `-- --base <ref>`).
 - Tests: `npm test` (Node built-in test runner, no dependencies).
+  Test workers skip filesystem and SQLite flushes by default. Durability and crash tests always use real flushes.
+  Set `CAIRN_TEST_NO_FSYNC=0` in the environment to run the whole suite with real flushes, as nightly CI does.
 - Prototype acceptance: `npm run design:check` (requires a browser; see [Checking the prototypes](design/README.md#checking-the-prototypes)).
 - README screenshots: `npm run screenshots` rewrites `docs/images/` from fictional data (dates change, so run it only
   when the UI changed). It needs Playwright's Chromium: `npx playwright-core install chromium`, or `CAIRN_BROWSER_PATH`.

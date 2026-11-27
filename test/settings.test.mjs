@@ -40,7 +40,9 @@ test('feature defaults and validation preserve the existing format', (t) => {
   const { ctx, editConfig } = fixture(t);
   const defaults = { changeTrail: true, changeContent: true, liveUpdates: true, mentions: true };
   assert.deepEqual(features({}), defaults);
-  assert.deepEqual(readSettings(ctx), { features: defaults, language: 'en',
+  assert.deepEqual(readSettings(ctx), { features: defaults, language: 'en', leaseMinutes: 120,
+    columns: [['backlog', 'Backlog', 'todo'], ['doing', 'Doing', 'doing'], ['review', 'Review', 'doing'],
+      ['done', 'Done', 'done']].map(([key, label, role]) => ({ key, label, role, hidden: false })),
     revision: revision(fs.readFileSync(join(ctx.root, '.cairn/config.json'))),
     shadow: { blobs: 0, bytes: 0 }, trailOffSince: null, lastChange: null });
   assert.equal(loadConfig(ctx.root).formatVersion, 1);
@@ -117,8 +119,9 @@ test('the language write is conditional, audited by code only and is not seen as
   assert.equal(readEvents(ctx).length, events + 1);
   const { tx, seq, ...logged } = event;
   assert.match(tx, /^s-/u);
-  assert.deepEqual(logged, { v: 1, ts: ctx.clock.now().toISOString(), actor: 'web:owner', op: 'config.language',
-    target: '.cairn/config.json', rev: changed.revision, before: 'en', after: 'tr' });
+  assert.deepEqual(logged, { v: 1, ts: ctx.clock.now().toISOString(), actor: 'web:owner', op: 'config.change',
+    target: '.cairn/config.json', rev: changed.revision, fields: ['language'],
+    features: { changeTrail: true, changeContent: true, liveUpdates: true, mentions: false } });
 
   // Our own write keeps the stored revision in step: neither a drift check nor a read logs a hand edit.
   assert.equal(checkConfigDrift(open()), false);
@@ -253,9 +256,16 @@ test('manual feature edits are audited once across contexts even with the trail 
   assert.equal(event.after.mentions, false);
   assert.equal(event.rev, revision(fs.readFileSync(join(ctx.root, '.cairn/config.json'))));
   assert.equal(checkConfigDrift(open()), false);
+  // A hand edit to another audited field is recorded by name only, and leaves the feature line as it was.
+  const lastChange = readSettings(open()).lastChange;
   editConfig({ language: 'tr' });
-  assert.equal(checkConfigDrift(open()), false);
-  assert.equal(readEvents(ctx).length, 2);
+  assert.equal(checkConfigDrift(open()), true);
+  assert.equal(readEvents(ctx).length, 3);
+  const edited = readEvents(ctx).at(-1);
+  assert.deepEqual([edited.op, edited.actor, edited.fields, edited.changed, edited.after],
+    ['config.external', 'owner:external', ['language'], undefined, undefined]);
+  assert.deepEqual(readSettings(open()).lastChange, lastChange);
+  assert.equal(readEvents(ctx).length, 3);
   // A non-feature edit must not mask a later edit to a different feature.
   editConfig({ features: { changeTrail: false, mentions: false, liveUpdates: false } });
   assert.equal(checkConfigDrift(open()), true);
@@ -583,8 +593,9 @@ test('Home project writes store hidden ids, keep unlisted hidden ones, are condi
     hiddenProjects: ['p-000009', 'p-000001', 'p-000003'] } }, 'the unlisted p-000009 stays hidden');
   const events = readEvents(ctx);
   assert.equal(events.length, 1);
-  assert.deepEqual([events[0].op, events[0].hiddenBefore, events[0].hidden, events[0].rev, events[0].actor],
-    ['config.home', 1, ['p-000009', 'p-000001', 'p-000003'], changed.revision, ctx.actor]);
+  assert.deepEqual([events[0].op, events[0].fields, events[0].rev, events[0].actor],
+    ['config.change', ['home.hiddenProjects'], changed.revision, ctx.actor]);
+  assert.deepEqual([events[0].hiddenBefore, events[0].hidden], [undefined, undefined], 'no ids in the event');
   // The settings state learned the revision: reading settings records no external change.
   assert.equal(readSettings(ctx).revision, changed.revision);
   assert.equal(checkConfigDrift(ctx), false);

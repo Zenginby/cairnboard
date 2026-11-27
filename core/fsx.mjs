@@ -4,7 +4,30 @@ import { dirname, join } from 'node:path';
 
 export * from 'node:fs';
 
+const requested = process.env.CAIRN_TEST_NO_FSYNC === '1';
+let skipTestFsync = requested && Boolean(process.env.NODE_TEST_CONTEXT);
+if (requested && !skipTestFsync) {
+  // The server can load both core and the app bundle's copy of this module.
+  const warned = Symbol.for('cairn.testFsyncWarning');
+  if (!process[warned]) {
+    process[warned] = true;
+    process.stderr.write('Ignoring CAIRN_TEST_NO_FSYNC outside the Node test runner.\n');
+  }
+}
+
 let hooks = {};
+
+export function testFsyncSkipped() {
+  return skipTestFsync;
+}
+
+export function __setTestFsync(skip = requested) {
+  skipTestFsync = skip && Boolean(process.env.NODE_TEST_CONTEXT);
+}
+
+export function syncFile(fd) {
+  if (!skipTestFsync) fs.fsyncSync(fd);
+}
 
 export function isFilesystemError(error) {
   return Number.isInteger(error?.errno) || (typeof error?.code === 'string'
@@ -38,7 +61,7 @@ export const realpathSync = fs.realpathSync;
 
 // The rename is durable only once its directory entry is flushed; Windows cannot open directories for this.
 export function syncDirectory(dir) {
-  if (process.platform === 'win32') return;
+  if (process.platform === 'win32' || skipTestFsync) return;
   const fd = openSync(dir, fs.constants.O_RDONLY);
   try {
     fs.fsyncSync(fd);
@@ -56,7 +79,7 @@ export function writeFileAtomic(path, data, beforeRename = () => {}, { durable =
   try {
     try {
       fs.writeFileSync(fd, data);
-      if (durable) fs.fsyncSync(fd);
+      if (durable) syncFile(fd);
     } finally {
       fs.closeSync(fd);
     }

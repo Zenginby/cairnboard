@@ -51,6 +51,7 @@ function sandbox(t, { gitleaks = 'ok', denylist = 'zorblax\n' } = {}) {
     ...isolatedGitEnv(dir),
     PATH: `${bin}:/usr/bin:/bin:/usr/local/bin:${process.execPath.replace(/\/node$/, '')}`,
     CAIRN_DENYLIST: denylist === null ? '' : list,
+    CAIRN_ALLOW_IDENTITIES: '',
   };
   const git = (...args) => spawnSync('git', args, { cwd: repo, env, encoding: 'utf8' });
   const change = (file, content, message = 'change') => {
@@ -126,6 +127,36 @@ function hook(s, mode, { input, env = s.env, cwd = s.repo } = {}) {
 function refInput(s, ref = 'refs/heads/main') {
   return `${ref} ${s.git('rev-parse', 'HEAD').stdout.trim()} ${ref} ${'0'.repeat(40)}\n`;
 }
+
+test('push combines the staged noreply list, local email and extra identities', (t) => {
+  const s = sandbox(t);
+  const listed = '123+guest[bot]@users.noreply.github.com';
+  const extra = 'extra@example.com';
+  for (const address of [listed, extra]) {
+    const commit = s.git('commit', '-q', '--allow-empty', '--no-verify', '--author', `Guest <${address}>`,
+      '-m', 'guest');
+    assert.equal(commit.status, 0, commit.stderr);
+  }
+  const file = 'security/identity-allowlist.txt';
+  writeFileSync(join(s.repo, file), `# reviewed\n\n${listed}\n`);
+  assert.equal(s.git('add', file).status, 0);
+  writeFileSync(join(s.repo, file), 'ignored@example.com\n');
+  const env = { ...s.env, CAIRN_ALLOW_IDENTITIES: extra };
+  const result = hook(s, 'push', { input: refInput(s), env });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('staged hook rejects an invalid identity by line number without echoing it', (t) => {
+  const s = sandbox(t);
+  const address = 'private@example.com';
+  const file = 'security/identity-allowlist.txt';
+  writeFileSync(join(s.repo, file), `# reviewed\n\n${address}\n`);
+  assert.equal(s.git('add', file).status, 0);
+  const result = hook(s, 'staged');
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /security\/identity-allowlist\.txt:3 /);
+  assert.ok(!(result.stdout + result.stderr).includes(address));
+});
 
 test('push findings use numbered labels without leaking the ref name', (t) => {
   const s = sandbox(t);

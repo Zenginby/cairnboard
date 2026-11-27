@@ -2,9 +2,24 @@
 
 ## [Unreleased]
 
+### Added
+
+- Rename, hide, show, and reorder columns and change the claim lease from Board in Settings.
 - Keep the top bar in place while scrolling as floating controls over a transparent bar with a soft top-edge fade.
   Controls use frosted glass when the Cam glass setting is on, opaque pills when off, and a solid bar under reduced
   transparency; the measured height still leaves room for in-page links and side panels.
+
+### Changed
+
+- `release:check` and the Git hooks accept reviewed GitHub noreply commit identities listed in
+  `security/identity-allowlist.txt`. `CAIRN_ALLOW_IDENTITIES` now adds to that list and `user.email` instead of
+  replacing them. The hooks keep the repository-local address when a worktree or global setting overrides it,
+  follow `include` entries in the repository config and ignore an inherited `GIT_CONFIG`.
+- Developer tests skip disk flushes by default. Durability tests and nightly CI still exercise real flushes.
+
+### Fixed
+
+- Validate column names and claim leases on the server, and explain unavailable column actions in Board settings.
 
 ## [0.4.1] - 2026-11-26
 
