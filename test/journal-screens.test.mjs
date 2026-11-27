@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -118,6 +118,20 @@ const dayButtons = (html) => new Map([...html.matchAll(
 const expectedCounts = (month, project) => new Map(DATES.filter((date) => date.startsWith(month))
   .map((date) => [date, jobsOf(date).filter((job) => !project || job.project === project).length])
   .filter(([, count]) => count > 0));
+
+test('the built shell is sticky and leaves room for fragment targets', async (t) => {
+  const get = await page(t);
+  if (!get) return;
+  const { body, status } = await get('/journal');
+  assert.equal(status, 200);
+  assert.match(body, /<header class="app-shell"[\s>]/u);
+  const styles = [...body.matchAll(/<link rel="stylesheet" href="(\/_astro\/[^"]+\.css)"/gu)]
+    .map(([, href]) => readFileSync(join(root, 'dist/app/client', href), 'utf8')).join('\n');
+  assert.match(styles, /\.app-shell\s*\{[^}]*\bposition:\s*sticky\s*;/u);
+  assert.match(styles, /\.app-shell\s*\{[^}]*[;{]\s*top:\s*0\s*[;}]/u);
+  assert.match(styles, /:root\s*\{[^}]*\bscroll-padding-top:\s*var\(--shell-scroll-offset\)/u);
+  assert.match(styles, /\.app-shell\s*\{[^}]*\banimation-timeline:\s*scroll\(\)/u);
+});
 
 test('every recorded day answers 200; unrecorded and malformed dates answer 404', async (t) => {
   const get = await page(t);

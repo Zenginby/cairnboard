@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Keep the top bar visible while scrolling, with a translucent backdrop and room for in-page links.
+
 ## [0.4.1] - 2026-11-26
 
 ### Fixed

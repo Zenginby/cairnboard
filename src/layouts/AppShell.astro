@@ -63,6 +63,7 @@ if (noteCsrf) Astro.response.headers.set('Referrer-Policy', 'same-origin');
       </div>
     </div>
     <a class="skip-link action-link" href="#main">{t('shell.skip')}</a>
+    <span class="shell-scroll-marker" aria-hidden="true"></span>
     <header class="app-shell" data-tab-count={tabs.length}>
       <div class="shell-top-row">
         <a class="brand" href="/">
@@ -286,6 +287,16 @@ if (noteCsrf) Astro.response.headers.set('Referrer-Policy', 'same-origin');
     <script src="../scripts/glass-choice.js"></script>
     <script src="../scripts/scene-motion-choice.js"></script>
     <script src="../scripts/shell-tabs.js"></script>
+    <script>
+      const shell = document.querySelector('.app-shell');
+      const marker = document.querySelector('.shell-scroll-marker');
+      if (shell && marker && typeof IntersectionObserver === 'function'
+        && !CSS.supports('(animation-timeline: scroll()) and (animation-range: 0% 100%)')) {
+        new IntersectionObserver(([entry]) => {
+          shell.toggleAttribute('data-scrolled', !entry.isIntersecting);
+        }).observe(marker);
+      }
+    </script>
     {liveUpdates && <script is:inline type="module" src={liveScript}></script>}
     <script src="../scripts/search-dialog.js"></script>
     <script src="../scripts/settings-dialog.js"></script>

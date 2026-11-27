@@ -7,7 +7,59 @@ a, button { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: var(--space-2xs) solid var(--color-focus); outline-offset: var(--space-xs); }
 .skip-link { position: fixed; top: var(--space-sm); left: var(--space-md); z-index: 10; transform: translateY(-200%); }
 .skip-link:focus { transform: none; }
-.app-shell { position: relative; padding-inline: var(--space-lg); background: var(--color-material); backdrop-filter: blur(var(--motion-blur-material)) saturate(var(--motion-saturate-material)); }
+:root {
+  --shell-scroll-offset: calc(var(--space-header-height) + var(--space-nav-height) + var(--space-md));
+  scroll-padding-top: var(--shell-scroll-offset);
+}
+.shell-scroll-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--space-hairline);
+  height: 0;
+  pointer-events: none;
+}
+.app-shell {
+  --shell-blur: blur(var(--motion-blur-material)) saturate(var(--motion-saturate-material));
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-inline: var(--space-lg);
+  background: var(--color-material);
+  backdrop-filter: var(--shell-blur);
+}
+/* Cam already supplies its own translucent surface and backdrop filter when glass is on. */
+@supports (backdrop-filter: blur(0)) {
+  :root:not([data-theme="cam"][data-glass="on"]) .app-shell[data-scrolled] {
+    background-color: var(--color-glass-material);
+    backdrop-filter: var(--shell-blur);
+  }
+  @supports (animation-timeline: scroll()) and (animation-range: 0% 100%) {
+    /* Switch at the start of scrolling without interpolating the background or blur. */
+    :root:not([data-theme="cam"][data-glass="on"]) .app-shell {
+      animation-name: shell-scrolled;
+      animation-duration: auto;
+      animation-timing-function: step-end;
+      animation-fill-mode: both;
+      animation-timeline: scroll();
+      animation-range: 0 var(--space-hairline);
+    }
+    @keyframes shell-scrolled {
+      to {
+        background-color: var(--color-glass-material);
+        backdrop-filter: var(--shell-blur);
+      }
+    }
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .app-shell {
+    /* Override themed surfaces, including Cam when glass was explicitly enabled. */
+    animation-name: none !important;
+    background-color: var(--color-canvas) !important;
+    backdrop-filter: none !important;
+  }
+}
 .shell-top-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); max-width: var(--space-page-max); height: var(--space-header-height); margin-inline: auto; }
 .brand { display: inline-flex; align-items: center; gap: var(--space-10); color: var(--color-text); font-size: var(--font-lead-size); font-weight: var(--font-display-weight); letter-spacing: var(--font-title-letter-spacing); text-decoration: none; }
 .brand svg { width: var(--space-lg); height: var(--space-lg); flex: none; }
@@ -664,6 +716,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
   color: var(--color-text); font-size: var(--font-title-size); line-height: var(--font-title-line-height);
   scroll-margin-top: calc(var(--space-header-height) + var(--space-md));
 }
+.page-frame .document-body :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: 0; }
 .document-body h2 { font-size: var(--font-project-title-size); }
 .document-body > h2:not(:first-child) { margin-top: var(--space-xl); }
 .document-body > h3:not(:first-child) { margin-top: var(--space-lg); }
@@ -1121,7 +1174,14 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(root) { z-index: 1; }
 :root:active-view-transition * { transition: none; }
+@media (min-width: 64rem) {
+  .page-frame .doc-toc {
+    top: var(--shell-scroll-offset);
+    max-height: calc(100vh - var(--shell-scroll-offset) - var(--space-md));
+  }
+}
 @media (min-width: 80rem) {
+  :root { --shell-scroll-offset: calc(var(--space-header-height-wide) + var(--space-md)); }
   .shell-top-row { height: var(--space-header-height-wide); }
   .app-navigation { position: absolute; inset: 0 auto auto 50%; min-height: var(--space-header-height-wide); transform: translateX(-50%); }
 }
