@@ -122,7 +122,7 @@ test('every board route stores its value, redirects to the card and records the 
   // The stored name, the lease and the language never appear in the log.
   const log = JSON.stringify(f.events());
   for (const value of ['In progress', '"45"', ':45', 'Review']) assert.equal(log.includes(value), false, value);
-  assert.equal(logged.mock.callCount(), 0);
+  assert.deepEqual(logged.mock.calls.map(({ arguments: [first] }) => String(first?.stack ?? first)), []);
 });
 
 test('saving an unchanged value redirects and writes nothing', async (t) => {
