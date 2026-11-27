@@ -130,6 +130,33 @@ test('the built shell is sticky and leaves room for fragment targets', async (t)
     .map(([, href]) => readFileSync(join(root, 'dist/app/client', href), 'utf8')).join('\n');
   assert.match(styles, /\.app-shell\s*\{[^}]*\bposition:\s*sticky\s*;/u);
   assert.match(styles, /\.app-shell\s*\{[^}]*[;{]\s*top:\s*0\s*[;}]/u);
+  assert.match(styles, /\.app-shell\s*\{[^}]*\bbackground-color:\s*(?:transparent|#0000)\b/u);
+  assert.match(styles, /\.app-shell\s*\{[^}]*\bisolation:\s*isolate\b/u);
+  assert.match(styles, /\.app-shell\s*\{[^}]*\bpointer-events:\s*none\b/u);
+  assert.doesNotMatch(styles, /\[data-glass="?on"?\]\s+\.app-shell\s*\{[^}]*\bbackdrop-filter:/u);
+  assert.match(styles, /\.app-shell::?before\s*\{[^}]*\bz-index:\s*-1\b/u);
+  assert.match(styles, /\.app-shell::?before\s*\{[^}]*\bpointer-events:\s*none\b/u);
+  assert.match(styles, /\.app-shell::?before\s*\{[^}]*var\(--color-canvas\)/u);
+  const glass = '\\[data-theme="?cam"?\\]\\[data-glass="?on"?\\]';
+  assert.match(styles,
+    new RegExp(`${glass}\\s+\\.app-shell::?before\\s*\\{[^}]*blur\\(var\\(--motion-blur-edge\\)\\)`, 'u'));
+  assert.match(styles,
+    new RegExp(`${glass}\\s+\\.app-shell::?before\\s*\\{[^}]*mask-image:\\s*linear-gradient\\(`, 'u'));
+  const shellItems = '\\.brand,\\s*\\.app-tabs,\\s*\\.shell-search,\\s*\\.shell-icon,\\s*\\.theme-toggle';
+  assert.match(styles,
+    new RegExp(`\\.app-shell\\s+:is\\(${shellItems}\\)\\s*\\{[^}]*\\bpointer-events:\\s*auto\\b`, 'u'));
+  assert.match(styles, /\.brand\s*\{[^}]*\bborder-radius:\s*var\(--radius-full\)/u);
+  assert.match(styles, /\.brand\s*\{[^}]*\bbackground:\s*var\(--color-pill-bg\)/u);
+  assert.match(styles,
+    new RegExp(`${glass}\\s+\\.app-shell\\s*\\{[^}]*--color-pill-bg:\\s*var\\(--color-glass-material\\)`, 'u'));
+  assert.match(styles, new RegExp(
+    `${glass}\\s+\\.brand,[^{]*\\.theme-toggle\\s*\\{[^}]*`
+    + 'blur\\(var\\(--motion-blur-material\\)\\)\\s*saturate\\(var\\(--motion-saturate-material\\)\\)', 'u'));
+  const reduced = styles.match(
+    /@media\s*\(prefers-reduced-transparency:\s*reduce\)\s*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/u)?.[0] ?? '';
+  assert.match(reduced, /\.app-shell\s*\{[^}]*background-color:\s*var\(--color-canvas\)\s*!important/u);
+  assert.match(reduced, /\.app-shell::?before\s*\{[^}]*display:\s*none\s*!important/u);
+  assert.match(reduced, /\.theme-toggle\)\s*\{[^}]*backdrop-filter:\s*none\s*!important/u);
   assert.match(styles, /:root\s*\{[^}]*\bscroll-padding-top:\s*var\(--shell-scroll-offset\)/u);
   assert.match(styles, /--shell-scroll-offset:\s*calc\(var\(--shell-height\)\s*\+\s*var\(--space-md\)\)/u);
   assert.match(styles, /\bdoc-toc\s*\{[^}]*\btop:\s*var\(--shell-scroll-offset\)/u);

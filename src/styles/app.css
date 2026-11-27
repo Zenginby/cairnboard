@@ -17,23 +17,64 @@ a, button { -webkit-tap-highlight-color: transparent; }
   position: sticky;
   top: 0;
   z-index: 2;
+  isolation: isolate;
   padding-inline: var(--space-lg);
-  background: var(--color-material);
+  background-color: transparent;
+  pointer-events: none;
+}
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 calc(-1 * var(--space-md) * 2) 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-canvas) 70%, transparent),
+    transparent
+  );
+}
+.app-shell :is(.brand, .app-tabs, .shell-search, .shell-icon, .theme-toggle) {
+  pointer-events: auto;
 }
 @media (prefers-reduced-transparency: reduce) {
   .app-shell {
     /* Override themed surfaces, including Cam when glass was explicitly enabled. */
     background-color: var(--color-canvas) !important;
     backdrop-filter: none !important;
+    pointer-events: auto;
+  }
+  .app-shell::before {
+    display: none !important;
+  }
+  .app-shell :is(.brand, .app-tabs, .shell-search, .shell-icon, .theme-toggle) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 }
 .shell-top-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); max-width: var(--space-page-max); height: var(--space-header-height); margin-inline: auto; }
-.brand { display: inline-flex; align-items: center; gap: var(--space-10); color: var(--color-text); font-size: var(--font-lead-size); font-weight: var(--font-display-weight); letter-spacing: var(--font-title-letter-spacing); text-decoration: none; }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-10);
+  min-height: calc(var(--space-xl) + var(--space-xs));
+  padding: var(--space-xs) var(--space-md) var(--space-xs) var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-pill-bg);
+  color: var(--color-text);
+  font-size: var(--font-lead-size);
+  font-weight: var(--font-display-weight);
+  letter-spacing: var(--font-title-letter-spacing);
+  text-decoration: none;
+}
 .brand svg { width: var(--space-lg); height: var(--space-lg); flex: none; }
 .app-navigation { display: flex; align-items: center; min-height: var(--space-nav-height); max-width: var(--space-page-max); margin-inline: auto; padding-block: var(--space-xs); }
 .app-tabs { display: flex; gap: var(--space-2xs); padding: var(--space-xs); border-radius: var(--radius-full); background: var(--color-pill-bg); }
 .app-tabs a { display: flex; align-items: center; min-height: calc(var(--space-md) * 2); padding-inline: var(--space-md); border-radius: var(--radius-full); color: var(--color-text-2); font-size: var(--font-ui-size); font-weight: var(--font-ui-weight); text-decoration: none; }
 .app-tabs a[aria-current="page"] { background: var(--color-pill-indicator); color: var(--color-text); box-shadow: var(--shadow-indicator); }
+.brand, .app-tabs, .shell-search, .shell-icon, .theme-toggle {
+  box-shadow: var(--shadow-box);
+}
 .theme-toggle, .shell-icon {
   display: grid;
   place-items: center;
@@ -407,7 +448,6 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .journal-content :is(ul, ol) { padding-inline-start: var(--space-lg); }
 .journal-content .wikilink-ghost { color: var(--color-text-3); }
 .surface-page { background: var(--color-surface); }
-.surface-page .app-shell { background: var(--color-surface); }
 .screen-heading h1, .document-heading h1 { font-family: var(--font-page-title-family); font-size: clamp(var(--font-display-size), 4.4vw, var(--font-page-title-size)); font-weight: var(--font-page-title-weight); line-height: var(--font-page-title-line-height); letter-spacing: var(--font-page-title-letter-spacing); }
 .board {
   display: grid;
@@ -1115,7 +1155,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
   font-family: var(--font-code-family);
   text-align: center;
 }
-.app-tabs a, .theme-toggle, .shell-icon, .action-link, .row-title {
+.brand, .app-tabs a, .theme-toggle, .shell-icon, .action-link, .row-title {
   transition: background-color var(--motion-duration-quick) var(--motion-ease-out),
     color var(--motion-duration-quick) var(--motion-ease-out);
 }
@@ -1124,7 +1164,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
     color var(--motion-duration-quick) var(--motion-ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
-  .app-tabs a:hover, .theme-toggle:hover, .shell-icon:hover, .action-link:hover {
+  .brand:hover, .app-tabs a:hover, .theme-toggle:hover, .shell-icon:hover, .action-link:hover {
     background-color: var(--color-surface-inset-2);
   }
   .row-title:hover { color: var(--color-link); }
@@ -1155,6 +1195,9 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 }
 @media (max-width: 40rem) {
   .app-shell { padding-inline: var(--space-md); }
+  .shell-top-row { gap: var(--space-sm); }
+  .shell-actions { gap: var(--space-xs); }
+  .brand { gap: var(--space-sm); padding-inline: var(--space-10) var(--space-12); font-size: var(--font-ui-size); }
   .bento { grid-template-columns: minmax(0, 1fr); }
   .bento > * { grid-column: 1; grid-row: auto; }
   .hero { padding: var(--space-lg); }
