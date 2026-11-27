@@ -47,7 +47,7 @@
     "bench:cli": "node scripts/bench-cli.mjs",
     "bench:reconcile": "node scripts/bench-reconcile.mjs",
     "cairn": "node cli/cairn.mjs",
-    "test": "node --test \"test/**/*.test.mjs\"",
+    "test": "node --import ./test/support/test-mode.mjs --test \"test/**/*.test.mjs\"",
     "test:pack": "node scripts/pack-smoke.mjs",
     "test:live": "node scripts/test-live.mjs",
     "hooks:install": "git config core.hooksPath security/hooks",

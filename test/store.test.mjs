@@ -1,12 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { mkdirSync, readFileSync, readdirSync, renameSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { openContext } from '../core/context.mjs';
 import { readFile, revision, write, writeMany } from '../core/store.mjs';
 import { readEvents } from '../core/events.mjs';
 import { lockName } from '../core/lock.mjs';
-import { __setFsHooks } from '../core/fsx.mjs';
+import { __setFsHooks, testFsyncSkipped } from '../core/fsx.mjs';
 import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
 
 function fixture(t) {
@@ -33,6 +35,33 @@ test('create, update and delete preserve exact bytes with one event and history 
   assert.deepEqual(names(ctx, 'pending'), []);
   assert.equal(names(ctx, 'trash').length, 2);
   assert.equal(revision('abc'), 'ba7816bf8f01cfea');
+});
+
+test('disk flush mode preserves atomic replacement, path locks and revision conflicts', (t) => {
+  const ctx = fixture(t);
+  const sync = t.mock.method(fs, 'fsyncSync');
+  syncBuiltinESMExports();
+  t.after(() => { sync.mock.restore(); syncBuiltinESMExports(); });
+  const target = join(ctx.root, 'note.md');
+  writeFileSync(target, 'old');
+  let replaced = false;
+  t.after(() => __setFsHooks());
+  __setFsHooks({ rename(from, to) {
+    if (to === target) {
+      assert.equal(readFileSync(to, 'utf8'), 'old');
+      assert.equal(readFileSync(from, 'utf8'), 'new');
+      assert.ok(names(ctx, 'locks').includes(lockName('note.md') + '.lock'));
+      replaced = true;
+    }
+    renameSync(from, to);
+  } });
+  write(ctx, { op: 'note.write', path: 'note.md', ifRevision: revision('old'), apply: () => 'new' });
+  assert.ok(replaced);
+  assert.throws(() => write(ctx, { op: 'note.write', path: 'note.md', ifRevision: revision('old'),
+    apply: () => assert.fail() }), { code: 'conflict' });
+  assert.equal(readFileSync(target, 'utf8'), 'new');
+  assert.deepEqual(names(ctx, 'locks'), []);
+  assert.equal(sync.mock.callCount() === 0, testFsyncSkipped());
 });
 
 test('revision and absent preconditions fail before apply and expose the current revision', (t) => {

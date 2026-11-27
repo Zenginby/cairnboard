@@ -295,7 +295,7 @@ function backupSettings(path, stamp, text) {
     }
     try {
       fs.writeFileSync(fd, text);
-      fs.fsyncSync(fd);
+      fs.syncFile(fd);
     } finally {
       fs.closeSync(fd);
     }
