@@ -28,12 +28,30 @@ names are your data and are never translated.
   process, so the next page (the error pages included) is already in the new language; no restart.
 - **CLI**: `config get language` prints the code and `config set language tr|en` changes it, under the same
   owner-only rule as the features (type `language` to confirm). `config --json` includes `language`.
-- A server that is already running does not watch the file: after a change from the CLI or by hand, restart it or
-  save the language once on `/settings`.
+- After a CLI change or a hand edit, the running interface keeps its previous language until you restart the server
+  or save the language on `/settings`.
 
-Writes through the Settings page and through the CLI log one `config.language` event that carries only the old and
-the new code. A hand edit of `language` in `.cairn/config.json` is not recorded in the change trail (only hand edits
-of `features` are), so a hand edit stays silent.
+## Board
+
+In Board on `/settings`, save a column name, hide or show a column, or move it one place up or down. Each action
+saves separately. Names must be non-empty and at most 40 characters. Names must be distinct even if they differ
+only in case or in the Turkish dotted and dotless i. Each role's first column must stay visible. Column keys and
+roles stay the same.
+
+Hidden columns and their cards appear in the archive. Showing the last hidden column removes the archive from the
+board. Column order decides the destinations for new, claimed, finished, and restored cards. Lanes keep their role
+order, and changing the order leaves existing cards in their columns.
+
+Set Claim lease to a whole number from 5 to 1440 minutes. The new value applies to future claims and renewals.
+If settings changed elsewhere while the page was open, reopen Settings and repeat the action on the latest values.
+
+The same settings are available from the terminal:
+
+- `cairn config get columns` lists the keys, names, roles, and hidden status in order.
+- `cairn config set column.<key>.label "New name"` renames one column.
+- `cairn config set column.<key>.hidden on|off` hides or shows one column.
+- `cairn config set columns-order <key1>,<key2>,...` sets the order. Include every column key exactly once.
+- `cairn config get lease-minutes` reads the lease, and `cairn config set lease-minutes <minutes>` changes it.
 
 ## Commands
 
@@ -49,13 +67,23 @@ node dist/cairn.mjs config set language tr --data "./cairn-data"
 node dist/cairn.mjs config clear-shadow --data "./cairn-data"
 ```
 
-`config set <feature> on|off`, `config set language tr|en` and `config clear-shadow` run only in the owner's own
-interactive terminal (never with `--yes`): non-TTY streams or known coding-agent shells fail with `owner_only`.
-Confirmation asks you to type the feature name (`language` for the language, `clear` for `clear-shadow`); `--actor`
-defaults to `owner` (`cli:owner`). `cairn context` lists disabled agent-facing features in a `settings` section.
+Writes with `config set` and `config clear-shadow` require the owner's interactive terminal and a typed confirmation.
+Non-TTY streams or known coding-agent shells fail with `owner_only`. Type the setting name (for example,
+`language` or `lease-minutes`) for `config set` and `clear` for `config clear-shadow`. `--actor` defaults to
+`owner` (`cli:owner`). `cairn context` lists disabled agent-facing features in a `settings` section.
 
 Settings are owner-only, though CLI ownership is not a cryptographic boundary: `--actor` is free text, a tool driving
-its own pseudo-terminal could respond, and `.cairn/config.json` can be edited on disk. The goal is no silent changes:
-writes require terminal confirmation or a protected `/settings` POST, toggles log `config.change` (a language
-change logs `config.language`, clearing logs `shadow.clear`), manual `features` edits log `config.external`
-(`owner:external`; a manual `language` edit is not logged), and disabled features appear in `context`.
+its own pseudo-terminal could respond, and `.cairn/config.json` can be edited on disk.
+
+## Settings events
+
+- Changes to language and Board settings from the web or CLI, and changes to Home project visibility from the web,
+  log `config.change`. Its `fields` array contains only the changed field names. Feature toggles also log
+  `config.change`, using `feature`, `before`, and `after`. The former `config.language` and `config.home` event
+  names are retired.
+- Detected hand edits to `features`, `language`, `home.hiddenProjects`, `leaseMinutes`, and column names, visibility,
+  or order log `config.external` with actor `owner:external`. Feature changes use `changed` and `after`, while
+  other tracked settings use `fields`. The column field names are `columns.label`, `columns.hidden`, and
+  `columns.order`. Adding or removing a column by hand affects the recorded column order. If the revision changed
+  and the previous field digests are unavailable, `unknown: true` marks the listed fields as possibly changed.
+- Clearing the shadow store logs `shadow.clear`.

@@ -28,12 +28,31 @@ sizin verinizdir, çevrilmez.
   dil değiştirir; sonraki sayfa (hata sayfaları dahil) yeni dildedir, yeniden başlatma gerekmez.
 - **CLI**: `config get language` kodu yazar, `config set language tr|en` değiştirir; özelliklerle aynı yalnız-sahip
   kuralı geçerlidir (onay için `language` yazılır). `config --json` çıktısında `language` bulunur.
-- Çalışan sunucu dosyayı izlemez: CLI ile ya da elle yapılan değişiklikten sonra sunucuyu yeniden başlatın ya da dili
-  `/settings` sayfasında bir kez kaydedin.
+- CLI değişikliği ya da elle düzenleme sonrasında arayüz önceki dilde kalır. Yeni dili görmek için sunucuyu yeniden
+  başlatın ya da dili `/settings` sayfasında kaydedin.
 
-Ayarlar sayfası ve CLI üzerinden yapılan yazmalar, yalnız eski ve yeni kodu taşıyan tek bir `config.language` olayı
-kaydeder. `.cairn/config.json` içindeki `language` değerinin elle düzenlenmesi değişiklik izine yazılmaz (yalnız
-`features` alanındaki elle düzenlemeler yazılır); elle yapılan düzenleme sessiz kalır.
+## Pano
+
+`/settings` sayfasındaki Pano bölümünde bir sütunun adını kaydedebilir, sütunu gizleyip gösterebilir veya bir basamak
+yukarı ya da aşağı taşıyabilirsiniz. Her işlem ayrı kaydedilir. Sütun adı boş olamaz ve en çok 40 karakter olabilir.
+Yalnız büyük-küçük harf ya da noktalı ve noktasız i farkıyla ayrılan adlar aynı sayılır. Her rolün ilk sütunu görünür
+kalır. Sütun anahtarları ve rolleri değişmez.
+
+Gizli sütunlar ve kartları arşivde görünür. Son gizli sütunu gösterdiğinizde arşiv panodan kalkar. Sütun sırası yeni,
+sahiplenilen, bitirilen ve arşivden geri alınan kartların hedefini belirler. Şeritler rol sırasını korur. Sıra değişince
+mevcut kartlar kendi sütunlarında kalır.
+
+Sahiplenme süresini 5 ile 1440 arasında tam dakika olarak ayarlayabilirsiniz. Yeni süre sonraki sahiplenmeler ve
+yenilemeler için geçerlidir. Sayfa açıkken ayarlar başka yerden değişirse Ayarlar'ı yeniden açıp işlemi güncel
+değerlerle tekrarlayın.
+
+Aynı ayarlara terminalden de ulaşabilirsiniz.
+
+- `cairn config get columns` sütun anahtarlarını, adlarını, rollerini ve gizli olup olmadıklarını sırayla listeler.
+- `cairn config set column.<key>.label "Yeni ad"` bir sütunun adını değiştirir.
+- `cairn config set column.<key>.hidden on|off` bir sütunu gizler ya da gösterir.
+- `cairn config set columns-order <key1>,<key2>,...` sütun sırasını belirler. Her anahtarı tam bir kez yazın.
+- `cairn config get lease-minutes` süreyi okur, `cairn config set lease-minutes <minutes>` değiştirir.
 
 ## Komutlar
 
@@ -49,15 +68,23 @@ node dist/cairn.mjs config set language tr --data "./cairn-data"
 node dist/cairn.mjs config clear-shadow --data "./cairn-data"
 ```
 
-`config set <özellik> on|off`, `config set language tr|en` ve `config clear-shadow` yalnız sahibin kendi etkileşimli
-terminalinde çalışır (`--yes` yoktur): TTY olmayan akışlarda veya bilinen bir kodlama ajanı kabuğunda `owner_only`
-hatası verir. Onay için özellik adını (dil için `language`, `clear-shadow` için `clear`) yazmanız istenir; `--actor`
-verilmezse `owner` (`cli:owner`) kullanılır. `cairn context`, ajanı etkileyen kapalı özellikleri `settings` bölümünde
-açıkça listeler.
+`config set` ve `config clear-shadow` ile yazmak için sahibin kendi etkileşimli terminali ve yazılı onayı gerekir.
+TTY olmayan akışlarda veya bilinen bir kodlama ajanı kabuğunda `owner_only` hatası verilir. `config set` için ayarın
+adını (örneğin `language` ya da `lease-minutes`), `config clear-shadow` için `clear` yazın. `--actor` verilmezse `owner`
+(`cli:owner`) kullanılır. `cairn context`, ajanı etkileyen kapalı özellikleri `settings` bölümünde listeler.
 
 Ayarlar yalnız sahip içindir, ancak CLI sahipliği kriptografik bir sınır değildir: `--actor` serbest yazıdır, kendi
-sahte terminalini süren bir araç yanıt verebilir ve `.cairn/config.json` diskte doğrudan düzenlenebilir. Amaç sessiz
-değişiklik olmamasıdır: yazmalar terminal onayı ya da korumalı `/settings` POST isteği gerektirir, değişiklikler
-`config.change` (dil değişikliği `config.language`, temizleme `shadow.clear`) yazar, `features` alanındaki elle
-düzenlemeler `config.external` (`owner:external`) olarak kaydedilir (elle `language` düzenlemesi kaydedilmez) ve
-kapalı özellikler `context` çıktısında görünür.
+sahte terminalini süren bir araç yanıt verebilir ve `.cairn/config.json` diskte doğrudan düzenlenebilir.
+
+## Ayar olayları
+
+- Dil ve pano ayarlarını web veya CLI üzerinden, ana sayfadaki proje görünürlüğünü web üzerinden değiştirmek
+  `config.change` olayı yazar. Olayın `fields` dizisi yalnız değişen alan adlarını taşır. Özellik açma ve kapatma
+  işlemleri de `config.change` yazar ve `feature`, `before`, `after` alanlarını kullanır. `config.language` ve
+  `config.home` olay adları artık kullanılmaz.
+- `features`, `language`, `home.hiddenProjects`, `leaseMinutes` ve sütun adı, görünürlüğü veya sırasındaki elle
+  düzenlemeler algılandığında `owner:external` aktörüyle `config.external` yazılır. Özellik değişiklikleri `changed`
+  ve `after`, diğer izlenen ayarlar `fields` ile kaydedilir. Sütun alanları `columns.label`, `columns.hidden` ve
+  `columns.order` adlarını kullanır. Elle sütun eklemek ya da silmek kaydedilen sütun sırasını değiştirir. Sürüm
+  değişmiş ve önceki alan özetleri bulunamıyorsa `unknown: true` listelenen alanların değişmiş olabileceğini belirtir.
+- Gölge deposunu temizlemek `shadow.clear` olayı yazar.

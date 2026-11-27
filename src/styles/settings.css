@@ -20,6 +20,7 @@
 .settings-row form,
 .glass-choice .settings-item,
 .settings-language form,
+.settings-board .settings-item,
 .settings-danger form {
   display: flex;
   flex-wrap: wrap;
@@ -33,6 +34,7 @@
 .glass-choice .settings-item:last-child,
 .settings-info:last-child,
 .settings-language .settings-item:last-child form,
+.settings-board .settings-item:last-child,
 .settings-danger .settings-item:last-child form { padding-bottom: 0; }
 .settings-text { flex: 1 1 calc(var(--space-xl) * 6); min-width: 0; }
 .settings-text h3 { font-size: var(--font-ui-size); font-weight: var(--font-title-weight); }
@@ -51,6 +53,16 @@
   flex: none;
   margin-inline-start: auto;
 }
+.settings-board .settings-text { overflow-wrap: anywhere; }
+.settings-board .settings-control, .settings-board form { max-width: 100%; }
+.settings-board .settings-control > form {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.settings-board .card-field { flex: 1 1 calc(var(--space-xl) * 3); min-width: 0; }
 .settings-state { color: var(--color-text-2); font-size: var(--font-ui-size); font-weight: var(--font-ui-weight); }
 .settings-saved { color: var(--color-text); }
 .settings-facts {
@@ -236,6 +248,7 @@
   .settings-row form,
   .glass-choice .settings-item,
   .settings-language form,
+  .settings-board .settings-item,
   .settings-danger form {
     flex-direction: column;
     align-items: stretch;
