@@ -8,7 +8,7 @@ import { revision } from '../core/store.mjs';
 import { readShadow, recordShadow, shadowBytes, shadowEntry } from '../core/shadow.mjs';
 import { filesystemPathKey } from '../core/paths.mjs';
 import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
-import { __setFsHooks } from '../core/fsx.mjs';
+import { __setFsHooks, __setTestFsync } from '../core/fsx.mjs';
 
 function fixture(t) {
   const root = tempDir(t), home = tempDir(t), clock = fixedClock('2026-11-01T12:00:00Z');
@@ -106,6 +106,8 @@ test('manifest validates stored blob size', (t) => {
 });
 
 test('incremental recording does not scan existing blobs or flush blob directories', (t) => {
+  __setTestFsync(false);
+  t.after(() => __setTestFsync());
   const ctx = fixture(t);
   recordShadow(ctx, [{ path: 'a.md', bytes: Buffer.from('a') }]);
   const seen = [], flushed = [];

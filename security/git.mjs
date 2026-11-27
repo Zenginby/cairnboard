@@ -3,8 +3,11 @@ import { execFileSync } from 'node:child_process';
 const maxBuffer = 512 * 1024 * 1024;
 
 // Runs git without a shell; throws on a non-zero exit.
-export function git(args, { cwd, input } = {}) {
-  return execFileSync('git', args, { cwd, input, env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }, encoding: 'utf8', maxBuffer, stdio: ['pipe', 'pipe', 'pipe'] });
+// `unset` drops inherited variables for this call only.
+export function git(args, { cwd, input, unset = [] } = {}) {
+  const env = { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' };
+  for (const name of unset) delete env[name];
+  return execFileSync('git', args, { cwd, input, env, encoding: 'utf8', maxBuffer, stdio: ['pipe', 'pipe', 'pipe'] });
 }
 
 export function gitBuffer(args, { cwd } = {}) {

@@ -6,6 +6,14 @@
 
 - Rename, hide, show, and reorder columns and change the claim lease from Board in Settings.
 
+### Changed
+
+- `release:check` and the Git hooks accept reviewed GitHub noreply commit identities listed in
+  `security/identity-allowlist.txt`. `CAIRN_ALLOW_IDENTITIES` now adds to that list and `user.email` instead of
+  replacing them. The hooks keep the repository-local address when a worktree or global setting overrides it,
+  follow `include` entries in the repository config and ignore an inherited `GIT_CONFIG`.
+- Developer tests skip disk flushes by default. Durability tests and nightly CI still exercise real flushes.
+
 ### Fixed
 
 - Validate column names and claim leases on the server, and explain unavailable column actions in Board settings.

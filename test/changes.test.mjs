@@ -10,7 +10,7 @@ import { appendEvent, readEvents } from '../core/events.mjs';
 import { refresh, targetRevisions } from '../core/index.mjs';
 import { readShadow, recordShadow, shadowBytes } from '../core/shadow.mjs';
 import { changeDiff, listChanges, reconcileBeforeRun, reconcileExternal } from '../core/changes.mjs';
-import { __setFsHooks } from '../core/fsx.mjs';
+import { __setFsHooks, __setTestFsync } from '../core/fsx.mjs';
 import { lockName, withLock } from '../core/lock.mjs';
 import { filesystemPathKey } from '../core/paths.mjs';
 import { fixedClock, seedDataDir, tempDir } from './support/env.mjs';
@@ -353,6 +353,8 @@ test('unchanged targets only acquire metadata prune locks and do not read note b
 });
 
 test('baseline reuses indexed bytes without path locks or blob flushes', (t) => {
+  __setTestFsync(false);
+  t.after(() => __setTestFsync());
   const { ctx, put } = fixture(t);
   for (let i = 0; i < 5; i++) put(`notes/${i}.md`, `note ${i}`);
   const opened = [], flushed = [];
