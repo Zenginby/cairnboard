@@ -6,7 +6,7 @@
 
 - `release:check` and the Git hooks accept reviewed GitHub noreply commit identities listed in
   `security/identity-allowlist.txt`. `CAIRN_ALLOW_IDENTITIES` now adds to that list and `user.email` instead of
-  replacing them.
+  replacing them. The hooks keep the repository-local address when a worktree or global setting overrides it.
 
 ## [0.4.1] - 2026-11-26
 

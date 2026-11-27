@@ -11,15 +11,16 @@ export function envIdentities() {
 
 // The hook accepts the identity Git commits with (any scope); release:check reads only the repository's own setting.
 export function loadIdentities({ cwd, extra = [], anyScope = false } = {}) {
-  const read = (scope) => {
+  const read = (scope, unset = []) => {
     try {
-      return git(['config', ...scope, '--get', 'user.email'], { cwd }).trim();
+      return git(['config', ...scope, '--get', 'user.email'], { cwd, unset }).trim();
     } catch (error) {
       if (error.status !== 1 || error.stderr) throw error;
       return '';
     }
   };
-  const repository = read(['--local']);
+  // --local skips includes and refuses an inherited GIT_CONFIG; honour the first, ignore the second here only.
+  const repository = read(['--local', '--includes'], ['GIT_CONFIG']);
   // The effective address can come from a worktree, global or system setting; keep the repository's own as well.
   const local = anyScope ? read([]) : repository;
   const allowed = new Set(extra);
