@@ -4,10 +4,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { isolatedGitEnv } from './support/git.mjs';
 
-const reader = fileURLToPath(new URL('../security/identities.mjs', import.meta.url));
+const reader = new URL('../security/identities.mjs', import.meta.url).href;
 
 function setup(t) {
   const home = mkdtempSync(join(tmpdir(), 'cairn-ident-'));
@@ -47,6 +46,11 @@ test('an included repository identity stays allowed when a broader setting overr
 test('an inherited GIT_CONFIG does not block the repository lookup', (t) => {
   const { home, repo, git, load } = setup(t);
   git('-C', repo, 'config', '--local', 'user.email', 'r@users.noreply.github.com');
-  const result = load({ anyScope: true }, { GIT_CONFIG: join(home, 'empty.cfg') });
-  assert.ok(result.allowed.includes('r@users.noreply.github.com'));
+  git('config', '--global', 'user.email', 'g@users.noreply.github.com');
+  const override = {
+    GIT_CONFIG: join(home, 'empty.cfg'),
+    GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'user.email', GIT_CONFIG_VALUE_0: 'w@users.noreply.github.com',
+  };
+  const expected = ['r@users.noreply.github.com', 'w@users.noreply.github.com'];
+  assert.deepEqual(load({ anyScope: true }, override).allowed, expected);
 });
