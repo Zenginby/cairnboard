@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 import { Writable } from 'node:stream';
+import { runInNewContext } from 'node:vm';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -130,7 +131,35 @@ test('the built shell is sticky and leaves room for fragment targets', async (t)
   assert.match(styles, /\.app-shell\s*\{[^}]*\bposition:\s*sticky\s*;/u);
   assert.match(styles, /\.app-shell\s*\{[^}]*[;{]\s*top:\s*0\s*[;}]/u);
   assert.match(styles, /:root\s*\{[^}]*\bscroll-padding-top:\s*var\(--shell-scroll-offset\)/u);
-  assert.match(styles, /\.app-shell\s*\{[^}]*\banimation-timeline:\s*scroll\(\)/u);
+  assert.match(styles, /--shell-scroll-offset:\s*calc\(var\(--shell-height\)\s*\+\s*var\(--space-md\)\)/u);
+  assert.match(styles, /\bdoc-toc\s*\{[^}]*\btop:\s*var\(--shell-scroll-offset\)/u);
+  assert.match(styles, /:root:not\(\[data-theme="?cam"?\]\)\s+\.app-shell\[data-scrolled\]/u);
+  assert.match(styles, /:root:not\(\[data-theme="?cam"?\]\)\s+\.app-shell\s*\{[^}]*animation-timeline:\s*scroll\(\)/u);
+  assert.doesNotMatch(styles, /\.(?:document-body|journal-day-job)[^{}]*\{[^}]*\bscroll-margin-top:/u);
+
+  const shellScript = [...body.matchAll(/<script[^>]*\bsrc="(\/_astro\/[^"]+\.js)"/gu)]
+    .map(([, href]) => readFileSync(join(root, 'dist/app/client', href), 'utf8'))
+    .find((code) => code.includes('--shell-height'));
+  assert.ok(shellScript, 'the measuring script is served externally');
+  const header = {};
+  const updates = [];
+  let resize;
+  runInNewContext(shellScript, {
+    document: {
+      documentElement: { style: { setProperty: (...args) => updates.push(args) } },
+      querySelector: (selector) => selector === '.app-shell' ? header : null,
+    },
+    ResizeObserver: class {
+      constructor(callback) { resize = callback; }
+      observe(element, { box }) {
+        assert.equal(element, header);
+        assert.equal(box, 'border-box');
+      }
+    },
+  });
+  resize([{ borderBoxSize: [{ blockSize: 69 }] }]);
+  resize([{ borderBoxSize: [{ blockSize: 118.5 }] }]);
+  assert.deepEqual(updates, [['--shell-height', '69px'], ['--shell-height', '118.5px']]);
 });
 
 test('every recorded day answers 200; unrecorded and malformed dates answer 404', async (t) => {

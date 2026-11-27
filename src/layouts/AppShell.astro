@@ -288,9 +288,17 @@ if (noteCsrf) Astro.response.headers.set('Referrer-Policy', 'same-origin');
     <script src="../scripts/scene-motion-choice.js"></script>
     <script src="../scripts/shell-tabs.js"></script>
     <script>
+      const root = document.documentElement;
       const shell = document.querySelector('.app-shell');
+      if (shell && typeof ResizeObserver === 'function') {
+        new ResizeObserver(([entry]) => {
+          const height = entry.borderBoxSize?.[0]?.blockSize ?? shell.getBoundingClientRect().height;
+          root.style.setProperty('--shell-height', `${height}px`);
+        }).observe(shell, { box: 'border-box' });
+      }
+
       const marker = document.querySelector('.shell-scroll-marker');
-      if (shell && marker && typeof IntersectionObserver === 'function'
+      if (shell && marker && root.dataset.theme !== 'cam' && typeof IntersectionObserver === 'function'
         && !CSS.supports('(animation-timeline: scroll()) and (animation-range: 0% 100%)')) {
         new IntersectionObserver(([entry]) => {
           shell.toggleAttribute('data-scrolled', !entry.isIntersecting);

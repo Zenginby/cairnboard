@@ -8,7 +8,9 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .skip-link { position: fixed; top: var(--space-sm); left: var(--space-md); z-index: 10; transform: translateY(-200%); }
 .skip-link:focus { transform: none; }
 :root {
-  --shell-scroll-offset: calc(var(--space-header-height) + var(--space-nav-height) + var(--space-md));
+  /* Before measurement, allow for touch-sized tabs, navigation padding and Cam borders. */
+  --shell-height: calc(var(--space-header-height) + var(--space-nav-height) + var(--space-md));
+  --shell-scroll-offset: calc(var(--shell-height) + var(--space-md));
   scroll-padding-top: var(--shell-scroll-offset);
 }
 .shell-scroll-marker {
@@ -28,15 +30,15 @@ a, button { -webkit-tap-highlight-color: transparent; }
   background: var(--color-material);
   backdrop-filter: var(--shell-blur);
 }
-/* Cam already supplies its own translucent surface and backdrop filter when glass is on. */
+/* Cam supplies both its glass header and its opaque fallback. */
 @supports (backdrop-filter: blur(0)) {
-  :root:not([data-theme="cam"][data-glass="on"]) .app-shell[data-scrolled] {
+  :root:not([data-theme="cam"]) .app-shell[data-scrolled] {
     background-color: var(--color-glass-material);
     backdrop-filter: var(--shell-blur);
   }
   @supports (animation-timeline: scroll()) and (animation-range: 0% 100%) {
     /* Switch at the start of scrolling without interpolating the background or blur. */
-    :root:not([data-theme="cam"][data-glass="on"]) .app-shell {
+    :root:not([data-theme="cam"]) .app-shell {
       animation-name: shell-scrolled;
       animation-duration: auto;
       animation-timing-function: step-end;
@@ -714,9 +716,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .document-body > * + * { margin-top: var(--space-md); }
 .document-body :is(h1, h2, h3, h4, h5, h6) {
   color: var(--color-text); font-size: var(--font-title-size); line-height: var(--font-title-line-height);
-  scroll-margin-top: calc(var(--space-header-height) + var(--space-md));
 }
-.page-frame .document-body :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: 0; }
 .document-body h2 { font-size: var(--font-project-title-size); }
 .document-body > h2:not(:first-child) { margin-top: var(--space-xl); }
 .document-body > h3:not(:first-child) { margin-top: var(--space-lg); }
@@ -1174,14 +1174,8 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(root) { z-index: 1; }
 :root:active-view-transition * { transition: none; }
-@media (min-width: 64rem) {
-  .page-frame .doc-toc {
-    top: var(--shell-scroll-offset);
-    max-height: calc(100vh - var(--shell-scroll-offset) - var(--space-md));
-  }
-}
 @media (min-width: 80rem) {
-  :root { --shell-scroll-offset: calc(var(--space-header-height-wide) + var(--space-md)); }
+  :root { --shell-height: calc(var(--space-header-height-wide) + var(--space-hairline)); }
   .shell-top-row { height: var(--space-header-height-wide); }
   .app-navigation { position: absolute; inset: 0 auto auto 50%; min-height: var(--space-header-height-wide); transform: translateX(-50%); }
 }
@@ -1515,9 +1509,9 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
   .pinned-rail {
     position: fixed;
     z-index: 9;
-    top: calc(var(--space-header-height-wide) + var(--space-md));
+    top: var(--shell-scroll-offset);
     right: var(--space-md);
-    max-height: calc(100dvh - var(--space-header-height-wide) - var(--space-md) * 2);
+    max-height: calc(100dvh - var(--shell-scroll-offset) - var(--space-md));
     display: flex;
     flex-direction: column;
     width: var(--pinned-rail-width);
@@ -1572,7 +1566,7 @@ button.action-link:disabled { color: var(--color-text-3); cursor: not-allowed; }
   .pinned-rail-tab {
     position: fixed;
     z-index: 9;
-    top: calc(var(--space-header-height-wide) + var(--space-md));
+    top: var(--shell-scroll-offset);
     right: 0;
     display: inline-flex;
     align-items: center;

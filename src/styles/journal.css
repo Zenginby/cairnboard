@@ -141,7 +141,6 @@ button.journal-day:active { transform: scale(var(--motion-scale-enter)); }
 .journal-day-panel { display: flex; flex-direction: column; gap: var(--space-md); }
 .journal-day-summary { margin-top: 0; }
 .journal-day-jobs { display: flex; flex-direction: column; gap: var(--space-md); min-width: 0; }
-.journal-day-job { scroll-margin-top: var(--space-md); }
 .journal-day-job .document-body, .journal-day-job .empty-copy { margin-top: var(--space-sm); }
 .journal-pager { display: flex; justify-content: space-between; gap: var(--space-md); }
 .journal-pager .action-link { flex-direction: column; align-items: flex-start; gap: var(--space-2xs); }
