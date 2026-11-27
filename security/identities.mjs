@@ -9,10 +9,11 @@ export function envIdentities() {
   return (process.env.CAIRN_ALLOW_IDENTITIES ?? '').split(',').map((item) => item.trim()).filter(Boolean);
 }
 
-export function loadIdentities({ cwd, extra = [] } = {}) {
+// The hook accepts the identity Git commits with (any scope); release:check reads only the repository's own setting.
+export function loadIdentities({ cwd, extra = [], anyScope = false } = {}) {
   let local = '';
   try {
-    local = git(['config', '--local', '--get', 'user.email'], { cwd }).trim();
+    local = git(['config', ...(anyScope ? [] : ['--local']), '--get', 'user.email'], { cwd }).trim();
   } catch (error) {
     if (error.status !== 1 || error.stderr) throw error;
   }

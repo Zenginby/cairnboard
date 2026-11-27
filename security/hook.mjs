@@ -52,7 +52,7 @@ function context() {
     stop(`cannot read denylist (${error.code ?? 'INVALID'})`, 2);
   }
   // The local commit identity is public by design; it must not trip its own owner's denylist.
-  const { local, allowed } = loadIdentities({ extra: envIdentities() });
+  const { local, allowed } = loadIdentities({ extra: envIdentities(), anyScope: true });
   return { terms, allowIdentities: local ? [local] : [], identities: allowed };
 }
 
