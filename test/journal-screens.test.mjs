@@ -130,7 +130,10 @@ test('the built shell is sticky and leaves room for fragment targets', async (t)
     .map(([, href]) => readFileSync(join(root, 'dist/app/client', href), 'utf8')).join('\n');
   assert.match(styles, /\.app-shell\s*\{[^}]*\bposition:\s*sticky\s*;/u);
   assert.match(styles, /\.app-shell\s*\{[^}]*[;{]\s*top:\s*0\s*[;}]/u);
-  assert.match(styles, /\.app-shell\s*\{[^}]*\bbackground-color:\s*(?:transparent|#0000)\b/u);
+  assert.match(styles, /\.app-shell\s*\{[^}]*\bpointer-events:\s*none\b/u);
+  // Every control in the bar takes pointer events back, the tab strip included (it scrolls sideways).
+  assert.match(styles, /\.app-shell\s*:is\([^)]*\.app-tabs[^)]*\)\s*\{[^}]*pointer-events:\s*auto/u);
+  assert.doesNotMatch(styles, /\.app-tabs\s*\{[^}]*pointer-events:\s*none/u);
   assert.match(styles, /\.app-shell\s*\{[^}]*\bisolation:\s*isolate\b/u);
   assert.match(styles, /\.app-shell\s*\{[^}]*\bpointer-events:\s*none\b/u);
   assert.doesNotMatch(styles, /\[data-glass="?on"?\]\s+\.app-shell\s*\{[^}]*\bbackdrop-filter:/u);
@@ -147,8 +150,8 @@ test('the built shell is sticky and leaves room for fragment targets', async (t)
     new RegExp(`\\.app-shell\\s+:is\\(${shellItems}\\)\\s*\\{[^}]*\\bpointer-events:\\s*auto\\b`, 'u'));
   assert.match(styles, /\.brand\s*\{[^}]*\bborder-radius:\s*var\(--radius-full\)/u);
   assert.match(styles, /\.brand\s*\{[^}]*\bbackground:\s*var\(--color-pill-bg\)/u);
-  assert.match(styles,
-    new RegExp(`${glass}\\s+\\.app-shell\\s*\\{[^}]*--color-pill-bg:\\s*var\\(--color-glass-material\\)`, 'u'));
+  // Bar controls keep the shared glass pill surface, so the current-tab indicator stays distinct from its track.
+  assert.doesNotMatch(styles, /\.app-shell\s*\{[^}]*--color-pill-bg:/u);
   assert.match(styles, new RegExp(
     `${glass}\\s+\\.brand,[^{]*\\.theme-toggle\\s*\\{[^}]*`
     + 'blur\\(var\\(--motion-blur-material\\)\\)\\s*saturate\\(var\\(--motion-saturate-material\\)\\)', 'u'));
@@ -157,7 +160,8 @@ test('the built shell is sticky and leaves room for fragment targets', async (t)
   assert.match(reduced, /\.app-shell\s*\{[^}]*background-color:\s*var\(--color-canvas\)\s*!important/u);
   assert.match(reduced, /\.app-shell::?before\s*\{[^}]*display:\s*none\s*!important/u);
   assert.match(reduced, /\.theme-toggle\)\s*\{[^}]*backdrop-filter:\s*none\s*!important/u);
-  assert.match(styles, /:root\s*\{[^}]*\bscroll-padding-top:\s*var\(--shell-scroll-offset\)/u);
+  assert.match(styles,
+    /:root\s*\{[^}]*\bscroll-padding-top:\s*calc\(var\(--shell-scroll-offset\)\s*\+\s*var\(--space-md\)\)/u);
   assert.match(styles, /--shell-scroll-offset:\s*calc\(var\(--shell-height\)\s*\+\s*var\(--space-md\)\)/u);
   assert.match(styles, /\bdoc-toc\s*\{[^}]*\btop:\s*var\(--shell-scroll-offset\)/u);
   assert.doesNotMatch(styles, /\.(?:document-body|journal-day-job)[^{}]*\{[^}]*\bscroll-margin-top:/u);

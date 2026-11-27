@@ -11,7 +11,8 @@ a, button { -webkit-tap-highlight-color: transparent; }
   /* Before measurement, allow for touch-sized tabs, navigation padding and Cam borders. */
   --shell-height: calc(var(--space-header-height) + var(--space-nav-height) + var(--space-md));
   --shell-scroll-offset: calc(var(--shell-height) + var(--space-md));
-  scroll-padding-top: var(--shell-scroll-offset);
+  /* Anchors land below the bar's fade layer, which reaches 2 × --space-md under the bar. */
+  scroll-padding-top: calc(var(--shell-scroll-offset) + var(--space-md));
 }
 .app-shell {
   position: sticky;
@@ -19,7 +20,6 @@ a, button { -webkit-tap-highlight-color: transparent; }
   z-index: 2;
   isolation: isolate;
   padding-inline: var(--space-lg);
-  background-color: transparent;
   pointer-events: none;
 }
 .app-shell::before {
@@ -42,6 +42,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
     /* Override themed surfaces, including Cam when glass was explicitly enabled. */
     background-color: var(--color-canvas) !important;
     backdrop-filter: none !important;
+    border-bottom: var(--space-hairline) solid var(--color-line);
     pointer-events: auto;
   }
   .app-shell::before {

@@ -226,10 +226,6 @@
     --color-pill-indicator: var(--color-glass-pill-indicator);
   }
 
-  [data-theme="cam"][data-glass="on"] .app-shell {
-    --color-pill-bg: var(--color-glass-material);
-  }
-
   [data-theme="cam"][data-glass="on"] .app-shell::before {
     -webkit-backdrop-filter: blur(var(--motion-blur-edge));
     backdrop-filter: blur(var(--motion-blur-edge));
