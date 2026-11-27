@@ -6,6 +6,10 @@
 
 - Rename, hide, show, and reorder columns and change the claim lease from Board in Settings.
 
+### Fixed
+
+- Validate column names and claim leases on the server, and explain unavailable column actions in Board settings.
+
 ## [0.4.1] - 2026-11-26
 
 ### Fixed
