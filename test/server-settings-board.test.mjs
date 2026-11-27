@@ -90,6 +90,9 @@ function fixture(t) {
 /** The message page for a dictionary key, as `messagePage` escapes it. */
 const message = (key) => `<p>${escape(tr[key])}</p>`;
 const silent = (t) => t.mock.method(console, 'error', () => {});
+// Logged errors only: Node 22 prints its SQLite ExperimentalWarning through console.error once per process.
+const loggedErrors = (spy) => spy.mock.calls.map(({ arguments: [first] }) => String(first?.stack ?? first))
+  .filter((text) => !/ExperimentalWarning/u.test(text));
 
 test('every board route stores its value, redirects to the card and records the web owner', async (t) => {
   const f = fixture(t);
@@ -122,7 +125,7 @@ test('every board route stores its value, redirects to the card and records the 
   // The stored name, the lease and the language never appear in the log.
   const log = JSON.stringify(f.events());
   for (const value of ['In progress', '"45"', ':45', 'Review']) assert.equal(log.includes(value), false, value);
-  assert.deepEqual(logged.mock.calls.map(({ arguments: [first] }) => String(first?.stack ?? first)), []);
+  assert.deepEqual(loggedErrors(logged), []);
 });
 
 test('saving an unchanged value redirects and writes nothing', async (t) => {
@@ -316,7 +319,7 @@ test('the core refusal reasons map to their own messages, never echoing the subm
   // An unknown reason falls back to the settings wording rather than inventing one.
   const future = new CairnError('validation', 'Invalid setting: x', { field: 'x', reason: 'toString' });
   assert.equal(route.failure(future).message, 'settings.invalidWrite');
-  assert.equal(logged.mock.callCount(), 0);
+  assert.deepEqual(loggedErrors(logged), []);
 });
 
 test('a broken, missing or newer settings file answers 409 with the settings wording', async (t) => {
@@ -337,7 +340,7 @@ test('a broken, missing or newer settings file answers 409 with the settings wor
       assert.equal(response.status, 409, `${label}: ${path}`);
       assert.ok(response.body.includes(message('settings.invalidWrite')), `${label}: ${path}`);
     }
-    assert.equal(logged.mock.callCount(), 0, label);
+    assert.deepEqual(loggedErrors(logged), [], label);
     logged.mock.restore();
   }
 });
