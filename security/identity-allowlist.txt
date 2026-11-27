@@ -1,0 +1,3 @@
+# Reviewed GitHub noreply commit identities, one address per line.
+49699333+dependabot[bot]@users.noreply.github.com
+77790812+mahmut-cskn@users.noreply.github.com

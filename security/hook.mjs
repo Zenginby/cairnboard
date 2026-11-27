@@ -3,6 +3,7 @@
 import { lstatSync, readFileSync } from 'node:fs';
 import { loadDenylist } from './denylist.mjs';
 import { annotatedTags, git, gitBuffer } from './git.mjs';
+import { envIdentities, InvalidIdentityList, loadIdentities } from './identities.mjs';
 import { GITHUB_COMMITTER } from './rules.mjs';
 import { fixtureLines, scanLines, scanText, formatFindings } from './scan.mjs';
 
@@ -51,8 +52,8 @@ function context() {
     stop(`cannot read denylist (${error.code ?? 'INVALID'})`, 2);
   }
   // The local commit identity is public by design; it must not trip its own owner's denylist.
-  const identity = git(['config', 'user.email']).trim();
-  return { terms, allowIdentities: identity ? [identity] : [] };
+  const { local, allowed } = loadIdentities({ extra: envIdentities() });
+  return { terms, allowIdentities: local ? [local] : [], identities: allowed };
 }
 
 function staged(ctx) {
@@ -135,14 +136,14 @@ function outgoing(ctx, refLines, remote) {
     for (const [index, raw] of identities.split('\0').slice(0, -1).entries()) {
       const email = raw.replace(/^\n/, '');
       if (index % 2 === 1 && email === GITHUB_COMMITTER) continue;
-      if (!ctx.allowIdentities.includes(email)) findings.push({ file, line: index + 1, rule: 'identity' });
+      if (!ctx.identities.has(email)) findings.push({ file, line: index + 1, rule: 'identity' });
     }
     findings.push(...scanText(remoteRef, { ...ctx, file }));
     const names = git(['log', '--format=', '--name-only', '-z', '--diff-merges=first-parent', ...range]);
     for (const name of names.split('\0')) findings.push(...scanText(name, { ...ctx, file }));
     for (const tag of annotatedTags(localSha)) {
       findings.push(...scanText(tag.text, { ...ctx, file }), ...scanText(tag.signature, { ...ctx, file, patterns: false }));
-      if (!ctx.allowIdentities.includes(tag.email)) findings.push({ file, line: 2, rule: 'identity' });
+      if (!ctx.identities.has(tag.email)) findings.push({ file, line: 2, rule: 'identity' });
     }
   }
   return findings;
@@ -157,6 +158,7 @@ try {
   else if (mode === 'push') findings = outgoing(ctx, readFileSync(0, 'utf8'), arg || 'origin');
   else stop(`unknown mode ${mode}`, 2);
 } catch (error) {
+  if (error instanceof InvalidIdentityList) stop(error.message, 2);
   stop(`could not read what is being committed or pushed (${error.code ?? 'UNKNOWN'})`, 2);
 }
 if (findings.length) {
