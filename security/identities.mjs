@@ -26,7 +26,9 @@ export function loadIdentities({ cwd, extra = [], anyScope = false } = {}) {
   const local = anyScope ? read([]) : repository;
   const allowed = new Set(extra);
   for (const address of [repository, local]) if (address) allowed.add(address);
-  if (git(['ls-files', '--full-name', '-z', '--', `:(top,literal)${path}`], { cwd })) {
+  const staged = git(['ls-files', '--full-name', '-z', '--', `:(top,literal)${path}`],
+    { cwd, unset: ['GIT_LITERAL_PATHSPECS'] });
+  if (staged) {
     const content = git(['show', `:${path}`], { cwd });
     for (const [index, line] of content.split(/\r?\n/).entries()) {
       const value = line.trim();
