@@ -133,8 +133,6 @@ test('the built shell is sticky and leaves room for fragment targets', async (t)
   assert.match(styles, /:root\s*\{[^}]*\bscroll-padding-top:\s*var\(--shell-scroll-offset\)/u);
   assert.match(styles, /--shell-scroll-offset:\s*calc\(var\(--shell-height\)\s*\+\s*var\(--space-md\)\)/u);
   assert.match(styles, /\bdoc-toc\s*\{[^}]*\btop:\s*var\(--shell-scroll-offset\)/u);
-  assert.match(styles, /:root:not\(\[data-theme="?cam"?\]\)\s+\.app-shell\[data-scrolled\]/u);
-  assert.match(styles, /:root:not\(\[data-theme="?cam"?\]\)\s+\.app-shell\s*\{[^}]*animation-timeline:\s*scroll\(\)/u);
   assert.doesNotMatch(styles, /\.(?:document-body|journal-day-job)[^{}]*\{[^}]*\bscroll-margin-top:/u);
 
   const shellScript = [...body.matchAll(/<script[^>]*\bsrc="(\/_astro\/[^"]+\.js)"/gu)]

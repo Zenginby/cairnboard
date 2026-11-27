@@ -2,8 +2,8 @@
 
 ## [Unreleased]
 
-- Keep the top bar visible while scrolling, with a translucent backdrop and room for in-page links.
-- Respect the Cam glass setting while scrolling and use the top bar's measured height for links and side panels.
+- Keep the top bar in place while scrolling. It uses a translucent surface when the Cam glass setting is on,
+  and its measured height leaves room for in-page links and side panels.
 
 ## [0.4.1] - 2026-11-26
 

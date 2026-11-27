@@ -13,51 +13,16 @@ a, button { -webkit-tap-highlight-color: transparent; }
   --shell-scroll-offset: calc(var(--shell-height) + var(--space-md));
   scroll-padding-top: var(--shell-scroll-offset);
 }
-.shell-scroll-marker {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: var(--space-hairline);
-  height: 0;
-  pointer-events: none;
-}
 .app-shell {
-  --shell-blur: blur(var(--motion-blur-material)) saturate(var(--motion-saturate-material));
   position: sticky;
   top: 0;
   z-index: 2;
   padding-inline: var(--space-lg);
   background: var(--color-material);
-  backdrop-filter: var(--shell-blur);
-}
-/* Cam supplies both its glass header and its opaque fallback. */
-@supports (backdrop-filter: blur(0)) {
-  :root:not([data-theme="cam"]) .app-shell[data-scrolled] {
-    background-color: var(--color-glass-material);
-    backdrop-filter: var(--shell-blur);
-  }
-  @supports (animation-timeline: scroll()) and (animation-range: 0% 100%) {
-    /* Switch at the start of scrolling without interpolating the background or blur. */
-    :root:not([data-theme="cam"]) .app-shell {
-      animation-name: shell-scrolled;
-      animation-duration: auto;
-      animation-timing-function: step-end;
-      animation-fill-mode: both;
-      animation-timeline: scroll();
-      animation-range: 0 var(--space-hairline);
-    }
-    @keyframes shell-scrolled {
-      to {
-        background-color: var(--color-glass-material);
-        backdrop-filter: var(--shell-blur);
-      }
-    }
-  }
 }
 @media (prefers-reduced-transparency: reduce) {
   .app-shell {
     /* Override themed surfaces, including Cam when glass was explicitly enabled. */
-    animation-name: none !important;
     background-color: var(--color-canvas) !important;
     backdrop-filter: none !important;
   }
