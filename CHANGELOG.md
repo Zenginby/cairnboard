@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Developer tests skip disk flushes by default. Durability tests and nightly CI still exercise real flushes.
+
 ## [0.4.1] - 2026-11-26
 
 ### Fixed

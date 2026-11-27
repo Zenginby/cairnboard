@@ -24,6 +24,16 @@ function query(ctx, sql) {
   try { return index.db.prepare(sql).all(); } finally { index.close(); }
 }
 
+test('the writable index disables SQLite flushes only in fast test mode', (t) => {
+  const ctx = setup(t);
+  const skipped = process.env.CAIRN_TEST_NO_FSYNC === '1';
+  assert.equal(fs.testFsyncSkipped(), skipped);
+  assert.equal(query(ctx, 'PRAGMA synchronous')[0].synchronous === 0, skipped);
+  fs.__setTestFsync(false);
+  t.after(() => fs.__setTestFsync());
+  assert.notEqual(query(ctx, 'PRAGMA synchronous')[0].synchronous, 0);
+});
+
 test('refresh caches metadata, detects ctime edits and removals, and searches Turkish words safely', (t) => {
   const ctx = setup(t);
   put(ctx, 'notes/a.md', '---\nid: n-acme12\n---\n# IŞIK\nşapka');

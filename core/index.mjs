@@ -130,6 +130,9 @@ function indexLocation(ctx) {
 
 function connect(path, ctx) {
   const db = new DatabaseSync(path, { timeout: ctx.indexTimeoutMs ?? 5000 });
+  if (fs.testFsyncSkipped()) {
+    try { db.exec('PRAGMA synchronous=OFF'); } catch (error) { db.close(); throw error; }
+  }
   let closed = false;
   const index = { db, close() {
     if (closed) return;

@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  CAIRN_TEST_NO_FSYNC: '0'
+
 jobs:
   ubuntu:
     env:
