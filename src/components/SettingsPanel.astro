@@ -1,11 +1,13 @@
 ---
 import { t } from '../i18n/index.mjs';
+import { CONFIG_LIMITS } from '../../core/settings.mjs';
 
 const { view, requested } = Astro.props;
 const names = ['changeTrail', 'changeContent', 'liveUpdates', 'mentions'];
 const languages = ['en', 'tr'];
-const saved = [...names, 'shadow', 'language'].includes(requested) ? requested : null;
+const saved = [...names, 'shadow', 'language', 'board'].includes(requested) ? requested : null;
 const label = (name) => t(`settings.${name}`);
+const board = (name) => t(`settings.board.${name}`);
 const kib = (bytes) => `${(bytes / 1024).toFixed(1)} KiB`;
 const ready = view.state === 'ready';
 const last = ready ? view.lastChange : null;
@@ -74,6 +76,66 @@ const lastState = lastAfter.every(Boolean) ? t('settings.on') : t('settings.off'
             </form>
           </li>;
         })}
+      </ul>
+    </section>
+    <section id="settings-board" class="panel settings-board" aria-labelledby="settings-board-title">
+      <h2 id="settings-board-title">{t('settings.board')}</h2>
+      <p class="panel-subtitle">{board('about')}</p>
+      <p class="panel-subtitle">{board('archiveNote')}</p>
+      <ul class="settings-list">
+        {view.columns.map((column) => {
+          const path = `/settings/board/columns/${column.key}`;
+          const actions = [
+            { allowed: column.canToggle, route: 'hidden', name: column.hidden ? 'show' : 'hide' },
+            { allowed: column.canUp, route: 'up', name: 'moveUp' },
+            { allowed: column.canDown, route: 'down', name: 'moveDown' },
+          ];
+          return <li class="settings-item">
+            <div class="settings-text">
+              <h3>{column.label}</h3>
+              <p class="panel-subtitle">{board(`role.${column.role}`)} · <code>{column.key}</code></p>
+              {column.hidden && <p class="panel-subtitle">{board('hiddenNote')}</p>}
+            </div>
+            {column.editable && <div class="settings-control">
+              <form method="post" action={`${path}/label`}>
+                <input type="hidden" name="csrf" value={view.csrf} />
+                <input type="hidden" name="revision" value={view.revision} />
+                <div class="card-field">
+                  <input type="text" name="label" value={column.label} maxlength={CONFIG_LIMITS.labelMax} required
+                    aria-label={`${board('nameLabel')}: ${column.label}`} />
+                </div>
+                <button type="submit" class="action-link" aria-label={`${board('rename')}: ${column.label}`}>
+                  {board('rename')}
+                </button>
+              </form>
+              {actions.filter(({ allowed }) => allowed).map(({ route, name }) => <form method="post"
+                action={`${path}/${route}`}>
+                <input type="hidden" name="csrf" value={view.csrf} />
+                <input type="hidden" name="revision" value={view.revision} />
+                {route === 'hidden' && <input type="hidden" name="value" value={column.hidden ? 'off' : 'on'} />}
+                <button type="submit" class="action-link" aria-label={`${board(name)}: ${column.label}`}>
+                  {board(name)}
+                </button>
+              </form>)}
+            </div>}
+          </li>;
+        })}
+        <li class="settings-item">
+          <div class="settings-text">
+            <h3 id="settings-lease-title">{board('lease')}</h3>
+            <p class="panel-subtitle" id="settings-lease-hint">{board('lease.about')}</p>
+          </div>
+          <form method="post" action="/settings/board/lease" class="settings-control">
+            <input type="hidden" name="csrf" value={view.csrf} />
+            <input type="hidden" name="revision" value={view.revision} />
+            <div class="card-field">
+              <input type="number" name="minutes" value={view.leaseMinutes} min={CONFIG_LIMITS.leaseMin}
+                max={CONFIG_LIMITS.leaseMax} step="1" required aria-label={board('lease')}
+                aria-describedby="settings-lease-hint" />
+            </div>
+            <button type="submit" class="action-link">{board('lease.save')}</button>
+          </form>
+        </li>
       </ul>
     </section>
     <section id="settings-shadow" class="panel settings-shadow" aria-labelledby="settings-shadow-title">

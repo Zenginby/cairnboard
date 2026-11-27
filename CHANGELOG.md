@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Rename, hide, show, and reorder columns and change the claim lease from Board in Settings.
+
 ## [0.4.1] - 2026-11-26
 
 ### Fixed
