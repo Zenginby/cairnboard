@@ -33,9 +33,9 @@ waiting for users. A release with any minor-level line is a minor release.
 3. Run `npm test` and verify it passes.
 4. Run `npm run release:check` and verify it is clean before anything is pushed.
    It and the Git hooks read `security/identity-allowlist.txt` from the Git index. List one GitHub noreply address
-   per line and use `#` for comments; a staged edit counts, as with the binary allowlist. The comma-separated
+   per line and use `#` for comments; a staged edit counts. The comma-separated
    `CAIRN_ALLOW_IDENTITIES` adds to the file and `user.email` for identity checks (release:check reads the
-   repository-local setting, the hooks read it from any Git scope).
+   repository-local setting; the hooks read it from any Git scope and keep the repository-local one too).
 5. Commit the release with message `Release X.Y.Z`.
 6. Create an annotated tag: `git tag -a vX.Y.Z -m "Release X.Y.Z"`.
 7. Push the branch, then the tag (only with maintainer approval).
